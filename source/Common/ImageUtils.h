@@ -1,3 +1,5 @@
+#ifndef IMAGE_UTILS
+#define IMAGE_UTILS
 #pragma once
 
 
@@ -234,3 +236,4 @@ public:
     }
 
 };
+#endif // IMAGE_UTILS

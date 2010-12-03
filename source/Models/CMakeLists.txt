@@ -1,9 +1,9 @@
 
 SET(SRSMRFModels_SRC
-  Graph.cxx
-  MRF.cxx
-  Node.cxx
-  Graph.h
+  Potentials.h
+  Label.h
+  MRF.h
+  ImageRegistrationFilter.cxx
 )
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )
