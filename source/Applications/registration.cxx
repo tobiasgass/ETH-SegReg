@@ -58,7 +58,7 @@ int main(int argc, char ** argv)
 	GridType fullimageGrid(targetImage,resolution);
 	typedef RegistrationLabel<ImageType> RegistrationLabelType;
 	typedef RegistrationLabelConverter<ImageType, RegistrationLabelType> RLCType;
-	RLCType * RLC=new RLCType(targetImage,movingImage,fullimageGrid.getResolution(),30);
+	RLCType * RLC=new RLCType(targetImage,movingImage,fullimageGrid.getResolution(),20);
 //	RegistrationLabelType rLabel(label,RLC);
 #if 0
 	for (int i=0;i<3*3;++i){
@@ -95,8 +95,8 @@ int main(int argc, char ** argv)
 
 	//	ok what now: create graph! solve graph! save result!Z
 
-//	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
-	typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+//	typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction);
 	std::cout<<"run"<<std::endl;
 	mrfSolver.optimize();

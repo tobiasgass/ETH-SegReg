@@ -124,9 +124,9 @@ public:
 		}
 //		std::cout<<movingIndex<<" "<<fixedIndex<< std::endl;
 		tmp=fabs(m_fixedImage->GetPixel(fixedIndex)-m_movingImage->GetPixel(movingIndex));
-		int threshold=100;
-		tmp=(threshold<tmp?threshold:tmp);
-		return int(tmp)/100;
+	//	int threshold=100;
+		//tmp=(threshold<tmp?threshold:tmp);
+		return int(tmp);
 //		return int(256*(1-exp(-tmp)));
 	}
 

@@ -56,7 +56,7 @@ public:
 		//		traverse grid
 		TypeTruncatedQuadratic2D::REAL D[nLabels];
 		for (int i=0;i<nNodes;++i){
-		// get current indices bot integer, in the grid plane and in the image plane
+			// get current indices bot integer, in the grid plane and in the image plane
 			int currentIntIndex=grid->getIndex();
 			IndexType currentGridIndex=grid->getCurrentGridPosition();
 			IndexType currentImageIndex=grid->getCurrentImagePosition();
@@ -73,13 +73,14 @@ public:
 		float t = (float) ((double)(finish1 - start) / CLOCKS_PER_SEC);
 		std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
 		grid->gotoBegin();
+		double weight=5000;
 		for (int i=0;i<nNodes;++i){
 			int currentIntIndex=grid->getIndex();
 			std::vector<int> neighbours= grid->getCurrentForwardNeighbours();
 			int nNeighbours=neighbours.size();
 			for (int i=0;i<nNeighbours;++i){
-//				std::cout<<"adding edge, "<<currentIntIndex<< " to "<<neighbours[i]<<std::endl;
-				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TypeTruncatedQuadratic2D::EdgeData(1, 1, 8));
+				//				std::cout<<"adding edge, "<<currentIntIndex<< " to "<<neighbours[i]<<std::endl;
+				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TypeTruncatedQuadratic2D::EdgeData(weight, weight, 8*weight));
 			}
 			grid->next();
 		}
@@ -92,7 +93,7 @@ public:
 	virtual void optimize(){
 		MRFEnergy<TypeTruncatedQuadratic2D>::Options options;
 		TypeTruncatedQuadratic2D::REAL energy, lowerBound;
-		options.m_iterMax = 30; // maximum number of iterations
+		options.m_iterMax = 10; // maximum number of iterations
 		clock_t start = clock();
 		optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();
@@ -101,7 +102,22 @@ public:
 
 	}
 	ImagePointerType transformImage(ImagePointerType img){
-		return img;
+		ImagePointerType transformedImage(this->m_fixedImage);
+		GridType * grid=this->m_grid;
+		grid->gotoBegin();
+		for (int i=0;i<nNodes;++i){
+			int currentIntIndex=grid->getIndex();
+			IndexType currentImageIndex=grid->getCurrentImagePosition();
+			TypeTruncatedQuadratic2D::Label l=optimizer->GetSolution(nodes[currentIntIndex]);
+			int labelIndex=l.m_kx+l.m_ky*labelSampling;
+
+			LabelType label=this->m_labelConverter->getLabel(labelIndex);
+			IndexType movingIndex=this->m_labelConverter->getMovingIndex(currentImageIndex,labelIndex);
+
+			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));//(label[1]+15)*65535/15);//img->GetPixel(movingIndex));
+			grid->next();
+		}
+		return transformedImage;
 	}
 };
 
