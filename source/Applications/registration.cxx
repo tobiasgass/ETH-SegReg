@@ -11,6 +11,9 @@
 #include "Grid.h"
 #include "Label.h"
 #include "FAST-PD-Registration-mrf.h"
+#include <fenv.h>
+#include "TRW-S-Registration.h"
+
 using namespace std;
 using namespace itk;
 
@@ -18,6 +21,9 @@ using namespace itk;
 
 int main(int argc, char ** argv)
 {
+	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+
+
 	argstream as(argc, argv);
 	string targetFilename,movingFilename,outputFilename;
 	as >> parameter ("t", targetFilename, "target image (file name)", true);
@@ -27,7 +33,7 @@ int main(int argc, char ** argv)
 	as.defaultErrorHandling();
 
 	//typedefs
-	typedef double PixelType;
+	typedef unsigned short PixelType;
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
 	typedef ImageType::IndexType IndexType;
@@ -52,10 +58,10 @@ int main(int argc, char ** argv)
 	GridType fullimageGrid(targetImage,resolution);
 	typedef RegistrationLabel<ImageType> RegistrationLabelType;
 	typedef RegistrationLabelConverter<ImageType, RegistrationLabelType> RLCType;
-	RLCType * RLC=new RLCType(targetImage,movingImage,fullimageGrid.getResolution(),5);
+	RLCType * RLC=new RLCType(targetImage,movingImage,fullimageGrid.getResolution(),30);
 //	RegistrationLabelType rLabel(label,RLC);
 #if 0
-	for (int i=0;i<5*5*5;++i){
+	for (int i=0;i<3*3;++i){
 		rLabel=RLC->getLabel(i);
 		std::cout<<i<<" "<<rLabel<<" "<<RLC->getIntegerLabel(rLabel)<<std::endl;
 	}
@@ -89,8 +95,10 @@ int main(int argc, char ** argv)
 
 	//	ok what now: create graph! solve graph! save result!Z
 
-	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+//	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+	typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction);
+	std::cout<<"run"<<std::endl;
 	mrfSolver.optimize();
 
 	ImagePointerType transformedImage=mrfSolver.transformImage(movingImage);

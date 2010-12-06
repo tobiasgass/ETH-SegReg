@@ -149,7 +149,7 @@ public:
 		return neighbours;
 
 	}
-	bool atEnd(){return (m_currentIndex==(m_nNodes-1));}
+	bool atEnd(){return (m_currentIndex>=(m_nNodes-1));}
 
 	IndexType getCurrentGridPosition() const
 	{

@@ -1,3 +1,2 @@
-
+SUBDIRS(TRWS)
 SUBDIRS(fastPD)
-

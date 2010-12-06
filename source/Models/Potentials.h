@@ -63,7 +63,7 @@ public:
 			tmp=l1[d]-l2[d];
 			tmp1+=tmp*tmp;
 		}
-
+		if (tmp>6) tmp=10000000000;
 		return tmp;
 	}
 };
@@ -107,21 +107,27 @@ public:
 	void setLabelConverter(LabelConverterType *LC){
 		m_labelConverter=LC;
 	}
+	LabelConverterType * getLabelConverter(){
+		return m_labelConverter;
+	}
 	double getPotential(IndexType fixedIndex, LabelType label){
 //		std::cout<<label<<" "<<fixedIndex<< std::endl;
 		IndexType movingIndex=m_labelConverter->getMovingIndex(fixedIndex,label);
+
 		double tmp=0;
 		bool outOfBounds=false;
 		int D=ImageType::ImageDimension;
 		SizeType movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
 		for (int d=0;d<D;++d){
-			if (movingIndex[d]<0 || movingIndex[d]>=movingSize[d])
-				return 9999999999;
+			if (movingIndex[d]<0 or movingIndex[d]>=movingSize[d])
+				return 999999;
 		}
 //		std::cout<<movingIndex<<" "<<fixedIndex<< std::endl;
 		tmp=fabs(m_fixedImage->GetPixel(fixedIndex)-m_movingImage->GetPixel(movingIndex));
-
-		return 1-exp(-tmp);
+		int threshold=100;
+		tmp=(threshold<tmp?threshold:tmp);
+		return int(tmp)/100;
+//		return int(256*(1-exp(-tmp)));
 	}
 
 };

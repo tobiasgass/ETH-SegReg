@@ -44,6 +44,8 @@ public:
 		m_resolution=resolution;
 		m_Dim=ImageType::ImageDimension;
 		m_nLabels=pow(m_SamplesPerAxis,m_Dim);
+		movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
+		fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
 
 	}
 	/*
@@ -80,16 +82,23 @@ public:
 	virtual IndexType getMovingIndex(const IndexType & fixedIndex, const LabelType & label) const{
 		IndexType idx;
 		for (int i=0;i<m_Dim;++i){
-			idx[i]=int(1.0*(movingSize[i])/(fixedSize[i])*fixedIndex[i])+label[i]*m_resolution[i];
+
+			idx[i]=int((1.0*movingSize[i])/(fixedSize[i])*fixedIndex[i])+label[i]*m_resolution[i];
+//			if (idx[i]<0) idx[i]=0;
+//			if (idx[i]>movingSize[i]-1) idx[i]=movingSize[i]-1;
+//			std::cout<<idx[i]<<" "<< movingSize[i]<<" "<<fixedSize[i]<<" "<<(1.0*movingSize[i])/(fixedSize[i])<<" "<<(1.0*movingSize[i])/(fixedSize[i])*fixedIndex[i]<<" "<<label[i]*m_resolution[i]<<std::endl;
 		}
 		return idx;
 	}
 	//	convert an index/labelindex to an index in the moving image
 	IndexType getMovingIndex(const IndexType & fixedIndex,  int labelIndex) {
 		LabelType label=getLabel(labelIndex);
-		return getMovingIndex(fixedIndex,label);
+//		std::cout<<fixedIndex<<" "<<labelIndex<<" "<<label<<std::endl;
+		IndexType movingIndex=getMovingIndex(fixedIndex,label);
+		return movingIndex;
 	}
 	int nLabels(){return m_nLabels;}
+	int labelSampling(){return m_SamplesPerAxis;}
 };
 
 template<class TImage>

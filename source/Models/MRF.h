@@ -42,7 +42,7 @@ public:
 	 m_grid(grid),m_pairwisePotentialFunction(pairwisePotential),
 	 m_unaryPotentialFunction(unaryPotential)
 	{
-		m_labelConverter=new LabelConverterType(fixedImage,movingImage,grid->getResolution(),10);
+		m_labelConverter=m_unaryPotentialFunction->getLabelConverter();
 	}
 	virtual void createGraph()=0;
 	virtual void optimize()=0;

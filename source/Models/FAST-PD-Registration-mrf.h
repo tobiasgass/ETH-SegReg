@@ -27,10 +27,10 @@ public:
 
 protected:
 	int nLabels,nNodes,nPairs;
-	int * pairs;
+	std::vector<int> pairs;
 	Real * unaryPotentials;
 	Real * pairwisePotentials;
-	Real * edgeWeights;
+	std::vector<Real>  edgeWeights;
 	CV_Fast_PD * optimizer;
 public:
 	FastPDMRFSolver(ImagePointerType fixedImage , ImagePointerType movingImage , GridType * grid,PairwisePotentialPointerType pairwisePotential,UnaryPotentialPointerType unaryPotential)
@@ -40,12 +40,12 @@ public:
 		nNodes=this->m_grid->nNodes();
 		nPairs=this->m_grid->nVertices();
 		//		pairs is an array of the form [na nb nc nd...] where (na,nb),(nc,nd) are edges in the graph and na,... are indices of the nodes
-		pairs=new int[nPairs*2];
+		pairs=std::vector<int>(nPairs*2);
 		unaryPotentials=new Real[nNodes*nLabels];
 		pairwisePotentials= new Real[nLabels*nLabels];
-		edgeWeights=new Real[nPairs];//={1.0};
+		edgeWeights=std::vector<Real>(nPairs,10);//new Real[nPairs];//={1.0};
 		std::cout<<nNodes<<" "<<nLabels<<" "<<std::endl;
-		memset( edgeWeights, 1.0,nPairs*sizeof(Real) );
+		//memset( edgeWeights, 1.0,nPairs*sizeof(Real) );
 
 		createGraph();
 	}
@@ -61,42 +61,40 @@ public:
 		while(!grid->atEnd()){
 			// get current indices bot integer, in the grid plane and in the image plane
 			int currentIntIndex=grid->getIndex();
-//			std::cout<<currentIntIndex<<std::endl;
 			IndexType currentGridIndex=grid->getCurrentGridPosition();
-//			std::cout<<currentIntIndex<<std::endl;
 			IndexType currentImageIndex=grid->getCurrentImagePosition();
-//			std::cout<<currentIntIndex<<std::endl;
 			// get forward neighbours of current grid point, both grid index and image plane index
 			std::vector<int> neighbours= grid->getCurrentForwardNeighbours();
-//			std::cout<<currentIntIndex<<std::endl;
 			int nNeighbours=neighbours.size();
-//			std::cout<<"huhu"<<nNeighbours<<std::endl;
 			for (int i=0;i<nNeighbours;++i){
-//				std::cout<<currentIntIndex<<" "<<i<<" "<<neighbours[i]<<std::endl;
-				pairs[runningIndex+i]=currentIntIndex;
-				pairs[runningIndex+i+1]=neighbours[i];
+				pairs[runningIndex+i*2]=currentIntIndex;
+				pairs[runningIndex+i*2+1]=neighbours[i];
 			}
+			runningIndex+=nNeighbours*2;
+
 			//set up unary costs at current position
-//			std::cout<<"beforeunary"<<std::endl;
 			for (int l1=0;l1<nLabels;++l1){
-//				std::cout<<l1<<std::endl;
 				LabelType label=this->m_labelConverter->getLabel(l1);
-//				std::cout<<label<<std::endl;
-				unaryPotentials[currentIntIndex*nLabels+l1]=this->m_unaryPotentialFunction->getPotential(currentImageIndex,label);
+				unaryPotentials[l1*nNodes+currentIntIndex]=this->m_unaryPotentialFunction->getPotential(currentImageIndex,label);
 			}
 			grid->next();
-			runningIndex+=nNeighbours;
+		}
+		for (int i=0;i<nNodes*nLabels;++i){
+			if (unaryPotentials[i]>1 || unaryPotentials[i]<0){
+			}
 		}
 		std::cout<<"initialised basic graph structure and unary potentials"<<std::endl;
 		//		traverse labels
 		for (int l1=0;l1<nLabels;++l1){
 			for (int l2=0;l2<nLabels;++l2){
 				pairwisePotentials[l1*nLabels+l2]=this->m_pairwisePotentialFunction->getPotential(this->m_labelConverter->getLabel(l1),this->m_labelConverter->getLabel(l2));
+
 			}
 		}
 
 		//create optimizer object
-		optimizer= new CV_Fast_PD(nNodes,nLabels,unaryPotentials,nPairs,pairs,pairwisePotentials,20,edgeWeights);
+		std::cout<<"initialising fastPD with "<<nNodes<<" nodes, "<< nLabels<<" labels, "<<nPairs<<" pairs"<<std::endl;
+		optimizer= new CV_Fast_PD(nNodes,nLabels,unaryPotentials,nPairs,&pairs[0],pairwisePotentials,20,&edgeWeights[0]);
 	}
 	virtual void optimize(){
 		optimizer->run();
@@ -111,13 +109,16 @@ public:
 			int labelIndex=optimizer->_pinfo[currentIntIndex].label;
 			LabelType label=this->m_labelConverter->getLabel(labelIndex);
 			IndexType movingIndex=this->m_labelConverter->getMovingIndex(currentImageIndex,labelIndex);
-			std::cout<<this->m_unaryPotentialFunction->getPotential(currentImageIndex,label)<<" "<<labelIndex<<" "<<currentImageIndex<<" "<<movingIndex<<std::endl;
-			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));
+
+//			std::cout<<currentIntIndex<<" "<<currentImageIndex<<" "<<label<<" "<<movingIndex<<std::endl;
+//			std::cout<<labelIndex<<" "<<label<<std::endl;
+//			std::cout<<this->m_unaryPotentialFunction->getPotential(currentImageIndex,label)<<std::endl;
+
+			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));//(label[1]+15)*65535/15);//img->GetPixel(movingIndex));
 			grid->next();
 		}
 		return transformedImage;
 	}
-
 };
 
 #endif /* FAST_PD_REGISTRATION_MRF_H_ */
