@@ -25,10 +25,12 @@ int main(int argc, char ** argv)
 
 
 	argstream as(argc, argv);
-	string targetFilename,movingFilename,outputFilename;
+	string targetFilename,movingFilename,outputFilename,deformableFilename,defFilename="";
 	as >> parameter ("t", targetFilename, "target image (file name)", true);
 	as >> parameter ("m", movingFilename, "moving image (file name)", true);
 	as >> parameter ("o", outputFilename, "output image (file name)", true);
+	as >> parameter ("d", deformableFilename, "deformable image (file name)", true);
+	as >> parameter ("f", defFilename,"deformation field filename", false);
 	as >> help();
 	as.defaultErrorHandling();
 
@@ -59,7 +61,7 @@ int main(int argc, char ** argv)
 	typedef RegistrationLabel<ImageType> RegistrationLabelType;
 	typedef RegistrationLabelConverter<ImageType, RegistrationLabelType> RLCType;
 	RLCType * RLC=new RLCType(targetImage,movingImage,fullimageGrid.getResolution(),20);
-//	RegistrationLabelType rLabel(label,RLC);
+	RegistrationLabelType rLabel;
 #if 0
 	for (int i=0;i<3*3;++i){
 		rLabel=RLC->getLabel(i);
@@ -96,15 +98,27 @@ int main(int argc, char ** argv)
 	//	ok what now: create graph! solve graph! save result!Z
 
 	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
-//	typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+	//	typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction);
 	std::cout<<"run"<<std::endl;
 	mrfSolver.optimize();
 
-	ImagePointerType transformedImage=mrfSolver.transformImage(movingImage);
+	ImageType::Pointer deformableImage =
+			ImageUtils<ImageType>::readImage(deformableFilename);
+
+
+	ImagePointerType transformedImage=mrfSolver.transformImage(deformableImage);
 
 	ImageUtils<ImageType>::writeImage(outputFilename, transformedImage);
 
+	if (defFilename!=""){
+		typedef MRFSolverType::DeformationFieldType DeformationFieldType;
+		typedef DeformationFieldType::Pointer DeformationFieldPointerType;
+
+		DeformationFieldPointerType deformationField=mrfSolver.getDeformationField();
+		ImageUtils<DeformationFieldType>::writeImage(defFilename,deformationField);
+
+	}
 	std::cout<<"wtf"<<std::endl;
 	return 1;
 }

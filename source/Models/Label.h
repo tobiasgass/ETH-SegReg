@@ -22,8 +22,9 @@ public:
 	typedef TLabel LabelType;
 	typedef typename TImage::IndexType IndexType;
 	typedef typename TImage::OffsetType OffsetType;
-
 	typedef Grid<ImageType> GridType;
+	typedef typename LabelType::DeformationType DeformationType;
+	typedef typename itk::Image<  DeformationType , ImageType::ImageDimension > DeformationFieldType;
 
 
 private:
@@ -99,12 +100,14 @@ public:
 	}
 	int nLabels(){return m_nLabels;}
 	int labelSampling(){return m_SamplesPerAxis;}
+
 };
 
 template<class TImage>
 class RegistrationLabel : public TImage::OffsetType{
 public:
 	typedef typename TImage::OffsetType OffsetType;
+	typedef typename itk::Vector< float, TImage::ImageDimension> DeformationType;
 
 
 private:
@@ -118,6 +121,13 @@ public:
 	}
 
 	int getIndex(){return m_index;}
+	DeformationType getDeformation(){
+		DeformationType result;
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=this->operator[](d);
+		}
+		return result;
+	}
 };
 
 #endif /* LABEL_H_ */

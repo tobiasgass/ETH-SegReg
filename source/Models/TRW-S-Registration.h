@@ -28,6 +28,7 @@ public:
 	typedef Graph::Real Real;
 	typedef MRFEnergy<TypeTruncatedQuadratic2D> MRFType;
 	typedef typename MRFType::NodeId NodeType;
+	typedef typename Superclass::DeformationFieldType DeformationFieldType;
 
 protected:
 	int nLabels,nNodes,nPairs,labelSampling;
@@ -118,6 +119,12 @@ public:
 			grid->next();
 		}
 		return transformedImage;
+	}
+	virtual LabelType getLabelAtIndex(int index){
+		TypeTruncatedQuadratic2D::Label l=optimizer->GetSolution(nodes[index]);
+		int labelIndex=l.m_kx+l.m_ky*labelSampling;
+		return this->m_labelConverter->getLabel(labelIndex);
+
 	}
 };
 

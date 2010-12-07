@@ -23,6 +23,8 @@ public:
 	typedef typename Superclass::GridType GridType;
 	typedef typename Superclass::LabelType LabelType;
 	typedef typename Superclass::IndexType IndexType;
+	typedef typename Superclass::DeformationFieldType DeformationFieldType;
+
 	typedef Graph::Real Real;
 
 protected:
@@ -110,14 +112,13 @@ public:
 			LabelType label=this->m_labelConverter->getLabel(labelIndex);
 			IndexType movingIndex=this->m_labelConverter->getMovingIndex(currentImageIndex,labelIndex);
 
-//			std::cout<<currentIntIndex<<" "<<currentImageIndex<<" "<<label<<" "<<movingIndex<<std::endl;
-//			std::cout<<labelIndex<<" "<<label<<std::endl;
-//			std::cout<<this->m_unaryPotentialFunction->getPotential(currentImageIndex,label)<<std::endl;
-
 			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));//(label[1]+15)*65535/15);//img->GetPixel(movingIndex));
 			grid->next();
 		}
 		return transformedImage;
+	}
+	virtual LabelType getLabelAtIndex(int index){
+		return this->m_labelConverter->getLabel(optimizer->_pinfo[index].label);
 	}
 };
 
