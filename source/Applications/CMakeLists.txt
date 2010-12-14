@@ -14,5 +14,11 @@ link_directories (${SRS-MRF_BINARY_DIR}/Models)
 ADD_EXECUTABLE(Registration registration.cxx )
 TARGET_LINK_LIBRARIES(Registration ITKIO Utils TRWS FastPD SRSMRFModels  ITKNumerics ITKCommon)
 
+ADD_EXECUTABLE(SegReg segmentation-registration.cxx )
+TARGET_LINK_LIBRARIES(SegReg ITKIO Utils TRWS FastPD SRSMRFModels  ITKNumerics ITKCommon)
+
+ADD_EXECUTABLE(Segmentation segmentation.cxx )
+TARGET_LINK_LIBRARIES(Segmentation ITKIO Utils TRWS FastPD SRSMRFModels  ITKNumerics ITKCommon)
+
 ADD_EXECUTABLE(fastPD Fast_PD.cpp )
 TARGET_LINK_LIBRARIES(fastPD ITKIO Utils TRWS FastPD SRSMRFModels  ITKNumerics)

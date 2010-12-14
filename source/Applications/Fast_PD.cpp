@@ -53,7 +53,7 @@ int main( int argc, char **argv )
 	//
 	CV_Fast_PD pd( _numpoints, _numlabels, _lcosts,
 	               _numpairs, _pairs, _dist, _max_iters,
-				   _wcosts );
+				   _wcosts,0 );
 	pd.run();
 
 

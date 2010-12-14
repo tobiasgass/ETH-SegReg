@@ -28,8 +28,12 @@ public:
 	typedef Grid<ImageType> GridType;
 	typedef typename LabelConverterType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
-	typedef typename LabelConverterType::DeformationFieldType DeformationFieldType;
-	typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
+
+	//this is necessary if the field element to be saved differs from the label type
+	//eg, label=offset, field=itk::vector
+	typedef typename LabelConverterType::FieldElementType FieldElementType;
+	typedef typename LabelConverterType::LabelFieldType LabelFieldType;
+	typedef typename LabelFieldType::Pointer LabelFieldPointerType;
 
 protected:
 	//	grid on which the MRF is created
@@ -41,7 +45,7 @@ protected:
 	//	potential functions
 	PairwisePotentialPointerType m_pairwisePotentialFunction;
 	UnaryPotentialPointerType m_unaryPotentialFunction;
-	int nNodes;
+	int m_nNodes;
 public:
 	// the constructor only sets member variables
 	MRFSolver(ImagePointerType fixedImage, ImagePointerType movingImage,
@@ -52,6 +56,7 @@ public:
 	 m_unaryPotentialFunction(unaryPotential)
 	{
 		m_labelConverter=m_unaryPotentialFunction->getLabelConverter();
+		m_nNodes=m_grid->nNodes();
 	}
 
 	//pure virtual functions have to be implemented by derived classes
@@ -65,18 +70,21 @@ public:
 	virtual ImagePointerType transformImage(ImagePointerType img)=0;
 	//..
 	virtual LabelType getLabelAtIndex(int index)=0;
+
 	//..
-	virtual DeformationFieldPointerType getDeformationField(){
-		DeformationFieldPointerType defField=DeformationFieldType::New();//(m_fixedImage->GetLargestPossibleRegion().GetSize());
-		defField->SetRegions(m_fixedImage->GetLargestPossibleRegion());
-		defField->Allocate();
+	virtual LabelFieldPointerType getLabelField(){
+		LabelFieldPointerType labelField=LabelFieldType::New();//(m_fixedImage->GetLargestPossibleRegion().GetSize());
+		labelField->SetRegions(m_fixedImage->GetLargestPossibleRegion());
+		labelField->Allocate();
 		m_grid->gotoBegin();
-		for (int i=0;i<nNodes;++i){
+		for (int i=0;i<m_nNodes;++i){
 			int index=m_grid->getIndex();
-			defField->SetPixel(m_grid->getGridPositionAtIndex(index),getLabelAtIndex(index).getDeformation());
+			LabelType label=getLabelAtIndex(index);
+			FieldElementType fieldElement=m_labelConverter->getFieldElement(label);
+			labelField->SetPixel(m_grid->getGridPositionAtIndex(index),fieldElement);
 			m_grid->next();
 		}
-		return defField;
+		return labelField;
 	}
 
 

@@ -23,7 +23,7 @@ public:
 	typedef typename Superclass::GridType GridType;
 	typedef typename Superclass::LabelType LabelType;
 	typedef typename Superclass::IndexType IndexType;
-	typedef typename Superclass::DeformationFieldType DeformationFieldType;
+	typedef typename Superclass::LabelFieldType LabelFieldType;
 
 	typedef Graph::Real Real;
 
@@ -34,18 +34,25 @@ protected:
 	Real * pairwisePotentials;
 	std::vector<Real>  edgeWeights;
 	CV_Fast_PD * optimizer;
+	double m_pairwiseWeight,m_unaryWeight;
 public:
-	FastPDMRFSolver(ImagePointerType fixedImage , ImagePointerType movingImage , GridType * grid,PairwisePotentialPointerType pairwisePotential,UnaryPotentialPointerType unaryPotential)
+	FastPDMRFSolver(ImagePointerType fixedImage , ImagePointerType movingImage , GridType * grid,PairwisePotentialPointerType pairwisePotential,UnaryPotentialPointerType unaryPotential, double unaryWeight=1.0, double pairwiseWeight=1.0)
 	:Superclass(fixedImage,movingImage,grid, pairwisePotential,unaryPotential)
 	{
 		nLabels=this->m_labelConverter->nLabels();
-		nNodes=this->m_grid->nNodes();
+		nNodes=this->m_nNodes;
 		nPairs=this->m_grid->nVertices();
 		//		pairs is an array of the form [na nb nc nd...] where (na,nb),(nc,nd) are edges in the graph and na,... are indices of the nodes
+		std::cout<<"allocating pairs"<<std::endl;
 		pairs=std::vector<int>(nPairs*2);
+		std::cout<<"allocating unary potentials"<<std::endl;
 		unaryPotentials=new Real[nNodes*nLabels];
+		std::cout<<"allocating pairwise potentials"<<std::endl;
 		pairwisePotentials= new Real[nLabels*nLabels];
-		edgeWeights=std::vector<Real>(nPairs,10);//new Real[nPairs];//={1.0};
+		std::cout<<"allocating edgeweights"<<std::endl;
+		edgeWeights=std::vector<Real>(nPairs,1.0);//new Real[nPairs];//={1.0};
+		m_unaryWeight=unaryWeight;
+		m_pairwiseWeight=pairwiseWeight;
 		std::cout<<nNodes<<" "<<nLabels<<" "<<std::endl;
 		//memset( edgeWeights, 1.0,nPairs*sizeof(Real) );
 
@@ -71,13 +78,13 @@ public:
 			for (int i=0;i<nNeighbours;++i){
 				pairs[runningIndex+i*2]=currentIntIndex;
 				pairs[runningIndex+i*2+1]=neighbours[i];
+				edgeWeights[(runningIndex+i*2)/2]=this->m_pairwisePotentialFunction->getWeight(currentIntIndex,neighbours[i]);
 			}
 			runningIndex+=nNeighbours*2;
-
 			//set up unary costs at current position
 			for (int l1=0;l1<nLabels;++l1){
 				LabelType label=this->m_labelConverter->getLabel(l1);
-				unaryPotentials[l1*nNodes+currentIntIndex]=this->m_unaryPotentialFunction->getPotential(currentImageIndex,label);
+				unaryPotentials[l1*nNodes+currentIntIndex]=m_unaryWeight*this->m_unaryPotentialFunction->getPotential(currentImageIndex,label);
 			}
 			grid->next();
 		}
@@ -89,20 +96,20 @@ public:
 		//		traverse labels
 		for (int l1=0;l1<nLabels;++l1){
 			for (int l2=0;l2<nLabels;++l2){
-				pairwisePotentials[l1*nLabels+l2]=this->m_pairwisePotentialFunction->getPotential(this->m_labelConverter->getLabel(l1),this->m_labelConverter->getLabel(l2));
-
+				pairwisePotentials[l1*nLabels+l2]=m_pairwiseWeight*this->m_pairwisePotentialFunction->getPotential(this->m_labelConverter->getLabel(l1),this->m_labelConverter->getLabel(l2));
 			}
 		}
-
 		//create optimizer object
 		std::cout<<"initialising fastPD with "<<nNodes<<" nodes, "<< nLabels<<" labels, "<<nPairs<<" pairs"<<std::endl;
-		optimizer= new CV_Fast_PD(nNodes,nLabels,unaryPotentials,nPairs,&pairs[0],pairwisePotentials,20,&edgeWeights[0]);
+		optimizer= new CV_Fast_PD(nNodes,nLabels,unaryPotentials,nPairs,&pairs[0],pairwisePotentials,20,&edgeWeights[0],int(nLabels/2));
 	}
 	virtual void optimize(){
 		optimizer->run();
 	}
+
 	ImagePointerType transformImage(ImagePointerType img){
 		ImagePointerType transformedImage(this->m_fixedImage);
+#if 0
 		GridType * grid=this->m_grid;
 		grid->gotoBegin();
 		while(!grid->atEnd()){
@@ -111,10 +118,11 @@ public:
 			int labelIndex=optimizer->_pinfo[currentIntIndex].label;
 			LabelType label=this->m_labelConverter->getLabel(labelIndex);
 			IndexType movingIndex=this->m_labelConverter->getMovingIndex(currentImageIndex,labelIndex);
-
-			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));//(label[1]+15)*65535/15);//img->GetPixel(movingIndex));
+			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));
 			grid->next();
 		}
+#endif
+
 		return transformedImage;
 	}
 	virtual LabelType getLabelAtIndex(int index){

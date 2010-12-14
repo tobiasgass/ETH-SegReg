@@ -23,11 +23,12 @@ public:
 	typedef typename TImage::IndexType IndexType;
 	typedef typename TImage::OffsetType OffsetType;
 	typedef Grid<ImageType> GridType;
-	typedef typename LabelType::DeformationType DeformationType;
-	typedef typename itk::Image<  DeformationType , ImageType::ImageDimension > DeformationFieldType;
+
+	typedef typename LabelType::FieldElementType FieldElementType;
+	typedef typename itk::Image<  FieldElementType , ImageType::ImageDimension > LabelFieldType;
 
 
-private:
+protected:
 	ImagePointerType m_fixedImage, m_movingImage;
 	SizeType movingSize, fixedSize, relativeSize;
 	int m_nLabels;
@@ -37,13 +38,17 @@ private:
 	OffsetType m_resolution;
 
 public:
-	RegistrationLabelConverter(ImagePointerType fImg, ImagePointerType mImg, OffsetType resolution,int nMaxDisplacementsPerAxis){
+	RegistrationLabelConverter(ImagePointerType fImg, ImagePointerType mImg, int nMaxDisplacementsPerAxis, int nDisplacementSamplesPerAxis){
 		m_fixedImage=fImg;
 		m_movingImage=mImg;
 		m_SamplesPerAxis=nMaxDisplacementsPerAxis;
 		//		m_Grid=grid;
-		m_resolution=resolution;
 		m_Dim=ImageType::ImageDimension;
+		for (int d=0;d<m_Dim;++d){
+			m_resolution[d]=nMaxDisplacementsPerAxis/nDisplacementSamplesPerAxis;
+			assert(m_resolution[d]>0);
+		}
+
 		m_nLabels=pow(m_SamplesPerAxis,m_Dim);
 		movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
 		fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
@@ -78,7 +83,13 @@ public:
 		}
 		return L;
 	}
-
+	virtual FieldElementType getFieldElement(LabelType label){
+		FieldElementType result;
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=label[d];
+		}
+		return result;
+	}
 	//	convert an index/label pair to an index in the moving image
 	virtual IndexType getMovingIndex(const IndexType & fixedIndex, const LabelType & label) const{
 		IndexType idx;
@@ -107,7 +118,7 @@ template<class TImage>
 class RegistrationLabel : public TImage::OffsetType{
 public:
 	typedef typename TImage::OffsetType OffsetType;
-	typedef typename itk::Vector< float, TImage::ImageDimension> DeformationType;
+	typedef typename itk::Vector< float, TImage::ImageDimension> FieldElementType;
 
 
 private:
@@ -121,13 +132,7 @@ public:
 	}
 
 	int getIndex(){return m_index;}
-	DeformationType getDeformation(){
-		DeformationType result;
-		for (int d=0;d<TImage::ImageDimension;++d){
-			result[d]=this->operator[](d);
-		}
-		return result;
-	}
+
 };
 
 #endif /* LABEL_H_ */

@@ -2,6 +2,8 @@
 SET(SRSMRFModels_SRC
   Potentials.h
   Label.h
+  RegistrationSegmentationLabel.h
+  SegmentationLabel.h
   MRF.h
   Grid.h
   FAST-PD-Registration-mrf.h

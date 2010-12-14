@@ -10,6 +10,7 @@
 #include "MRF.h"
 #include "Grid.h"
 #include "Label.h"
+#include "RegistrationSegmentationLabel.h"
 #include "FAST-PD-Registration-mrf.h"
 #include <fenv.h>
 #include "TRW-S-Registration.h"
@@ -69,29 +70,9 @@ int main(int argc, char ** argv)
 	}
 
 	GridType fullimageGrid(targetImage,resolution);
-	typedef RegistrationLabel<ImageType> RegistrationLabelType;
-	typedef RegistrationLabelConverter<ImageType, RegistrationLabelType> RLCType;
+	typedef RegistrationSegmentationLabel<ImageType> RegistrationSegmentationLabelType;
+	typedef RegistrationSegmentationLabelConverter<ImageType, RegistrationSegmentationLabelType> RLCType;
 	RLCType * RLC=new RLCType(targetImage,movingImage,2*maxDisplacement+1,2*maxDisplacement+1);
-	RegistrationLabelType rLabel;
-#if 0
-	for (int i=0;i<3*3;++i){
-		rLabel=RLC->getLabel(i);
-		std::cout<<i<<" "<<rLabel<<" "<<RLC->getIntegerLabel(rLabel)<<std::endl;
-	}
-#endif
-
-#if 0
-	itk::ImageRegionIteratorWithIndex<ImageType> it(targetImage, targetImage->GetLargestPossibleRegion());
-	int i=0;
-	for (it.GoToBegin() ; !it.IsAtEnd(); ++it,++i)
-	{
-		IndexType idx=it.GetIndex();
-		std::cout<<i<<" " <<idx<< " "<<fullimageGrid.getGridPositionAtIndex(i)<<std::endl;
-	}
-#endif
-
-
-
 
 
 	//	PairwisePotential

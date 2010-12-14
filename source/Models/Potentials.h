@@ -5,11 +5,12 @@
  *      Author: gasst
  */
 
-#ifndef POTENTIALS_H_
-#define POTENTIALS_H_
+#ifndef _POTENTIALS_H_
+#define _POTENTIALS_H_
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include <utility>
+
 namespace itk{
 
 
@@ -33,9 +34,11 @@ public:
 	/** Standard part of every itk Object. */
 	itkTypeMacro(PairwisePotential, Object);
 
-
+	virtual double getWeight(int idx1, int idx2){
+		return 1.0;
+	}
 	virtual double getPotential(LabelType l1, LabelType l2){
-		return 0;
+		return 0.0;
 	}
 };
 
@@ -63,8 +66,11 @@ public:
 			tmp=l1[d]-l2[d];
 			tmp1+=tmp*tmp;
 		}
-		if (tmp>6) tmp=10000000000;
-		return tmp;
+		int thresh=8;
+		int replacement=999;
+		if (tmp1>thresh) tmp1=replacement;
+		//		std::cout<<l1<<" "<<l2<<" "<<tmp
+		return tmp1;
 	}
 };
 
@@ -81,7 +87,7 @@ public:
 	typedef TLabelConverter LabelConverterType;
 	typedef	typename LabelConverterType::ImageType ImageType;
 	typedef typename ImageType::Pointer ImagePointerType;
-//	typedef Grid<ImageType> GridType;
+	//	typedef Grid<ImageType> GridType;
 	typedef typename LabelConverterType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
@@ -111,7 +117,7 @@ public:
 		return m_labelConverter;
 	}
 	double getPotential(IndexType fixedIndex, LabelType label){
-//		std::cout<<label<<" "<<fixedIndex<< std::endl;
+		//		std::cout<<label<<" "<<fixedIndex<< std::endl;
 		IndexType movingIndex=m_labelConverter->getMovingIndex(fixedIndex,label);
 
 		double tmp=0;
@@ -122,16 +128,21 @@ public:
 			if (movingIndex[d]<0 or movingIndex[d]>=movingSize[d])
 				return 999999;
 		}
-//		std::cout<<movingIndex<<" "<<fixedIndex<< std::endl;
+		//		std::cout<<movingIndex<<" "<<fixedIndex<< std::endl;
 		tmp=fabs(m_fixedImage->GetPixel(fixedIndex)-m_movingImage->GetPixel(movingIndex));
-	//	int threshold=100;
+		//	int threshold=100;
 		//tmp=(threshold<tmp?threshold:tmp);
-		return int(tmp);
-//		return int(256*(1-exp(-tmp)));
+#if 0
+		double ctThresh=60000;
+		if (m_fixedImage->GetPixel(fixedIndex) >ctThresh && m_movingImage->GetPixel(movingIndex)>ctThresh)
+			tmp=0;
+		else
+			tmp=1;
+#endif
+		return tmp;
+		//		return int(256*(1-exp(-tmp)));
 	}
+};//class
 
-};
-
-
-}
+}//namespace
 #endif /* POTENTIALS_H_ */
