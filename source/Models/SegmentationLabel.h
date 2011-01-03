@@ -24,7 +24,8 @@ public:
 	typedef Grid<ImageType> GridType;
 	typedef SegmentationLabelType FieldElementType;
 	typedef typename itk::Image<  FieldElementType , ImageType::ImageDimension > LabelFieldType;
-
+	typedef typename itk::Image<LabelType> LabelImageType;
+	typedef typename LabelImageType::Pointer LabelImagePointerType;
 private:
 	ImagePointerType m_fixedImage;
 	SizeType fixedSize, ;
@@ -45,7 +46,6 @@ public:
 	 */
 	virtual int getIntegerLabel(const LabelType &L){
 		return L;
-
 	}
 
 	/*
@@ -56,10 +56,21 @@ public:
 	}
 
 	virtual FieldElementType getFieldElement(int idx){
-		return idx*65535/m_nLabels;
+		return idx*65535/(m_nLabels-1);
 	}
 
 	int nLabels(){return m_nLabels;}
+	ImagePointerType getSegmentationField(LabelImagePointerType labelImage){
+		ImagePointerType segmentation=ImageType::New();
+		segmentation->SetRegions(labelImage->GetLargestPossibleRegion());
+		segmentation->Allocate();
+		itk::ImageRegionIteratorWithIndex<LabelImageType> labelImageIterator(labelImage, labelImage->GetLargestPossibleRegion());
+		for (labelImageIterator.GoToBegin(); !labelImageIterator.IsAtEnd();  ++labelImageIterator) {
+			LabelType label=labelImageIterator.Get();
+			segmentation->SetPixel(labelImageIterator.GetIndex(),label*65535);
+		}
+		return segmentation;
+	}
 };
 
 

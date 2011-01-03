@@ -23,9 +23,13 @@ public:
 	typedef typename TImage::IndexType IndexType;
 	typedef typename TImage::OffsetType OffsetType;
 	typedef Grid<ImageType> GridType;
-
-	typedef typename LabelType::FieldElementType FieldElementType;
-	typedef typename itk::Image<  FieldElementType , ImageType::ImageDimension > LabelFieldType;
+	typedef typename itk::Image<LabelType> LabelImageType;
+	typedef typename LabelImageType::Pointer LabelImagePointerType;
+	typedef typename itk::Vector< float, TImage::ImageDimension> DisplacementType;
+	typedef typename itk::Image<  DisplacementType , ImageType::ImageDimension > DisplacementFieldType;
+	typedef typename DisplacementFieldType::Pointer DisplacementFieldPointerType;
+	//	typedef typename LabelType::FieldElementType FieldElementType;
+	//	typedef typename itk::Image<  FieldElementType , ImageType::ImageDimension > LabelFieldType;
 
 
 protected:
@@ -83,34 +87,62 @@ public:
 		}
 		return L;
 	}
-	virtual FieldElementType getFieldElement(LabelType label){
-		FieldElementType result;
-		for (int d=0;d<TImage::ImageDimension;++d){
-			result[d]=label[d];
-		}
-		return result;
-	}
+
+
 	//	convert an index/label pair to an index in the moving image
 	virtual IndexType getMovingIndex(const IndexType & fixedIndex, const LabelType & label) const{
 		IndexType idx;
 		for (int i=0;i<m_Dim;++i){
-
 			idx[i]=int((1.0*movingSize[i])/(fixedSize[i])*fixedIndex[i])+label[i]*m_resolution[i];
-//			if (idx[i]<0) idx[i]=0;
-//			if (idx[i]>movingSize[i]-1) idx[i]=movingSize[i]-1;
-//			std::cout<<idx[i]<<" "<< movingSize[i]<<" "<<fixedSize[i]<<" "<<(1.0*movingSize[i])/(fixedSize[i])<<" "<<(1.0*movingSize[i])/(fixedSize[i])*fixedIndex[i]<<" "<<label[i]*m_resolution[i]<<std::endl;
+//			if (idx[i]<0)
+//				idx[i]=0;
+//			else if (idx[i]>=fixedSize[i])
+//				idx[i]=fixedSize[i]-1;
 		}
 		return idx;
 	}
+
 	//	convert an index/labelindex to an index in the moving image
 	IndexType getMovingIndex(const IndexType & fixedIndex,  int labelIndex) {
 		LabelType label=getLabel(labelIndex);
-//		std::cout<<fixedIndex<<" "<<labelIndex<<" "<<label<<std::endl;
 		IndexType movingIndex=getMovingIndex(fixedIndex,label);
 		return movingIndex;
 	}
+
+
 	int nLabels(){return m_nLabels;}
 	int labelSampling(){return m_SamplesPerAxis;}
+
+	// convert labels into displacement vector field
+	DisplacementFieldPointerType getDisplacementField(LabelImagePointerType labelImage){
+		DisplacementFieldPointerType deformation=DisplacementFieldType::New();
+		deformation->SetRegions(labelImage->GetLargestPossibleRegion());
+		deformation->SetDirection(labelImage->GetDirection());
+		deformation->Allocate();
+		itk::ImageRegionIteratorWithIndex<LabelImageType> labelImageIterator(labelImage, labelImage->GetLargestPossibleRegion());
+		for (labelImageIterator.GoToBegin(); !labelImageIterator.IsAtEnd();  ++labelImageIterator) {
+			DisplacementType displacement;
+			LabelType label=labelImageIterator.Get();
+			for (int d=0;d<m_Dim;++d){
+				displacement[d]=label[d];
+			}
+			deformation->SetPixel(labelImageIterator.GetIndex(),displacement);
+		}
+		return deformation;
+	}
+
+	ImagePointerType transformImage(ImagePointerType img, LabelImagePointerType labelImage){
+		ImagePointerType transformedImage(this->m_fixedImage);
+		itk::ImageRegionIteratorWithIndex<LabelImageType> labelImageIterator(labelImage, labelImage->GetLargestPossibleRegion());
+		for (labelImageIterator.GoToBegin(); !labelImageIterator.IsAtEnd();  ++labelImageIterator) {
+			IndexType currentImageIndex=labelImageIterator.GetIndex();
+			LabelType label=labelImage->GetPixel(currentImageIndex);
+			IndexType movingIndex=getMovingIndex(currentImageIndex,label);
+			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));
+
+		}
+		return transformedImage;
+	}
 
 };
 
@@ -118,7 +150,6 @@ template<class TImage>
 class RegistrationLabel : public TImage::OffsetType{
 public:
 	typedef typename TImage::OffsetType OffsetType;
-	typedef typename itk::Vector< float, TImage::ImageDimension> FieldElementType;
 
 
 private:

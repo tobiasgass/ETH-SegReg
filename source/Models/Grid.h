@@ -99,6 +99,11 @@ public:
 		}
 		return position;
 	}
+	IndexType getImagePositionAtIndex(int idx){
+		return gridToImageIndex(getGridPositionAtIndex(idx));
+	}
+
+
 	int  getIntegerIndex(IndexType gridIndex){
 		int i=0;
 		for (int d=0;d<m_dim;++d){

@@ -67,9 +67,10 @@ public:
 			tmp1+=tmp*tmp;
 		}
 		int thresh=8;
-		int replacement=999;
+		int replacement=9999;
 		if (tmp1>thresh) tmp1=replacement;
-		//		std::cout<<l1<<" "<<l2<<" "<<tmp
+		//		std::cout<<l1<<" "<<l2<<" "<<tmp1<<std::endl;
+		if (tmp1<0) std::cout<<"ERROR PAIRWISE POTENTIAL SMALLER ZERO!"<<std::endl;
 		return tmp1;
 	}
 };
@@ -116,18 +117,25 @@ public:
 	LabelConverterType * getLabelConverter(){
 		return m_labelConverter;
 	}
-	double getPotential(IndexType fixedIndex, LabelType label){
-		//		std::cout<<label<<" "<<fixedIndex<< std::endl;
-		IndexType movingIndex=m_labelConverter->getMovingIndex(fixedIndex,label);
-
-		double tmp=0;
-		bool outOfBounds=false;
+	bool outOfMovingBounds(const IndexType & movingIndex){
 		int D=ImageType::ImageDimension;
 		SizeType movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
 		for (int d=0;d<D;++d){
 			if (movingIndex[d]<0 or movingIndex[d]>=movingSize[d])
-				return 999999;
+				return true;
 		}
+		return false;
+	}
+
+	double getPotential(IndexType fixedIndex, LabelType label){
+		//		std::cout<<label<<" "<<fixedIndex<< std::endl;
+		IndexType movingIndex=m_labelConverter->getMovingIndex(fixedIndex,label);
+		double outOfBoundsPenalty=9999;
+		if (this->outOfMovingBounds(movingIndex)){
+			return outOfBoundsPenalty;
+		}
+
+		double tmp=0;
 		//		std::cout<<movingIndex<<" "<<fixedIndex<< std::endl;
 		tmp=fabs(m_fixedImage->GetPixel(fixedIndex)-m_movingImage->GetPixel(movingIndex));
 		//	int threshold=100;

@@ -7,6 +7,7 @@
 #include "ImageUtils.h"
 #include "itkImage.h"
 #include "Potentials.h"
+#include "RegistrationSegmentationPotentials.h"
 #include "MRF.h"
 #include "Grid.h"
 #include "Label.h"
@@ -26,7 +27,7 @@ int main(int argc, char ** argv)
 
 
 	argstream as(argc, argv);
-	string targetFilename,movingFilename,outputFilename,deformableFilename,defFilename="";
+	string targetFilename,movingFilename, movingSegmentationFilename, outputFilename,deformableFilename,defFilename="", segmentationOutputFilename;
 	double pairwiseWeight=1;
 	int displacementSampling=-1;
 	double unaryWeight=1;
@@ -34,8 +35,9 @@ int main(int argc, char ** argv)
 
 	as >> parameter ("t", targetFilename, "target image (file name)", true);
 	as >> parameter ("m", movingFilename, "moving image (file name)", true);
+	as >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", true);
 	as >> parameter ("o", outputFilename, "output image (file name)", true);
-	as >> parameter ("d", deformableFilename, "deformable image (file name)", false);
+	as >> parameter ("O", segmentationOutputFilename, "output segmentation image (file name)", true);
 	as >> parameter ("f", defFilename,"deformation field filename", false);
 	as >> parameter ("p", pairwiseWeight,"weight for pairwise potentials", false);
 	as >> parameter ("u", unaryWeight,"weight for unary potentials", false);
@@ -58,9 +60,9 @@ int main(int argc, char ** argv)
 			ImageUtils<ImageType>::readImage(targetFilename);
 	ImageType::Pointer movingImage =
 			ImageUtils<ImageType>::readImage(movingFilename);
+	ImageType::Pointer movingSegmentationImage =
+			ImageUtils<ImageType>::readImage(movingSegmentationFilename);
 
-	//typedef int LabelType;
-	typedef Offset<D> LabelType;
 
 	//create Grid
 	typedef Grid<ImageType> GridType;
@@ -80,9 +82,10 @@ int main(int argc, char ** argv)
 	PairwisePotentialType::Pointer potentialFunction=PairwisePotentialType::New();
 
 
-	typedef UnaryPotential<RLCType> UnaryPotentialType;
+	typedef UnarySRSPotential<RLCType> UnaryPotentialType;
 	UnaryPotentialType::Pointer unaryFunction=UnaryPotentialType::New();
 	unaryFunction->SetMovingImage(movingImage);
+	unaryFunction->SetMovingSegmentationImage(movingSegmentationImage);
 	unaryFunction->SetFixedImage(targetImage);
 	unaryFunction->setLabelConverter(RLC);
 
@@ -90,30 +93,30 @@ int main(int argc, char ** argv)
 	//	ok what now: create graph! solve graph! save result!Z
 
 	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
-//		typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+	//		typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,pairwiseWeight);
 	std::cout<<"run"<<std::endl;
 	mrfSolver.optimize();
 
-	ImagePointerType transformedImage;
-	if (deformableFilename!=""){
-		ImageType::Pointer deformableImage =
-				ImageUtils<ImageType>::readImage(deformableFilename);
-		transformedImage=mrfSolver.transformImage(deformableImage);
-	}else{
-		transformedImage=mrfSolver.transformImage(movingImage);
-	}
 
-	ImageUtils<ImageType>::writeImage(outputFilename, transformedImage);
+	//deformed image
+	ImagePointerType deformedImage;
+	deformedImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
+	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
 
+	//deformation
 	if (defFilename!=""){
-		typedef MRFSolverType::LabelFieldType LabelFieldType;
-		typedef LabelFieldType::Pointer LabelFieldPointerType;
-
-		LabelFieldPointerType LabelField=mrfSolver.getLabelField();
-		ImageUtils<LabelFieldType>::writeImage(defFilename,LabelField);
-
+		typedef RLCType::DisplacementFieldType DisplacementFieldType;
+		typedef DisplacementFieldType::Pointer DisplacementFieldPointerType;
+		DisplacementFieldPointerType defField=RLC->getDisplacementField(mrfSolver.getLabelImage());
+		ImageUtils<DisplacementFieldType>::writeImage(defFilename,defField);
 	}
-	std::cout<<"wtf"<<std::endl;
+
+	//segmentation
+	ImagePointerType segmentedImage;
+	segmentedImage=RLC->getSegmentationField(mrfSolver.getLabelImage());
+	ImageUtils<ImageType>::writeImage(segmentationOutputFilename, segmentedImage);
+
+
 	return 1;
 }

@@ -118,21 +118,20 @@ int main(int argc, char ** argv)
 	if (deformableFilename!=""){
 		ImageType::Pointer deformableImage =
 				ImageUtils<ImageType>::readImage(deformableFilename);
-		transformedImage=mrfSolver.transformImage(deformableImage);
+		transformedImage=RLC->transformImage(deformableImage,mrfSolver.getLabelImage());
 	}else{
-		transformedImage=mrfSolver.transformImage(movingImage);
+		transformedImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
 	}
 
 	ImageUtils<ImageType>::writeImage(outputFilename, transformedImage);
 
 	if (defFilename!=""){
-		typedef MRFSolverType::LabelFieldType LabelFieldType;
-		typedef LabelFieldType::Pointer LabelFieldPointerType;
+		typedef RLCType::DisplacementFieldType DisplacementFieldType;
+		typedef DisplacementFieldType::Pointer DisplacementFieldPointerType;
 
-		LabelFieldPointerType LabelField=mrfSolver.getLabelField();
-		ImageUtils<LabelFieldType>::writeImage(defFilename,LabelField);
+		DisplacementFieldPointerType defField=RLC->getDisplacementField(mrfSolver.getLabelImage());
+		ImageUtils<DisplacementFieldType>::writeImage(defFilename,defField);
 
 	}
-	std::cout<<"wtf"<<std::endl;
 	return 1;
 }

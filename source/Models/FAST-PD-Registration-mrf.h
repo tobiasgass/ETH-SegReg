@@ -23,7 +23,7 @@ public:
 	typedef typename Superclass::GridType GridType;
 	typedef typename Superclass::LabelType LabelType;
 	typedef typename Superclass::IndexType IndexType;
-	typedef typename Superclass::LabelFieldType LabelFieldType;
+//	typedef typename Superclass::LabelFieldType LabelFieldType;
 
 	typedef Graph::Real Real;
 
@@ -101,30 +101,13 @@ public:
 		}
 		//create optimizer object
 		std::cout<<"initialising fastPD with "<<nNodes<<" nodes, "<< nLabels<<" labels, "<<nPairs<<" pairs"<<std::endl;
-		optimizer= new CV_Fast_PD(nNodes,nLabels,unaryPotentials,nPairs,&pairs[0],pairwisePotentials,20,&edgeWeights[0],int(nLabels/2));
+		optimizer= new CV_Fast_PD(nNodes,nLabels,unaryPotentials,nPairs,&pairs[0],pairwisePotentials,20,&edgeWeights[0],int(nLabels/4));
 	}
 	virtual void optimize(){
 		optimizer->run();
 	}
 
-	ImagePointerType transformImage(ImagePointerType img){
-		ImagePointerType transformedImage(this->m_fixedImage);
-#if 0
-		GridType * grid=this->m_grid;
-		grid->gotoBegin();
-		while(!grid->atEnd()){
-			int currentIntIndex=grid->getIndex();
-			IndexType currentImageIndex=grid->getCurrentImagePosition();
-			int labelIndex=optimizer->_pinfo[currentIntIndex].label;
-			LabelType label=this->m_labelConverter->getLabel(labelIndex);
-			IndexType movingIndex=this->m_labelConverter->getMovingIndex(currentImageIndex,labelIndex);
-			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));
-			grid->next();
-		}
-#endif
 
-		return transformedImage;
-	}
 	virtual LabelType getLabelAtIndex(int index){
 		return this->m_labelConverter->getLabel(optimizer->_pinfo[index].label);
 	}

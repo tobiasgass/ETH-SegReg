@@ -10,6 +10,7 @@
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include <utility>
+#include "Grid.h"
 
 namespace itk{
 
@@ -28,14 +29,33 @@ public:
 	typedef typename ImageType::Pointer ImagePointerType;
 	typedef typename LabelConverterType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
+	typedef Grid<ImageType> GridType;
+private:
+	ImagePointerType m_fixedImage;
+	GridType * m_Grid;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
 	/** Standard part of every itk Object. */
 	itkTypeMacro(PairwiseSegmentationPotential, Object);
 
+	void SetFixedImage(ImagePointerType fixedImage){
+		m_fixedImage=fixedImage;
+	}
+	void SetGrid(GridType *grid){
+		m_Grid=grid;
+	}
+
 	virtual double getWeight(int idx1, int idx2){
-		return 1.0;
+		IndexType i1=m_Grid->getImagePositionAtIndex(idx1);
+		IndexType i2=m_Grid->getImagePositionAtIndex(idx2);
+		double result=abs(m_fixedImage->GetPixel(i1)-m_fixedImage->GetPixel(i2))*1.0;
+
+//		result=exp(-result);
+		result=int(65535-result)/4200;
+		result*=result;
+//		std::cout<<m_fixedImage->GetPixel(i1)<<" "<<m_fixedImage->GetPixel(i2)<<" "<<result<<std::endl;
+		return result;
 	}
 	virtual double getPotential(LabelType l1, LabelType l2){
 		return (l1!=l2);
@@ -56,7 +76,7 @@ public:
 	typedef TLabelConverter LabelConverterType;
 	typedef	typename LabelConverterType::ImageType ImageType;
 	typedef typename ImageType::Pointer ImagePointerType;
-//	typedef Grid<ImageType> GridType;
+	//	typedef Grid<ImageType> GridType;
 	typedef typename LabelConverterType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
@@ -92,16 +112,17 @@ public:
 		int D=ImageType::ImageDimension;
 
 		double value=m_fixedImage->GetPixel(fixedIndex);
-		double threshold=30000;
+		double threshold=25000;
 		if (label==0){
 			if (value>threshold)
-				tmp=1;
+				tmp=(value-threshold)/30000;
+
 		}
 		else{
 			if (value<threshold)
-				tmp=1;
-
+				tmp=(threshold-value)/30000;
 		}
+//		std::cout<<"tmp :"<<tmp<<std::endl;
 		return tmp;
 	}
 };

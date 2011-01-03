@@ -57,18 +57,20 @@ int main(int argc, char ** argv)
 	for (int d=0;d<D;++d){
 		resolution[d]=1;
 	}
+	GridType fullimageGrid(targetImage,resolution);
+
 
 	typedef unsigned short SegmentationLabelType;
 	typedef Image<SegmentationLabelType,D> SegmentationImageType;
 	typedef SegmentationImageType::Pointer SegmentationImagePointerType;
-	GridType fullimageGrid(targetImage,resolution);
 	typedef SegmentationLabelConverter<ImageType, SegmentationLabelType> RLCType;
 	RLCType * RLC=new RLCType(targetImage,2);
 
 	//	PairwisePotential
 	typedef PairwiseSegmentationPotential<RLCType> PairwisePotentialType;
 	PairwisePotentialType::Pointer potentialFunction=PairwisePotentialType::New();
-
+	potentialFunction->SetFixedImage(targetImage);
+	potentialFunction->SetGrid(&fullimageGrid);
 
 	typedef UnarySegmentationPotential<RLCType> UnaryPotentialType;
 	UnaryPotentialType::Pointer unaryFunction=UnaryPotentialType::New();
@@ -86,9 +88,9 @@ int main(int argc, char ** argv)
 
 
 
-	SegmentationImagePointerType transformedImage;
-	transformedImage=mrfSolver.getLabelField();
-	ImageUtils<SegmentationImageType>::writeImage(outputFilename, transformedImage);
+	SegmentationImagePointerType segmentedImage;
+	segmentedImage=RLC->getSegmentationField(mrfSolver.getLabelImage());
+	ImageUtils<SegmentationImageType>::writeImage(outputFilename, segmentedImage);
 
 
 
