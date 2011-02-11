@@ -94,10 +94,10 @@ public:
 		IndexType idx;
 		for (int i=0;i<m_Dim;++i){
 			idx[i]=int((1.0*movingSize[i])/(fixedSize[i])*fixedIndex[i])+label[i]*m_resolution[i];
-//			if (idx[i]<0)
-//				idx[i]=0;
-//			else if (idx[i]>=fixedSize[i])
-//				idx[i]=fixedSize[i]-1;
+			//			if (idx[i]<0)
+			//				idx[i]=0;
+			//			else if (idx[i]>=fixedSize[i])
+			//				idx[i]=fixedSize[i]-1;
 		}
 		return idx;
 	}
@@ -138,6 +138,12 @@ public:
 			IndexType currentImageIndex=labelImageIterator.GetIndex();
 			LabelType label=labelImage->GetPixel(currentImageIndex);
 			IndexType movingIndex=getMovingIndex(currentImageIndex,label);
+			for (int d=0;d<m_Dim;++d){
+				if (movingIndex[d]<0)
+					movingIndex[d]=0;
+				else if (movingIndex[d]>=fixedSize[d])
+					movingIndex[d]=fixedSize[d]-1;
+			}
 			transformedImage->SetPixel(currentImageIndex,img->GetPixel(movingIndex));
 
 		}

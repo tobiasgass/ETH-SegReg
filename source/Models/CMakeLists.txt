@@ -6,7 +6,7 @@ SET(SRSMRFModels_SRC
   SegmentationLabel.h
   MRF.h
   Grid.h
-  FAST-PD-Registration-mrf.h
+  FAST-PD-mrf-optimisation.h
   TRW-S-Registration.h
   ImageRegistrationFilter.cxx
 )

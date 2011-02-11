@@ -15,38 +15,6 @@
 				<project-mappings/>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
-			<storageModule moduleId="org.eclipse.cdt.core.pathentry">
-				<pathentry kind="src" path="[Source directory]"/>
-				<pathentry excluding="[Source directory]/|**/CMakeFiles/" kind="out" path=""/>
-				<pathentry include="/usr/include" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/gdcm/src" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/gdcm" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/vxl/core" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/vxl/vcl" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/vxl/v3p/netlib" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/itkExtHdrs" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/nifti/znzlib" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/nifti/niftilib" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/expat" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/DICOMParser" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/NrrdIO" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Utilities/MetaIO" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/SpatialObject" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Numerics/NeuralNetworks" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Numerics/Statistics" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Numerics/FEM" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/IO" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Numerics" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Common" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/BasicFilters" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit/Algorithms" kind="inc" path="" system="true"/>
-				<pathentry include="/usr/include/InsightToolkit" kind="inc" path="" system="true"/>
-				<pathentry include="/home/gasst/work/src/SRS-MRF/source/Models" kind="inc" path="" system="true"/>
-				<pathentry include="/home/gasst/work/src/SRS-MRF/source/Utils" kind="inc" path="" system="true"/>
-				<pathentry include="/home/gasst/work/src/SRS-MRF/source/External/fastPD" kind="inc" path="" system="true"/>
-				<pathentry include="/home/gasst/work/src/SRS-MRF/source/Common" kind="inc" path="" system="true"/>
-			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets">
 				<buildTargets>
 					<target name=": rebuild_cache" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
@@ -381,6 +349,43 @@
 						<parser enabled="true"/>
 					</scannerInfoProvider>
 				</profile>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings">
+				<doc-comment-owner id="org.eclipse.cdt.ui.doxygen">
+					<path value=""/>
+				</doc-comment-owner>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.pathentry">
+				<pathentry include="/usr/include" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/gdcm/src" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/gdcm" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/vxl/core" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/vxl/vcl" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/vxl/v3p/netlib" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/itkExtHdrs" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/nifti/znzlib" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/nifti/niftilib" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/expat" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/DICOMParser" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/NrrdIO" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Utilities/MetaIO" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/SpatialObject" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Numerics/NeuralNetworks" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Numerics/Statistics" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Numerics/FEM" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/IO" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Numerics" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Common" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/BasicFilters" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit/Algorithms" kind="inc" path="" system="true"/>
+				<pathentry include="/usr/include/InsightToolkit" kind="inc" path="" system="true"/>
+				<pathentry include="/scratch/gasst/src/SRS-MRF/source/Models" kind="inc" path="" system="true"/>
+				<pathentry include="/scratch/gasst/src/SRS-MRF/source/Utils" kind="inc" path="" system="true"/>
+				<pathentry include="/scratch/gasst/src/SRS-MRF/source/External/fastPD" kind="inc" path="" system="true"/>
+				<pathentry include="/scratch/gasst/src/SRS-MRF/source/Common" kind="inc" path="" system="true"/>
+				<pathentry kind="src" path="[Source directory]"/>
+				<pathentry excluding="[Source directory]/|**/CMakeFiles/" kind="out" path=""/>
 			</storageModule>
 		</cconfiguration>
 	</storageModule>

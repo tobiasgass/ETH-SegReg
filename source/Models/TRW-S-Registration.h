@@ -26,7 +26,7 @@ public:
 	typedef typename Superclass::GridType GridType;
 	typedef typename Superclass::LabelType LabelType;
 	typedef typename Superclass::IndexType IndexType;
-	typedef Graph::Real Real;
+//	typedef Graph::Real Real;
 	//	typedef TypeGeneral TRWType;
 	typedef TypeTruncatedQuadratic2D TRWType;
 	typedef MRFEnergy<TRWType> MRFType;

@@ -10,7 +10,7 @@
 #include "MRF.h"
 #include "Grid.h"
 #include "SegmentationLabel.h"
-#include "FAST-PD-Registration-mrf.h"
+#include "FAST-PD-mrf-optimisation.h"
 #include <fenv.h>
 #include "TRW-S-Registration.h"
 
@@ -94,6 +94,6 @@ int main(int argc, char ** argv)
 
 
 
-	std::cout<<"wtf"<<std::endl;
+	std::cout<<"done"<<std::endl;
 	return 1;
 }
