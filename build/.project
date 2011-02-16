@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>SRS-MRF@build</name>
+	<name>SRS-MRF-Release@build</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -79,7 +79,7 @@
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.environment</key>
-					<value>CMAKE_BUILD_TYPE=Release|VERBOSE=1|CMAKE_NO_VERBOSE=1|</value>
+					<value>CMAKE_NO_VERBOSE=1|VERBOSE=1|</value>
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.fullBuildTarget</key>

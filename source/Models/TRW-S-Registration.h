@@ -67,7 +67,7 @@ public:
 		TRWType::REAL D[nLabels];
 
 		for (int i=0;i<nNodes;++i){
-			// get current indices bot integer, in the grid plane and in the image plane
+			// get current indices both integer, in the grid plane and in the image plane
 			int currentIntIndex=grid->getIndex();
 			IndexType currentGridIndex=grid->getCurrentGridPosition();
 			IndexType currentImageIndex=grid->getCurrentImagePosition();

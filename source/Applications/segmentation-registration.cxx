@@ -7,7 +7,7 @@
 #include "ImageUtils.h"
 #include "itkImage.h"
 #include "Potentials.h"
-#include "RegistrationSegmentationPotentials.h"
+#include "RegistrationSegmentationPotentials-v2.h"
 #include "MRF.h"
 #include "Grid.h"
 #include "Label.h"
@@ -20,14 +20,14 @@ using namespace std;
 using namespace itk;
 
 #define _MANY_LABELS_
-
+#define DOUBLEPAIRWISE
 int main(int argc, char ** argv)
 {
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
 
 	argstream as(argc, argv);
-	string targetFilename,movingFilename, movingSegmentationFilename, outputFilename,deformableFilename,defFilename="", segmentationOutputFilename;
+	string targetFilename,movingFilename,fixedSegmentationFilename, movingSegmentationFilename, outputFilename,deformableFilename,defFilename="", segmentationOutputFilename;
 	double pairwiseWeight=1;
 	int displacementSampling=-1;
 	double unaryWeight=1;
@@ -36,6 +36,8 @@ int main(int argc, char ** argv)
 	as >> parameter ("t", targetFilename, "target image (file name)", true);
 	as >> parameter ("m", movingFilename, "moving image (file name)", true);
 	as >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", true);
+	as >> parameter ("g", fixedSegmentationFilename, "fixed segmentation image (file name)", true);
+
 	as >> parameter ("o", outputFilename, "output image (file name)", true);
 	as >> parameter ("O", segmentationOutputFilename, "output segmentation image (file name)", true);
 	as >> parameter ("f", defFilename,"deformation field filename", false);
@@ -62,6 +64,8 @@ int main(int argc, char ** argv)
 			ImageUtils<ImageType>::readImage(movingFilename);
 	ImageType::Pointer movingSegmentationImage =
 			ImageUtils<ImageType>::readImage(movingSegmentationFilename);
+	ImageType::Pointer fixedSegmentationImage =
+				ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
 
 
 	//create Grid
@@ -78,17 +82,20 @@ int main(int argc, char ** argv)
 
 
 	//	PairwisePotential
-	typedef EuclideanPairwisePotential<RLCType> PairwisePotentialType;
+	typedef JointEuclideanPairwisePotential<RLCType> PairwisePotentialType;
 	PairwisePotentialType::Pointer potentialFunction=PairwisePotentialType::New();
+	potentialFunction->SetFixedImage(targetImage);
+	potentialFunction->SetGrid(&fullimageGrid);
 
-
-	typedef UnarySRSPotential<RLCType> UnaryPotentialType;
+	typedef UnarySRSPotentialv2<RLCType> UnaryPotentialType;
 	UnaryPotentialType::Pointer unaryFunction=UnaryPotentialType::New();
 	unaryFunction->SetMovingImage(movingImage);
 	unaryFunction->SetMovingSegmentationImage(movingSegmentationImage);
+	unaryFunction->SetFixedSegmentationImage(fixedSegmentationImage);
+
 	unaryFunction->SetFixedImage(targetImage);
 	unaryFunction->setLabelConverter(RLC);
-
+	ImagePointerType classifiedImage=unaryFunction->trainClassifier();
 
 	//	ok what now: create graph! solve graph! save result!Z
 
@@ -102,7 +109,7 @@ int main(int argc, char ** argv)
 	//deformed image
 	ImagePointerType deformedImage;
 	deformedImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
-	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
+	ImageUtils<ImageType>::writeImage(outputFilename, classifiedImage );
 
 	//deformation
 	if (defFilename!=""){

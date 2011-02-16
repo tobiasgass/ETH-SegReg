@@ -93,7 +93,7 @@ public:
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
 
-private:
+protected:
 	ImagePointerType m_fixedImage, m_movingImage;
 	LabelConverterType *m_labelConverter;
 public:

@@ -70,6 +70,16 @@ public:
 		return idx;
 
 	}
+
+	int getIntegerImageIndex(const IndexType &I){
+		int idx=0;
+		int factor=1;
+		for (int i=0;i<m_Dim;++i){
+			idx+=I[i]*factor;
+			factor*=fixedSize[i];
+		}
+		return idx;
+	}
 	/*
 	 * Convert index into offset
 	 */
