@@ -37,8 +37,19 @@ public:
 	itkNewMacro(Self);
 	/** Standard part of every itk Object. */
 	itkTypeMacro(JointEuclideanPairwisePotential, Object);
+	virtual double getWeight(int idx1, int idx2){
+		IndexType i1=this->m_Grid->getImagePositionAtIndex(idx1);
+		IndexType i2=this->m_Grid->getImagePositionAtIndex(idx2);
+		double result=1.0*abs(this->m_fixedImage->GetPixel(i1)-this->m_fixedImage->GetPixel(i2))/32500;
 
-	virtual double getPotential(LabelType l1, LabelType l2){
+		result=exp(-result);
+		//		result=int(65535-result)/4200;
+		//		result*=result;
+		//		std::cout<<"WEIGHT: "<<this->m_fixedImage->GetPixel(i1)<<" "<<this->m_fixedImage->GetPixel(i2)<<" "<<result<<std::endl;
+		return result;
+
+	}
+	virtual double getPotential2(LabelType l1, LabelType l2){
 		float tmp1=0.0,tmp;
 		for (int d=0;d<m_dim;++d){
 			tmp=l1[d]-l2[d];
@@ -49,9 +60,12 @@ public:
 		if (tmp1>thresh) tmp1=replacement;
 		//		std::cout<<l1<<" "<<l2<<" "<<tmp1<<std::endl;
 		if (tmp1<0) std::cout<<"ERROR PAIRWISE POTENTIAL SMALLER ZERO!"<<std::endl;
+		return tmp1;
 
+	}
+	virtual double getPotential(LabelType l1, LabelType l2){
 		int tmp2=l1.getSegmentation()!=l2.getSegmentation();
-		return tmp1+tmp2;
+		return tmp2;
 	}
 };
 
@@ -95,19 +109,74 @@ public:
 		m_segmenter=segmentationClassifierType();
 		m_pairwiseSegmenter=pairwiseSegmentationClassifierType();
 	}
-	ImagePointerType trainClassifier(){
+	ImagePointerType trainClassifiers(){
 		assert(m_movingImage);
 		assert(m_movingSegmentation);
 		m_segmenter.setData(m_movingImage,m_movingSegmentation);
 		m_segmenter.train();
+		ImagePointerType probImage=m_segmenter.eval(m_fixedImage,m_fixedSegmentation,&m_segmentationProbs);
 		m_pairwiseSegmenter.setData(m_movingImage,m_movingSegmentation);
+#if 1
 		m_pairwiseSegmenter.train();
-		m_pairwiseSegmenter.eval(m_fixedImage,m_fixedSegmentation,&m_pairwiseSegmentationProbs);
-		return m_segmenter.eval(m_fixedImage,m_fixedSegmentation,&m_segmentationProbs);
+		std::cout<<"computing&caching test data segmentation posteriors"<<std::endl;
+		int nData=m_labelConverter->nLabels();
+		for (int d=0;d<ImageType::ImageDimension;++d){
+			nData*=m_fixedImage->GetLargestPossibleRegion().GetSize()[d];
+		}
+		matrix<float> testData(nData,10);
+		std::vector<int> testLabels(nData);
+		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator(m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
+		int i=0;
+		for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
+			double intensity=ImageIterator.Get();
+			IndexType idx=ImageIterator.GetIndex();
+			for (int l=0;l<m_labelConverter->nLabels();++l){
+				LabelType label=m_labelConverter->getLabel(l);
+				int segmentation=label.getSegmentation();
+				//	we only need the dataset once, the classifier then generates posteriors for every segmentation
+				if (segmentation){
+					double deformedIntensity=m_labelConverter->getMovingIntensity(idx,label);
+					int deformedSegmentation=m_labelConverter->getMovingSegmentation(idx,label);
+					// build features
+					testData(i,0)=intensity;
+					testData(i,1)=deformedIntensity;
+					testData(i,2)=deformedIntensity-intensity;
+					testData(i,3)=fabs(deformedIntensity-intensity);
+					testData(i,4)=(deformedIntensity-intensity)*(deformedIntensity-intensity);
+					testData(i,5)=deformedIntensity*deformedIntensity;
+					testData(i,6)=intensity*intensity;
+					testData(i,7)=intensity*deformedIntensity;
+					testData(i,8)=fabs(deformedIntensity*intensity);
+					testData(i,9)=deformedSegmentation;
+					++i;
+					testLabels[i]=m_fixedSegmentation->GetPixel(idx)>0;
+				}
+			}
+		}
+		testData.resize(i,10);
+		std::cout<<i<< " testcases"<<std::endl;
+		testLabels.resize(i);
+		m_pairwiseSegmenter.eval(testData,testLabels,&m_pairwiseSegmentationProbs);
+
+
+#else
+
+		m_pairwiseSegmentationProbs=matrix<double> (26660*442,10);
+
+
+#endif
+		std::cout<<"done"<<std::endl;
+		return probImage;
 	}
 
 	void buildSegmentationPosteriorMatrix(){
 
+
+
+	}
+	virtual void freeMemory(){
+		m_segmentationProbs=matrix<double>(1,1);
+		m_pairwiseSegmentationProbs=matrix<double>(1,1);
 	}
 
 	void SetMovingImage(ImagePointerType movingImage){
@@ -140,24 +209,33 @@ public:
 	}
 
 	//computes -log( p(X,A|T,Sx,Sa) * p(S_a|T,S_x) )
-	//		  =-log( p(S_x|X,A,S_a,T) * p(S_a|A) * p(S_a|T,S_x) )
+	//		  =-log( p(S_x|X,A,S_a,T) * p(X,A|T) * p(S_a|A) * p(S_a|T,S_x) )
 	double getPotential(IndexType fixedIndex, LabelType label){
+		int fixedIntIndex=m_labelConverter->getIntegerImageIndex(fixedIndex);
 		double result=0.0;
 		IndexType movingIndex=m_labelConverter->getMovingIndex(fixedIndex,label);
-		double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
-		double log_p_fm_R=fabs(imageIntensity-m_movingImage->GetPixel(movingIndex));///65535;
-
 		double outOfBoundsPenalty=9999;
 		if (this->outOfMovingBounds(movingIndex)){
 			return outOfBoundsPenalty;
 		}
 
+		double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
+		double movingIntensity=m_labelConverter->getMovingIntensity(fixedIndex,label);
 		int segmentationLabel=label.getSegmentation();
 		int deformedSegmentation=m_movingSegmentation->GetPixel(movingIndex)>0;
-		int log_S_R=(segmentationLabel!=deformedSegmentation);
-//		std::cout<<fixedIndex<<" "<<m_labelConverter->getIntegerImageIndex(fixedIndex)<<" "<<-log(m_confidences(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));
-//		std::cout<<" "<<-log(m_segmenter.posterior(imageIntensity,segmentationLabel))<<std::endl;
-		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));
+		//-log( p(X,A|T))
+		double log_p_XA_T=1.0*fabs(imageIntensity-movingIntensity);
+		//-log( p(S_a|T,S_x) )
+		double log_p_SA_TSX =1000* (segmentationLabel!=deformedSegmentation);
+		//-log(  p(S_x|X,A,S_a,T) )
+		double log_p_SX_XASAT = 0;//-log(m_pairwiseSegmentationProbs(fixedIntIndex,segmentationLabel));
+		//-log( p(S_a|A) )
+		double log_p_SA_A = -log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));
+		//		std::cout<<"UNARIES: "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SA_A<<std::endl;
+		result+=log_p_XA_T+log_p_SA_TSX+log_p_SX_XASAT;
+		//result+=log_p_SA_A;
+		//		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));
+
 		if (result<0) std::cout<<"ERROR UNARY POTENTIAL SMALLER THAN ZERO!!!"<<std::endl;
 		return result;
 	}

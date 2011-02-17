@@ -30,7 +30,7 @@ public:
 	typedef typename LabelConverterType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef Grid<ImageType> GridType;
-private:
+protected:
 	ImagePointerType m_fixedImage;
 	GridType * m_Grid;
 public:
@@ -45,7 +45,9 @@ public:
 	void SetGrid(GridType *grid){
 		m_Grid=grid;
 	}
-
+	virtual double getPotential2(LabelType l1, LabelType l2){
+			return 0;
+		}
 	virtual double getWeight(int idx1, int idx2){
 		IndexType i1=m_Grid->getImagePositionAtIndex(idx1);
 		IndexType i2=m_Grid->getImagePositionAtIndex(idx2);
@@ -92,7 +94,7 @@ public:
 
 	UnarySegmentationPotential(){
 	}
-
+	virtual void freeMemory(){}
 	void SetMovingImage(ImagePointerType movingImage){
 		m_movingImage=movingImage;
 	}
@@ -105,6 +107,8 @@ public:
 	LabelConverterType * getLabelConverter(){
 		return m_labelConverter;
 	}
+
+
 	double getPotential(IndexType fixedIndex, LabelType label){
 
 		double tmp=0;

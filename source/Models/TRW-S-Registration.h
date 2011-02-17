@@ -31,7 +31,7 @@ public:
 	typedef TypeTruncatedQuadratic2D TRWType;
 	typedef MRFEnergy<TRWType> MRFType;
 	typedef typename MRFType::NodeId NodeType;
-	typedef typename Superclass::DeformationFieldType DeformationFieldType;
+//	typedef typename Superclass::DeformationFieldType DeformationFieldType;
 
 protected:
 	int nLabels,nNodes,nPairs,labelSampling;

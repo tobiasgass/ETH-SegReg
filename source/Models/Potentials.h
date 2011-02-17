@@ -73,6 +73,11 @@ public:
 		if (tmp1<0) std::cout<<"ERROR PAIRWISE POTENTIAL SMALLER ZERO!"<<std::endl;
 		return tmp1;
 	}
+	virtual double getPotential2(LabelType l1, LabelType l2){
+		return 0.0;
+	}
+
+
 };
 
 template<class TLabelConverter>
@@ -104,6 +109,9 @@ public:
 
 	UnaryPotential(){
 	}
+	virtual void freeMemory(){
+
+	}
 
 	void SetMovingImage(ImagePointerType movingImage){
 		m_movingImage=movingImage;
@@ -126,8 +134,11 @@ public:
 		}
 		return false;
 	}
+	virtual double getPotential2(IndexType fixedIndex, LabelType label){
+		return 0.0;
+	}
 
-	double getPotential(IndexType fixedIndex, LabelType label){
+	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		//		std::cout<<label<<" "<<fixedIndex<< std::endl;
 		IndexType movingIndex=m_labelConverter->getMovingIndex(fixedIndex,label);
 		double outOfBoundsPenalty=9999;

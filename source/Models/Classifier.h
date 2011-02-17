@@ -278,7 +278,8 @@ public:
 
 
 	};
-	ImagePointerType eval(ImagePointerType intensities, ImagePointerType labels, matrix<double> * probabilities){
+	ImagePointerType eval(matrix<float> &data, std::vector<int> &labelVector, matrix<double> * probabilities){
+#if 0
 		m_radius=2;
 		//maximal size
 		int nData=26660*pow(1.0*2*m_radius+1,ImageType::ImageDimension);
@@ -320,14 +321,16 @@ public:
 
 			}
 		}
+#endif
+
 		this->m_Forest->eval(data,labelVector,false);
 		matrix<float> conf = this->m_Forest->getConfidences();
-		(*probabilities)=matrix<double>(nData,2);
-		for (int i=0;i<nData;++i){
+		(*probabilities)=matrix<double>(data.size1(),2);
+		for (int i=0;i<data.size1();++i){
 			(*probabilities)(i,0)=conf(i,0)/(conf(i,0)+conf(i,1));
 			(*probabilities)(i,1)=conf(i,1)/(conf(i,0)+conf(i,1));
 		}
-		return intensities;
+		return NULL;
 
 	}
 };

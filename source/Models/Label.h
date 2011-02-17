@@ -18,6 +18,7 @@ class RegistrationLabelConverter {
 public:
 	typedef TImage ImageType;
 	typedef typename ImageType::Pointer ImagePointerType;
+	typedef typename ImageType::PixelType PixelType;
 	typedef typename ImageType::SizeType SizeType;
 	typedef TLabel LabelType;
 	typedef typename TImage::IndexType IndexType;
@@ -83,7 +84,7 @@ public:
 	/*
 	 * Convert index into offset
 	 */
-	virtual LabelType getLabel( int idx) {
+	virtual LabelType getLabel( int idx) const {
 		LabelType L;
 		int positiveIndex;
 		for (int i=m_Dim-1;i>=0;--i){
@@ -112,8 +113,15 @@ public:
 		return idx;
 	}
 
+	virtual PixelType getMovingIntensity(const IndexType & fixedIndex, const LabelType & label) const{
+		return m_movingImage->GetPixel(getMovingIndex(fixedIndex,label));
+	}
+	virtual PixelType getMovingIntensity(const IndexType & fixedIndex, int labelIndex) const{
+		return m_movingImage->GetPixel(getMovingIndex(fixedIndex,labelIndex));
+	}
+
 	//	convert an index/labelindex to an index in the moving image
-	IndexType getMovingIndex(const IndexType & fixedIndex,  int labelIndex) {
+	IndexType getMovingIndex(const IndexType & fixedIndex,  int labelIndex) const{
 		LabelType label=getLabel(labelIndex);
 		IndexType movingIndex=getMovingIndex(fixedIndex,label);
 		return movingIndex;

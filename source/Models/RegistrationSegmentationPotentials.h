@@ -70,6 +70,9 @@ public:
 			}
 			return false;
 		}
+	virtual double getPotential2(IndexType fixedIndex, LabelType label){
+			return 0.0;
+		}
 
 	//computes -log(p(f,m|T,S)*p(S|T))=-log(p(f,m|T)*p(f|S)*p(S|T))
 	double getPotential(IndexType fixedIndex, LabelType label){

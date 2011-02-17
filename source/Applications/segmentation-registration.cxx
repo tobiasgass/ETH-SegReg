@@ -15,7 +15,7 @@
 #include "FAST-PD-mrf-optimisation.h"
 #include <fenv.h>
 #include "TRW-S-Registration.h"
-
+#include <sstream>
 using namespace std;
 using namespace itk;
 
@@ -65,7 +65,7 @@ int main(int argc, char ** argv)
 	ImageType::Pointer movingSegmentationImage =
 			ImageUtils<ImageType>::readImage(movingSegmentationFilename);
 	ImageType::Pointer fixedSegmentationImage =
-				ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
+			ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
 
 
 	//create Grid
@@ -78,7 +78,7 @@ int main(int argc, char ** argv)
 	GridType fullimageGrid(targetImage,resolution);
 	typedef RegistrationSegmentationLabel<ImageType> RegistrationSegmentationLabelType;
 	typedef RegistrationSegmentationLabelConverter<ImageType, RegistrationSegmentationLabelType> RLCType;
-	RLCType * RLC=new RLCType(targetImage,movingImage,2*maxDisplacement+1,2*maxDisplacement+1);
+	RLCType * RLC=new RLCType(targetImage,movingImage,movingSegmentationImage,2*maxDisplacement+1,2*maxDisplacement+1);
 
 
 	//	PairwisePotential
@@ -95,35 +95,42 @@ int main(int argc, char ** argv)
 
 	unaryFunction->SetFixedImage(targetImage);
 	unaryFunction->setLabelConverter(RLC);
-	ImagePointerType classifiedImage=unaryFunction->trainClassifier();
+	ImagePointerType classifiedImage=unaryFunction->trainClassifiers();
 
 	//	ok what now: create graph! solve graph! save result!Z
+//	for (double p=1;p<4;p+=0.5){
+		double p=pairwiseWeight;
+		typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+		//			typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+//		MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,p);
+			MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,pairwiseWeight, true);
+		std::cout<<"run with p="<<p<<std::endl;
+		mrfSolver.optimize();
 
-	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
-	//		typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
-	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,pairwiseWeight);
-	std::cout<<"run"<<std::endl;
-	mrfSolver.optimize();
+		//deformed image
+		ostringstream deformedFilename;
+		deformedFilename<<outputFilename<<"-p"<<p<<".png";
+		ImagePointerType deformedImage;
+		deformedImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
+		ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
+
+		//deformation
+		if (defFilename!=""){
+			typedef RLCType::DisplacementFieldType DisplacementFieldType;
+			typedef DisplacementFieldType::Pointer DisplacementFieldPointerType;
+			DisplacementFieldPointerType defField=RLC->getDisplacementField(mrfSolver.getLabelImage());
+			ImageUtils<DisplacementFieldType>::writeImage(defFilename,defField);
+		}
+
+		//segmentation
+		ostringstream segmentedFilename;
+		segmentedFilename<<segmentationOutputFilename<<"-p"<<p<<".png";
 
 
-	//deformed image
-	ImagePointerType deformedImage;
-	deformedImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
-	ImageUtils<ImageType>::writeImage(outputFilename, classifiedImage );
-
-	//deformation
-	if (defFilename!=""){
-		typedef RLCType::DisplacementFieldType DisplacementFieldType;
-		typedef DisplacementFieldType::Pointer DisplacementFieldPointerType;
-		DisplacementFieldPointerType defField=RLC->getDisplacementField(mrfSolver.getLabelImage());
-		ImageUtils<DisplacementFieldType>::writeImage(defFilename,defField);
-	}
-
-	//segmentation
-	ImagePointerType segmentedImage;
-	segmentedImage=RLC->getSegmentationField(mrfSolver.getLabelImage());
-	ImageUtils<ImageType>::writeImage(segmentationOutputFilename, segmentedImage);
-
+		ImagePointerType segmentedImage;
+		segmentedImage=RLC->getSegmentationField(mrfSolver.getLabelImage());
+		ImageUtils<ImageType>::writeImage(segmentedFilename.str().c_str(), segmentedImage);
+//	}
 
 	return 1;
 }

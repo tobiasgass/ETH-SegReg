@@ -29,17 +29,18 @@ public:
 	typedef typename Superclass::DisplacementType DisplacementType;
 	typedef typename Superclass::DisplacementFieldType DisplacementFieldType;
 	typedef typename Superclass::DisplacementFieldPointerType DisplacementFieldPointerType;
-
+	typedef typename Superclass::PixelType PixelType;
 private:
 	int m_nSegmentations,m_nDisplacements;
+	ImagePointerType m_movingSegmentation;
 
 public:
 	/*
 	 * Constructor
 	 */
-	RegistrationSegmentationLabelConverter(ImagePointerType fImg, ImagePointerType mImg,
+	RegistrationSegmentationLabelConverter(ImagePointerType fImg, ImagePointerType mImg, ImagePointerType mSeg,
 			int nMaxDisplacementsPerAxis, int nDisplacementSamplesPerAxis, int nSegmentations=2):
-				Superclass(fImg,mImg,nMaxDisplacementsPerAxis, nDisplacementSamplesPerAxis)
+				Superclass(fImg,mImg,nMaxDisplacementsPerAxis, nDisplacementSamplesPerAxis),m_movingSegmentation(mSeg)
 	{
 		m_nDisplacements=this->m_nLabels;
 		m_nSegmentations=nSegmentations;
@@ -98,6 +99,12 @@ public:
 		IndexType movingIndex=getMovingIndex(fixedIndex,label);
 		return movingIndex;
 	}
+	virtual PixelType getMovingSegmentation(const IndexType & fixedIndex, const LabelType & label) const{
+			return m_movingSegmentation->GetPixel(getMovingIndex(fixedIndex,label))>0;
+		}
+		virtual PixelType getMovingSegmentation(const IndexType & fixedIndex, int labelIndex) {
+			return m_movingSegmentation->GetPixel(getMovingIndex(fixedIndex,labelIndex))>0;
+		}
 
 	ImagePointerType getSegmentationField(LabelImagePointerType labelImage){
 			ImagePointerType segmentation=ImageType::New();
