@@ -268,7 +268,7 @@ public:
 		std::vector<double> weights(labelVector.size());
 
 		for (i=0;i<labelVector.size();++i){
-			weights[i]=1.0/counts[labelVector[i]];
+//			weights[i]=1.0/counts[labelVector[i]];
 		}
 		this->m_weights=weights;
 		std::cout<<"done adding data. "<<std::endl;
@@ -327,6 +327,7 @@ public:
 		matrix<float> conf = this->m_Forest->getConfidences();
 		(*probabilities)=matrix<double>(data.size1(),2);
 		for (int i=0;i<data.size1();++i){
+			std::cout<<conf(i,0)<<" "<<conf(i,1)<<std::endl;
 			(*probabilities)(i,0)=conf(i,0)/(conf(i,0)+conf(i,1));
 			(*probabilities)(i,1)=conf(i,1)/(conf(i,0)+conf(i,1));
 		}
