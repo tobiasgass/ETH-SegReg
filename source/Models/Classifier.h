@@ -48,7 +48,9 @@ public:
 		m_labelVector=std::vector<int>(1);
 	};
 	void setData(ImagePointerType intensities, ImagePointerType labels){
-		int nData=26660;
+		int nData=1;
+		for (int d=0;d<ImageType::ImageDimension;++d)
+			nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
 		int nFeatures=3;
 		matrix<float> data(nData,nFeatures);
 		std::vector<int> labelVector(nData);
@@ -66,18 +68,19 @@ public:
 				!ImageIterator.IsAtEnd() ;
 				++ImageIterator,++LabelIterator,++ImageIterator2,++LabelIterator2)
 		{
+
 			assert( !LabelIterator.IsAtEnd());
 			float centralIntens=1.0*ImageIterator.GetCenterPixel()/65535;
-			float centralLabel=LabelIterator.GetCenterPixel();
-			if (centralLabel || (counts[1] && 1.0*counts[1]/(counts[1]+counts[0]) > 0.5 )){
+			float centralLabel=LabelIterator.GetCenterPixel()>0;
 
+			if (centralLabel || (counts[1] && 1.0*counts[1]/(counts[1]+counts[0]) > 0.5 )){
 				double intens=1.0*ImageIterator2.Get()/65535;
 				//			std::cout<<intens<<" "<<centralIntens<<" "<<ImageIterator2.Get()<<std::endl;
 				//			data(i,0)=LabelIterator2.Get();
 				data(i,0)=intens;
 				data(i,1)=intens*intens;
 				data(i,2)=fabs(intens);
-				labelVector[i]=LabelIterator2.Get();
+				labelVector[i]=LabelIterator2.Get()>0;
 				counts[labelVector[i]]++;
 				//			std::cout<<data(i,0)<<" "<<labelVector[i]<<std::endl;
 				i++;
@@ -94,7 +97,8 @@ public:
 		std::vector<double> weights(labelVector.size());
 		for (i=0;i<labelVector.size();++i){
 			if (copy[i]!=labelVector[i]) std::cout<<"bah";
-			weights[i]=1.0/counts[labelVector[i]];
+			//			weights[i]=1.0/counts[labelVector[i]];
+			weights[i]=1.0;
 		}
 		m_weights=weights;
 		std::cout<<"done adding data. "<<std::endl;
@@ -105,7 +109,11 @@ public:
 
 	};
 	ImagePointerType eval(ImagePointerType intensities, ImagePointerType labels, matrix<double> * probabilities){
-		int nData=26660;
+
+		int nData=1;
+		for (int d=0;d<ImageType::ImageDimension;++d)
+			nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
+
 		int nFeatures=3;
 		matrix<float> data(nData,nFeatures);
 		std::vector<int> labelVector(nData);
@@ -120,7 +128,7 @@ public:
 			data(i,0)=intens;
 			data(i,1)=intens*intens;
 			data(i,2)=fabs(intens);
-			labelVector[i]=LabelIterator.Get();
+			labelVector[i]=LabelIterator.Get()>0;
 			i++;
 		}
 		m_Forest->eval(data,labelVector,false);
@@ -184,7 +192,7 @@ public:
 		std::cout<<"creating forest"<<std::endl;
 		m_Forest= new Forest(hp);
 		std::cout<<"training forest"<<std::endl;
-		m_Forest->train(m_TrainData.getData(),m_TrainData.getLabels(),m_weights);
+		m_Forest->train(m_TrainData.getData(),m_TrainData.getLabels(),m_weights);//	,m_weights);
 		std::cout<<"done"<<std::endl;
 	};
 	double posterior(float intensity, int label){
@@ -217,7 +225,12 @@ public:
 	void setData(ImagePointerType intensities, ImagePointerType labels){
 		m_radius=2;
 		//maximal size
-		int nData=26660*pow(1.0*2*m_radius+1,ImageType::ImageDimension);
+
+		int nData=1;
+		for (int d=0;d<ImageType::ImageDimension;++d)
+			nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
+		nData*=pow(1.0*2*m_radius+1,ImageType::ImageDimension);
+
 		int nFeatures=10;
 		matrix<float> data(nData,nFeatures);
 		std::vector<int> labelVector(nData);
@@ -237,17 +250,16 @@ public:
 		{
 			assert( !LabelIterator.IsAtEnd());
 			float centralIntens=1.0*ImageIterator.GetCenterPixel()/65535;
-			float centralLabel=LabelIterator.GetCenterPixel();
+			float centralLabel=LabelIterator.GetCenterPixel()>0;
 			if (centralLabel || (counts[1] && 1.0*counts[1]/(counts[1]+counts[0]) > 0.5 )){
 				for (int r=0;r<ImageIterator.Size();++r,++i){
 					float intens=1.0*ImageIterator.GetPixel(r)/65535;
-					int label=LabelIterator.GetPixel(r);
+					int label=LabelIterator.GetPixel(r)>0;
 					data(i,0)=centralIntens;
 					data(i,1)=intens;
 					data(i,2)=intens-centralIntens;
 					data(i,3)=fabs(intens-centralIntens);
 					data(i,4)=(intens-centralIntens)*(intens-centralIntens);
-					data(i,5)=intens*intens;
 					data(i,6)=centralIntens*centralIntens;
 					data(i,7)=centralIntens*intens;
 					data(i,8)=fabs(intens*centralIntens);
@@ -268,7 +280,8 @@ public:
 		std::vector<double> weights(labelVector.size());
 
 		for (i=0;i<labelVector.size();++i){
-//			weights[i]=1.0/counts[labelVector[i]];
+			weights[i]=1.0;
+			//			weights[i]=1.0/counts[labelVector[i]];
 		}
 		this->m_weights=weights;
 		std::cout<<"done adding data. "<<std::endl;
@@ -279,55 +292,11 @@ public:
 
 	};
 	ImagePointerType eval(matrix<float> &data, std::vector<int> &labelVector, matrix<double> * probabilities){
-#if 0
-		m_radius=2;
-		//maximal size
-		int nData=26660*pow(1.0*2*m_radius+1,ImageType::ImageDimension);
-		int nFeatures=10;
-		matrix<float> data(nData,nFeatures);
-		std::vector<int> labelVector(nData);
-		typedef typename itk::ConstNeighborhoodIterator< ImageType > NeighborhoodIteratorType;
-		typename NeighborhoodIteratorType::RadiusType radius;
-		radius.Fill(m_radius);
-		NeighborhoodIteratorType ImageIterator(radius,intensities, intensities->GetLargestPossibleRegion());
-		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator2(intensities, intensities->GetLargestPossibleRegion());
-		itk::ImageRegionIteratorWithIndex<ImageType> LabelIterator2(labels, labels->GetLargestPossibleRegion());
-		NeighborhoodIteratorType LabelIterator(radius,labels, labels->GetLargestPossibleRegion());
-		int i=0;
-		std::vector<int> counts(2,0);
-		for (ImageIterator.GoToBegin(),ImageIterator2.GoToBegin(), LabelIterator2.GoToBegin(),
-				LabelIterator.GoToBegin();
-				!ImageIterator.IsAtEnd() ;
-				++ImageIterator,++LabelIterator,++ImageIterator2,++LabelIterator2)
-		{
-			assert( !LabelIterator.IsAtEnd());
-			float centralIntens=1.0*ImageIterator.GetCenterPixel()/65535;
-			float centralLabel=LabelIterator.GetCenterPixel();
-			for (int r=0;r<ImageIterator.Size();++r,++i){
-				float intens=1.0*ImageIterator.GetPixel(r)/65535;
-				int label=LabelIterator.GetPixel(r);
-				data(i,0)=centralIntens;
-				data(i,1)=intens;
-				data(i,2)=intens-centralIntens;
-				data(i,3)=fabs(intens-centralIntens);
-				data(i,4)=(intens-centralIntens)*(intens-centralIntens);
-				data(i,5)=intens*intens;
-				data(i,6)=centralIntens*centralIntens;
-				data(i,7)=centralIntens*intens;
-				data(i,8)=fabs(intens*centralIntens);
-				data(i,9)=label;
-				labelVector[i]=centralLabel;
-				counts[centralLabel]++;
-
-			}
-		}
-#endif
-
 		this->m_Forest->eval(data,labelVector,false);
 		matrix<float> conf = this->m_Forest->getConfidences();
 		(*probabilities)=matrix<double>(data.size1(),2);
 		for (int i=0;i<data.size1();++i){
-			std::cout<<conf(i,0)<<" "<<conf(i,1)<<std::endl;
+			//			std::cout<<conf(i,0)<<" "<<conf(i,1)<<std::endl;
 			(*probabilities)(i,0)=conf(i,0)/(conf(i,0)+conf(i,1));
 			(*probabilities)(i,1)=conf(i,1)/(conf(i,0)+conf(i,1));
 		}

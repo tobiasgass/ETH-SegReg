@@ -16,6 +16,7 @@
 #include <fenv.h>
 #include "TRW-S-Registration.h"
 #include <sstream>
+#include "itkHistogramMatchingImageFilter.h"
 using namespace std;
 using namespace itk;
 
@@ -32,6 +33,9 @@ int main(int argc, char ** argv)
 	int displacementSampling=-1;
 	double unaryWeight=1;
 	int maxDisplacement=10;
+	double simWeight=1;
+	double rfWeight=1;
+	double segWeight=1;
 
 	as >> parameter ("t", targetFilename, "target image (file name)", true);
 	as >> parameter ("m", movingFilename, "moving image (file name)", true);
@@ -66,6 +70,21 @@ int main(int argc, char ** argv)
 			ImageUtils<ImageType>::readImage(movingSegmentationFilename);
 	ImageType::Pointer fixedSegmentationImage =
 			ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
+#if 1
+	typedef itk::HistogramMatchingImageFilter<
+	                                  ImageType,
+	                                  ImageType >   MatchingFilterType;
+	MatchingFilterType::Pointer matcher = MatchingFilterType::New();
+	matcher->SetInput( movingImage );
+	matcher->SetReferenceImage( targetImage );
+	matcher->SetNumberOfHistogramLevels( 100 );
+	matcher->SetNumberOfMatchPoints( 7 );
+	matcher->Update();
+	movingImage=matcher->GetOutput();
+
+
+#endif
+
 
 
 	//create Grid

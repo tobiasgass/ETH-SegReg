@@ -112,11 +112,15 @@ public:
 	ImagePointerType trainClassifiers(){
 		assert(m_movingImage);
 		assert(m_movingSegmentation);
+		std::cout<<"Training the segmentation classifiers.."<<std::endl;
 		m_segmenter.setData(m_movingImage,m_movingSegmentation);
+		std::cout<<"set Data..."<<std::endl;
 		m_segmenter.train();
+		std::cout<<"trained"<<std::endl;
 		ImagePointerType probImage=m_segmenter.eval(m_fixedImage,m_fixedSegmentation,&m_segmentationProbs);
+		std::cout<<"stored confidences"<<std::endl;
 		m_pairwiseSegmenter.setData(m_movingImage,m_movingSegmentation);
-#if 1
+
 		m_pairwiseSegmenter.train();
 		std::cout<<"computing&caching test data segmentation posteriors"<<std::endl;
 		int nData=m_labelConverter->nLabels();
@@ -128,15 +132,15 @@ public:
 		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator(m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
 		int i=0;
 		for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
-			double intensity=ImageIterator.Get();
+			double intensity=ImageIterator.Get()/65535;
 			IndexType idx=ImageIterator.GetIndex();
 			for (int l=0;l<m_labelConverter->nLabels();++l){
 				LabelType label=m_labelConverter->getLabel(l);
 				int segmentation=label.getSegmentation();
 				//	we only need the dataset once, the classifier then generates posteriors for every segmentation
 				if (segmentation){
-					double deformedIntensity=m_labelConverter->getMovingIntensity(idx,label);
-					int deformedSegmentation=m_labelConverter->getMovingSegmentation(idx,label);
+					double deformedIntensity=m_labelConverter->getMovingIntensity(idx,label)/65535;
+					int deformedSegmentation=m_labelConverter->getMovingSegmentation(idx,label)>0;
 					// build features
 					testData(i,0)=intensity;
 					testData(i,1)=deformedIntensity;
@@ -158,13 +162,6 @@ public:
 		testLabels.resize(i);
 		m_pairwiseSegmenter.eval(testData,testLabels,&m_pairwiseSegmentationProbs);
 
-
-#else
-
-		m_pairwiseSegmentationProbs=matrix<double> (26660*442,10);
-
-
-#endif
 		std::cout<<"done"<<std::endl;
 		return probImage;
 	}
@@ -226,9 +223,13 @@ public:
 		//-log( p(X,A|T))
 		double log_p_XA_T=1.0*fabs(imageIntensity-movingIntensity);
 		//-log( p(S_a|T,S_x) )
-		double log_p_SA_TSX =1000* (segmentationLabel!=deformedSegmentation);
+		double log_p_SA_TSX =4000* (segmentationLabel!=deformedSegmentation);
 		//-log(  p(S_x|X,A,S_a,T) )
-		double log_p_SX_XASAT = 0;//-log(m_pairwiseSegmentationProbs(fixedIntIndex,segmentationLabel));
+		//for each index there are nlables/nsegmentation probabilities
+		int probposition=fixedIntIndex*m_labelConverter->nLabels()/2;
+		//we are then interested in the probability of the displacementlabel only, disregarding the segmentation
+		probposition+=+m_labelConverter->getIntegerLabel(label)%m_labelConverter->nLabels();
+		double log_p_SX_XASAT = 1000*-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel));
 		//-log( p(S_a|A) )
 		double log_p_SA_A = -log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));
 		//		std::cout<<"UNARIES: "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SA_A<<std::endl;

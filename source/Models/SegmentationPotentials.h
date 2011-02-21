@@ -51,12 +51,15 @@ public:
 	virtual double getWeight(int idx1, int idx2){
 		IndexType i1=m_Grid->getImagePositionAtIndex(idx1);
 		IndexType i2=m_Grid->getImagePositionAtIndex(idx2);
-		double result=abs(m_fixedImage->GetPixel(i1)-m_fixedImage->GetPixel(i2))*1.0;
-
-//		result=exp(-result);
-		result=int(65535-result)/4200;
-		result*=result;
+//		double result=abs(m_fixedImage->GetPixel(i1)-m_fixedImage->GetPixel(i2))*1.0;
+//
+////		result=exp(-result);
+//		result=int(65535-result)/4200;
+//		result*=result;
 //		std::cout<<m_fixedImage->GetPixel(i1)<<" "<<m_fixedImage->GetPixel(i2)<<" "<<result<<std::endl;
+		double result=1.0*abs(this->m_fixedImage->GetPixel(i1)-this->m_fixedImage->GetPixel(i2))/32500;
+
+		result=exp(-result);
 		return result;
 	}
 	virtual double getPotential(LabelType l1, LabelType l2){
