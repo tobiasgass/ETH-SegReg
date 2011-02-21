@@ -48,7 +48,7 @@ public:
 		m_labelVector=std::vector<int>(1);
 	};
 	void setData(ImagePointerType intensities, ImagePointerType labels){
-		int nData=1;
+		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
 			nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
 		int nFeatures=3;
@@ -61,7 +61,7 @@ public:
 		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator2(intensities, intensities->GetLargestPossibleRegion());
 		itk::ImageRegionIteratorWithIndex<ImageType> LabelIterator2(labels, labels->GetLargestPossibleRegion());
 		NeighborhoodIteratorType LabelIterator(radius,labels, labels->GetLargestPossibleRegion());
-		int i=0;
+		long int i=0;
 		std::vector<int> counts(2,0);
 		for (ImageIterator.GoToBegin(),ImageIterator2.GoToBegin(), LabelIterator2.GoToBegin(),
 				LabelIterator.GoToBegin();
@@ -108,9 +108,9 @@ public:
 
 
 	};
-	ImagePointerType eval(ImagePointerType intensities, ImagePointerType labels, matrix<double> * probabilities){
+	ImagePointerType eval(ImagePointerType intensities, ImagePointerType labels, matrix<float> * probabilities){
 
-		int nData=1;
+		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
 			nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
 
@@ -119,7 +119,7 @@ public:
 		std::vector<int> labelVector(nData);
 		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator(intensities, intensities->GetLargestPossibleRegion());
 		itk::ImageRegionIteratorWithIndex<ImageType> LabelIterator(labels, labels->GetLargestPossibleRegion());
-		int i=0;
+		long int i=0;
 		for (ImageIterator.GoToBegin(), LabelIterator.GoToBegin();
 				!ImageIterator.IsAtEnd();
 				++ImageIterator,++LabelIterator)
@@ -225,14 +225,15 @@ public:
 	void setData(ImagePointerType intensities, ImagePointerType labels){
 		m_radius=2;
 		//maximal size
-
-		int nData=1;
+		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
 			nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
+		std::cout<<nData<<std::endl;
 		nData*=pow(1.0*2*m_radius+1,ImageType::ImageDimension);
-
+		std::cout<<nData<<" computed"<<std::endl;
 		int nFeatures=10;
 		matrix<float> data(nData,nFeatures);
+		std::cout<<nData<<" matrix allocated"<<std::endl;
 		std::vector<int> labelVector(nData);
 		typedef typename itk::ConstNeighborhoodIterator< ImageType > NeighborhoodIteratorType;
 		typename NeighborhoodIteratorType::RadiusType radius;
@@ -241,7 +242,7 @@ public:
 		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator2(intensities, intensities->GetLargestPossibleRegion());
 		itk::ImageRegionIteratorWithIndex<ImageType> LabelIterator2(labels, labels->GetLargestPossibleRegion());
 		NeighborhoodIteratorType LabelIterator(radius,labels, labels->GetLargestPossibleRegion());
-		int i=0;
+		long int i=0;
 		std::vector<int> counts(2,0);
 		for (ImageIterator.GoToBegin(),ImageIterator2.GoToBegin(), LabelIterator2.GoToBegin(),
 				LabelIterator.GoToBegin();
@@ -291,7 +292,7 @@ public:
 
 
 	};
-	ImagePointerType eval(matrix<float> &data, std::vector<int> &labelVector, matrix<double> * probabilities){
+	ImagePointerType eval(matrix<float> &data, std::vector<int> &labelVector, matrix<float> * probabilities){
 		this->m_Forest->eval(data,labelVector,false);
 		matrix<float> conf = this->m_Forest->getConfidences();
 		(*probabilities)=matrix<double>(data.size1(),2);

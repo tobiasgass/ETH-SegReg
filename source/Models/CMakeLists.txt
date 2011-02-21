@@ -13,6 +13,7 @@ SET(SRSMRFModels_SRC
   Label.h
   RegistrationSegmentationLabel.h
   RegistrationSegmentationPotentials-v2.h
+  AlternatingSegmentationRegistrationLabel.h
   SegmentationLabel.h
   MRF.h
   Grid.h

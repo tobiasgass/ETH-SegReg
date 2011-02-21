@@ -31,16 +31,23 @@ public:
 	typedef typename Superclass::LabelType LabelType;
 	typedef typename Superclass::IndexType IndexType;
 	static const int m_dim=ImageType::ImageDimension;
-
+private:
+	double m_segmentationWeight;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
 	/** Standard part of every itk Object. */
 	itkTypeMacro(JointEuclideanPairwisePotential, Object);
+	JointEuclideanPairwisePotential(){
+		m_segmentationWeight=1.0;
+	}
+	void setSegmentationWeight(double w){
+		m_segmentationWeight=w;
+	}
 	virtual double getWeight(int idx1, int idx2){
 		IndexType i1=this->m_Grid->getImagePositionAtIndex(idx1);
 		IndexType i2=this->m_Grid->getImagePositionAtIndex(idx2);
-		double result=1.0*abs(this->m_fixedImage->GetPixel(i1)-this->m_fixedImage->GetPixel(i2))/32500;
+		double result=1.0*abs(this->m_fixedImage->GetPixel(i1)-this->m_fixedImage->GetPixel(i2))/(m_segmentationWeight*32500);
 
 		result=exp(-result);
 		//		result=int(65535-result)/4200;
@@ -96,18 +103,25 @@ private:
 	LabelConverterType *m_labelConverter;
 	segmentationClassifierType m_segmenter;
 	pairwiseSegmentationClassifierType m_pairwiseSegmenter;
-	matrix<double> m_segmentationProbs,m_pairwiseSegmentationProbs;
-
+	matrix<float> m_segmentationProbs,m_pairwiseSegmentationProbs;
+	double m_intensWeight,m_posteriorWeight,m_segmentationWeight;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
 	/** Standard part of every itk Object. */
 	itkTypeMacro(UnarySRSPotential, Object);
 
-	UnarySRSPotentialv2(){
+	UnarySRSPotentialv2(double intensWeight=1.0, double posteriorWeight=1.0, double segmentationWeight=1.0)
+	{
 		//construct new classifiers
 		m_segmenter=segmentationClassifierType();
 		m_pairwiseSegmenter=pairwiseSegmentationClassifierType();
+	}
+	void SetWeights(double intensWeight, double posteriorWeight, double segmentationWeight)
+	{
+		m_intensWeight=(intensWeight);
+		m_posteriorWeight=(posteriorWeight);
+		m_segmentationWeight=(segmentationWeight);
 	}
 	ImagePointerType trainClassifiers(){
 		assert(m_movingImage);
@@ -119,28 +133,36 @@ public:
 		std::cout<<"trained"<<std::endl;
 		ImagePointerType probImage=m_segmenter.eval(m_fixedImage,m_fixedSegmentation,&m_segmentationProbs);
 		std::cout<<"stored confidences"<<std::endl;
+#if 0
 		m_pairwiseSegmenter.setData(m_movingImage,m_movingSegmentation);
-
 		m_pairwiseSegmenter.train();
 		std::cout<<"computing&caching test data segmentation posteriors"<<std::endl;
-		int nData=m_labelConverter->nLabels();
+		long int nData=m_labelConverter->nLabels()/2;
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			nData*=m_fixedImage->GetLargestPossibleRegion().GetSize()[d];
 		}
 		matrix<float> testData(nData,10);
+		std::cout<<nData<<" matrix allocated"<<std::endl;
 		std::vector<int> testLabels(nData);
 		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator(m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
-		int i=0;
+		double deformedIntensity;
+		int deformedSegmentation;
+		long int i=0;
 		for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
 			double intensity=ImageIterator.Get()/65535;
 			IndexType idx=ImageIterator.GetIndex();
 			for (int l=0;l<m_labelConverter->nLabels();++l){
 				LabelType label=m_labelConverter->getLabel(l);
+				IndexType movingIndex=m_labelConverter->getMovingIndex(idx,label);
+
 				int segmentation=label.getSegmentation();
 				//	we only need the dataset once, the classifier then generates posteriors for every segmentation
 				if (segmentation){
-					double deformedIntensity=m_labelConverter->getMovingIntensity(idx,label)/65535;
-					int deformedSegmentation=m_labelConverter->getMovingSegmentation(idx,label)>0;
+
+					if (!this->outOfMovingBounds(movingIndex)){
+						deformedIntensity=m_labelConverter->getMovingIntensity(idx,label)/65535;
+						deformedSegmentation=m_labelConverter->getMovingSegmentation(idx,label)>0;
+					}
 					// build features
 					testData(i,0)=intensity;
 					testData(i,1)=deformedIntensity;
@@ -152,8 +174,11 @@ public:
 					testData(i,7)=intensity*deformedIntensity;
 					testData(i,8)=fabs(deformedIntensity*intensity);
 					testData(i,9)=deformedSegmentation;
-					++i;
+
 					testLabels[i]=m_fixedSegmentation->GetPixel(idx)>0;
+
+					++i;
+
 				}
 			}
 		}
@@ -161,7 +186,7 @@ public:
 		std::cout<<i<< " testcases"<<std::endl;
 		testLabels.resize(i);
 		m_pairwiseSegmenter.eval(testData,testLabels,&m_pairwiseSegmentationProbs);
-
+#endif
 		std::cout<<"done"<<std::endl;
 		return probImage;
 	}
@@ -221,19 +246,19 @@ public:
 		int segmentationLabel=label.getSegmentation();
 		int deformedSegmentation=m_movingSegmentation->GetPixel(movingIndex)>0;
 		//-log( p(X,A|T))
-		double log_p_XA_T=1.0*fabs(imageIntensity-movingIntensity);
+		double log_p_XA_T=m_intensWeight*fabs(imageIntensity-movingIntensity);
 		//-log( p(S_a|T,S_x) )
-		double log_p_SA_TSX =4000* (segmentationLabel!=deformedSegmentation);
+		double log_p_SA_TSX =m_posteriorWeight*1000* (segmentationLabel!=deformedSegmentation);
 		//-log(  p(S_x|X,A,S_a,T) )
 		//for each index there are nlables/nsegmentation probabilities
-		int probposition=fixedIntIndex*m_labelConverter->nLabels()/2;
+		long int probposition=fixedIntIndex*m_labelConverter->nLabels()/2;
 		//we are then interested in the probability of the displacementlabel only, disregarding the segmentation
 		probposition+=+m_labelConverter->getIntegerLabel(label)%m_labelConverter->nLabels();
-		double log_p_SX_XASAT = 1000*-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel));
+		double log_p_SX_XASAT = 0;//m_segmentationWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 		//-log( p(S_a|A) )
-		double log_p_SA_A = -log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));
+		double log_p_SX_X = m_segmentationWeight*1000*-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));
 		//		std::cout<<"UNARIES: "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SA_A<<std::endl;
-		result+=log_p_XA_T+log_p_SA_TSX+log_p_SX_XASAT;
+		result+=log_p_XA_T+log_p_SA_TSX+log_p_SX_XASAT+log_p_SX_X;
 		//result+=log_p_SA_A;
 		//		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));
 

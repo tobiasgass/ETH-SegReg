@@ -49,14 +49,18 @@ public:
 		m_SamplesPerAxis=nMaxDisplacementsPerAxis;
 		//		m_Grid=grid;
 		m_Dim=ImageType::ImageDimension;
+		movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
+		fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
 		for (int d=0;d<m_Dim;++d){
 			m_resolution[d]=nMaxDisplacementsPerAxis/nDisplacementSamplesPerAxis;
 			assert(m_resolution[d]>0);
+			assert (movingSize[d]>0);
+			assert (fixedSize[d]>0);
 		}
 
 		m_nLabels=pow(m_SamplesPerAxis,m_Dim);
-		movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
-		fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
+
+
 
 	}
 	/*

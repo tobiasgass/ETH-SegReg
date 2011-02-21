@@ -32,3 +32,5 @@ TARGET_LINK_LIBRARIES(Segmentation ITKIO Utils TRWS FastPD SRSMRFModels  ITKNume
 
 ADD_EXECUTABLE(fastPD Fast_PD.cpp )
 TARGET_LINK_LIBRARIES(fastPD ITKIO Utils TRWS FastPD SRSMRFModels  ITKNumerics)
+ADD_EXECUTABLE(test test.cxx )
+TARGET_LINK_LIBRARIES(test ITKIO Utils RF TRWS FastPD SRSMRFModels  ITKNumerics ITKCommon ITKStatistics xml2  /home/gasst/work/lib/libconfig++.so  )

@@ -26,12 +26,12 @@ public:
 	typedef typename Superclass::GridType GridType;
 	typedef typename Superclass::LabelType LabelType;
 	typedef typename Superclass::IndexType IndexType;
-//	typedef Graph::Real Real;
-	//	typedef TypeGeneral TRWType;
-	typedef TypeTruncatedQuadratic2D TRWType;
+	//	typedef Graph::Real Real;
+		typedef TypeGeneral TRWType;
+//	typedef TypeTruncatedQuadratic2D TRWType;
 	typedef MRFEnergy<TRWType> MRFType;
 	typedef typename MRFType::NodeId NodeType;
-//	typedef typename Superclass::DeformationFieldType DeformationFieldType;
+	//	typedef typename Superclass::DeformationFieldType DeformationFieldType;
 
 protected:
 	int nLabels,nNodes,nPairs,labelSampling;
@@ -51,10 +51,10 @@ public:
 		createGraph();
 	}
 	virtual void createGraph(){
-		TRWType::GlobalSize globalSize(labelSampling,labelSampling);
-		optimizer = new MRFType(globalSize);
-		//		TRWType::GlobalSize globalSize();
-		//		optimizer = new MRFType(TRWType::GlobalSize());
+//		TRWType::GlobalSize globalSize(labelSampling,labelSampling);
+//		optimizer = new MRFType(globalSize);
+				TRWType::GlobalSize globalSize();
+				optimizer = new MRFType(TRWType::GlobalSize());
 
 		nodes = new NodeType[nNodes];
 		std::cout<<"starting graph init"<<std::endl;
@@ -77,20 +77,20 @@ public:
 				LabelType label=this->m_labelConverter->getLabel(l1);
 				D[l1]=m_unaryWeight*this->m_unaryPotentialFunction->getPotential(currentImageIndex,label);
 			}
-			//			nodes[currentIntIndex] = optimizer->AddNode(TRWType::LocalSize(nLabels), TRWType::NodeData(D));
-			nodes[currentIntIndex] = optimizer->AddNode(TRWType::LocalSize(), TRWType::NodeData(D));
+						nodes[currentIntIndex] = optimizer->AddNode(TRWType::LocalSize(nLabels), TRWType::NodeData(D));
+//			nodes[currentIntIndex] = optimizer->AddNode(TRWType::LocalSize(), TRWType::NodeData(D));
 			grid->next();
 		}
 		clock_t finish1 = clock();
 		float t = (float) ((double)(finish1 - start) / CLOCKS_PER_SEC);
 		std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
-//
-//		TRWType::REAL V[nLabels*nLabels];
-//		for (int l1=0;l1<nLabels;++l1){
-//			for (int l2=0;l2<nLabels;++l2){
-//				V[l1*nLabels+l2]=m_pairwiseWeight*this->m_pairwisePotentialFunction->getPotential(this->m_labelConverter->getLabel(l1),this->m_labelConverter->getLabel(l2));
-//			}
-//		}
+		//
+		TRWType::REAL V[nLabels*nLabels];
+		for (int l1=0;l1<nLabels;++l1){
+			for (int l2=0;l2<nLabels;++l2){
+				V[l1*nLabels+l2]=m_pairwiseWeight*this->m_pairwisePotentialFunction->getPotential(this->m_labelConverter->getLabel(l1),this->m_labelConverter->getLabel(l2));
+			}
+		}
 
 		grid->gotoBegin();
 		double weight=m_pairwiseWeight;
@@ -101,8 +101,8 @@ public:
 			for (int i=0;i<nNeighbours;++i){
 				//				std::cout<<"adding edge, "<<currentIntIndex<< " to "<<neighbours[i]<<std::endl;
 
-				//				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
-				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(weight, weight, 8*weight));
+				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
+				//				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(weight, weight, 8*weight));
 			}
 			grid->next();
 		}
@@ -116,6 +116,8 @@ public:
 		MRFEnergy<TRWType>::Options options;
 		TRWType::REAL energy, lowerBound;
 		options.m_iterMax = 10; // maximum number of iterations
+		options.m_printMinIter=0;
+		options.m_printIter=1;
 		clock_t start = clock();
 		optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();
@@ -131,8 +133,8 @@ public:
 			int currentIntIndex=grid->getIndex();
 			IndexType currentImageIndex=grid->getCurrentImagePosition();
 			TRWType::Label l=optimizer->GetSolution(nodes[currentIntIndex]);
-			int labelIndex=l.m_kx+l.m_ky*labelSampling;
-			//			int labelIndex=l;
+//			int labelIndex=l.m_kx+l.m_ky*labelSampling;
+			int labelIndex=l;
 
 			LabelType label=this->m_labelConverter->getLabel(labelIndex);
 			IndexType movingIndex=this->m_labelConverter->getMovingIndex(currentImageIndex,labelIndex);
@@ -144,8 +146,8 @@ public:
 	}
 	virtual LabelType getLabelAtIndex(int index){
 		TRWType::Label l=optimizer->GetSolution(nodes[index]);
-		int labelIndex=l.m_kx+l.m_ky*labelSampling;
-		//		int labelIndex=l;
+//		int labelIndex=l.m_kx+l.m_ky*labelSampling;
+		int labelIndex=l;
 		return this->m_labelConverter->getLabel(labelIndex);
 
 	}
