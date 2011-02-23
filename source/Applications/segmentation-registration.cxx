@@ -76,7 +76,14 @@ int main(int argc, char ** argv)
 			ImageUtils<ImageType>::readImage(movingSegmentationFilename);
 	ImageType::Pointer fixedSegmentationImage =
 			ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
-#if 1
+
+	typedef itk::HistogramMatchingImageFilter<
+			ImageType,
+			ImageType >   MatchingFilterType;
+	MatchingFilterType::Pointer matcher = MatchingFilterType::New();
+	matcher->SetInput( movingImage );
+
+#if 0
 	typedef itk::ImageRegionConstIterator< ImageType > ConstIteratorType;
 	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
 	ImageType::RegionType inputRegion;
@@ -123,16 +130,12 @@ int main(int argc, char ** argv)
 		++outputIt;
 	}
 
-
-
-
-	typedef itk::HistogramMatchingImageFilter<
-			ImageType,
-			ImageType >   MatchingFilterType;
-	MatchingFilterType::Pointer matcher = MatchingFilterType::New();
-	matcher->SetInput( movingImage );
-	//	matcher->SetReferenceImage( targetImage );
 	matcher->SetReferenceImage( outputImage );
+#else
+
+
+	matcher->SetReferenceImage( targetImage );
+#endif
 	matcher->SetNumberOfHistogramLevels( 120 );
 	matcher->SetNumberOfMatchPoints( 7 );
 	//	matcher->ThresholdAtMeanIntensityOn();
@@ -140,7 +143,7 @@ int main(int argc, char ** argv)
 	movingImage=matcher->GetOutput();
 
 
-#endif
+
 	std::cout<<movingImage->GetLargestPossibleRegion().GetSize()<<std::endl;
 
 
@@ -163,6 +166,7 @@ int main(int argc, char ** argv)
 	potentialFunction->SetFixedImage(targetImage);
 	potentialFunction->SetGrid(&fullimageGrid);
 	potentialFunction->setSegmentationWeight(pairwiseSegmentationWeight);
+	potentialFunction->setRegistrationWeight(pairwiseWeight);
 
 	typedef UnarySRSPotentialv2<RLCType> UnaryPotentialType;
 	UnaryPotentialType::Pointer unaryFunction=UnaryPotentialType::New();
@@ -170,7 +174,6 @@ int main(int argc, char ** argv)
 	unaryFunction->SetMovingImage(movingImage);
 	unaryFunction->SetMovingSegmentationImage(movingSegmentationImage);
 	unaryFunction->SetFixedSegmentationImage(fixedSegmentationImage);
-
 	unaryFunction->SetFixedImage(targetImage);
 	unaryFunction->setLabelConverter(RLC);
 	ImagePointerType classifiedImage=unaryFunction->trainClassifiers();
@@ -179,10 +182,10 @@ int main(int argc, char ** argv)
 	//	ok what now: create graph! solve graph! save result!Z
 	//	for (double p=1;p<4;p+=0.5){
 	double p=pairwiseWeight;
-//		typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
-//		MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,pairwiseWeight, true);
-	typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
-	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,p);
+	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,1, true);
+	//	typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+	//	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,p);
 
 	std::cout<<"run with p="<<p<<std::endl;
 	mrfSolver.optimize();
@@ -191,9 +194,13 @@ int main(int argc, char ** argv)
 	ostringstream deformedFilename;
 	deformedFilename<<outputFilename<<"-p"<<p<<".png";
 	ImagePointerType deformedImage;
+//	deformedImage=RLC->transformImage(movingSegmentationImage,mrfSolver.getLabelImage());
 	deformedImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
 	//	ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
 	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
+	deformedImage=RLC->transformImage(movingSegmentationImage,mrfSolver.getLabelImage());
+	ImageUtils<ImageType>::writeImage("deformedSegmentation.png", deformedImage);
+
 	//deformation
 	if (defFilename!=""){
 		typedef RLCType::DisplacementFieldType DisplacementFieldType;

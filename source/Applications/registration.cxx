@@ -13,6 +13,7 @@
 #include "FAST-PD-mrf-optimisation.h"
 #include <fenv.h>
 #include "TRW-S-Registration.h"
+#include "itkHistogramMatchingImageFilter.h"
 
 using namespace std;
 using namespace itk;
@@ -57,6 +58,71 @@ int main(int argc, char ** argv)
 			ImageUtils<ImageType>::readImage(targetFilename);
 	ImageType::Pointer movingImage =
 			ImageUtils<ImageType>::readImage(movingFilename);
+
+	typedef itk::HistogramMatchingImageFilter<
+			ImageType,
+			ImageType >   MatchingFilterType;
+	MatchingFilterType::Pointer matcher = MatchingFilterType::New();
+	matcher->SetInput( movingImage );
+
+#if 0
+	typedef itk::ImageRegionConstIterator< ImageType > ConstIteratorType;
+	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
+	ImageType::RegionType inputRegion;
+	ImageType::RegionType::IndexType inputStart;
+	ImageType::RegionType::SizeType  size;
+	//	110x190+120+120
+	inputStart[0] = int(0.22869*targetImage->GetLargestPossibleRegion().GetSize()[0]);//::atoi( argv[3] );
+	inputStart[1] = int(0.508021*targetImage->GetLargestPossibleRegion().GetSize()[1]);
+	size[0]  = int(0.25*targetImage->GetLargestPossibleRegion().GetSize()[0]);
+	size[1]  = int(0.320856*targetImage->GetLargestPossibleRegion().GetSize()[1]);
+	inputRegion.SetSize( size );
+	inputRegion.SetIndex( inputStart );
+	ImageType::RegionType outputRegion;
+	ImageType::RegionType::IndexType outputStart;
+	outputStart[0] = 0;
+	outputStart[1] = 0;
+	outputRegion.SetSize( size );
+	outputRegion.SetIndex( outputStart );
+	ImageType::Pointer outputImage = ImageType::New();
+	outputImage->SetRegions( outputRegion );
+	const ImageType::SpacingType& spacing = targetImage->GetSpacing();
+	const ImageType::PointType& inputOrigin = targetImage->GetOrigin();
+	double   outputOrigin[ D ];
+
+	for(unsigned int i=0; i< D; i++)
+	{
+		outputOrigin[i] = inputOrigin[i] + spacing[i] * inputStart[i];
+	}
+
+
+	outputImage->SetSpacing( spacing );
+	outputImage->SetOrigin(  outputOrigin );
+	outputImage->Allocate();
+	ConstIteratorType inputIt(   targetImage, inputRegion  );
+	IteratorType      outputIt(  outputImage,         outputRegion );
+
+	inputIt.GoToBegin();
+	outputIt.GoToBegin();
+
+	while( !inputIt.IsAtEnd() )
+	{
+		outputIt.Set(  inputIt.Get()  );
+		++inputIt;
+		++outputIt;
+	}
+
+	matcher->SetReferenceImage( outputImage );
+#else
+
+
+	matcher->SetReferenceImage( targetImage );
+#endif
+	matcher->SetNumberOfHistogramLevels( 120 );
+	matcher->SetNumberOfMatchPoints( 7 );
+	//	matcher->ThresholdAtMeanIntensityOn();
+	matcher->Update();
+	movingImage=matcher->GetOutput();
 
 	//typedef int LabelType;
 	typedef Offset<D> LabelType;

@@ -25,13 +25,15 @@ int main(int argc, char ** argv)
 
 
 	argstream as(argc, argv);
-	string targetFilename,movingFilename,outputFilename,deformableFilename,defFilename="";
+	string targetFilename,movingFilename,fixedSegmentationFilename, movingSegmentationFilename,outputFilename,deformableFilename,defFilename="";
 	double pairwiseWeight=1;
 	int displacementSampling=-1;
 	double unaryWeight=1;
 	int maxDisplacement=10;
 
 	as >> parameter ("t", targetFilename, "target image (file name)", true);
+	as >> parameter ("m", movingFilename, "moving image (file name)", true);
+	as >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", true);
 	as >> parameter ("o", outputFilename, "output image (file name)", true);
 	as >> parameter ("p", pairwiseWeight,"weight for pairwise potentials", false);
 	as >> parameter ("u", unaryWeight,"weight for unary potentials", false);
@@ -50,7 +52,10 @@ int main(int argc, char ** argv)
 	//read input images
 	ImageType::Pointer targetImage =
 			ImageUtils<ImageType>::readImage(targetFilename);
-
+	ImageType::Pointer movingImage =
+				ImageUtils<ImageType>::readImage(movingFilename);
+		ImageType::Pointer movingSegmentationImage =
+				ImageUtils<ImageType>::readImage(movingSegmentationFilename);
 	//create Grid
 	typedef Grid<ImageType> GridType;
 	GridType::LabelType resolution;
@@ -81,7 +86,7 @@ int main(int argc, char ** argv)
 	//	ok what now: create graph! solve graph! save result!Z
 
 	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
-//			typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
+	//			typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	MRFSolverType mrfSolver(targetImage,targetImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,pairwiseWeight);
 	std::cout<<"run"<<std::endl;
 	mrfSolver.optimize();

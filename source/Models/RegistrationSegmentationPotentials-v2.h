@@ -32,7 +32,8 @@ public:
 	typedef typename Superclass::IndexType IndexType;
 	static const int m_dim=ImageType::ImageDimension;
 private:
-	double m_segmentationWeight;
+	double m_segmentationWeight,m_registrationWeight;
+	matrix<float> m_segmentationProbs;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
@@ -40,20 +41,25 @@ public:
 	itkTypeMacro(JointEuclideanPairwisePotential, Object);
 	JointEuclideanPairwisePotential(){
 		m_segmentationWeight=1.0;
+		m_registrationWeight=1.0;
 	}
 	void setSegmentationWeight(double w){
 		m_segmentationWeight=w;
 	}
+	void setRegistrationWeight(double w){
+		m_registrationWeight=w;
+	}
 	virtual double getWeight(int idx1, int idx2){
 		IndexType i1=this->m_Grid->getImagePositionAtIndex(idx1);
 		IndexType i2=this->m_Grid->getImagePositionAtIndex(idx2);
-		double result=1.0*abs(this->m_fixedImage->GetPixel(i1)-this->m_fixedImage->GetPixel(i2))/(m_segmentationWeight*32500);
-
-		result=exp(-result);
+		double result=1.0*abs(this->m_fixedImage->GetPixel(i1)-this->m_fixedImage->GetPixel(i2))/(6250);
+//		std::cout<<exp(-result)<<std::endl;
+//		result=(0.5-exp(-result))*2;
+		result=(exp(-result));
 		//		result=int(65535-result)/4200;
 		//		result*=result;
-		//		std::cout<<"WEIGHT: "<<this->m_fixedImage->GetPixel(i1)<<" "<<this->m_fixedImage->GetPixel(i2)<<" "<<result<<std::endl;
-		return result;
+//				std::cout<<"WEIGHT: "<<this->m_fixedImage->GetPixel(i1)<<" "<<this->m_fixedImage->GetPixel(i2)<<" "<<result<<std::endl;
+		return m_segmentationWeight*result;
 
 	}
 	virtual double getPotential2(LabelType l1, LabelType l2){
@@ -63,11 +69,11 @@ public:
 			tmp1+=tmp*tmp;
 		}
 		int thresh=8;
-		int replacement=9999;
+		int replacement=99999;
 		if (tmp1>thresh) tmp1=replacement;
 		//		std::cout<<l1<<" "<<l2<<" "<<tmp1<<std::endl;
 		if (tmp1<0) std::cout<<"ERROR PAIRWISE POTENTIAL SMALLER ZERO!"<<std::endl;
-		return tmp1;
+		return m_registrationWeight*tmp1;
 
 	}
 	virtual double getPotential(LabelType l1, LabelType l2){
@@ -236,7 +242,7 @@ public:
 		int fixedIntIndex=m_labelConverter->getIntegerImageIndex(fixedIndex);
 		double result=0.0;
 		IndexType movingIndex=m_labelConverter->getMovingIndex(fixedIndex,label);
-		double outOfBoundsPenalty=9999;
+		double outOfBoundsPenalty=99999;
 		if (this->outOfMovingBounds(movingIndex)){
 			return outOfBoundsPenalty;
 		}
@@ -246,7 +252,7 @@ public:
 		int segmentationLabel=label.getSegmentation();
 		int deformedSegmentation=m_movingSegmentation->GetPixel(movingIndex)>0;
 		//-log( p(X,A|T))
-		double log_p_XA_T=m_intensWeight*fabs(imageIntensity-movingIntensity);
+		double log_p_XA_T=m_intensWeight*fabs(imageIntensity-movingIntensity)*m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),1);
 		//-log( p(S_a|T,S_x) )
 		double log_p_SA_TSX =m_posteriorWeight*1000* (segmentationLabel!=deformedSegmentation);
 		//-log(  p(S_x|X,A,S_a,T) )
@@ -263,7 +269,7 @@ public:
 		//		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));
 
 		if (result<0) std::cout<<"ERROR UNARY POTENTIAL SMALLER THAN ZERO!!!"<<std::endl;
-		return result;
+		return result;//*m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),1);
 	}
 };//class
 

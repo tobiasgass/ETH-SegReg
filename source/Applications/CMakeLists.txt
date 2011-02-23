@@ -22,7 +22,7 @@ link_directories (${SRS-MRF_BINARY_DIR}/Models)
 
 
 ADD_EXECUTABLE(Registration registration.cxx )
-TARGET_LINK_LIBRARIES(Registration ITKIO Utils TRWS FastPD SRSMRFModels  ITKNumerics ITKCommon)
+TARGET_LINK_LIBRARIES(Registration ITKIO Utils TRWS FastPD SRSMRFModels  ITKStatistics ITKNumerics ITKCommon)
 
 ADD_EXECUTABLE(SegReg segmentation-registration.cxx )
 TARGET_LINK_LIBRARIES(SegReg ITKIO Utils RF TRWS FastPD SRSMRFModels  ITKNumerics ITKCommon ITKStatistics xml2  /home/gasst/work/lib/libconfig++.so  )
