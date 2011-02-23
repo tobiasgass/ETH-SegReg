@@ -17,7 +17,7 @@
  */
 
 template<class TUnaryFunction,class TLabel, class TImage>
-class GraphModel{
+class GraphModel: public itk::Image<TLabel, TImage::ImageDimension>{
 public:
 	typedef TUnaryFunction UnaryFunctionType;
 	typedef typename UnaryFunctionType::Pointer UnaryFunctionPointerType;
@@ -29,16 +29,14 @@ public:
 	typedef  TImage ImageType;
 	typedef typename TImage::Pointer ImagePointer;
 	typedef itk::NearestNeighborInterpolateImageFunction<ImageType, double >  ImageInterpolatorType;
-
-//	typedef typename NearestNeighborInterpolateImageFunction<ImageType> ImageInterpolatorType;
 	typedef typename ImageInterpolatorType::ContinuousIndexType ContinousIndexType;
 
 private:
-	ImagePointer m_fixedImage,m_targetImage,m_temporarySolution;
+	ImagePointer m_fixedImage;
 	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors,m_spacing;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices;
-	ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
+//	ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
 	UnaryFunctionPointerType m_unaryFunction;
 public:
 

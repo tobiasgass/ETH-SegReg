@@ -11,6 +11,7 @@ SET(SRSMRFModels_SRC
   Potentials.h
   Classifier.h
   BaseLabel.h
+  BasePotential.h
   Label.h
   RegistrationSegmentationLabel.h
   RegistrationSegmentationPotentials-v2.h

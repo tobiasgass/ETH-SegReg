@@ -18,6 +18,8 @@
 #include <sstream>
 #include "itkHistogramMatchingImageFilter.h"
 #include "Graph.h"
+#include "BaseLabel.h"
+#include "BasePotential.h"
 using namespace std;
 using namespace itk;
 
@@ -142,6 +144,19 @@ int main(int argc, char ** argv)
 	//	matcher->ThresholdAtMeanIntensityOn();
 	matcher->Update();
 	movingImage=matcher->GetOutput();
+
+	typedef BaseLabel<ImageType> BaseLabelType;
+	typedef BaseUnaryPotential< BaseLabelType, ImageType > BaseUnaryPotentialType;
+	typedef BaseUnaryPotentialType::Pointer BaseUnaryPotentialPointerType;
+	typedef GraphModel<BaseUnaryPotentialType,BaseLabelType,ImageType> GraphModelType;
+
+	BaseUnaryPotentialPointerType unaryPot=BaseUnaryPotentialType::New();
+	unaryPot->SetFixedImage(targetImage);
+	unaryPot->SetMovingImage(movingImage);
+	typedef ImageType::SizeType SizeType;
+	SizeType spacing;
+	spacing.Fill(5);
+	GraphModelType Graph(targetImage,spacing);
 
 
 

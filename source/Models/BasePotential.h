@@ -24,7 +24,7 @@ public:
 	typedef SmartPointer<Self>        Pointer;
 	typedef SmartPointer<const Self>  ConstPointer;
 
-	typedef	TImageImageType;
+	typedef	TImage ImageType;
 	typedef typename ImageType::Pointer ImagePointerType;
 	typedef TLabel LabelType;
 	typedef typename ImageType::IndexType IndexType;
@@ -48,7 +48,9 @@ public:
 	void SetFixedImage(ImagePointerType fixedImage){
 		m_fixedImage=fixedImage;
 	}
-	virtual double getPotential(IndexType fixedIndex, LabelType label)=0;
+	virtual double getPotential(IndexType fixedIndex, LabelType label){
+		return 1.0;
+	}
 };//class
 
 }//namespace
