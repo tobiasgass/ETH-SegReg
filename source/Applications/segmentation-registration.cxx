@@ -17,6 +17,7 @@
 #include "TRW-S-Registration.h"
 #include <sstream>
 #include "itkHistogramMatchingImageFilter.h"
+#include "Graph.h"
 using namespace std;
 using namespace itk;
 
@@ -151,7 +152,7 @@ int main(int argc, char ** argv)
 	typedef Grid<ImageType> GridType;
 	GridType::LabelType resolution;
 	for (int d=0;d<D;++d){
-		resolution[d]=1;
+		resolution[d]=5;
 	}
 
 	GridType fullimageGrid(targetImage,resolution);
