@@ -816,7 +816,7 @@
 						<parser enabled="true"/>
 					</buildOutputProvider>
 					<scannerInfoProvider id="specsFile">
-						<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file} -O3" command="/usr/bin/gcc" useDefault="true"/>
+						<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file} -g" command="/usr/bin/gcc" useDefault="true"/>
 						<parser enabled="true"/>
 					</scannerInfoProvider>
 				</profile>

@@ -9,17 +9,50 @@
 #define BASELABEL_H_
 
 
+
 template<class TImage>
 class BaseLabel : public TImage::OffsetType{
 public:
 	typedef typename TImage::OffsetType OffsetType;
 	typedef typename TImage::OffsetType Superclass;
+	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples;
+
 private:
 	int m_index,m_segmentation;
-	static int m_nLabels,m_nDisplacements,m_nSegmentations,m_nDisplacementSamples;
 
 public:
 	BaseLabel(){}
+	BaseLabel(int NSegmentations, int NDisplacementSamples){
+		nSegmentations=NSegmentations;
+		nDisplacementSamples=NDisplacementSamples;
+		nDisplacements=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension);
+		nLabels=nSegmentations*nDisplacements;
+	}
+	BaseLabel(int index){
+		m_segmentation=index/nDisplacements;
+		index=index%nDisplacements;
+		int divisor=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension-1);
+		for (int d=0;d<TImage::ImageDimension;++d){
+			(*this)[d]=index/divisor-nDisplacementSamples;
+			index-=((*this)[d]+nDisplacementSamples)*divisor;
+			divisor/=2*nDisplacementSamples+1;
+		}
+	}
+
+	const int getIndex(){
+		int index=0;
+		index+=m_segmentation*nDisplacements;
+		int factor=1;
+		for (int d=TImage::ImageDimension-1;d>=0;--d){
+			index+=factor*((*this)[d]+nDisplacementSamples);
+			factor*=2*nDisplacementSamples+1;
+		}
+		return index;
+	}
+	static const BaseLabel getLabel(int index){
+		BaseLabel result;
+		return result;
+	}
 	virtual OffsetType getDisplacement(){
 		return (OffsetType)(*this);
 	}

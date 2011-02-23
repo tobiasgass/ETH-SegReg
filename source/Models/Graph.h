@@ -40,7 +40,7 @@ private:
 	UnaryFunctionPointerType m_unaryFunction;
 public:
 
-	GraphModel(ImagePointer fixedimage, SizeType res):m_fixedImage(fixedimage){
+	GraphModel(ImagePointer fixedimage,UnaryFunctionPointerType unaryFunction, SizeType res):m_fixedImage(fixedimage),m_unaryFunction(unaryFunction){
 		assert(m_dim>1);
 		assert(m_dim<4);
 		m_totalSize=fixedimage->GetLargestPossibleRegion().GetSize();
@@ -66,38 +66,45 @@ public:
 			std::cout<<" "<<m_gridSize[0];
 			m_nVertices+=(m_gridSize[2]-1)*m_gridSize[1]*m_gridSize[0];
 		}
-		std::cout<<std::endl;
+		std::cout<<" "<<m_nNodes<<" "<<m_nVertices<<std::endl;
 //		m_ImageInterpolator.SetInput(m_movingImage);
 	}
 
-	double getUnaryPotential(int gridIndex, int LabelIndex){
-		IndexType fixedIndex=gridToImageIndex(gridIndex);
-		LabelType label(LabelIndex);
+	double getUnaryPotential(int gridIndex, int labelIndex){
+		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
+		LabelType label(labelIndex);
 		ContinousIndexType movingIndex=fixedIndex+label.getDisplacement();
+
 		itk::Vector<double> test(3);
 		int count=0;
-		int radius=m_spacing/2;
+//		int radius=m_spacing/2;
 		double res=0.0;
-		OffsetType off;
-		off.fill(-radius);
-		for (int d=0;d<m_dim*(radius*2+1);++d){
+		OffsetType off;//=m_spacing/2;
+//		off.Fill(-radius);
+#if 0
+		for (int d=0;d<m_dim;++d){
 			off[0]++;
 			for (int e=0;e<m_dim;++e){
 				if (off[e]>radius){
 					off[e]-radius;
 					off[e+1]++;
 				}
-				if (fixedIndex+off<m_totalSize )//&& movingIndex+off<m_movingSize)
-					res+=m_unaryFunction->get(fixedIndex,label,off);
+#endif
+//				if (fixedIndex+off<m_totalSize )//&& movingIndex+off<m_movingSize)
+				res+=m_unaryFunction->getPotential(fixedIndex,label);
 				++count;
+#if 0
 			}
 		}
+#endif
 		if (count>0)
 			return res/count;
 		else return 999999;
 	}
 	double getPairwisePotential(int LabelIndex,int LabelIndex2){ return 1;}
 	double getWeight(int gridIndex1, int gridIndex2){return 1.0;}
+	double getPairwisePotential2(int LabelIndex,int LabelIndex2){ return 1;}
+
 
 	IndexType gridToImageIndex(IndexType gridIndex){
 		IndexType imageIndex;
@@ -139,7 +146,7 @@ public:
 	LabelType getResolution(){return m_spacing;}
 	int nVertices(){return m_nVertices;}
 
-	std::vector<int> getCurrentForwardNeighbours(int index){
+	std::vector<int> getForwardNeighbours(int index){
 		IndexType position=getGridPositionAtIndex(index);
 		std::vector<int> neighbours;
 		for (int d=0;d<m_dim;++d){
