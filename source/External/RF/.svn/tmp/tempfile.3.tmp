@@ -1,0 +1,80 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+
+PROJECT(RandomForest)
+
+# DO WE USE CUDA?
+
+# simply choose one of the following lines, or tick the checkbock in the cmake gui
+#SET(USE_CUDA ON CACHE BOOL "Choose 'ON' for the usage of your GPU")
+SET(USE_CUDA OFF CACHE BOOL "Choose 'ON' for the usage of your GPU")
+
+IF(USE_CUDA)
+  MESSAGE("Using CUDA")
+  SET(CUDA_BUILD_TYPE Device CACHE STRING "Choose 'Device' or 'Emulation'")
+  FIND_PACKAGE(Cuda REQUIRED)
+  FIND_PACKAGE(CudaTemplates REQUIRED)
+  ADD_DEFINITIONS(-DUSE_CUDA)
+ELSE(USE_CUDA)
+  MESSAGE("Not using CUDA")
+ENDIF(USE_CUDA)
+
+# PLATFORM SPECIFIC STUFF
+
+IF(WIN32)
+  INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../extern/libconfig)
+  LINK_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../extern/libconfig)
+
+ELSE(WIN32)
+  ADD_DEFINITIONS(-O3)
+
+  INCLUDE_DIRECTORIES(
+    /usr/local/include
+    /usr/include/c++/4.3
+)
+
+ENDIF(WIN32)
+
+# SOURCE DECLARATION
+
+SET(ICG_RF_SRC  
+  forest.cpp
+  forest.h
+  tree.cpp
+  tree.h
+  hyperparameters.h
+  data.h
+  data.cpp
+  node.cpp
+  node.h
+  sharedptr.h
+)
+
+IF(USE_CUDA)
+  CUDA_ADD_EXECUTABLE(RandomForest
+    RandomForest.cpp
+    ${ICG_RF_SRC}
+  )        
+  CUDA_ADD_LIBRARY(RandomForestLib
+    ${ICG_RF_SRC}
+  )      
+ELSE(USE_CUDA)
+  ADD_EXECUTABLE(RandomForest
+    RandomForest.cpp
+    ${ICG_RF_SRC}
+  )  
+  ADD_LIBRARY(RandomForestLib
+    ${ICG_RF_SRC}
+  )      
+ENDIF(USE_CUDA)
+
+IF(WIN32)
+TARGET_LINK_LIBRARIES(RandomForest
+  libconfig++
+)
+ELSE(WIN32)
+TARGET_LINK_LIBRARIES(RandomForest
+  config++
+)
+ENDIF(WIN32)
+
+

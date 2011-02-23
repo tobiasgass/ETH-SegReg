@@ -1,0 +1,52 @@
+#include "tree.h"
+#include "data.h"
+#include "hyperparameters.h"
+#include <string>
+#include <vector>
+
+#ifndef FOREST_H_
+#define FOREST_H_
+
+class Forest
+{
+public:
+	Forest(const HyperParameters hp);
+	Forest();
+	~Forest();
+
+
+	void train(const float* data,
+			const size_t numSamples, const size_t featureLength, const int* labels);
+
+	void eval(const float* data,const size_t numSamples, const size_t featureLength,
+			float *confidences, int *labels);
+
+	void save(const std::string &name = "default");
+	void load(const std::string &name = "default");
+
+	double oobe() const;
+
+private:
+	std::vector<Tree> m_trees;
+
+#ifdef USE_CUDA
+  Cuda::HostMemoryHeap<float,2> m_forest_h;
+	Cuda::DeviceMemoryPitched<float,2> m_forest_d;
+#endif
+
+	HyperParameters m_hp;
+
+	void trainByCPU(const float* data,
+			const size_t numSamples, const size_t featureLength, const int* labels);
+	void trainByGPU(const float* data,
+			const size_t numSamples, const size_t featureLength, const int* labels);
+	void evalByCPU(const float* data,
+			const size_t numSamples, const size_t featureLength,
+			float *confidences, int *labels);
+	void evalByGPU(const float* data,
+			const size_t numSamples, const size_t featureLength,
+			float *confidences, int *labels);
+
+};
+
+#endif /* FOREST_H_ */

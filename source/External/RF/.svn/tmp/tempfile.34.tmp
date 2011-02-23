@@ -1,0 +1,426 @@
+#include "sforest.h"
+#include <string.h>
+#include "nodesvm.h"
+#include <boost/foreach.hpp>
+
+SForest::SForest(const HyperParameters &hp) : Forest(hp)
+{
+
+}
+
+SForest::SForest(const HyperParameters &hp, const std::string& sforestFilename ) : Forest( hp , sforestFilename )
+{
+
+}
+
+SForest::~SForest()
+{
+
+}
+
+
+void SForest::train(const matrix<float>& data, const std::vector<int>& labels, bool use_gpu)
+{
+    // Initialize
+    initialize(data.size1());
+
+    if (m_hp.useGPU || use_gpu)
+        trainByGPU(data,labels);
+    else
+        trainByCPU(data,labels);
+}
+
+void SForest::trainAndTest(const matrix<float>& dataTr, const std::vector<int>& labelsTr,
+                           const matrix<float>& dataTs, const std::vector<int>& labelsTs)
+{
+    // Initialize
+    initialize(dataTr.size1());
+
+    if (m_hp.useGPU)
+      trainByGPU(dataTr,labelsTr);
+    else
+      trainAndTestByCPU(dataTr,labelsTr, dataTs, labelsTs);
+}
+
+void SForest::trainByCPU(const matrix<float>& data, const std::vector<int>& labels)
+{
+}
+
+// CPU penne code only below this line
+void SForest::trainAndTestByCPU(const matrix<float>& dataTr, const std::vector<int>& labelsTr,
+                                const matrix<float>& dataTs, const std::vector<int>& labelsTs)
+{
+  // Create the confidences and predictions to be used by test set
+  initialize(dataTs.size1());
+
+  // First round without bootstrapping
+  HyperParameters tmpHP = m_hp;
+  tmpHP.verbose = false;
+
+  if (m_hp.verbose)
+    {
+      cout << "Training a semi-supervised random forest with " << m_hp.numTrees << " , grab a coffee ... " << endl;
+      cout << "\tFirst round without bootstrapping ..." << endl;
+    }
+
+  m_trees.clear();
+  m_trees.reserve(m_hp.numTrees);
+  for (int i = 0; i < m_hp.numTrees; i++)
+    {
+        Tree t(tmpHP);
+        t.train(dataTr,labelsTr);
+        t.eval(dataTr, labelsTr);
+        m_trees.push_back(t);
+    }
+
+  int treeCounter = 0;
+  std::vector<int> allTreesIndex;
+  std::vector<std::vector<int> > oldPredictions, oldOutOfBagSamples;
+  std::vector<matrix<float> > oldConfidences;
+  BOOST_FOREACH(Tree t, m_trees) {
+    oldPredictions.push_back(t.getPredictions());
+    oldOutOfBagSamples.push_back(t.getOutOfBagSamples());
+    oldConfidences.push_back(t.getConfidences());
+    allTreesIndex.push_back(treeCounter);
+    treeCounter++;
+  }
+
+  // Compute OOBE
+  double rfOOBE = computeParentOOBE(labelsTr, oldPredictions, oldConfidences, oldOutOfBagSamples, allTreesIndex);
+  double srfOOBE = rfOOBE;
+
+  // Evaluate the forest on test set
+  eval(dataTs, labelsTs, false);
+  double rfError = computeError(labelsTs);
+  std::string fileName = m_hp.savePath;
+  fileName += "/results.txt";
+  writeError(fileName,rfError);
+
+
+  // bootstrapping starts here
+  if (m_hp.verbose)
+    {
+      cout << "\tStarting bootstrapping ..." << endl;
+    }
+
+  Parent p;
+  int idx, numTrainedTrees;
+  std::vector<double> parentOOBE(m_hp.numTrees, 1.0), tmpWeights((int) dataTr.size1(), 0.0);
+  std::vector<int> retrainedTrees, tmpLabels((int) dataTr.size1(), -1);
+  std::vector<int>::iterator tmpLabelsItr = tmpLabels.begin();
+  std::vector<double>::iterator tmpWeightsItr = tmpWeights.begin();
+  std::vector<int>::const_iterator labelItr(labelsTr.begin());
+  for (int n = 0; n < m_hp.numLabeled; n++, tmpLabelsItr++, tmpWeightsItr++, labelItr++) {
+    *tmpLabelsItr = *labelItr;
+    *tmpWeightsItr = 1.0;
+  }
+
+  int numTrials = 3, curTrial = 0;
+  double weightsSum;
+  bool init = true;
+
+  for (int nEpoch = 0; nEpoch < m_hp.numEpochs; nEpoch++) {
+    if (m_hp.verbose)
+      {
+        cout << "\tGrab your next coffee ... epoch = " << nEpoch + 1 << flush;
+      }
+
+    idx = 0;
+    numTrainedTrees = 0;
+    weightsSum = 0;
+    retrainedTrees.clear();
+
+    std::vector<Tree>::iterator it(m_trees.begin()),end(m_trees.end());
+    for(; it != end; it++) {
+      p = newParent(labelsTr, oldPredictions, oldConfidences, oldOutOfBagSamples);
+
+      if (p.oobe < parentOOBE[idx]) {
+        numTrainedTrees++;
+        retrainedTrees.push_back(idx);
+        parentOOBE[idx] = p.oobe;
+
+        weightsSum += calcLabelsAndWeights(p, oldPredictions, oldConfidences, oldOutOfBagSamples, tmpLabels, tmpWeights, nEpoch, labelsTs, srfOOBE);
+
+        it->retrain(dataTr, tmpLabels, tmpWeights, init);
+      }
+      idx++;
+    }
+
+    init = false;
+
+    if (numTrainedTrees) {
+      BOOST_FOREACH(int t, retrainedTrees) {
+        oldPredictions[t] = m_trees[t].getPredictions();
+        oldOutOfBagSamples[t] = m_trees[t].getOutOfBagSamples();
+        oldConfidences[t] = m_trees[t].getConfidences();
+      }
+
+      if (m_hp.verbose) {
+        cout << "\tretrained " << numTrainedTrees << " trees, average weights = " << weightsSum/numTrainedTrees << "\t";
+      }
+
+      eval(dataTs, labelsTs, false);
+
+      // Compute the OOBE
+      srfOOBE = computeParentOOBE(labelsTr, oldPredictions, oldConfidences, oldOutOfBagSamples, allTreesIndex);
+
+      // Check for the stopping condition
+      if (srfOOBE > rfOOBE) {
+        curTrial++;
+
+        // Reset the forest
+        m_trees.clear();
+        m_trees.reserve(m_hp.numTrees);
+        for (int i = 0; i < m_hp.numTrees; i++)
+          {
+            Tree t(tmpHP);
+            t.train(dataTr,labelsTr);
+            t.eval(dataTr, labelsTr);
+            m_trees.push_back(t);
+          }
+        
+        BOOST_FOREACH(Tree t, m_trees) {
+          oldPredictions.push_back(t.getPredictions());
+          oldOutOfBagSamples.push_back(t.getOutOfBagSamples());
+          oldConfidences.push_back(t.getConfidences());
+        }
+
+        if (curTrial > numTrials) { // Give back the RF
+          break;
+        }
+        else { // Make a reset and start the bootstrapping again
+          if (m_hp.verbose) {
+            cout << endl << "\tReseting the forest >>>" << endl;
+          }
+          nEpoch = 0;
+        }
+      }
+    }
+    else {
+      if (m_hp.verbose) {
+        cout << "\tno trees were retrained" << endl;
+      }
+      break;
+    }
+  }
+
+  // Make the final predictions
+  bool curVerbose = m_hp.verbose;
+  m_hp.verbose = false;
+  eval(dataTr, labelsTr, false);
+  m_hp.verbose = curVerbose;
+  double error = computeErrorL(labelsTr);
+
+  if (m_hp.verbose)
+     {
+       cout << "\tTraining error = " << error << endl;
+     }
+
+  eval(dataTs, labelsTs, false);
+  double srfError = computeError(labelsTs);
+  double improvement = 100*(rfError - srfError)/rfError;
+  if (m_hp.verbose) {
+    cout << "\tSemi-supervised improvement = " << improvement << "%" << endl;
+  }
+
+  writeError(fileName,srfError);
+  writeError(fileName,improvement);
+}
+
+double SForest::computeErrorL(const std::vector<int>& labels)
+{
+    int bestClass, nSamp = 0;
+    float bestConf;
+    double error = 0;
+    BOOST_FOREACH(int pre, m_predictions) {
+      bestClass = 0;
+      bestConf = 0;
+      for (int nClass = 0; nClass < (int) m_hp.numClasses; nClass++)
+        {
+          if (m_confidences(nSamp, nClass) > bestConf)
+            {
+              bestClass = nClass;
+              bestConf = m_confidences(nSamp, nClass);
+            }
+        }
+
+      pre = bestClass;
+      if (bestClass != labels[nSamp])
+        {
+          error++;
+        }
+
+      nSamp++;
+
+      if (nSamp > m_hp.numClasses) {
+        break;
+      }
+    }
+    error /= (double) m_hp.numLabeled;
+
+    return error;
+}
+
+
+double SForest::calcLabelsAndWeights(const Parent p, const std::vector<std::vector<int> >& oldPredictions,
+                                     const std::vector<matrix<float> >& oldConfidences,
+                                     const std::vector<std::vector<int> >& oldOutOfBagSamples,
+                                     std::vector<int>& tmpLabels, std::vector<double>& tmpWeights, const int nEpoch,
+                                     const std::vector<int>& labels,
+                                     const double srfOOBE)
+{
+  double weightsSum = 0.0;
+  int numUnlabeled = (int) tmpLabels.size() - m_hp.numLabeled;
+  matrix<float> confidence(numUnlabeled, m_hp.numClasses);
+  std::vector<int> voteNum(numUnlabeled, 0), treePre((int) tmpLabels.size()), treeOBS;
+  matrix<float> treeConf;
+  for (int n = 0; n < numUnlabeled; n++) {
+    for (int m = 0; m < m_hp.numClasses; m++) {
+      confidence(n, m) = 0.0;
+    }
+  }
+
+    treeOBS.resize(tmpLabels.size() - m_hp.numLabeled);
+
+    std::vector<int>::iterator tmpItr = treeOBS.begin(), tmpEnd = treeOBS.end();
+    for (int n = m_hp.numLabeled; tmpItr != tmpEnd; tmpItr++, n++) {
+      *tmpItr = n;
+    }
+
+  BOOST_FOREACH(int n, p.trees) {
+    treePre = oldPredictions[n];
+    treeConf = oldConfidences[n];
+    if (false && nEpoch) {
+      treeOBS = oldOutOfBagSamples[n];
+    }
+
+    BOOST_FOREACH(int m, treeOBS) {
+      if (m >= m_hp.numLabeled) {
+        if (m_hp.useSoftVoting) {
+          for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+            confidence(m - m_hp.numLabeled, nClass) += treeConf(m, nClass);
+          }
+        }
+        else {
+          confidence(m - m_hp.numLabeled, treePre[m])++;
+        }
+        voteNum[m - m_hp.numLabeled]++;
+      }
+    }
+  }
+
+  int bestClass;
+  double bestConf, entropy, pk;
+  double error = 0;
+  int totalNum = 0;
+  double alpha = (srfOOBE < 0.5) ? 0.5 - srfOOBE : 0.0;
+  bool useAlpha = true;
+  for (int n = 0; n < numUnlabeled; n++) {
+    if (voteNum[n]) {
+      bestClass = 0;
+      bestConf = 0;
+      entropy = 0;
+      for (int m = 0; m < m_hp.numClasses; m++) {
+        if (confidence(n, m) > bestConf) {
+          bestConf = confidence(n, m);
+          bestClass = m;
+        }
+
+        pk = confidence(n, m)/voteNum[n];
+        if (pk) {
+          entropy -= pk*log(pk);
+        }
+      }
+
+      tmpLabels[n + m_hp.numLabeled] = bestClass;
+      if (useAlpha) {
+        tmpWeights[n + m_hp.numLabeled] = (bestConf/voteNum[n] > m_hp.confThreshold) ? alpha*(log((double) m_hp.numClasses) - entropy) : 0.0;
+      }
+      else {
+        tmpWeights[n + m_hp.numLabeled] = (bestConf/voteNum[n] > m_hp.confThreshold) ? log((double) m_hp.numClasses) - entropy : 0.0;
+      }
+      weightsSum += tmpWeights[n + m_hp.numLabeled];
+      error += (bestClass != labels[n]) ? 1 : 0;
+      totalNum++;
+    }
+  }
+
+  return weightsSum;
+}
+
+Parent SForest::newParent(const std::vector<int>& labels, const std::vector<std::vector<int> >& oldPredictions,
+                          const std::vector<matrix<float> >& oldConfidences,
+                          const std::vector<std::vector<int> >& oldOutOfBagSamples)
+{
+  std::vector<int> parentIndices;
+  std::vector<int> outBagIndices;
+  subSampleWithoutReplacement(m_trees.size(), static_cast<int>(floor(m_trees.size() * m_hp.parentBagRatio)),
+                              parentIndices, outBagIndices);
+
+  double oobe = computeParentOOBE(labels, oldPredictions, oldConfidences, oldOutOfBagSamples, parentIndices);
+
+  return Parent(oobe, parentIndices);
+}
+
+double SForest::computeParentOOBE(const std::vector<int>& labels, const std::vector<std::vector<int> >& oldPredictions,
+                                  const std::vector<matrix<float> >& oldConfidences,
+                                  const std::vector<std::vector<int> >& oldOutOfBagSamples,
+                                  const std::vector<int>& parentIndices)
+{
+  double oobe = 0;
+  matrix<float> confidence(m_hp.numLabeled, m_hp.numClasses);
+  std::vector<int> voteNum(m_hp.numLabeled, 0), treePre, treeOBS;
+  matrix<float> treeConf;
+  for (int n = 0; n < m_hp.numLabeled; n++) {
+    for (int m = 0; m < m_hp.numClasses; m++) {
+      confidence(n, m) = 0.0;
+    }
+  }
+
+  BOOST_FOREACH(int n, parentIndices) {
+    treePre = oldPredictions[n];
+    treeOBS = oldOutOfBagSamples[n];
+    treeConf = oldConfidences[n];
+    BOOST_FOREACH(int m, treeOBS) {
+      if (m < m_hp.numLabeled) {
+        if (m_hp.useSoftVoting) {
+          for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+            confidence(m, nClass) += treeConf(m, nClass);
+          }
+        }
+        else {
+          confidence(m, treePre[m])++;
+        }
+        voteNum[m]++;
+      }
+      else {
+        break;
+      }
+    }
+  }
+
+  int bestClass, totalNum = 0;
+  double bestConf;
+  std::vector<int>::const_iterator labelItr(labels.begin()), labelEnd(labels.end());
+  for (int n = 0; labelItr != labelEnd; labelItr++, n++) {
+    if (n < m_hp.numLabeled && voteNum[n]) {
+      bestClass = 0;
+      bestConf = 0;
+      for (int m = 0; m < m_hp.numClasses; m++) {
+        if (confidence(n, m) > bestConf) {
+          bestConf = confidence(n, m);
+          bestClass = m;
+        }
+      }
+
+      if (*labelItr != bestClass) {
+        oobe++;
+      }
+
+      totalNum++;
+    }
+  }
+  oobe /= (double) totalNum;
+
+  return oobe;
+}

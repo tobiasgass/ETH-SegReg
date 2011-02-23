@@ -1,0 +1,66 @@
+#include "node.h"
+#include "hyperparameters.h"
+#include "utilities.h"
+#include <boost/shared_ptr.hpp>
+#include <string>
+#include <iostream>
+#include <boost/numeric/ublas/matrix.hpp>
+<<<<<<< .mine
+#include <libxml/tree.h>
+=======
+#include "svm/"
+>>>>>>> .r62
+
+#ifndef NODE_SVM_
+#define NODE_SVM_
+
+using namespace boost::numeric::ublas;
+using namespace std;
+
+<<<<<<< .mine
+const char* const NODE_SVM = "nodeSVM";
+
+class NodeSVM : public Node
+{
+ public:
+=======
+class NodeSVM : public Node {
+public:
+>>>>>>> .r62
+    typedef boost::shared_ptr<NodeSVM> Ptr;
+
+    NodeSVM(HyperParameters hp, int depth);
+    NodeSVM(HyperParameters hp, int depth, int reset);
+
+    virtual xmlNodePtr save() const;
+
+    virtual NODE_TRAIN_STATUS train(const matrix<float>& data, const std::vector<int>& labels, std::vector<int>& inBagSamples,
+                                    matrix<float>& confidences, std::vector<int>& predictions);
+    virtual void eval(const matrix<float>& data, const std::vector<int>& labels, const std::vector<int>& sampleIndeces,
+                      matrix<float>& confidences, std::vector<int>& predictions);
+
+
+    virtual inline int bestFeature() const {
+        return -1;
+    };
+
+    virtual inline float bestThreshold() const {
+        return 0;
+    };
+
+private:
+    void evalNode(const matrix<float>& data, const std::vector<int>& inBagSamples,
+                  std::vector<int>& leftNodeSamples, std::vector<int>& rightNodeSamples);
+<<<<<<< .mine
+
+    std::pair<float, float> calcGiniAndThreshold(const std::vector<int>& labels,
+                                                 const std::vector<std::pair<float, int> >& responses);
+    xmlNodePtr saveFeature() const;
+    double m_gini;
+    int m_bestFeature;
+    float m_bestThreshold;
+=======
+>>>>>>> .r62
+};
+
+#endif // NODE_SVM_

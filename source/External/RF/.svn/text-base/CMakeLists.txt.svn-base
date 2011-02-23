@@ -1,0 +1,202 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+FILE(TO_CMAKE_PATH "$ENV{CMAKE_MODULE_PATH}" OT_CMAKE_MODULE_PATH)
+FILE(TO_CMAKE_PATH "$ENV{ICG_CMAKE_MODULE_PATH}" OT_ICG_CMAKE_MODULE_PATH)
+SET(CMAKE_MODULE_PATH ${OT_CMAKE_MODULE_PATH} ${OT_ICG_CMAKE_MODULE_PATH})
+
+
+PROJECT(RandomForest)
+
+SET( RUN_TEST FALSE )
+
+# Make sure testing is enabled (enable testing for current directory and below)
+#ENABLE_TESTING()
+
+# CUDA
+
+# simply choose one of the following lines, or tick the checkbock in the cmake gui
+#SET(USE_CUDA ON CACHE BOOL "Choose 'ON' for the usage of your GPU")
+SET(USE_CUDA OFF CACHE BOOL "Choose 'ON' for the usage of your GPU")
+
+IF(USE_CUDA)
+  MESSAGE("Using CUDA")
+  set(CUDA_BUILD_EMULATION OFF CACHE BOOL "enable emulation mode")
+  find_package(CUDA REQUIRED)
+  FIND_PACKAGE(CudaTemplates REQUIRED)
+  ADD_DEFINITIONS(-DUSE_CUDA)
+  INCLUDE_DIRECTORIES(
+    ${CUDATEMPLATES_INCLUDE_DIR}
+    ${FOUND_CUDA_NVCC_INCLUDE}
+  )
+  CUDA_INCLUDE_DIRECTORIES(
+    ${CUDATEMPLATES_INCLUDE_DIR}
+  )
+ELSE(USE_CUDA)
+  MESSAGE("Not using CUDA")
+ENDIF(USE_CUDA)
+
+# BOOST
+FIND_PACKAGE(Boost 1.36 COMPONENTS program_options REQUIRED)
+INCLUDE_DIRECTORIES(
+  ${Boost_INCLUDE_DIR}
+)
+
+# PLATFORM SPECIFIC STUFF
+IF(WIN32)
+  INCLUDE_DIRECTORIES(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../extern/libconfig
+    ../extern/svm
+    ../extern/libxml2/win32/include/libxml2
+    ../extern/iconv/win32/include
+  )
+
+  LINK_DIRECTORIES(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../extern/svm/liblinear-1.33/blas    
+    ${CMAKE_CURRENT_SOURCE_DIR}/../extern/libconfig
+    ${CMAKE_CURRENT_SOURCE_DIR}/../extern/libxml2/win32/lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/../extern/iconv/win32/lib
+    ${Boost_LIBRARY_DIRS}
+ )
+
+  ADD_DEFINITIONS(-D_SCL_SECURE_NO_WARNINGS) # turn off boost warning C4996 on Checked Iterators
+
+ELSE(WIN32)
+  ADD_DEFINITIONS(-O3 -march=native -mtune=native -msse3 -mfpmath=sse -fopenmp)
+
+INCLUDE_DIRECTORIES(
+    /usr/local/include
+    /usr/include/libxml2
+ )
+
+  LINK_DIRECTORIES(
+    ../usr/local/lib  
+    ../usr/lib 	
+    #../extern/libconfig
+    #${CMAKE_CURRENT_SOURCE_DIR}/../extern/svm/liblinear-1.33/blas    
+    #${CMAKE_CURRENT_SOURCE_DIR}/../extern/libconfig
+    ${Boost_LIBRARY_DIRS}
+    #/usr/lib
+ )
+
+ENDIF(WIN32)
+
+# SOURCE DECLARATION
+SET(ICG_RF_SRC
+  pairnode.cpp
+  pairtree.cpp
+  pairforest.cpp
+  forest.cpp
+  tree.cpp
+  hyperparameters.h
+  data.cpp
+  node.cpp
+  utilities.cpp
+  nodegini.cpp
+  nodeinfogain.cpp
+  nodehyperplane.cpp
+)
+
+
+
+IF(USE_CUDA)
+  CUDA_INCLUDE_DIRECTORIES(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cuda
+  )
+
+#  CUDA_ADD_EXECUTABLE(RandomForest
+#    RandomForest.cpp
+#    cuda/icg_rf_interface.cu
+#    ${ICG_RF_SRC}
+#  )
+  CUDA_ADD_LIBRARY(RandomForestLib
+    cuda/icg_rf_interface.cu
+    ${ICG_RF_SRC}
+  )
+ELSE(USE_CUDA)
+  ADD_EXECUTABLE(RandomForest
+    RandomForest.cpp
+    ${ICG_RF_SRC}
+  )
+#  ADD_LIBRARY(RandomForestLib
+#    ${ICG_RF_SRC}
+#  )
+ENDIF(USE_CUDA)
+
+IF(WIN32)
+#TARGET_LINK_LIBRARIES(RandomForest
+#  libconfig++ iconv libxml2
+#)
+TARGET_LINK_LIBRARIES(RandomForestLib
+  libconfig++ iconv libxml2
+)
+ELSE(WIN32)
+TARGET_LINK_LIBRARIES(RandomForest
+   xml2 config++ gomp)
+ENDIF(WIN32)
+
+# Add unit tests
+IF( RUN_TEST )
+    ADD_SUBDIRECTORY( UnitTests )
+ENDIF( RUN_TEST )
+
+# Write unit tests source directory path to header file (used by unit tests)
+FILE( WRITE UnitTests/unitTests.h
+            \#ifndef\ _UNITTESTS_H_\n
+            \#define\ _UNITTESTS_H_\n
+            \n
+            \n
+            \#define\ UNIT_TESTS_SOURCE_DIR\ std::string\("${LaViTo_SOURCE_DIR}/TOOLBOX/UnitTests"\)\n
+            \n
+            \n
+            \#endif\ //\ _UNITTESTS_H_\n )
+# Add mex file wrapper	
+# Changed FindMatlab.cmake to work with Matlab 2008b and Visual Studio 2005	
+#FIND_PACKAGE(Matlab)
+
+#SET(MATLAB_INCLUDE_DIR )
+SET(MATLAB_LIBRARIES /usr/local/Matlab/bin/glnxa64)
+#SET(MATLAB_MEX_LIBRARY /usr/local/matlab/bin/glnxa64)
+
+include_directories ( /usr/local/Matlab/extern/include )
+link_directories( /usr/local/Matlab/bin/glnxa64 )
+
+add_library(rfTrain SHARED rfTrain_mex.cpp)
+target_link_libraries(rfTrain ${MATLAB_LIBRARIES} xml2 config++) 
+add_library(rfClassify SHARED rfTrain_mex.cpp)
+target_link_libraries(rfClassify ${MATLAB_LIBRARIES} xml2 config++) 
+
+if(0)	
+  	add_definitions(-DWIN32 -D_WINDOWS -DMATLAB_MEX_FILE -D_USE_MATH_DEFINES)
+
+	# Mex file interface for training a random forest
+	add_library(rfTrain SHARED rfTrain_mex.cpp)
+
+	set_target_properties(rfTrain PROPERTIES SUFFIX .mexw32)
+	set_target_properties(rfTrain PROPERTIES LINK_FLAGS "/export:mexFunction")
+	target_link_libraries(rfTrain ${MATLAB_LIBRARIES} randomForestLib) 
+	
+	
+	# Mex file interface for using a random forest as a classifier
+	add_library(rfClassify SHARED rfClassify_mex.cpp)
+
+	set_target_properties(rfClassify PROPERTIES SUFFIX .mexw32)
+	set_target_properties(rfClassify PROPERTIES LINK_FLAGS "/export:mexFunction")
+	target_link_libraries(rfClassify ${MATLAB_LIBRARIES} randomForestLib)
+	
+	if(0)
+	# Mex file interface for training and testing a random forest
+	add_library(rfTrainAndTest SHARED rfTrainAndTest_mex.cpp)
+
+	set_target_properties(rfTrainAndTest PROPERTIES SUFFIX .mexw32)
+	set_target_properties(rfTrainAndTest PROPERTIES LINK_FLAGS "/export:mexFunction")
+	target_link_libraries(rfTrainAndTest ${MATLAB_LIBRARIES} randomForestLib)
+	
+	# Mex file interface for writing Matlab data to the yaBoost format
+	add_library(writeMatlabData SHARED writeData.cpp)
+
+	set_target_properties(writeMatlabData PROPERTIES SUFFIX .mexw32)
+	set_target_properties(writeMatlabData PROPERTIES LINK_FLAGS "/export:mexFunction")
+	target_link_libraries(writeMatlabData ${MATLAB_LIBRARIES})
+	endif(0)
+endif(0)	
+
+

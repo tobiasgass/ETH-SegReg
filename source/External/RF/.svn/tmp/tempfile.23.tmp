@@ -1,0 +1,268 @@
+#include "tree.h"
+#include <cmath>
+#include "utilities.h"
+
+Tree::Tree(HyperParameters hp) : m_hp( hp )
+{
+  if (hp.useInfoGain) {
+    m_rootNode = Node::Ptr(new NodeInfoGain(hp,0,0));
+  }
+  else {
+    m_rootNode = Node::Ptr(new NodeGini(hp,0,0));
+  }
+}
+
+Tree::Tree(HyperParameters hp, const xmlNodePtr treeNode) : m_hp( hp )
+{
+    xmlNodePtr cur = treeNode->xmlChildrenNode;
+    while ( cur != 0 )
+    {
+        if ( xmlStrcmp( cur->name, reinterpret_cast<const xmlChar*>( "node" ) ) == 0 )
+        {
+            std::string nodeType = readStringProp( cur, "type" );
+            if (nodeType == NODE_GINI) {
+                m_rootNode = Node::Ptr( new NodeGini( m_hp, 0, cur ) );
+            }
+            else if (nodeType == NODE_INFO_GAIN) {
+                m_rootNode = Node::Ptr( new NodeInfoGain( hp, 0, cur ) );
+            }
+            else if (nodeType == NODE_SVM) {
+                m_rootNode = Node::Ptr( new NodeSVM( m_hp, 0, cur ) );
+            }
+        }
+        else if ( xmlStrcmp( cur->name, reinterpret_cast<const xmlChar*>( "constants" ) ) == 0 )
+        {
+            //Configurator::conf()->loadConstants( cur );
+        }
+        cur = cur->next;
+    }
+}
+
+Tree::~Tree()
+{
+}
+
+xmlNodePtr Tree::save() const
+{
+	xmlNodePtr node = xmlNewNode( NULL, reinterpret_cast<const xmlChar*>( "tree" ) );
+    xmlAddChild( node, m_rootNode->save() );
+	return node;
+}
+
+void Tree::train(const matrix<float>& data, const std::vector<int>& labels,
+                 matrix<float>& forestConfidences, matrix<float>& forestOutOfBagConfidences,
+                 std::vector<int>& forestOutOfBagVoteNum)
+{
+    // Initialize
+    initialize(data.size1());
+
+    // Random Subsamples data according to bagratio
+    subSample(data.size1());
+
+    // Train the root Node
+    m_rootNode->train(data, labels, m_inBagSamples, m_confidences, m_predictions);
+    evalOutOfBagSamples(data, labels);
+
+    // Fill the confidence of the forest
+    for (unsigned int nSamp = 0; nSamp < data.size1(); nSamp++) {
+        if (m_hp.useSoftVoting) {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+                forestConfidences(nSamp,nClass) += m_confidences(nSamp,nClass);
+            }
+        }
+        else {
+            forestConfidences(nSamp, m_predictions[nSamp])++;
+        }
+    }
+
+    // Fill the out of bag confidences and vote count
+    std::vector<int>::const_iterator outItr(m_outOfBagSamples.begin()), outEnd(m_outOfBagSamples.end());
+    for (; outItr != outEnd; outItr++) {
+        forestOutOfBagVoteNum[*outItr]++;
+
+        if (m_hp.useSoftVoting) {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+                forestOutOfBagConfidences(*outItr,nClass) += m_confidences(*outItr,nClass);
+            }
+        }
+        else {
+            forestOutOfBagConfidences(*outItr, m_predictions[*outItr])++;
+        }
+    }
+
+    if (m_hp.verbose) {
+        cout << "Trained a tree with " << m_rootNode->numNodes() << " nodes." << endl;
+        cout << "Training error = " << computeError(labels) << ", in bag = ";
+        cout << computeError(labels, m_inBagSamples) << ", out of bag = ";
+        cout << computeError(labels, m_outOfBagSamples) <<  endl;
+    }
+}
+
+void Tree::train(const matrix<float>& data, const std::vector<int>& labels)
+{
+    // Initialize
+    initialize(data.size1());
+
+    // Random Subsamples data according to bagratio
+    subSample(data.size1());
+
+    // Train the root Node
+    m_rootNode->train(data, labels, m_inBagSamples, m_confidences, m_predictions);
+    evalOutOfBagSamples(data, labels);
+
+    if (m_hp.verbose) {
+        cout << "Trained a tree with " << m_rootNode->numNodes() << " nodes." << endl;
+        cout << "Training error = " << computeError(labels) << ", in bag = ";
+        cout << computeError(labels, m_inBagSamples) << ", out of bag = ";
+        cout << computeError(labels, m_outOfBagSamples) <<  endl;
+    }
+}
+
+void Tree::evalOutOfBagSamples(const matrix<float>& data, const std::vector<int>& labels)
+{
+    m_rootNode->eval(data, labels, m_outOfBagSamples, m_confidences, m_predictions);
+}
+
+void Tree::eval(const matrix<float>& data, const std::vector<int>& labels, matrix<float>& forestConfidences)
+{
+    // Initialize
+    initialize(data.size1());
+
+    std::vector<int> sampleIndeces;
+    sampleIndeces.reserve(data.size1());
+    for(unsigned int i = 0; i < data.size1(); i++) {
+        sampleIndeces.push_back(i);
+    }
+    m_rootNode->eval(data, labels, sampleIndeces, m_confidences, m_predictions);
+
+    // Fill the forest confidences
+    for (unsigned int nSamp = 0; nSamp < data.size1(); nSamp++) {
+        if (m_hp.useSoftVoting) {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+                forestConfidences(nSamp,nClass) += m_confidences(nSamp,nClass);
+            }
+        }
+        else {
+            forestConfidences(nSamp, m_predictions[nSamp])++;
+        }
+    }
+
+    if (m_hp.verbose) {
+        cout << "Tree test error: " << computeError(labels, sampleIndeces) << endl;
+    }
+}
+
+void Tree::eval(const matrix<float>& data, const std::vector<int>& labels)
+{
+    // Initialize
+    initialize(data.size1());
+
+    std::vector<int> sampleIndeces;
+    sampleIndeces.reserve(data.size1());
+    for(unsigned int i = 0; i < data.size1(); i++) {
+        sampleIndeces.push_back(i);
+    }
+
+    m_rootNode->eval(data, labels, sampleIndeces, m_confidences, m_predictions);
+
+    if (m_hp.verbose) {
+        cout << "Test error: " << computeError(labels, sampleIndeces) << endl;
+    }
+}
+
+void Tree::initialize(const int numSamples)
+{
+    m_confidences.resize(numSamples, m_hp.numClasses);
+    m_predictions.resize(numSamples);
+
+    m_inBagSamples.clear();
+    m_outOfBagSamples.clear();
+}
+
+void Tree::subSample(const int numSamples)
+{
+    if (m_hp.useSubSamplingWithReplacement)
+    {
+        m_inBagSamples = subSampleWithReplacement(numSamples);
+        m_outOfBagSamples = setDiff(m_inBagSamples, numSamples);
+    }
+    else
+    {
+        subSampleWithoutReplacement(numSamples, static_cast<int>(floor(numSamples * m_hp.bagRatio)),
+            m_inBagSamples, m_outOfBagSamples);
+    }
+}
+
+double Tree::computeError(const std::vector<int>& labels, const std::vector<int>& sampleIndeces) {
+    double error = 0.0;
+    std::vector<int>::const_iterator itr(sampleIndeces.begin()), end(sampleIndeces.end());
+    for (; itr != end; itr++) {
+        error += (m_predictions[*itr] != labels[*itr]) ? 1.0 : 0.0;
+    }
+    return error/(double)sampleIndeces.size();
+}
+
+double Tree::computeError(const std::vector<int>& labels) {
+    double error = 0.0;
+    std::vector<int>::const_iterator itr(m_predictions.begin()), end(m_predictions.end());
+    std::vector<int>::const_iterator labelItr(labels.begin()), labelEnd(labels.end());
+    for (; itr != end; itr++, labelItr++) {
+        error += (*itr != *labelItr) ? 1.0 : 0.0;
+    }
+    return error/(double)m_predictions.size();
+}
+
+void Tree::getTreeAsMatrix(boost::numeric::ublas::matrix<float> *data, const int tree_index){
+    getTreeAsMatrixRecursive(m_rootNode, data, tree_index, 0);
+}
+
+void Tree::getTreeAsMatrixRecursive(Node::Ptr current_node, boost::numeric::ublas::matrix<float> *data,
+                                    const int tree_index, const int node_index){
+
+    // fill matrix row with current node data
+    int last_index = 0;
+
+    // treeIndex
+    (*data)(node_index, last_index++) = (float)tree_index;
+    // nodeIndex
+    (*data)(node_index, last_index++) = (float)node_index;
+    // isTerminal
+    if (current_node->isLeaf())
+        (*data)(node_index, last_index++) = 1.0f;
+    else
+        (*data)(node_index, last_index++) = 0.0f;
+    // feature indices and weights
+    if (m_hp.useRandProj) {
+        for (int i = 0; i < m_hp.numProjFeatures; i++) {
+            (*data)(node_index, last_index++) = (float)current_node->bestFeature();
+            (*data)(node_index, last_index++) = 1.0f; // FIXXME, weights need to be implemented in CPU code
+        }
+    }
+    else {
+        (*data)(node_index, last_index++) = (float)current_node->bestFeature();
+        (*data)(node_index, last_index++) = 1.0f; // FIXXME, weights need to be implemented in CPU code
+    }
+    // threshold
+    (*data)(node_index, last_index++) = current_node->bestThreshold();
+    // confidences
+    if (current_node->isLeaf()) {
+        std::vector<float> confidences = current_node->nodeConf();
+        if (confidences.size() != (unsigned int) m_hp.numClasses)
+            throw("the number of confidences stored doesn't equal the number of classes");
+        for (int i = 0; i < m_hp.numClasses; i++)
+            (*data)(node_index, last_index++) = confidences[i];
+        // prediction
+        (*data)(node_index, last_index++) = (float) current_node->nodeLabel();
+    }
+    else {
+        for (int i = 0; i < m_hp.numClasses; i++)
+            (*data)(node_index, last_index++) = -1.0f;
+    }
+
+
+    // if necessary, reinvoke function for the child nodes
+    if (!current_node->isLeaf()){
+        getTreeAsMatrixRecursive(current_node->leftChildNode(), data, tree_index, node_index * 2 + 1);
+        getTreeAsMatrixRecursive(current_node->rightChildNode(), data, tree_index, node_index * 2 + 2);
+    }
+}

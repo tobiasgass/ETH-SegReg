@@ -1,0 +1,292 @@
+#include <iostream>
+#include <fstream>
+#include "forest.h"
+#include "sforest.h"
+#include "tree.h"
+#include "data.h"
+#include "utilities.h"
+#include "hyperparameters.h"
+#include <libconfig.h++>
+#include <cstdlib>
+#include <libxml/tree.h>
+#include <libxml/parser.h>
+using namespace std;
+using namespace libconfig;
+//namespace po = boost::program_options;
+
+void printUsage()
+{
+    cout << "Usage: randomForest <config.conf> <option>" << endl;
+    cout << "Options: " << "-train -test -trainAndTest" << endl;
+}
+
+void printTestUsage()
+{
+    cout << "Usage: randomForest <config.conf> -test <classifier.xml>" << endl;
+}
+
+HyperParameters parseHyperParameters(const std::string& confFile)
+{
+    cout << "here? " << endl;
+    HyperParameters hp;
+    Config configFile;
+
+    configFile.readFile(confFile.c_str());
+    cout << "here2? " << endl;
+    // BASEMODEL
+    hp.numEpochs = configFile.lookup("baseModel.numEpochs");
+
+    hp.numTrees = configFile.lookup("baseModel.numTrees");
+    hp.maxTreeDepth = configFile.lookup("baseModel.maxDepth");
+       cout << "here3? " << endl;
+    hp.bagRatio = configFile.lookup("baseModel.bagRatio");
+    hp.parentBagRatio = configFile.lookup("baseModel.parentBagRatio");
+    hp.confThreshold = configFile.lookup("baseModel.confThreshold");
+
+    hp.numRandomFeatures = configFile.lookup("baseModel.numRandomFeatures");
+    hp.numProjFeatures = configFile.lookup("baseModel.numProjFeatures");
+    hp.useRandProj = configFile.lookup("baseModel.useRandProj");
+    hp.useGPU = configFile.lookup("baseModel.useGPU");
+    hp.numClasses = configFile.lookup("baseModel.numClasses");
+    hp.useSubSamplingWithReplacement = configFile.lookup("baseModel.subSampleWR");
+    hp.useSoftVoting = configFile.lookup("baseModel.useSoftVoting");
+    hp.useSVM = configFile.lookup("baseModel.useSVM");
+    hp.useInfoGain = configFile.lookup("baseModel.useInfoGain");
+    hp.verbose = configFile.lookup("baseModel.verbose");
+    hp.saveForest = configFile.lookup("baseModel.saveForest");
+
+    // SVM
+    hp.svmSolverType = configFile.lookup("svm.solverType");
+    hp.svmEps = configFile.lookup("svm.eps");
+    hp.svmC = configFile.lookup("svm.C");
+
+    // OUTPUT
+    hp.saveName = (const char *) configFile.lookup("output.saveName");
+    hp.savePath = (const char *) configFile.lookup("output.savePath");
+    hp.loadName = (const char *) configFile.lookup("output.loadName");
+
+    // DATA
+    hp.trainData = (const char*) configFile.lookup("data.trainData");
+    hp.trainLabels = (const char*) configFile.lookup("data.trainLabels");
+    hp.testData = (const char*) configFile.lookup("data.testData");
+    hp.testLabels = (const char*) configFile.lookup("data.testLabels");
+    hp.numLabeled = configFile.lookup("data.numLabeled");
+
+
+    return hp;
+}
+
+void saveForest(const Forest& forest, const std::string& filename )
+{
+    const xmlNodePtr rootNode = forest.save();
+    xmlDocPtr doc = xmlNewDoc( reinterpret_cast<const xmlChar*>( "1.0" ) );
+    xmlDocSetRootElement( doc, rootNode );
+    xmlSaveFormatFileEnc( filename.c_str(), doc, "UTF-8", 1 );
+    xmlFreeDoc( doc );
+}
+
+
+/*
+typedef enum CLASSIFIER_TYPE {RF, SRF};
+typedef enum ACTION {TRAIN, TEST, TRAIN_AND_TEST};
+void parseCommandLine(int argc, char** argv, CLASSIFIER_TYPE& ctype, ACTION& action)
+{
+  po::options_description desc("Allowed options");
+  desc.add_options()
+    ("help", "produce help message")
+    ("compression", po::value<int>(), "set compression level")
+    ;
+
+ po::variables_map vm;
+ po::store(po::parse_command_line(argc, argv, desc), vm);
+ po::notify(vm);
+
+ if (vm.count("help")) {
+   cout << desc << "\n";
+ }
+
+ if (vm.count("compression")) {
+   cout << "Compression level was set to "
+        << vm["compression"].as<int>() << ".\n";
+ } else {
+   cout << "Compression level was not set.\n";
+ }
+}
+*/
+
+int main(int argc, char** argv)
+{
+    // at least, we need two arguments
+    if (argc < 2) {
+      cout << "----------------------------------------------------------------------------------------------------" << endl;
+      cout << "Illegal arguments specified. Your options:" << endl;
+      cout << "----------------------------------------------------------------------------------------------------" << endl;
+      printUsage();
+      printTestUsage();
+      cout << "----------------------------------------------------------------------------------------------------" << endl;
+      return -1;
+    }
+
+    // Train Random Forest
+    if (argc == 3 && (std::string(argv[2]) == "-train"))
+    {
+        const std::string confFile(argv[1]);
+        HyperParameters hp = parseHyperParameters(confFile);
+        Forest rf(hp);
+        //Tree t(hp);
+
+        FileData fileData(hp.trainData, hp.trainLabels);
+        fileData.readData();
+        fileData.readLabels();
+
+        rf.train(fileData.getData(),fileData.getLabels());
+
+    }
+    // Test Random Forest
+    else if (std::string(argv[2]) == "-test")
+    {
+        if (argc == 4)
+        {
+            const std::string confFile(argv[1]);
+            HyperParameters hp = parseHyperParameters(confFile);
+            Forest rf(hp,argv[3]);
+
+            FileData testData(hp.testData, hp.testLabels);
+            testData.readData();
+            testData.readLabels();
+
+            rf.eval(testData.getData(),testData.getLabels());
+        }
+        else
+        {
+            printTestUsage();
+        }
+    }
+    // Train and Test Random Forest
+    else if (argc == 3 && (std::string(argv[2]) == "-trainAndTest"))
+    {
+        const std::string confFile(argv[1]);
+        HyperParameters hp = parseHyperParameters(confFile);
+
+        Forest rf(hp);
+
+        timeIt(1);
+        FileData trainData(hp.trainData, hp.trainLabels);
+        trainData.readData();
+        trainData.readLabels();
+
+        rf.train(trainData.getData(),trainData.getLabels());
+        cout << "\tTraining time = " << timeIt(0) << " seconds" << endl;
+
+        timeIt(1);
+        FileData testData(hp.testData, hp.testLabels);
+        testData.readData();
+        testData.readLabels();
+        rf.eval(testData.getData(),testData.getLabels());
+        cout << "\tTest time = " << timeIt(0) << " seconds" << endl;
+        if (hp.saveForest) {
+            saveForest(rf,"testforest.xml");
+        }
+    }
+   else if (argc == 3 && (std::string(argv[2]) == "-trainSemiAndTest"))
+    {
+        const std::string confFile(argv[1]);
+        HyperParameters hp = parseHyperParameters(confFile);
+
+        SForest rf(hp);
+
+        timeIt(1);
+        FileData trainData(hp.trainData, hp.trainLabels);
+        trainData.readData();
+        trainData.readLabels();
+
+        //        rf.train(trainData.getData(),trainData.getLabels());
+        //cout << "\tTraining time = " << timeIt(0) << " seconds" << endl;
+
+        //timeIt(1);
+        FileData testData(hp.testData, hp.testLabels);
+        testData.readData();
+        testData.readLabels();
+        rf.trainAndTest(trainData.getData(), trainData.getLabels(), testData.getData(),testData.getLabels());
+        cout << "\tTrain and Test time = " << timeIt(0) << " seconds" << endl;
+        rf.eval(testData.getData(), testData.getLabels());
+        if (hp.saveForest) {
+            saveForest(rf,"testforest.xml");
+        }
+    }
+#ifdef USE_CUDA
+    else {
+        cout << "ERROR:" << endl;
+        printUsage();
+
+        // Jakobs Playground (passing command line arguments is messy in MSVS)
+        //const std::string confFile(argv[1]);
+        HyperParameters hp = parseHyperParameters("D:/Projects/Icg_Rf/src/randomForest.conf");
+        Forest rf(hp);
+
+        // load data
+        FileData trainData(hp.trainData, hp.trainLabels);
+        trainData.readData();
+        trainData.readLabels();
+        FileData testData(hp.testData, hp.testLabels);
+        testData.readData();
+        testData.readLabels();
+
+
+        std::cout << "\n --- CPU: training --- ";
+        double t = getTime();
+        rf.train(trainData.getData(),trainData.getLabels());
+        std::cout << "\n Training took " << getTime() - t << " ms.";
+        t = getTime();
+        std::cout << "\n --- CPU: evaluating --- ";
+        rf.eval(testData.getData(),testData.getLabels());
+        std::cout << "\n Testing took " << getTime() - t << " ms.";
+
+        std::vector<int> cpu_pred = rf.getPredictions();
+        matrix<float> cpu_conf = rf.getConfidences();
+        //dispMatrix(cpu_conf);
+
+        std::cout << "\n --- GPU: training --- ";
+        t = getTime();
+        rf.createForestMatrix();
+        //rf.train(trainData.getData(),trainData.getLabels());
+        std::cout << "\n Training took " << getTime() - t << " ms.";
+        t = getTime();
+        std::cout << "\n --- GPU: evaluating --- ";
+        rf.eval(testData.getData(),testData.getLabels(),true);
+        std::cout << "\n Testing took " << getTime() - t << " ms.";
+
+        std::vector<int> gpu_pred = rf.getPredictions();
+        matrix<float> gpu_conf = rf.getConfidences();
+
+        //dispMatrix(gpu_conf);
+
+        matrix<float> diff = cpu_conf - gpu_conf;
+        float sum = 0;
+        for (size_t i = 0; i < diff.size1(); i++) {
+            for (size_t j = 0; j < diff.size2(); j++) {
+                sum += abs(diff(i,j));
+            }
+        }
+        std::cout << "\n\n absolute differences confidences: " << sum;
+
+        sum = 0;
+        for (int i = 0; i < cpu_pred.size(); i++){
+            if (cpu_pred[i] != gpu_pred[i])
+                sum++;
+        }
+        std::cout << "\n wrong predictions: (" << sum << "/" << cpu_pred.size() << ")\n";
+
+        //return -1;
+    }
+#endif
+#ifdef WIN32
+    std::cout << "\nPress any key to finish ...";
+    char ch;
+    while (std::cin.get(ch) && ch != '\n')
+        std::cin.get();
+#endif
+
+    return 0;
+}
+

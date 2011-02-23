@@ -1,0 +1,142 @@
+#include "nodesvm.h"
+
+
+NodeSVM::NodeSVM(HyperParameters hp, int depth) : Node(hp, depth) {
+  m_svmParameters = new parameter;
+  m_svmParameters->solver_type = hp.svmSolverType;
+  m_svmParameters->C = hp.svmC;
+  m_svmParameters->eps = hp.svmEps;
+  
+  m_svmParameters->nr_weight = 0;
+  m_svmParameters->weight_label = NULL;
+  m_svmParameters->weight = NULL;
+}
+
+NodeSVM::NodeSVM(HyperParameters hp, int depth, int reset) : Node(hp, depth, reset) {
+  m_svmParameters = new parameter;
+  m_svmParameters->solver_type = hp.svmSolverType;
+  m_svmParameters->C = hp.svmC;
+  m_svmParameters->eps = hp.svmEps;
+  
+  m_svmParameters->nr_weight = 0;
+  m_svmParameters->weight_label = NULL;
+  m_svmParameters->weight = NULL;
+}
+
+NodeSVM::~NodeSVM() {
+  destroy_param(m_svmParameters);
+  destroy_model(m_svmModel);
+}
+
+NodeSVM::NodeSVM(HyperParameters hp, int reset, const xmlNodePtr nodeNode) : Node(hp,0,reset)
+{
+
+}
+
+void NodeSVM::evalNode(const matrix<float>& data, const std::vector<int>& inBagSamples,
+                       std::vector<int>& leftNodeSamples, std::vector<int>& rightNodeSamples) {
+
+}
+
+xmlNodePtr NodeSVM::saveFeature() const
+{
+  xmlNodePtr node = xmlNewNode( NULL, reinterpret_cast<const xmlChar*>( "feature" ) );
+  //addIntProp(node, "feat", m_bestFeature);
+  //addDoubleProp(node, "threshold", m_bestThreshold);
+  
+  return node;
+}
+
+xmlNodePtr NodeSVM::save() const
+{
+  xmlNodePtr node = xmlNewNode( NULL, reinterpret_cast<const xmlChar*>( "node" ) );
+  xmlNewProp( node, reinterpret_cast<const xmlChar*>( "type" ),
+	      reinterpret_cast<const xmlChar*>( NODE_SVM ) );
+<<<<<<< .mine
+    const char* isLeaf = (m_isLeaf) ? "true" : "false";
+    xmlNewProp( node, reinterpret_cast<const xmlChar*>( "isLeaf" ),
+	      reinterpret_cast<const xmlChar*>( isLeaf ) );
+   if (!m_isLeaf)
+=======
+  xmlAddChild(node, saveFeature());
+  if (!m_isLeaf)
+>>>>>>> .r72
+    {
+<<<<<<< .mine
+        xmlAddChild(node, saveFeature());
+        xmlNodePtr leftChildNode = m_leftChildNode->save();
+=======
+      xmlNodePtr leftChildNode = m_leftChildNode->save();
+>>>>>>> .r72
+        xmlNewProp( leftChildNode, reinterpret_cast<const xmlChar*>( "child" ),
+                    reinterpret_cast<const xmlChar*>( LEFT_CHILD_NODE ) );
+        xmlAddChild( node, leftChildNode );
+        
+        xmlNodePtr rightChildNode = m_rightChildNode->save();
+        xmlNewProp( rightChildNode, reinterpret_cast<const xmlChar*>( "child" ),
+                    reinterpret_cast<const xmlChar*>( RIGHT_CHILD_NODE ) );
+        xmlAddChild( node, rightChildNode );
+    }
+  //	if ( m_feature )
+  //		xmlAddChild( node, m_feature->save() );
+  //	else
+  //		addDoubleProp( node, "interstageThresh", m_interstageThreshold );
+
+  return node;
+}
+
+NODE_TRAIN_STATUS NodeSVM::train(const matrix<float>& data, const std::vector<int>& labels, std::vector<int>& inBagSamples,
+                                 matrix<float>& confidences, std::vector<int>& predictions) {
+  NODE_TRAIN_STATUS myTrainingStatus = IS_NOT_LEAF;
+
+  cout << "we are at the svm node now..." << endl;
+
+  convertData(data, labels, inBagSamples);
+
+  m_svmModel = trainSVM(m_svmProblem, m_svmParameters);
+  
+  cleanProblem();
+
+  return myTrainingStatus;
+}
+
+void NodeSVM::eval(const matrix<float>& data, const std::vector<int>& labels, const std::vector<int>& sampleIndeces,
+                   matrix<float>& confidences, std::vector<int>& predictions) {
+  convertData(data, labels, sampleIndeces);
+  
+  cleanProblem();
+}
+
+void NodeSVM::convertData(const matrix<float>& data, const std::vector<int>& labels, const std::vector<int>& inBagSamples) {
+  // Define a problem for the SVM
+  m_svmProblem = new problem;
+  m_svmProblem->bias = true;
+  m_svmProblem->l = (int) inBagSamples.size();
+  m_svmProblem->n = (int) data.size2() + 1;
+  m_svmProblem->y = new int [inBagSamples.size()];
+  m_svmProblem->x = new feature_node* [inBagSamples.size()];
+  m_svmX = new feature_node [inBagSamples.size()*(data.size2() + 2)]; // sampNum*(featNum + bias + endSampIndicator)
+
+  std::vector<int>::const_iterator bagItr(inBagSamples.begin()), bagEnd(inBagSamples.end());
+  int j = 0;
+  for (int nS = 0; bagItr != bagEnd; bagItr++, nS++) {
+    m_svmProblem->y[nS] = labels[*bagItr];
+    m_svmProblem->x[nS] = &m_svmX[j];
+    for (int nF = 0; nF < (int) data.size2(); nF++, j++) {
+      m_svmX[j].index = nF + 1;
+      m_svmX[j].value = data(*bagItr, nF);
+    }
+    m_svmX[j].value = 1; // bias
+    m_svmX[j].index = (int) data.size2() + 1;
+    j++;
+    m_svmX[j].index = -1; // sample end indicator
+    j++;
+  }
+}
+
+void NodeSVM::cleanProblem() {
+  delete [] m_svmX;
+  delete [] m_svmProblem->x;
+  delete [] m_svmProblem->y;
+  delete [] m_svmProblem;
+}

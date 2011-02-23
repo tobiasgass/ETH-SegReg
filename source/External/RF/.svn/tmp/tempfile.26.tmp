@@ -1,0 +1,145 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+
+PROJECT(RandomForest)
+
+SET( RUN_TEST FALSE )
+
+# Make sure testing is enabled (enable testing for current directory and below)
+#ENABLE_TESTING()
+
+# CUDA
+
+# simply choose one of the following lines, or tick the checkbock in the cmake gui
+#SET(USE_CUDA ON CACHE BOOL "Choose 'ON' for the usage of your GPU")
+SET(USE_CUDA OFF CACHE BOOL "Choose 'ON' for the usage of your GPU")
+
+IF(USE_CUDA)
+  MESSAGE("Using CUDA")
+  SET(CUDA_BUILD_TYPE Device CACHE STRING "Choose 'Device' or 'Emulation'")
+  FIND_PACKAGE(Cuda REQUIRED)
+  FIND_PACKAGE(CudaTemplates REQUIRED)
+  ADD_DEFINITIONS(-DUSE_CUDA)
+  INCLUDE_DIRECTORIES(
+    ${CUDATEMPLATES_INCLUDE_DIR}
+    ${FOUND_CUDA_NVCC_INCLUDE}
+  )
+  CUDA_INCLUDE_DIRECTORIES(
+    ${CUDATEMPLATES_INCLUDE_DIR}
+  )
+ELSE(USE_CUDA)
+  MESSAGE("Not using CUDA")
+ENDIF(USE_CUDA)
+
+# BOOST
+FIND_PACKAGE(Boost 1.35 REQUIRED)
+INCLUDE_DIRECTORIES(
+  ${Boost_INCLUDE_DIR}
+)
+
+# PLATFORM SPECIFIC STUFF
+IF(WIN32)
+  INCLUDE_DIRECTORIES(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../extern/libconfig
+    ../extern/svm
+    ../extern/libxml2/win32/include/libxml2
+    ../extern/iconv/win32/include
+  )
+
+  LINK_DIRECTORIES(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../extern/libconfig
+    ../extern/libxml2/win32/lib
+    ../extern/iconv/win32/lib
+  )
+
+  ADD_DEFINITIONS(-D_SCL_SECURE_NO_WARNINGS) # turn off boost warning C4996 on Checked Iterators
+
+ELSE(WIN32)
+  ADD_DEFINITIONS(-O3)
+
+INCLUDE_DIRECTORIES(
+    /usr/local/include
+    /usr/include/libxml2
+    ../extern/svm/libliner-1.33
+    ../extern/svm/liblinear-1.33/blas
+)
+
+ENDIF(WIN32)
+
+# SOURCE DECLARATION
+SET(ICG_RF_SRC
+  forest.cpp
+  forest.h
+  tree.cpp
+  tree.h
+  hyperparameters.h
+  data.h
+  data.cpp
+  node.cpp
+  node.h
+  sharedptr.h
+  utilities.h
+  utilities.cpp
+  nodegini.h
+  nodegini.cpp
+  nodesvm.h
+  nodesvm.cpp
+  nodeinfogain.h
+  nodeinfogain.cpp
+)
+
+  #../extern/svm/libliner-1.33/linear.h
+  #../extern/svm/libliner-1.33/linear.cpp
+  #../extern/svm/libliner-1.33/tron.h
+  #../extern/svm/libliner-1.33/tron.cpp
+
+IF(USE_CUDA)
+  CUDA_INCLUDE_DIRECTORIES(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cuda
+  )
+
+  CUDA_ADD_EXECUTABLE(RandomForest
+    RandomForest.cpp
+    cuda/icg_rf_interface.cu
+    ${ICG_RF_SRC}
+  )
+#  CUDA_ADD_LIBRARY(RandomForestLib
+#    cuda/icg_rf_interface.cu
+#    ${ICG_RF_SRC}
+#  )
+ELSE(USE_CUDA)
+  ADD_EXECUTABLE(RandomForest
+    RandomForest.cpp
+    ${ICG_RF_SRC}
+  )
+#  ADD_LIBRARY(RandomForestLib
+#    ${ICG_RF_SRC}
+#  )
+ENDIF(USE_CUDA)
+
+IF(WIN32)
+TARGET_LINK_LIBRARIES(RandomForest
+  libconfig++ iconv libxml2
+)
+ELSE(WIN32)
+TARGET_LINK_LIBRARIES(RandomForest
+  frameworkBlas
+  config++ libxml2)
+)
+ENDIF(WIN32)
+
+# Add unit tests
+IF( RUN_TEST )
+    ADD_SUBDIRECTORY( UnitTests )
+ENDIF( RUN_TEST )
+
+# Write unit tests source directory path to header file (used by unit tests)
+FILE( WRITE UnitTests/unitTests.h
+            \#ifndef\ _UNITTESTS_H_\n
+            \#define\ _UNITTESTS_H_\n
+            \n
+            \n
+            \#define\ UNIT_TESTS_SOURCE_DIR\ std::string\("${LaViTo_SOURCE_DIR}/TOOLBOX/UnitTests"\)\n
+            \n
+            \n
+            \#endif\ //\ _UNITTESTS_H_\n )
+

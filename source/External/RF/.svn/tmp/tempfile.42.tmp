@@ -1,0 +1,1721 @@
+#include "dasforest.h"
+#include <string.h>
+#include "nodesvm.h"
+#include <boost/foreach.hpp>
+
+DASForest::DASForest(const HyperParameters &hp) : Forest(hp), m_sim(hp)
+{
+
+}
+
+DASForest::DASForest(const HyperParameters &hp, const std::string& dasforestFilename ) : Forest( hp , dasforestFilename ), m_sim(hp)
+{
+
+}
+
+DASForest::~DASForest()
+{
+
+}
+
+void DASForest::train(const matrix<float>& data, const std::vector<int>& labels, bool use_gpu)
+{
+  // Initialize
+  initialize(data.size1());
+
+  if (m_hp.useGPU || use_gpu) {
+    //trainByGPU(data,labels);
+  }
+  else {
+    trainByCPU(data,labels);
+  }
+}
+
+void DASForest::trainAndTest(const matrix<float>& dataTr, const std::vector<int>& labelsTr,
+                             const matrix<float>& dataTs, const std::vector<int>& labelsTs)
+{
+  // Initialize
+  initialize(dataTr.size1());
+
+  if (m_hp.useGPU) {
+    //trainByGPU(dataTr, labelsTr);
+  }
+  else {
+    trainAndTestByCPU(dataTr,labelsTr, dataTs, labelsTs);
+  }
+}
+
+void DASForest::trainAndTestMultiFeature(const matrix<float>& dataTr, const std::vector<int>& labelsTr,
+                                         const matrix<float>& dataTs, const std::vector<int>& labelsTs)
+{
+  // Initialize
+  initialize(dataTr.size1());
+
+  if (m_hp.useGPU) {
+    //trainByGPU(dataTr, labelsTr);
+  }
+  else {
+    trainAndTestMultiFeatureByCPU(dataTr,labelsTr, dataTs, labelsTs);
+  }
+}
+
+void DASForest::trainAndTest1vsAll(const matrix<float>& dataTr, const std::vector<int>& labelsTr,
+                                   const matrix<float>& dataTs, const std::vector<int>& labelsTs)
+{
+  // Initialize
+  initialize(dataTr.size1());
+
+  if (m_hp.useGPU) {
+    //trainByGPU(dataTr,labelsTr);
+  }
+  else {
+    trainAndTest1vsAllByCPU(dataTr,labelsTr, dataTs, labelsTs);
+  }
+}
+
+void DASForest::trainByCPU(const matrix<float>& data, const std::vector<int>& labels)
+{
+}
+
+void DASForest::fillWithZeros(matrix<float>& mat) {
+  for (int n = 0; n < (int) mat.size1(); n++) {
+    for (int m = 0; m < (int) mat.size2(); m++) {
+      mat(n, m) = 0.0;
+    }
+  }
+}
+
+void DASForest::fillWithZeros(std::vector<int>& vec) {
+  for (int n = 0; n < (int) vec.size(); n++) {
+    vec[n] = 0;
+  }
+}
+
+void DASForest::trainAndTestByCPU(const matrix<float>& dataTr, const std::vector<int>& labelsTr,
+                                  const matrix<float>& dataTs, const std::vector<int>& labelsTs)
+{
+  matrix<float> trainConf(dataTr.size1(), m_hp.numClasses);
+  std::vector<int> trainPre(dataTr.size1());
+
+  // First round without DA
+  bool verbose = m_hp.verbose;
+  HyperParameters tmpHP = m_hp;
+  tmpHP.verbose = false;
+
+  if (m_hp.verbose) {
+    cout << "Training a semi-supervised random forest with " << m_hp.numTrees << " trees, grab a coffee ... " << endl;
+    cout << "\tFirst round without DA ..." << endl;
+  }
+
+  m_trees.clear();
+  for (int i = 0; i < m_hp.numTrees; i++) {
+    Tree t(tmpHP);
+    t.train(dataTr, labelsTr);
+    m_trees.push_back(t);
+  }
+
+  // Evaluate the training set
+  m_hp.verbose = false;
+  eval(dataTr, labelsTr);
+  m_hp.verbose = verbose;
+  trainConf = m_confidences;
+  trainPre = m_predictions;
+
+  // Compute OOBE
+  double rfOOBE = computeOOBE(labelsTr);
+  double srfOOBE = rfOOBE;
+  if (m_hp.verbose) {
+    cout << "\tForest OOBE = " << rfOOBE << endl;
+  }
+
+  // Evaluate the forest on test set
+  eval(dataTs, labelsTs, false);
+  double rfError = computeError(labelsTs);
+
+  // Make Similarity
+  if (m_hp.lambda) {
+    m_sim = Similarity(m_hp);
+    m_sim.train(dataTr, labelsTr);
+    m_simConf = m_sim.getSimConf(dataTr, labelsTs);
+    //m_simConf = m_sim.getSimConfChi2(dataTr, labelsTs);
+  }
+
+  // DA starts here
+  if (m_hp.verbose) {
+    cout << "\tStarting DA ..." << endl;
+  }
+
+  std::vector<std::vector<double> > tmpWeights;
+  std::vector<std::vector<int> > tmpLabels;
+  std::vector<int> treesToBeTrained;
+  bool init = true, useTrueDA = false;
+  int numTrainedTrees, numTrials = 3, curTrial = 0;;
+  double numberOfSwitchs;
+  for (int nEpoch = 0; nEpoch < m_hp.numEpochs; nEpoch++) {
+    if (m_hp.verbose) {
+      cout << "\tEpoch = " << nEpoch + 1 << flush;
+    }
+
+    if (useTrueDA) {
+      calcLabelsAndWeights_DA(trainConf, trainPre, tmpLabels, tmpWeights, nEpoch, labelsTr, numberOfSwitchs, treesToBeTrained);
+    }
+    else {
+      calcLabelsAndWeights(trainConf, trainPre, tmpLabels, tmpWeights, nEpoch, labelsTr, numberOfSwitchs, treesToBeTrained);
+    }
+
+    numTrainedTrees = 0;
+    BOOST_FOREACH(int nTree, treesToBeTrained) {
+      m_trees[nTree].retrain(dataTr, tmpLabels[numTrainedTrees], tmpWeights[numTrainedTrees], init);
+      numTrainedTrees++;
+    }
+
+    init = false;
+
+    if (numTrainedTrees) {
+      // Evaluate the training set
+      m_hp.verbose = false;
+      eval(dataTr, labelsTr);
+      m_hp.verbose = verbose;
+      trainConf = m_confidences;
+      trainPre = m_predictions;
+
+      // Compute the OOBE
+      srfOOBE = computeOOBE(labelsTr);
+      if (m_hp.verbose) {
+        cout << "\t#Retrained trees = " << numTrainedTrees << ", #switches/temperature = ";
+        cout << numberOfSwitchs/(double) numTrainedTrees << ", SRF OOBE = " << srfOOBE << "\t";
+      }
+
+      eval(dataTs, labelsTs, false);
+      // Check for the stopping condition
+      if (srfOOBE > rfOOBE + m_hp.maxOOBEIncrease) {
+        curTrial++;
+
+        // Reset the forest
+        m_trees.clear();
+        for (int i = 0; i < m_hp.numTrees; i++) {
+          Tree t(tmpHP);
+          t.train(dataTr, labelsTr);
+          m_trees.push_back(t);
+        }
+
+        // Evaluate the training set
+        m_hp.verbose = false;
+        eval(dataTr, labelsTr);
+        m_hp.verbose = verbose;
+        trainConf = m_confidences;
+        trainPre = m_predictions;
+
+        rfOOBE = computeOOBE(labelsTr);
+        srfOOBE = rfOOBE;
+        if (m_hp.verbose) {
+          cout << "\tForest OOBE = " << rfOOBE << endl;
+        }
+
+        eval(dataTs, labelsTs, false);
+        rfError = computeError(labelsTs);
+
+        if (curTrial > numTrials) { // Give back the RF
+          break;
+        }
+        else { // Make a reset and start the DA again
+          init = true;
+          nEpoch = -1;
+        }
+      }
+    }
+    else {
+      if (m_hp.verbose) {
+        cout << "\tno trees were retrained" << endl;
+      }
+      break;
+    }
+  }
+
+  // Make the final predictions
+  m_hp.verbose = false;
+  eval(dataTr, labelsTr, false);
+  m_hp.verbose = verbose;
+  double error = computeErrorL(labelsTr);
+
+  if (m_hp.verbose)
+    {
+      cout << endl << "\tTraining error = " << error << endl;
+    }
+
+  eval(dataTs, labelsTs, false);
+  double srfError = computeError(labelsTs);
+  if (m_hp.verbose) {
+    cout << "\tSemi-supervised improvement = " << 100*(rfError - srfError)/rfError << "%" << endl;
+  }
+
+}
+
+void DASForest::trainAndTestMultiFeatureByCPU(const matrix<float>& dataTr, const std::vector<int>& labelsTr,
+                                              const matrix<float>& dataTs, const std::vector<int>& labelsTs)
+{
+  matrix<float> trainConf(dataTr.size1(), m_hp.numClasses);
+  std::vector<int> trainPre(dataTr.size1());
+
+  // Split the PHOG Features
+  int bin = 8, offset = 0, maxRepNum = 8;
+  int trainNum = (int) dataTr.size1(), testNum = (int) dataTs.size1(), featNum = (int) dataTr.size2();
+  matrix<float> r1L0Tr(trainNum,    bin), r2L0Tr(trainNum,    bin), r1L0Ts(testNum,    bin), r2L0Ts(testNum,    bin); // L0
+  matrix<float> r1L1Tr(trainNum,  4*bin), r2L1Tr(trainNum,  4*bin), r1L1Ts(testNum,  4*bin), r2L1Ts(testNum,  4*bin); // L1
+  matrix<float> r1L2Tr(trainNum, 16*bin), r2L2Tr(trainNum, 16*bin), r1L2Ts(testNum, 16*bin), r2L2Ts(testNum, 16*bin); // L2
+  matrix<float> r1L3Tr(trainNum, 64*bin), r2L3Tr(trainNum, 64*bin), r1L3Ts(testNum, 64*bin), r2L3Ts(testNum, 64*bin); // L3
+  std::vector<int> repRangeBegin(maxRepNum), repRangeEnd(maxRepNum);
+  if (m_hp.verbose) {
+    cout << "Loading L0 ..." << endl;
+  }
+  for (int nF = offset; nF < bin + offset; nF++) { // L0
+    for (int n = 0; n < trainNum; n++) {
+      r1L0Tr(n, nF - offset) = dataTr(n, nF);
+      r2L0Tr(n, nF - offset) = dataTr(n, nF + featNum/2);
+    }
+    for (int n = 0; n < testNum; n++) {
+      r1L0Ts(n, nF - offset) = dataTs(n, nF);
+      r2L0Ts(n, nF - offset) = dataTs(n, nF + featNum/2);
+    }
+  }
+  repRangeBegin[0] = offset;
+  repRangeBegin[4] = offset + featNum/2;
+  offset += bin;
+  repRangeEnd[0] = offset;
+  repRangeEnd[4] = offset + featNum/2;
+  if (m_hp.verbose) {
+    cout << "Loading L1 ..." << endl;
+  }
+  for (int nF = offset; nF < 4*bin + offset; nF++) { // L1
+    for (int n = 0; n < trainNum; n++) {
+      r1L1Tr(n, nF - offset) = dataTr(n, nF);
+      r2L1Tr(n, nF - offset) = dataTr(n, nF + featNum/2);
+    }
+    for (int n = 0; n < testNum; n++) {
+      r1L1Ts(n, nF - offset) = dataTs(n, nF);
+      r2L1Ts(n, nF - offset) = dataTs(n, nF + featNum/2);
+    }
+  }
+  repRangeBegin[1] = offset;
+  repRangeBegin[5] = offset + featNum/2;
+  offset += 4*bin;
+  repRangeEnd[1] = offset;
+  repRangeEnd[5] = offset + featNum/2;
+  if (m_hp.verbose) {
+    cout << "Loading L2 ..." << endl;
+  }
+  for (int nF = offset; nF < 16*bin + offset; nF++) { // L2
+    for (int n = 0; n < trainNum; n++) {
+      r1L2Tr(n, nF - offset) = dataTr(n, nF);
+      r2L2Tr(n, nF - offset) = dataTr(n, nF + featNum/2);
+    }
+    for (int n = 0; n < testNum; n++) {
+      r1L2Ts(n, nF - offset) = dataTs(n, nF);
+      r2L2Ts(n, nF - offset) = dataTs(n, nF + featNum/2);
+    }
+  }
+  repRangeBegin[2] = offset;
+  repRangeBegin[6] = offset + featNum/2;
+  offset += 16*bin;
+  repRangeEnd[2] = offset;
+  repRangeEnd[6] = offset + featNum/2;
+  if (m_hp.verbose) {
+    cout << "Loading L3 ..." << endl;
+  }
+  for (int nF = offset; nF < 64*bin + offset; nF++) { // L3
+    for (int n = 0; n < trainNum; n++) {
+      r1L3Tr(n, nF - offset) = dataTr(n, nF);
+      r2L3Tr(n, nF - offset) = dataTr(n, nF + featNum/2);
+    }
+    for (int n = 0; n < testNum; n++) {
+      r1L3Ts(n, nF - offset) = dataTs(n, nF);
+      r2L3Ts(n, nF - offset) = dataTs(n, nF + featNum/2);
+    }
+  }
+  repRangeBegin[3] = offset;
+  repRangeBegin[7] = offset + featNum/2;
+  offset += 64*bin;
+  repRangeEnd[3] = offset;
+  repRangeEnd[7] = offset + featNum/2;
+
+  // First round without DA
+  HyperParameters tmpHP = m_hp;
+  tmpHP.verbose = false;
+
+  if (m_hp.verbose) {
+    cout << "Training a semi-supervised random forest with " << m_hp.numTrees << " trees, grab a coffee ... " << endl;
+    cout << "\tFirst round without DA ..." << endl;
+  }
+
+  m_trees.clear();
+  std::vector<int> repIndex(m_hp.numTrees);
+  matrix<float> data;
+  int randRep;
+  for (int i = 0; i < m_hp.numTrees; i++) {
+    randRep = (int) floor(maxRepNum*_rand());
+    repIndex[i] = randRep;
+    Tree t(tmpHP);
+    switch (randRep) {
+    case 0:
+      data = r1L0Tr;
+    case 1:
+      data = r1L1Tr;
+    case 2:
+      data = r1L2Tr;
+    case 3:
+      data = r1L3Tr;
+    case 4:
+      data = r2L0Tr;
+    case 5:
+      data = r2L1Tr;
+    case 6:
+      data = r2L2Tr;
+    case 7:
+      data = r2L3Tr;
+    }
+    t.train(data, labelsTr);
+    m_trees.push_back(t);
+  }
+
+  // Evaluate the training set
+  initialize(trainNum);
+  for (int i = 0; i < m_hp.numTrees; i++) {
+    randRep = repIndex[i];
+    switch (randRep) {
+    case 0:
+      data = r1L0Tr;
+    case 1:
+      data = r1L1Tr;
+    case 2:
+      data = r1L2Tr;
+    case 3:
+      data = r1L3Tr;
+    case 4:
+      data = r2L0Tr;
+    case 5:
+      data = r2L1Tr;
+    case 6:
+      data = r2L2Tr;
+    case 7:
+      data = r2L3Tr;
+    }
+    m_trees[i].eval(data, labelsTr, m_confidences);
+  }
+  m_confidences *= (1.0f / m_hp.numTrees);
+  predictByConf();
+  trainConf = m_confidences;
+  trainPre = m_predictions;
+
+  // Compute OOBE
+  double rfOOBE = computeOOBE(labelsTr);
+  double srfOOBE = rfOOBE;
+  if (m_hp.verbose) {
+    cout << "\tForest OOBE = " << rfOOBE << endl;
+  }
+
+  // Evaluate the forest on test set
+  initialize(testNum);
+  for (int i = 0; i < m_hp.numTrees; i++) {
+    randRep = repIndex[i];
+    switch (randRep) {
+    case 0:
+      data = r1L0Ts;
+    case 1:
+      data = r1L1Ts;
+    case 2:
+      data = r1L2Ts;
+    case 3:
+      data = r1L3Ts;
+    case 4:
+      data = r2L0Ts;
+    case 5:
+      data = r2L1Ts;
+    case 6:
+      data = r2L2Ts;
+    case 7:
+      data = r2L3Ts;
+    }
+    m_trees[i].eval(data, labelsTs, m_confidences);
+  }
+  m_confidences *= (1.0f / m_hp.numTrees);
+  predictByConf();
+  double rfError = computeError(labelsTs);
+  if (m_hp.verbose) {
+    cout << "\tForest test error = " << rfError << endl;
+  }
+
+  // Make Similarity
+  if (m_hp.lambda) {
+    m_sim = Similarity(m_hp);
+    m_sim.train(dataTr, labelsTr);
+    m_simConf = m_sim.getSimConfChi2(dataTr, labelsTs);
+  }
+
+  // DA starts here
+  if (m_hp.verbose) {
+    cout << "\tStarting DA ..." << endl;
+  }
+
+  std::vector<std::vector<double> > tmpWeights;
+  std::vector<std::vector<int> > tmpLabels;
+  std::vector<int> treesToBeTrained;
+  bool init = true, useTrueDA = false;
+  int numTrainedTrees, numTrials = 3, curTrial = 0;;
+  double numberOfSwitchs;
+  for (int nEpoch = 0; nEpoch < m_hp.numEpochs; nEpoch++) {
+    if (m_hp.verbose) {
+      cout << "\tEpoch = " << nEpoch + 1 << flush;
+    }
+
+    if (useTrueDA) {
+      calcLabelsAndWeights_DA(trainConf, trainPre, tmpLabels, tmpWeights, nEpoch, labelsTr, numberOfSwitchs, treesToBeTrained);
+    }
+    else {
+      calcLabelsAndWeights(trainConf, trainPre, tmpLabels, tmpWeights, nEpoch, labelsTr, numberOfSwitchs, treesToBeTrained);
+    }
+
+    numTrainedTrees = 0;
+    BOOST_FOREACH(int nTree, treesToBeTrained) {
+      randRep = (int) floor(maxRepNum*_rand());
+      repIndex[nTree] = randRep;
+      switch (randRep) {
+      case 0:
+        data = r1L0Tr;
+      case 1:
+        data = r1L1Tr;
+      case 2:
+        data = r1L2Tr;
+      case 3:
+        data = r1L3Tr;
+      case 4:
+        data = r2L0Tr;
+      case 5:
+        data = r2L1Tr;
+      case 6:
+        data = r2L2Tr;
+      case 7:
+        data = r2L3Tr;
+      }
+      m_trees[nTree].retrain(data, tmpLabels[numTrainedTrees], tmpWeights[numTrainedTrees], init);
+      numTrainedTrees++;
+    }
+
+    init = false;
+
+    if (numTrainedTrees) {
+      // Evaluate the training set
+      initialize(trainNum);
+      for (int i = 0; i < m_hp.numTrees; i++) {
+        randRep = repIndex[i];
+        switch (randRep) {
+        case 0:
+          data = r1L0Tr;
+        case 1:
+          data = r1L1Tr;
+        case 2:
+          data = r1L2Tr;
+        case 3:
+          data = r1L3Tr;
+        case 4:
+          data = r2L0Tr;
+        case 5:
+          data = r2L1Tr;
+        case 6:
+          data = r2L2Tr;
+        case 7:
+          data = r2L3Tr;
+        }
+        m_trees[i].eval(data, labelsTr, m_confidences);
+      }
+      m_confidences *= (1.0f / m_hp.numTrees);
+      predictByConf();
+      trainConf = m_confidences;
+      trainPre = m_predictions;
+
+      // Compute the OOBE
+      srfOOBE = computeOOBE(labelsTr);
+      if (m_hp.verbose) {
+        cout << "\t#Retrained trees = " << numTrainedTrees << ", #switches/temperature = ";
+        cout << numberOfSwitchs/(double) numTrainedTrees << ", SRF OOBE = " << srfOOBE << "\t";
+      }
+
+      initialize(testNum);
+      for (int i = 0; i < m_hp.numTrees; i++) {
+        randRep = repIndex[i];
+        switch (randRep) {
+        case 0:
+          data = r1L0Ts;
+        case 1:
+          data = r1L1Ts;
+        case 2:
+          data = r1L2Ts;
+        case 3:
+          data = r1L3Ts;
+        case 4:
+          data = r2L0Ts;
+        case 5:
+          data = r2L1Ts;
+        case 6:
+          data = r2L2Ts;
+        case 7:
+          data = r2L3Ts;
+        }
+        m_trees[i].eval(data, labelsTs, m_confidences);
+      }
+      m_confidences *= (1.0f / m_hp.numTrees);
+      predictByConf();
+      double error = computeError(labelsTs);
+      if (m_hp.verbose) {
+        cout << "\tForest test error = " << error << endl;
+      }
+
+      // Check for the stopping condition
+      if (srfOOBE > rfOOBE + m_hp.maxOOBEIncrease) {
+        curTrial++;
+
+        // Reset the forest
+        m_trees.clear();
+        for (int i = 0; i < m_hp.numTrees; i++) {
+          randRep = (int) floor(maxRepNum*_rand());
+          repIndex[i] = randRep;
+          Tree t(tmpHP);
+          switch (randRep) {
+          case 0:
+            data = r1L0Tr;
+          case 1:
+            data = r1L1Tr;
+          case 2:
+            data = r1L2Tr;
+          case 3:
+            data = r1L3Tr;
+          case 4:
+            data = r2L0Tr;
+          case 5:
+            data = r2L1Tr;
+          case 6:
+            data = r2L2Tr;
+          case 7:
+            data = r2L3Tr;
+          }
+          t.train(data, labelsTr);
+          m_trees.push_back(t);
+        }
+
+        // Evaluate the training set
+        initialize(trainNum);
+        for (int i = 0; i < m_hp.numTrees; i++) {
+          randRep = repIndex[i];
+          switch (randRep) {
+          case 0:
+            data = r1L0Tr;
+          case 1:
+            data = r1L1Tr;
+          case 2:
+            data = r1L2Tr;
+          case 3:
+            data = r1L3Tr;
+          case 4:
+            data = r2L0Tr;
+          case 5:
+            data = r2L1Tr;
+          case 6:
+            data = r2L2Tr;
+          case 7:
+            data = r2L3Tr;
+          }
+          m_trees[i].eval(data, labelsTr, m_confidences);
+        }
+        m_confidences *= (1.0f / m_hp.numTrees);
+        predictByConf();
+        trainConf = m_confidences;
+        trainPre = m_predictions;
+
+        rfOOBE = computeOOBE(labelsTr);
+        srfOOBE = rfOOBE;
+        if (m_hp.verbose) {
+          cout << "\tForest OOBE = " << rfOOBE << endl;
+        }
+
+        initialize(testNum);
+        for (int i = 0; i < m_hp.numTrees; i++) {
+          randRep = repIndex[i];
+          switch (randRep) {
+          case 0:
+            data = r1L0Ts;
+          case 1:
+            data = r1L1Ts;
+          case 2:
+            data = r1L2Ts;
+          case 3:
+            data = r1L3Ts;
+          case 4:
+            data = r2L0Ts;
+          case 5:
+            data = r2L1Ts;
+          case 6:
+            data = r2L2Ts;
+          case 7:
+            data = r2L3Ts;
+          }
+          m_trees[i].eval(data, labelsTs, m_confidences);
+        }
+        m_confidences *= (1.0f / m_hp.numTrees);
+        predictByConf();
+        error = computeError(labelsTs);
+        if (m_hp.verbose) {
+          cout << "\tForest test error = " << error << endl;
+        }
+        if (curTrial > numTrials) { // Give back the RF
+          break;
+        }
+        else { // Make a reset and start the DA again
+          init = true;
+          nEpoch = -1;
+        }
+      }
+    }
+    else {
+      if (m_hp.verbose) {
+        cout << "\tno trees were retrained" << endl;
+      }
+      break;
+    }
+  }
+
+  // Make the final predictions
+  initialize(trainNum);
+  for (int i = 0; i < m_hp.numTrees; i++) {
+    randRep = repIndex[i];
+    switch (randRep) {
+    case 0:
+      data = r1L0Tr;
+    case 1:
+      data = r1L1Tr;
+    case 2:
+      data = r1L2Tr;
+    case 3:
+      data = r1L3Tr;
+    case 4:
+      data = r2L0Tr;
+    case 5:
+      data = r2L1Tr;
+    case 6:
+      data = r2L2Tr;
+    case 7:
+      data = r2L3Tr;
+    }
+    m_trees[i].eval(data, labelsTr, m_confidences);
+  }
+  m_confidences *= (1.0f / m_hp.numTrees);
+  predictByConf();
+  double error = computeErrorL(labelsTr);
+  if (m_hp.verbose) {
+    cout << endl << "\tTraining error = " << error << endl;
+  }
+
+  initialize(testNum);
+  for (int i = 0; i < m_hp.numTrees; i++) {
+    randRep = repIndex[i];
+    switch (randRep) {
+    case 0:
+      data = r1L0Ts;
+    case 1:
+      data = r1L1Ts;
+    case 2:
+      data = r1L2Ts;
+    case 3:
+      data = r1L3Ts;
+    case 4:
+      data = r2L0Ts;
+    case 5:
+      data = r2L1Ts;
+    case 6:
+      data = r2L2Ts;
+    case 7:
+      data = r2L3Ts;
+    }
+    m_trees[i].eval(data, labelsTs, m_confidences);
+  }
+  m_confidences *= (1.0f / m_hp.numTrees);
+  predictByConf();
+  double srfError = computeError(labelsTs);
+  if (m_hp.verbose) {
+    cout << "\tSemi-supervised improvement = " << 100*(rfError - srfError)/rfError << "%" << endl;
+  }
+}
+
+void DASForest::predictByConf() {
+  int bestClass;
+  double bestConf;
+  for (int nSamp = 0; nSamp < (int) m_confidences.size1(); nSamp++) {
+    bestConf = 0;
+    bestClass = 0;
+    for(int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+      if (m_confidences(nSamp, nClass) > bestConf) {
+        bestConf = m_confidences(nSamp, nClass);
+        bestClass = nClass;
+      }
+    }
+
+    m_predictions[nSamp] = bestClass;
+  }
+}
+
+void DASForest::trainAndTest1vsAllByCPU(const matrix<float>& dataTr, const std::vector<int>& labelsTr,
+                                        const matrix<float>& dataTs, const std::vector<int>& labelsTs)
+{
+  matrix<float> trainConf(dataTr.size1(), 2);
+  std::vector<int> trainPre(dataTr.size1());
+
+  int trueNumClasses = m_hp.numClasses;
+  matrix<float> trainProb(m_hp.numLabeled, trueNumClasses), testProb(dataTs.size1(), trueNumClasses);
+  m_hp.numClasses = 2;
+  bool verbose = m_hp.verbose;
+  HyperParameters tmpHP = m_hp;
+  tmpHP.verbose = false;
+
+  // 1 vs All loop
+  if (m_hp.verbose) {
+    cout << "Training and testing with 1-vs-all for " << trueNumClasses << " classes ..." << endl;
+  }
+
+  std::vector<std::vector<double> > tmpWeights;
+  std::vector<std::vector<int> > tmpLabels;
+  std::vector<int> treesToBeTrained;
+  std::vector<int> tmpLabelsTr(dataTr.size1()), tmpLabelsTs(dataTs.size1());
+  std::vector<double> tmpW(dataTr.size1(), 1.0);
+  double rfOOBE, srfOOBE, rfError, error, srfError, improvement, averageImprovement = 0;
+  std::vector<double> BERThresholds(trueNumClasses, 0.5);
+  for (int nClass = 0; nClass < trueNumClasses; nClass++) {
+    if (m_hp.verbose) {
+      cout << endl << "\tClass #: " << nClass + 1 << "  ... ";
+      cout << "Training a semi-supervised random forest with " << m_hp.numTrees << " trees, grab a coffee ... " << endl;
+      cout << "\tFirst round without DA ..." << endl;
+    }
+
+    // Prepare the labels and weights
+    for (int nSamp = 0; nSamp < m_hp.numLabeled; nSamp++) {
+      if (labelsTr[nSamp] == nClass) {
+        tmpLabelsTr[nSamp] = 1;
+        tmpW[nSamp] = trueNumClasses;
+      }
+      else {
+        tmpLabelsTr[nSamp] = 0;
+      }
+    }
+    for (int nSamp = 0; nSamp < (int) dataTs.size1(); nSamp++) {
+      if (labelsTs[nSamp] == nClass) {
+        tmpLabelsTs[nSamp] = 1;
+      }
+      else {
+        tmpLabelsTs[nSamp] = 0;
+      }
+    }
+
+    // Train the trees
+    m_trees.clear();
+    for (int i = 0; i < m_hp.numTrees; i++) {
+      Tree t(tmpHP);
+      t.train(dataTr, tmpLabelsTr, tmpW);
+      m_trees.push_back(t);
+    }
+
+    // Evaluate the training set
+    m_hp.verbose = false;
+    eval(dataTr, tmpLabelsTr);
+    m_hp.verbose = verbose;
+    trainConf = m_confidences;
+    trainPre = m_predictions;
+
+    // Compute OOBE
+    rfOOBE = computeOOBE(tmpLabelsTr);
+    srfOOBE = rfOOBE;
+    if (m_hp.verbose) {
+      cout << "\tForest OOBE = " << rfOOBE << endl;
+    }
+
+    // Evaluate the forest on test set
+    eval(dataTs, tmpLabelsTs, false);
+    rfError = computeError(tmpLabelsTs);
+
+    // Make Similarity
+    if (m_hp.lambda) {
+      m_sim = Similarity(m_hp);
+      m_sim.train(dataTr, tmpLabelsTr, trueNumClasses);
+      m_simConf = m_sim.getSimConf(dataTr, tmpLabelsTs);
+    }
+
+    // DA starts here
+    if (m_hp.verbose) {
+      cout << "\tStarting DA ..." << endl;
+    }
+
+    bool init = true, useTrueDA = false;
+    int numTrainedTrees, numTrials = 3, curTrial = 0;
+    double numberOfSwitchs;
+    double tpBegin = 0, tpEnd = 0;
+    for (int nEpoch = 0; nEpoch < m_hp.numEpochs; nEpoch++) {
+      if (m_hp.verbose) {
+        cout << "\tEpoch = " << nEpoch + 1 << flush;
+      }
+
+      if (useTrueDA) {
+        calcLabelsAndWeights_DA(trainConf, trainPre, tmpLabels, tmpWeights, nEpoch, tmpLabelsTr, numberOfSwitchs, treesToBeTrained, trueNumClasses);
+      }
+      else {
+        calcLabelsAndWeightsWithBER(trainConf, trainPre, tmpLabels, tmpWeights, nEpoch, tmpLabelsTr, numberOfSwitchs,
+                                    treesToBeTrained, trueNumClasses, tmpLabelsTs);
+      }
+
+      numTrainedTrees = 0;
+      bool makeStats = true;
+      double tp = 0, tn = 0, fp = 0, fn = 0;
+      double wtp = 0, wtn = 0, wfp = 0, wfn = 0;
+      BOOST_FOREACH(int nTree, treesToBeTrained) {
+        m_trees[nTree].retrain(dataTr, tmpLabels[numTrainedTrees], tmpWeights[numTrainedTrees], init);
+
+        if (makeStats) {
+          for (int nSamp = m_hp.numLabeled; nSamp < (int) tmpLabels[numTrainedTrees].size(); nSamp++)  {
+            if (tmpLabels[numTrainedTrees][nSamp] && tmpLabelsTs[nSamp - m_hp.numLabeled]) {
+              tp++;
+              wtp += tmpWeights[numTrainedTrees][nSamp];
+            }
+            if (!tmpLabels[numTrainedTrees][nSamp] && !tmpLabelsTs[nSamp - m_hp.numLabeled]) {
+              tn++;
+              wtn += tmpWeights[numTrainedTrees][nSamp];
+            }
+            if (tmpLabels[numTrainedTrees][nSamp] && !tmpLabelsTs[nSamp - m_hp.numLabeled]) {
+              fp++;
+              wfp += tmpWeights[numTrainedTrees][nSamp];
+            }
+            if (!tmpLabels[numTrainedTrees][nSamp] && tmpLabelsTs[nSamp - m_hp.numLabeled]) {
+              fn++;
+              wfn += tmpWeights[numTrainedTrees][nSamp];
+            }
+          }
+        }
+        numTrainedTrees++;
+      }
+
+      init = false;
+
+      if (numTrainedTrees) {
+        // Evaluate the training set
+        m_hp.verbose = false;
+        eval(dataTr, tmpLabelsTr);
+        m_hp.verbose = verbose;
+        trainConf = m_confidences;
+        trainPre = m_predictions;
+
+        // Compute the OOBE
+        srfOOBE = computeOOBE(tmpLabelsTr);
+        if (m_hp.verbose) {
+          cout << "\t#Retrained trees = " << numTrainedTrees << ", #switches/temperature = ";
+          cout << numberOfSwitchs/(double) numTrainedTrees << ", SRF OOBE = " << srfOOBE << "\t";
+        }
+        if (makeStats && m_hp.verbose) {
+          cout << endl << "\t\t\tTP = " << tp/numTrainedTrees;
+          cout << ", FP = " << fp/numTrainedTrees;
+          cout << ", TN = " << tn/numTrainedTrees;
+          cout << ", FN = " << fn/numTrainedTrees << "\t";
+          cout << endl << "\t\t\tWTP = " << wtp/numTrainedTrees;
+          cout << ", WFP = " << wfp/numTrainedTrees;
+          cout << ", WTN = " << wtn/numTrainedTrees;
+          cout << ", WFN = " << wfn/numTrainedTrees << "\t";
+        }
+        if (!nEpoch) {
+          tpBegin = tp/numTrainedTrees;
+        }
+        else {
+          tpEnd = tp/numTrainedTrees;
+        }
+
+        eval(dataTs, tmpLabelsTs, false);
+        // Check for the stopping condition
+        if (srfOOBE > rfOOBE + m_hp.maxOOBEIncrease) {
+          curTrial++;
+
+          // Reset the forest
+          m_trees.clear();
+          for (int i = 0; i < m_hp.numTrees; i++) {
+            Tree t(tmpHP);
+            t.train(dataTr, tmpLabelsTr);
+            m_trees.push_back(t);
+          }
+
+          // Evaluate the training set
+          m_hp.verbose = false;
+          eval(dataTr, tmpLabelsTr);
+          m_hp.verbose = verbose;
+          trainConf = m_confidences;
+          trainPre = m_predictions;
+
+          rfOOBE = computeOOBE(tmpLabelsTr);
+          srfOOBE = rfOOBE;
+          if (m_hp.verbose) {
+            cout << "\tForest OOBE = " << rfOOBE << endl;
+          }
+
+          eval(dataTs, tmpLabelsTs, false);
+          rfError = computeError(tmpLabelsTs);
+
+          if (curTrial > numTrials) { // Give back the RF
+            break;
+          }
+          else { // Make a reset and start the DA again
+            init = true;
+            nEpoch = -1;
+          }
+        }
+      }
+      else {
+        if (m_hp.verbose) {
+          cout << "\tno trees were retrained" << endl;
+        }
+        break;
+      }
+    }
+
+    // Check for TP
+    if (tpBegin - tpEnd > 0.2*tpBegin) {
+      if (m_hp.verbose) {
+        cout << endl << "\tReseting due to TP: TP begin = " << tpBegin << ", TP end = " << tpEnd << endl;
+      }
+      m_trees.clear();
+      for (int i = 0; i < m_hp.numTrees; i++) {
+        Tree t(tmpHP);
+        t.train(dataTr, tmpLabelsTr);
+        m_trees.push_back(t);
+      }
+    }
+
+    // Make the test predictions
+    m_hp.verbose = false;
+    eval(dataTr, tmpLabelsTr, false);
+    m_hp.verbose = verbose;
+    error = computeErrorL(tmpLabelsTr);
+    for (int nSamp = 0; nSamp < m_hp.numLabeled; nSamp++) {
+      trainProb(nSamp, nClass) = m_confidences(nSamp, 1);
+    }
+    if (m_hp.verbose) {
+      cout << endl << "\tTraining error = " << error << endl;
+    }
+
+    eval(dataTs, tmpLabelsTs, false);
+    srfError = computeError(tmpLabelsTs);
+    double maxConf = 0;
+    for (int nSamp = 0; nSamp < (int) dataTs.size1(); nSamp++) {
+      testProb(nSamp, nClass) = m_confidences(nSamp, 1);
+
+      if (testProb(nSamp, nClass) > maxConf) {
+        maxConf = testProb(nSamp, nClass);
+      }
+    }
+    if (false) {
+      for (int nSamp = 0; nSamp < (int) dataTs.size1(); nSamp++) {
+        testProb(nSamp, nClass) /= maxConf;
+      }
+    }
+
+    improvement = 100*(rfError - srfError)/rfError;
+    if (verbose) {
+      cout << "\tSemi-supervised improvement = " << improvement << "%" << endl;
+    }
+    averageImprovement += improvement;
+
+    // Find the BER Threshold
+    int tmpPre;
+    double BER, bestBER = 10, threshold, bestThreshold = 0, tp = 0, tn = 0, fp = 0, fn = 0, pPos, pNeg;
+    for (threshold = -0.95; threshold < 1; threshold += 0.1) {
+      BER = 0; tp = 0; tn = 0; fp = 0; fn = 0;
+      for (int n = 0; n < (int) dataTs.size1(); n++) {
+        pPos = testProb(n, nClass);
+        pNeg = 1 - pPos;
+
+        if (pPos - pNeg > threshold) {
+          tmpPre = 1;
+        }
+        else {
+          tmpPre = 0;
+        }
+
+        if (tmpPre == 1 && labelsTs[n] == 0) {
+          fp++;
+        }
+        else if (tmpPre == 0 && labelsTs[n] == 1) {
+          fn++;
+        }
+
+        if (labelsTs[n] == 1) {
+          tp++;
+        }
+        else {
+          tn++;
+        }
+      }
+
+      BER = 0.5*(fn/tn + fp/tp);
+      if (BER < bestBER) {
+        bestThreshold = threshold;
+        bestBER = BER;
+      }
+    }
+
+    BERThresholds[nClass] = bestThreshold;
+  }
+
+  // Make the decision
+  std::vector<int> winnerClasses;
+  int bestClass;
+  double bestConf, testError = 0;
+  std::vector<double> preCount(trueNumClasses, 0), trueCount(trueNumClasses, 0);
+  bool foundOneClass;
+  double oneClassTookIt = 0, noOneTookIt = 0, manyTookIt = 0, meanManyClassNum = 0;
+  for (int nSamp = 0; nSamp < (int) dataTs.size1(); nSamp++) {
+    // First find which classes are winning
+    winnerClasses.clear();
+    foundOneClass = false;
+    for (int nClass = 0; nClass < trueNumClasses; nClass++) {
+      if (testProb(nSamp, nClass) - 0.5*BERThresholds[nClass] > 0.5) {
+        winnerClasses.push_back(nClass);
+        foundOneClass = true;
+      }
+    }
+
+    if (foundOneClass) {
+      if (winnerClasses.size() == 1) { // One classifier chose this, lucky bastard
+        bestClass = winnerClasses[0];
+        oneClassTookIt++;
+      }
+      else {
+        bestClass = 0;
+        bestConf = 0;
+        BOOST_FOREACH(int nClass, winnerClasses) {
+          if (bestConf < testProb(nSamp, nClass)) {
+            bestConf = testProb(nSamp, nClass);
+            bestClass = nClass;
+          }
+        }
+        manyTookIt++;
+        meanManyClassNum += winnerClasses.size();
+      }
+    }
+    else {
+      bestClass = 0;
+      bestConf = 0;
+      for (int nClass = 0; nClass < trueNumClasses; nClass++) {
+        if (bestConf < testProb(nSamp, nClass)) {
+          bestConf = testProb(nSamp, nClass);
+          bestClass = nClass;
+        }
+      }
+      noOneTookIt++;
+    }
+
+    m_predictions[nSamp] = bestClass;
+
+    if (labelsTs[nSamp] != bestClass) {
+      testError++;
+    }
+
+    preCount[bestClass]++;
+    trueCount[labelsTs[nSamp]]++;
+  }
+
+  for (int n = 0; n < trueNumClasses; n++) {
+    preCount[n] /= (trueCount[n] + 1e-6);
+  }
+
+  if (m_hp.verbose) {
+    cout << endl << endl << "Final results: " << endl;
+    cout << "\tForest Test Error = " << testError/((double) dataTs.size1()) << endl;
+    cout << "\tOneClassTookIt = " << oneClassTookIt/((double) dataTs.size1());
+    cout << "\tManyClassTookIt = " << manyTookIt/((double) dataTs.size1());
+    cout << "\tNoOneTookIt = " << noOneTookIt/((double) dataTs.size1());
+    cout << "\tmeanManyClassNum = " << meanManyClassNum/manyTookIt << endl;
+  }
+}
+
+bool DASForest::shouldISwitch(const int nEpoch) {
+  double maxP = m_hp.sampMaxP, minP = 0.0, CF = m_hp.sampCF;
+  double p = exp(CF*nEpoch);
+  p = (p > 0.0) ? p : 0.0;
+  if (p > maxP) {
+    p = maxP;
+  }
+  if (p < minP) {
+    p = minP*(1 - (double) nEpoch/(double) m_hp.numEpochs);
+  }
+
+  return (_rand() < p) ? true : false;
+}
+
+bool DASForest::shouldITrain(const int nEpoch) {
+  double maxP = m_hp.treeMaxP, minP = 0.0, CF = m_hp.treeCF;
+  double p = exp(CF*nEpoch);
+  p = (p > 0.0) ? p : 0.0;
+  if (p > maxP) {
+    p = maxP;
+  }
+  if (p < minP) {
+    p = minP*(1 - (double) nEpoch/(double) m_hp.numEpochs);
+  }
+
+  return (_rand() < p) ? true : false;
+}
+
+void DASForest::calcLabelsAndWeights(const matrix<float>& RFConf, const std::vector<int>& RFPre,
+                                     std::vector<std::vector<int> >& tmpLabels, std::vector<std::vector<double> >& tmpWeights, const int nEpoch,
+                                     const std::vector<int>& labels, double& numberOfSwitchs,
+                                     std::vector<int>& treesToBeTrained) {
+  double p, entropy;
+  double alpha = (double) m_hp.numLabeled / ((double) (RFPre.size() - m_hp.numLabeled));
+  alpha *= m_hp.alpha;
+  bool useEntropy = true;
+  std::vector<double> cumSum(m_hp.numClasses);
+  tmpLabels.clear();
+  tmpWeights.clear();
+  treesToBeTrained.clear();
+  numberOfSwitchs = 0;
+  std::vector<int> Y(RFPre.size());
+  std::vector<double> W(RFPre.size());
+  for (int nSamp = 0; nSamp < m_hp.numLabeled; nSamp++) {
+    Y[nSamp] = labels[nSamp];
+    W[nSamp] = 1.0;
+  }
+
+  for (int nTree = 0; nTree < m_hp.numTrees; nTree++) {
+    if (shouldITrain(nEpoch)) { // We are training this tree
+      treesToBeTrained.push_back(nTree);
+      for (int nSamp = m_hp.numLabeled; nSamp < (int) RFPre.size(); nSamp++) {
+        if (shouldISwitch(nEpoch)) {
+          numberOfSwitchs++;
+          p = _rand();
+          if (m_hp.lambda) {
+            cumSum[0] = (1 - m_hp.lambda)*RFConf(nSamp, 0) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, 0);
+            for (int m = 1; m < m_hp.numClasses; m++) {
+              cumSum[m] = cumSum[m - 1] + (1 - m_hp.lambda)*RFConf(nSamp, m) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, m);
+            }
+          }
+          else {
+            cumSum[0] = RFConf(nSamp, 0);
+            for (int m = 1; m < m_hp.numClasses; m++) {
+              cumSum[m] = cumSum[m - 1] + RFConf(nSamp, m);
+            }
+          }
+          for (int m = 0; m < m_hp.numClasses; m++) {
+            if (cumSum[m] > p) {
+              Y[nSamp] = m;
+              break;
+            }
+          }
+        }
+        else { // Pick the prediction of the RF
+          Y[nSamp] = RFPre[nSamp];
+        }
+
+        if (useEntropy) {
+          entropy = 0;
+          if (m_hp.lambda) {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+              if (RFConf(nSamp, nClass)) {
+                entropy -= ((1 - m_hp.lambda)*RFConf(nSamp, nClass) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, nClass))*
+                  log((1 - m_hp.lambda)*RFConf(nSamp, nClass) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, nClass));
+              }
+            }
+          }
+          else {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+              if (RFConf(nSamp, nClass)) {
+                entropy -= RFConf(nSamp, nClass)*log(RFConf(nSamp, nClass));
+              }
+            }
+          }
+
+          W[nSamp] = alpha*(log((double) m_hp.numClasses) - entropy);
+        }
+        else {
+          W[nSamp] = alpha;
+        }
+      }
+
+      tmpLabels.push_back(Y);
+      tmpWeights.push_back(W);
+    }
+  }
+}
+
+void DASForest::calcLabelsAndWeights(const matrix<float>& RFConf, const std::vector<int>& RFPre,
+                                     std::vector<std::vector<int> >& tmpLabels, std::vector<std::vector<double> >& tmpWeights, const int nEpoch,
+                                     const std::vector<int>& labels, double& numberOfSwitchs,
+                                     std::vector<int>& treesToBeTrained, const int trueNumClasses) {
+  double p, entropy;
+  double alpha = (double) m_hp.numLabeled / ((double) (RFPre.size() - m_hp.numLabeled));
+  alpha *= m_hp.alpha;
+  bool useEntropy = false;
+  double pPos, pNeg, sumPPos = 0, sumPNeg = 0;
+  tmpLabels.clear();
+  tmpWeights.clear();
+  treesToBeTrained.clear();
+  numberOfSwitchs = 0;
+  std::vector<int> Y(RFPre.size());
+  std::vector<double> W(RFPre.size());
+  for (int nSamp = 0; nSamp < m_hp.numLabeled; nSamp++) {
+    Y[nSamp] = labels[nSamp];
+    W[nSamp] = (labels[nSamp]) ? trueNumClasses : 1.0;
+  }
+
+  for (int nTree = 0; nTree < m_hp.numTrees; nTree++) {
+    if (shouldITrain(nEpoch)) { // We are training this tree
+      treesToBeTrained.push_back(nTree);
+      for (int nSamp = m_hp.numLabeled; nSamp < (int) RFPre.size(); nSamp++) {
+        if (shouldISwitch(nEpoch)) {
+          numberOfSwitchs++;
+          p = _rand();
+          if (m_hp.lambda) {
+            pPos = (1 - m_hp.lambda)*RFConf(nSamp, 1) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, 1);
+          }
+          else {
+            pPos = RFConf(nSamp, 1);
+          }
+          pNeg = 1 - pPos;
+          if (p < pNeg) {
+            Y[nSamp] = 0;
+          }
+          else {
+            Y[nSamp] = 1;
+          }
+
+          sumPPos += pPos;
+          sumPNeg += pNeg;
+        }
+        else { // Pick the prediction of the RF
+          Y[nSamp] = RFPre[nSamp];
+        }
+
+        if (useEntropy) {
+          entropy = 0;
+          if (m_hp.lambda) {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+              if (RFConf(nSamp, nClass)) {
+                entropy -= ((1 - m_hp.lambda)*RFConf(nSamp, nClass) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, nClass))*
+                  log((1 - m_hp.lambda)*RFConf(nSamp, nClass) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, nClass));
+              }
+            }
+          }
+          else {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+              if (RFConf(nSamp, nClass)) {
+                entropy -= RFConf(nSamp, nClass)*log(RFConf(nSamp, nClass));
+              }
+            }
+          }
+
+          W[nSamp] = alpha*(log((double) m_hp.numClasses) - entropy);
+        }
+        else {
+          W[nSamp] = alpha;
+        }
+
+        if (Y[nSamp]) {
+          W[nSamp] *= trueNumClasses;
+        }
+      }
+
+      tmpLabels.push_back(Y);
+      tmpWeights.push_back(W);
+    }
+  }
+
+  cout << "\tmean pPos = " << sumPPos/numberOfSwitchs << ", pNeg = " << sumPNeg/numberOfSwitchs << "\t";
+}
+
+void DASForest::calcLabelsAndWeightsWithBER(const matrix<float>& RFConf, const std::vector<int>& RFPre,
+                                            std::vector<std::vector<int> >& tmpLabels, std::vector<std::vector<double> >& tmpWeights,
+                                            const int nEpoch,
+                                            const std::vector<int>& labels, double& numberOfSwitchs,
+                                            std::vector<int>& treesToBeTrained, const int trueNumClasses,
+                                            const std::vector<int>& labelsTs) {
+  double p, entropy;
+  double alpha = (double) m_hp.numLabeled / ((double) (RFPre.size() - m_hp.numLabeled));
+  alpha *= m_hp.alpha;
+  bool useEntropy = false;
+  double pPos, pNeg;
+  tmpLabels.clear();
+  tmpWeights.clear();
+  treesToBeTrained.clear();
+  numberOfSwitchs = 0;
+  std::vector<int> Y(RFPre.size());
+  std::vector<double> W(RFPre.size());
+  for (int nSamp = 0; nSamp < m_hp.numLabeled; nSamp++) {
+    Y[nSamp] = labels[nSamp];
+    W[nSamp] = (labels[nSamp]) ? 10*trueNumClasses : 1.0;
+  }
+
+  // Compute the correct BER threshold
+  int tmpPre;
+  double BER, bestBER = 10, threshold, bestThreshold = 0, tp = 0, tn = 0, fp = 0, fn = 0;
+  for (threshold = -0.95; threshold < 1; threshold += 0.1) {
+    BER = 0; tp = 0; tn = 0; fp = 0; fn = 0;
+    for (int n = m_hp.numLabeled; n < (int) RFPre.size(); n++) {
+      if (m_hp.lambda) {
+        pPos = (1 - m_hp.lambda)*RFConf(n, 1) + m_hp.lambda*m_simConf(n - m_hp.numLabeled, 1);
+      }
+      else {
+        pPos = RFConf(n, 1);
+      }
+      pNeg = 1 - pPos;
+
+      if (pPos - pNeg > threshold) {
+        tmpPre = 1;
+      }
+      else {
+        tmpPre = 0;
+      }
+
+      if (tmpPre == 1 && labelsTs[n - m_hp.numLabeled] == 0) {
+        fp++;
+      }
+      else if (tmpPre == 0 && labelsTs[n - m_hp.numLabeled] == 1) {
+        fn++;
+      }
+      if (labelsTs[n - m_hp.numLabeled] == 1) {
+        tp++;
+      }
+      else {
+        tn++;
+      }
+    }
+
+    BER = 0.5*(fn/tn + fp/tp);
+    if (BER < bestBER) {
+      bestThreshold = threshold;
+      bestBER = BER;
+    }
+  }
+
+  for (int nTree = 0; nTree < m_hp.numTrees; nTree++) {
+    if (shouldITrain(nEpoch)) { // We are training this tree
+      treesToBeTrained.push_back(nTree);
+      for (int nSamp = m_hp.numLabeled; nSamp < (int) RFPre.size(); nSamp++) {
+        if (shouldISwitch(nEpoch)) {
+          numberOfSwitchs++;
+          p = _rand();
+          if (m_hp.lambda) {
+            pPos = (1 - m_hp.lambda)*RFConf(nSamp, 1) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, 1);
+          }
+          else {
+            pPos = RFConf(nSamp, 1);
+          }
+          pNeg = 1 - pPos;
+          if (p < pNeg + 0.5*bestThreshold) {
+            Y[nSamp] = 0;
+          }
+          else {
+            Y[nSamp] = 1;
+          }
+        }
+        else { // Pick the prediction of the RF
+          if (m_hp.lambda) {
+            pPos = (1 - m_hp.lambda)*RFConf(nSamp, 1) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, 1);
+          }
+          else {
+            pPos = RFConf(nSamp, 1);
+          }
+          pNeg = 1 - pPos;
+          Y[nSamp] = (pPos - pNeg > bestThreshold) ? 1 : 0;
+        }
+
+        if (useEntropy) {
+          entropy = 0;
+          if (m_hp.lambda) {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+              if (RFConf(nSamp, nClass)) {
+                entropy -= ((1 - m_hp.lambda)*RFConf(nSamp, nClass) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, nClass))*
+                  log((1 - m_hp.lambda)*RFConf(nSamp, nClass) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, nClass));
+              }
+            }
+          }
+          else {
+            for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+              if (RFConf(nSamp, nClass)) {
+                entropy -= RFConf(nSamp, nClass)*log(RFConf(nSamp, nClass));
+              }
+            }
+          }
+
+          W[nSamp] = alpha*(log((double) m_hp.numClasses) - entropy);
+        }
+        else {
+          W[nSamp] = alpha;
+        }
+
+        if (Y[nSamp]) {
+          W[nSamp] *= trueNumClasses;
+        }
+        else {
+          W[nSamp] *= 0.1;
+        }
+      }
+
+      tmpLabels.push_back(Y);
+      tmpWeights.push_back(W);
+    }
+  }
+}
+
+double DASForest::temperature(const int nEpoch) {
+  double TMax = 100, coolingRate = 0.25;
+  double T = pow(coolingRate, (double) nEpoch)*TMax;
+  return (T < 1e-6) ? 1e-6 : T;
+}
+
+void DASForest::calcLabelsAndWeights_DA(matrix<float>& RFConf, const std::vector<int>& RFPre,
+                                        std::vector<std::vector<int> >& tmpLabels, std::vector<std::vector<double> >& tmpWeights, const int nEpoch,
+                                        const std::vector<int>& labels, double& numberOfSwitchs,
+                                        std::vector<int>& treesToBeTrained) {
+  double p, T = temperature(nEpoch), sumP;
+  double alpha = (double) m_hp.numLabeled / ((double) (RFPre.size() - m_hp.numLabeled));
+  alpha *= m_hp.alpha;
+
+  // Finding the distribution
+  for (int n = m_hp.numLabeled; n < (int) RFConf.size1(); n++) {
+    sumP = 0;
+    for (int m = 0; m < (int) RFConf.size2(); m++) {
+      if (RFConf(n, m)) {
+        if (m_hp.useInfoGain) {
+          RFConf(n, m) = exp(-(T - alpha*log(RFConf(n, m)))/T);
+        }
+        else {
+          RFConf(n, m) = exp(-(T - alpha*(1 - RFConf(n, m)))/T);
+        }
+
+        sumP += RFConf(n, m);
+      }
+    }
+    for (int m = 0; m < (int) RFConf.size2(); m++) {
+      RFConf(n, m) /= sumP;
+    }
+  }
+
+  // Sampling
+  std::vector<double> cumSum(m_hp.numClasses);
+  tmpLabels.clear();
+  tmpWeights.clear();
+  treesToBeTrained.clear();
+  std::vector<int> Y(RFPre.size());
+  std::vector<double> W(RFPre.size());
+  for (int nSamp = 0; nSamp < m_hp.numLabeled; nSamp++) {
+    Y[nSamp] = labels[nSamp];
+    W[nSamp] = 1.0;
+  }
+
+  for (int nTree = 0; nTree < m_hp.numTrees; nTree++) {
+    if (shouldITrain(nEpoch)) { // We are training this tree
+      treesToBeTrained.push_back(nTree);
+      for (int nSamp = m_hp.numLabeled; nSamp < (int) RFPre.size(); nSamp++) {
+        p = _rand();
+        if (m_hp.lambda) {
+          cumSum[0] = (1 - m_hp.lambda)*RFConf(nSamp, 0) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, 0);
+          for (int m = 1; m < m_hp.numClasses; m++) {
+            cumSum[m] = cumSum[m - 1] + (1 - m_hp.lambda)*RFConf(nSamp, m) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, m);
+          }
+        }
+        else {
+          cumSum[0] = RFConf(nSamp, 0);
+          for (int m = 1; m < m_hp.numClasses; m++) {
+            cumSum[m] = cumSum[m - 1] + RFConf(nSamp, m);
+          }
+        }
+
+        for (int m = 0; m < m_hp.numClasses; m++) {
+          if (cumSum[m] > p) {
+            Y[nSamp] = m;
+            break;
+          }
+        }
+
+        W[nSamp] = alpha;
+      }
+    }
+
+    tmpLabels.push_back(Y);
+    tmpWeights.push_back(W);
+  }
+
+  numberOfSwitchs = T*treesToBeTrained.size();
+}
+
+void DASForest::calcLabelsAndWeights_DA(matrix<float>& RFConf, const std::vector<int>& RFPre,
+                                        std::vector<std::vector<int> >& tmpLabels, std::vector<std::vector<double> >& tmpWeights, const int nEpoch,
+                                        const std::vector<int>& labels, double& numberOfSwitchs,
+                                        std::vector<int>& treesToBeTrained, const int trueNumClasses) {
+  double p, T = temperature(nEpoch), sumP;
+  double alpha = (double) m_hp.numLabeled / ((double) (RFPre.size() - m_hp.numLabeled));
+  alpha *= m_hp.alpha;
+
+  // Finding the distribution
+  for (int n = m_hp.numLabeled; n < (int) RFConf.size1(); n++) {
+    sumP = 0;
+    for (int m = 0; m < (int) RFConf.size2(); m++) {
+      if (RFConf(n, m)) {
+        if (m_hp.useInfoGain) {
+          RFConf(n, m) = exp(-(T - alpha*log(RFConf(n, m)))/T);
+        }
+        else {
+          RFConf(n, m) = exp(-(T - alpha*(1 - RFConf(n, m)))/T);
+        }
+
+        sumP += RFConf(n, m);
+      }
+    }
+    for (int m = 0; m < (int) RFConf.size2(); m++) {
+      RFConf(n, m) /= sumP;
+    }
+  }
+
+  // Sampling
+  std::vector<double> cumSum(m_hp.numClasses);
+  tmpLabels.clear();
+  tmpWeights.clear();
+  treesToBeTrained.clear();
+  std::vector<int> Y(RFPre.size());
+  std::vector<double> W(RFPre.size());
+  for (int nSamp = 0; nSamp < m_hp.numLabeled; nSamp++) {
+    Y[nSamp] = labels[nSamp];
+    W[nSamp] = (labels[nSamp]) ? trueNumClasses : 1.0;
+  }
+
+  for (int nTree = 0; nTree < m_hp.numTrees; nTree++) {
+    if (shouldITrain(nEpoch)) { // We are training this tree
+      treesToBeTrained.push_back(nTree);
+      for (int nSamp = m_hp.numLabeled; nSamp < (int) RFPre.size(); nSamp++) {
+        p = _rand();
+        if (m_hp.lambda) {
+          cumSum[0] = (1 - m_hp.lambda)*RFConf(nSamp, 0) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, 0);
+          for (int m = 1; m < m_hp.numClasses; m++) {
+            cumSum[m] = cumSum[m - 1] + (1 - m_hp.lambda)*RFConf(nSamp, m) + m_hp.lambda*m_simConf(nSamp - m_hp.numLabeled, m);
+          }
+        }
+        else {
+          cumSum[0] = RFConf(nSamp, 0);
+          for (int m = 1; m < m_hp.numClasses; m++) {
+            cumSum[m] = cumSum[m - 1] + RFConf(nSamp, m);
+          }
+        }
+
+        for (int m = 0; m < m_hp.numClasses; m++) {
+          if (cumSum[m] > p) {
+            Y[nSamp] = m;
+            break;
+          }
+        }
+
+        W[nSamp] = alpha;
+
+        if (Y[nSamp]) {
+          W[nSamp] *= trueNumClasses;
+        }
+      }
+    }
+
+    tmpLabels.push_back(Y);
+    tmpWeights.push_back(W);
+  }
+
+  numberOfSwitchs = T*treesToBeTrained.size();
+}
+
+double DASForest::computeErrorL(const std::vector<int>& labels)
+{
+  int bestClass, nSamp = 0;
+  float bestConf;
+  double error = 0;
+  BOOST_FOREACH(int pre, m_predictions) {
+    bestClass = 0;
+    bestConf = 0;
+    for (int nClass = 0; nClass < (int) m_hp.numClasses; nClass++)
+      {
+        if (m_confidences(nSamp, nClass) > bestConf)
+          {
+            bestClass = nClass;
+            bestConf = m_confidences(nSamp, nClass);
+          }
+      }
+
+    pre = bestClass;
+    if (bestClass != labels[nSamp])
+      {
+        error++;
+      }
+
+    nSamp++;
+
+    if (nSamp > m_hp.numClasses) {
+      break;
+    }
+  }
+  error /= (double) m_hp.numLabeled;
+
+  return error;
+}
+
+double DASForest::computeOOBE(const std::vector<int>& labels)
+{
+  double oobe = 0;
+  matrix<float> confidence(m_hp.numLabeled, m_hp.numClasses);
+  std::vector<int> voteNum(m_hp.numLabeled, 0), treePre, treeOBS;
+  matrix<float> treeConf;
+  for (int n = 0; n < m_hp.numLabeled; n++) {
+    for (int m = 0; m < m_hp.numClasses; m++) {
+      confidence(n, m) = 0.0;
+    }
+  }
+
+  BOOST_FOREACH(Tree t, m_trees) {
+    treePre = t.getPredictions();
+    treeOBS = t.getOutOfBagSamples();
+    treeConf = t.getConfidences();
+    BOOST_FOREACH(int m, treeOBS) {
+      if (m < m_hp.numLabeled) {
+        if (m_hp.useSoftVoting) {
+          for (int nClass = 0; nClass < m_hp.numClasses; nClass++) {
+            confidence(m, nClass) += treeConf(m, nClass);
+          }
+        }
+        else {
+          confidence(m, treePre[m])++;
+        }
+        voteNum[m]++;
+      }
+      else {
+        break;
+      }
+    }
+  }
+
+  int bestClass, totalNum = 0;
+  double bestConf;
+  std::vector<int>::const_iterator labelItr(labels.begin()), labelEnd(labels.end());
+  for (int n = 0; labelItr != labelEnd; labelItr++, n++) {
+    if (n < m_hp.numLabeled && voteNum[n]) {
+      bestClass = 0;
+      bestConf = 0;
+      for (int m = 0; m < m_hp.numClasses; m++) {
+        if (confidence(n, m) > bestConf) {
+          bestConf = confidence(n, m);
+          bestClass = m;
+        }
+      }
+
+      if (*labelItr != bestClass) {
+        oobe++;
+      }
+
+      totalNum++;
+    }
+  }
+  oobe /= (double) totalNum;
+
+  return oobe;
+}

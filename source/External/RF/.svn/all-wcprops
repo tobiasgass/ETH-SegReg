@@ -1,0 +1,335 @@
+K 25
+svn:wc:ra_dav:version-url
+V 34
+/svn/icg_rf/!svn/ver/457/trunk/src
+END
+tree.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/icg_rf/!svn/ver/457/trunk/src/tree.cpp
+END
+nodeinfogain.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/icg_rf/!svn/ver/457/trunk/src/nodeinfogain.cpp
+END
+nodegini.h
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/icg_rf/!svn/ver/411/trunk/src/nodegini.h
+END
+onlinenodegini.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/icg_rf/!svn/ver/457/trunk/src/onlinenodegini.cpp
+END
+naivebayesfeature.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svn/icg_rf/!svn/ver/255/trunk/src/naivebayesfeature.cpp
+END
+TODO.txt
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/icg_rf/!svn/ver/248/trunk/src/TODO.txt
+END
+RandomForest.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/icg_rf/!svn/ver/457/trunk/src/RandomForest.cpp
+END
+forest.h
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/icg_rf/!svn/ver/199/trunk/src/forest.h
+END
+onlineforest.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/icg_rf/!svn/ver/457/trunk/src/onlineforest.cpp
+END
+onlinetree.h
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/icg_rf/!svn/ver/302/trunk/src/onlinetree.h
+END
+data.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/icg_rf/!svn/ver/457/trunk/src/data.cpp
+END
+nodehyperplane.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/icg_rf/!svn/ver/457/trunk/src/nodehyperplane.cpp
+END
+naivebayeshyperplane.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/icg_rf/!svn/ver/255/trunk/src/naivebayeshyperplane.cpp
+END
+dasrandomnaivebayes.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svn/icg_rf/!svn/ver/255/trunk/src/dasrandomnaivebayes.cpp
+END
+nodesvm.h
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/icg_rf/!svn/ver/411/trunk/src/nodesvm.h
+END
+utilities.h
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/icg_rf/!svn/ver/314/trunk/src/utilities.h
+END
+hyperparameters.h
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svn/icg_rf/!svn/ver/457/trunk/src/hyperparameters.h
+END
+ferns.h
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/icg_rf/!svn/ver/250/trunk/src/ferns.h
+END
+node.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/icg_rf/!svn/ver/411/trunk/src/node.cpp
+END
+seminaivebayesfeature.h
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svn/icg_rf/!svn/ver/254/trunk/src/seminaivebayesfeature.h
+END
+sforest.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/icg_rf/!svn/ver/457/trunk/src/sforest.cpp
+END
+naivebayes.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/icg_rf/!svn/ver/255/trunk/src/naivebayes.cpp
+END
+onlinenodehyperplane.h
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn/icg_rf/!svn/ver/301/trunk/src/onlinenodehyperplane.h
+END
+similarity.h
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/icg_rf/!svn/ver/215/trunk/src/similarity.h
+END
+randomnaivebayes.h
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/icg_rf/!svn/ver/255/trunk/src/randomnaivebayes.h
+END
+CMakeLists.txt
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/icg_rf/!svn/ver/457/trunk/src/CMakeLists.txt
+END
+nodegini.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/icg_rf/!svn/ver/457/trunk/src/nodegini.cpp
+END
+onlinenode.h
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/icg_rf/!svn/ver/411/trunk/src/onlinenode.h
+END
+dasforest.h
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/icg_rf/!svn/ver/457/trunk/src/dasforest.h
+END
+seminaivebayeshyperplane.h
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/icg_rf/!svn/ver/254/trunk/src/seminaivebayeshyperplane.h
+END
+forest.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/icg_rf/!svn/ver/457/trunk/src/forest.cpp
+END
+tree.h
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/icg_rf/!svn/ver/457/trunk/src/tree.h
+END
+onlinetree.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/icg_rf/!svn/ver/302/trunk/src/onlinetree.cpp
+END
+nodeinfogain.h
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/icg_rf/!svn/ver/411/trunk/src/nodeinfogain.h
+END
+randomForest.conf
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svn/icg_rf/!svn/ver/300/trunk/src/randomForest.conf
+END
+onlinenodegini.h
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/icg_rf/!svn/ver/301/trunk/src/onlinenodegini.h
+END
+naivebayesfeature.h
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/svn/icg_rf/!svn/ver/255/trunk/src/naivebayesfeature.h
+END
+utilities.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/icg_rf/!svn/ver/454/trunk/src/utilities.cpp
+END
+nodesvm.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/icg_rf/!svn/ver/411/trunk/src/nodesvm.cpp
+END
+onlineforest.h
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/icg_rf/!svn/ver/302/trunk/src/onlineforest.h
+END
+ferns.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/icg_rf/!svn/ver/250/trunk/src/ferns.cpp
+END
+data.h
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/icg_rf/!svn/ver/457/trunk/src/data.h
+END
+seminaivebayesfeature.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/icg_rf/!svn/ver/254/trunk/src/seminaivebayesfeature.cpp
+END
+nodehyperplane.h
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/icg_rf/!svn/ver/411/trunk/src/nodehyperplane.h
+END
+onlinenodehyperplane.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/icg_rf/!svn/ver/457/trunk/src/onlinenodehyperplane.cpp
+END
+naivebayeshyperplane.h
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn/icg_rf/!svn/ver/255/trunk/src/naivebayeshyperplane.h
+END
+dasrandomnaivebayes.h
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svn/icg_rf/!svn/ver/255/trunk/src/dasrandomnaivebayes.h
+END
+similarity.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/icg_rf/!svn/ver/251/trunk/src/similarity.cpp
+END
+randomnaivebayes.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svn/icg_rf/!svn/ver/255/trunk/src/randomnaivebayes.cpp
+END
+dasforest.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/icg_rf/!svn/ver/457/trunk/src/dasforest.cpp
+END
+sforest.h
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/icg_rf/!svn/ver/457/trunk/src/sforest.h
+END
+node.h
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/icg_rf/!svn/ver/456/trunk/src/node.h
+END
+onlinenode.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/icg_rf/!svn/ver/411/trunk/src/onlinenode.cpp
+END
+naivebayes.h
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/icg_rf/!svn/ver/255/trunk/src/naivebayes.h
+END
+seminaivebayeshyperplane.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/icg_rf/!svn/ver/254/trunk/src/seminaivebayeshyperplane.cpp
+END
