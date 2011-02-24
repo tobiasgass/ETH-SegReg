@@ -17,8 +17,9 @@ class BaseMRFSolver{
 public:
 	//	typedefs
 	typedef TGraphModel GraphModelType;
+	typedef typename GraphModelType::ImageType ImageType;
 	typedef typename GraphModelType::LabelType LabelType;
-	typedef typename itk::Image<LabelType> LabelImageType;
+	typedef typename itk::VectorImage<LabelType, ImageType::ImageDimension> LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 protected:
 	int m_nNodes,m_nLabels,m_nPairs;
@@ -45,8 +46,16 @@ public:
 
 	virtual LabelImagePointerType getLabelImage(){
 			LabelImagePointerType labelImage=LabelImageType::New();
-//			labelImage->SetRegions(m_fixedImage->GetLargestPossibleRegion());
+			labelImage->SetRegions(m_GraphModel->getFixedImage()->GetLargestPossibleRegion());
+			labelImage->SetSpacing(1.0);
 			labelImage->Allocate();
+			itk::ImageRegionIterator<LabelImageType>  it( labelImage, labelImage->GetLargestPossibleRegion() );
+			it.GoToBegin();
+			for (int i=0;i<m_nNodes;++i){
+				LabelType label=getLabelAtIndex(i);
+				it.Set(label);
+				++it;
+			}
 #if 0
 			m_grid->gotoBegin();
 			for (int i=0;i<m_nNodes;++i){

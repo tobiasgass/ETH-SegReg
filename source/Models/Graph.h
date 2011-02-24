@@ -10,7 +10,8 @@
 
 #include <vector>
 #include <assert.h>
-#include <itkNearestNeighborInterpolateImageFunction.h>
+#include "itkVectorImage.h"
+
 /*
  * Isotropic Graph
  * Returns current/next position in a grid based on size and resolution
@@ -27,12 +28,13 @@ public:
 	typedef typename TImage::OffsetType OffsetType;
 	typedef typename TImage::SizeType SizeType;
 	typedef  TImage ImageType;
-	typedef typename TImage::Pointer ImagePointer;
-	typedef itk::NearestNeighborInterpolateImageFunction<ImageType, double >  ImageInterpolatorType;
-	typedef typename ImageInterpolatorType::ContinuousIndexType ContinousIndexType;
+	typedef typename TImage::Pointer ImagePointerType;
+	typedef typename itk::VectorImage<LabelType,ImageType::ImageDimension> LabelImageType;
+	typedef typename LabelImageType::Pointer LabelImagePointerType;
 
 private:
-	ImagePointer m_fixedImage;
+	ImagePointerType m_fixedImage;
+	LabelImagePointerType m_labelImage;
 	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors,m_spacing;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices;
@@ -40,7 +42,7 @@ private:
 	UnaryFunctionPointerType m_unaryFunction;
 public:
 
-	GraphModel(ImagePointer fixedimage,UnaryFunctionPointerType unaryFunction, SizeType res):m_fixedImage(fixedimage),m_unaryFunction(unaryFunction){
+	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, SizeType res):m_fixedImage(fixedimage),m_unaryFunction(unaryFunction){
 		assert(m_dim>1);
 		assert(m_dim<4);
 		m_totalSize=fixedimage->GetLargestPossibleRegion().GetSize();
@@ -68,13 +70,17 @@ public:
 		}
 		std::cout<<" "<<m_nNodes<<" "<<m_nVertices<<std::endl;
 //		m_ImageInterpolator.SetInput(m_movingImage);
+		m_labelImage=LabelImageType::New();
+		m_labelImage->SetRegions(m_fixedImage->GetLargestPossibleRegion());
+		m_labelImage->SetSpacing(1.0);
+		m_labelImage->SetNumberOfComponentsPerPixel(LabelType::k);
+		m_labelImage->Allocate();
 	}
 
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label(labelIndex);
-		ContinousIndexType movingIndex=fixedIndex+label.getDisplacement();
-
+//		ContinuousIndexType movingIndex=fixedIndex+label.getDisplacement();
 		itk::Vector<double> test(3);
 		int count=0;
 //		int radius=m_spacing/2;
@@ -101,9 +107,19 @@ public:
 			return res/count;
 		else return 999999;
 	}
-	double getPairwisePotential(int LabelIndex,int LabelIndex2){ return 1;}
+	double getPairwisePotential(int LabelIndex,int LabelIndex2){
+		LabelType l1(LabelIndex);
+		LabelType l2(LabelIndex2);
+	//	LabelType l=l1-l2;
+		double result=0;
+		for (int d=0;d<m_dim;++d){
+			double tmp=l1[d]-l2[d];
+			result+=tmp*tmp;
+		}
+		return sqrt(result);
+	}
 	double getWeight(int gridIndex1, int gridIndex2){return 1.0;}
-	double getPairwisePotential2(int LabelIndex,int LabelIndex2){ return 1;}
+	double getPairwisePotential2(int LabelIndex,int LabelIndex2){ return 0;}
 
 
 	IndexType gridToImageIndex(IndexType gridIndex){
@@ -168,6 +184,9 @@ public:
 	void setResolution(LabelType m_resolution)
 	{
 		this->m_resolution = m_resolution;
+	}
+	ImagePointerType getFixedImage(){
+		return m_fixedImage;
 	}
 
 };

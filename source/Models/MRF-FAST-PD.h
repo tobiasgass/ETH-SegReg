@@ -34,15 +34,15 @@ public:
 	:Superclass(graphModel),secondPairwise(secondPairwisePotential)
 	{
 		//		pairs is an array of the form [na nb nc nd...] where (na,nb),(nc,nd) are edges in the graph and na,... are indices of the nodes
-		std::cout<<"allocating "<<this->m_nPairs<<" pairs"<<std::endl;
+		std::cout<<"allocating "<<this->m_nPairs*2<<" pairs"<<std::endl;
 		pairs=std::vector<int>(this->m_nPairs*2);
-		std::cout<<"allocating "<<this->m_nPairs*2<<"unary potentials"<<std::endl;
+		std::cout<<"allocating "<<this->m_nNodes*this->m_nLabels<<"unary potentials"<<std::endl;
 		unaryPotentials=new Real[this->m_nNodes*this->m_nLabels];
-		std::cout<<"allocating "<<this->m_nNodes*this->m_nLabels<<" pairwise potentials"<<std::endl;
+		std::cout<<"allocating "<<this->m_nLabels*this->m_nLabels<<" pairwise potentials"<<std::endl;
 		pairwisePotentials= new Real[this->m_nLabels*this->m_nLabels];
 		if (secondPairwise)
 			pairwisePotentials2= new Real[this->m_nLabels*this->m_nLabels];
-		std::cout<<"allocating "<<this->m_nLabels*this->m_nLabels<<" edgeweights"<<std::endl;
+		std::cout<<"allocating "<<this->m_nPairs<<" edgeweights"<<std::endl;
 		edgeWeights=std::vector<Real>(this->m_nPairs,1.0);//new Real[this->m_nPairs];//={1.0};
 		m_unaryWeight=unaryWeight;
 		m_pairwiseWeight=pairwiseWeight;

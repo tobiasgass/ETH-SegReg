@@ -53,5 +53,51 @@ public:
 	}
 };//class
 
+
+template<class TLabel,class TImage,class TInterpolator>
+class RegistrationUnaryPotential : public BaseUnaryPotential<TLabel,TImage>{
+public:
+	//itk declarations
+	typedef RegistrationUnaryPotential            Self;
+	typedef BaseUnaryPotential<TLabel,TImage>                    Superclass;
+	typedef SmartPointer<Self>        Pointer;
+	typedef SmartPointer<const Self>  ConstPointer;
+
+	typedef	TImage ImageType;
+	typedef typename ImageType::Pointer ImagePointerType;
+	typedef TLabel LabelType;
+	typedef typename ImageType::IndexType IndexType;
+	typedef typename ImageType::SizeType SizeType;
+	typedef TInterpolator InterpolatorType;
+	typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+	typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+protected:
+	InterpolatorPointerType m_movingInterpolator;
+public:
+	/** Method for creation through the object factory. */
+	itkNewMacro(Self);
+	/** Standard part of every itk Object. */
+	itkTypeMacro(RegistrationUnaryPotential, Object);
+
+	RegistrationUnaryPotential(){
+	}
+	virtual void freeMemory(){
+	}
+	void SetMovingInterpolator(InterpolatorPointerType movingImage){
+		m_movingInterpolator=movingImage;
+	}
+	virtual double getPotential(IndexType fixedIndex, LabelType label){
+		double result=0;
+		ContinuousIndexType idx;
+		idx= fixedIndex+label.getDisplacement();
+		if (m_movingInterpolator->IsInsideBuffer(idx)){
+			result=fabs(this->m_fixedImage->GetPixel(fixedIndex)-m_movingInterpolator->EvaluateAtContinuousIndex(idx));
+		}
+		return result;
+	}
+};//class
+
+
+
 }//namespace
 #endif /* POTENTIALS_H_ */
