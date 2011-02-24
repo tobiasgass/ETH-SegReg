@@ -19,7 +19,9 @@ public:
 	typedef TGraphModel GraphModelType;
 	typedef typename GraphModelType::ImageType ImageType;
 	typedef typename GraphModelType::LabelType LabelType;
-	typedef typename itk::VectorImage<LabelType, ImageType::ImageDimension> LabelImageType;
+	typedef typename GraphModelType::LabelMapperType LabelMapperType;
+//	typedef typename itk::Image<LabelType, ImageType::ImageDimension> LabelImageType;
+	typedef typename GraphModelType::LabelImageType LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 protected:
 	int m_nNodes,m_nLabels,m_nPairs;
@@ -29,7 +31,7 @@ public:
 	BaseMRFSolver(GraphModelType * graphModel):m_GraphModel(graphModel)
 	{
 		m_nNodes=m_GraphModel->nNodes();
-		m_nLabels=LabelType::nLabels;
+		m_nLabels=LabelMapperType::nLabels;
 		this->m_nPairs=this->m_GraphModel->nVertices();
 
 	}
@@ -51,9 +53,12 @@ public:
 			labelImage->Allocate();
 			itk::ImageRegionIterator<LabelImageType>  it( labelImage, labelImage->GetLargestPossibleRegion() );
 			it.GoToBegin();
+			typedef typename LabelImageType::PixelType PixelType;
 			for (int i=0;i<m_nNodes;++i){
 				LabelType label=getLabelAtIndex(i);
-				it.Set((label));
+				PixelType label2=it.Get();
+				it.Set(label2);
+				label2=label;
 				++it;
 			}
 #if 0

@@ -8,134 +8,60 @@
 #ifndef BASELABEL_H_
 #define BASELABEL_H_
 
-#include "itkVector.h"
-#include "itkVariableLengthVector.h"
-#include "itkNumericTraits.h"
 
-template<class TImage>
-class BaseLabel : public itk::Vector<short int, TImage::ImageDimension+1>{//TImage::OffsetType{
+template<class TImage, class TLabel>
+class BaseLabelMapper{
 public:
 	typedef typename TImage::OffsetType OffsetType;
-	//	typedef typename TImage::OffsetType Superclass;
-	typedef typename itk::Vector<short int> Superclass;
+	typedef TLabel LabelType;
 	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
 	static const int Dimension=TImage::ImageDimension+1;
-	//	typedef typename Superclass::RealType RealType;
-private:
-	int m_index,m_segmentation;
 
+//private:
+//	int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
 public:
-	BaseLabel(){}
-	BaseLabel(int NSegmentations, int NDisplacementSamples):Superclass(TImage::ImageDimension+1){
+	BaseLabelMapper(){}
+	BaseLabelMapper(int NSegmentations, int NDisplacementSamples){
 		nSegmentations=NSegmentations;
 		nDisplacementSamples=NDisplacementSamples;
 		nDisplacements=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension);
 		nLabels=nSegmentations*nDisplacements;
 		k=TImage::ImageDimension+1;
 	}
-	BaseLabel(int index):Superclass(TImage::ImageDimension+1){
-		m_segmentation=index/nDisplacements;
+	static const LabelType getLabel(int index){
+		LabelType result;
+		int m_segmentation=index/nDisplacements;
 		index=index%nDisplacements;
 		int divisor=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension-1);
 		for (int d=0;d<TImage::ImageDimension;++d){
-			(*this)[d]=index/divisor-nDisplacementSamples;
-			index-=((*this)[d]+nDisplacementSamples)*divisor;
+			result[d]=index/divisor-nDisplacementSamples;
+			index-=(result[d]+nDisplacementSamples)*divisor;
 			divisor/=2*nDisplacementSamples+1;
 		}
-		(*this)[k-1]=m_segmentation;
+		result[k-1]=m_segmentation;
+		return result;
 	}
 
-	const int getIndex(){
+	static const int getIndex(const LabelType & label){
 		int index=0;
-		index+=m_segmentation*nDisplacements;
+		index+=label[k-1]*nDisplacements;
 		int factor=1;
 		for (int d=TImage::ImageDimension-1;d>=0;--d){
-			index+=factor*((*this)[d]+nDisplacementSamples);
+			index+=factor*(label[d]+nDisplacementSamples);
 			factor*=2*nDisplacementSamples+1;
 		}
 		return index;
 	}
-	static const BaseLabel getLabel(int index){
-		BaseLabel result(index);
-		return result;
-	}
-	virtual OffsetType getDisplacement(){
+	static const OffsetType getDisplacement(const LabelType & label){
 		OffsetType off;
 		for (int d=0;d<TImage::ImageDimension;++d){
-			off[d]=(*this)[d];
+			off[d]=label[d];
 		}
-
 		return off;
 	}
-	int getSegmentation(){
-		return m_segmentation;
-	}
-	void setSegmentation(int s){
-		m_segmentation=s;
-	}
-	BaseLabel operator+(BaseLabel &l){
-		BaseLabel tmp=(*this)+(l);
-		tmp.setSegmentation(m_segmentation+l.getSegmentation());
-		return tmp;
-	}
-	BaseLabel operator-(BaseLabel &l){
-		BaseLabel tmp=(*this)-(l);
-		tmp.setSegmentation(m_segmentation-l.getSegmentation());
-		return tmp;
-	}
-	void operator+=(BaseLabel &l){
-		(*this)+=(l);
-		m_segmentation+=l.getSegmentation();
-	}
-	void operator-=(BaseLabel &l){
-		(*this)-=(l);
-		m_segmentation-=l.getSegmentation();
-	}
-
-	BaseLabel operator*(double s){
-		BaseLabel tmp=s*(*this);
-		tmp.setSegmentation(s*m_segmentation);
-		return tmp;
-	}
-	void operator*=(double s){
-		(*this)*=s;
-		m_segmentation*=s;
-
-	}
-	BaseLabel operator/(double s){
-		BaseLabel tmp=(*this)/s;
-		tmp.m_Segmentation=s/m_segmentation;
-		return tmp;
-	}
-	void operator/=(double s){
-		(*this)/=s;
-		m_segmentation/=s;
-
+	static const short int getSegmentation(const LabelType & label){
+		return label[k-1];
 	}
 };
-#if 1
-namespace itk{
-template <class ImageType>
-class NumericTraits<BaseLabel<ImageType> > {
-public:
-#if 0
-	typedef short int ValueType;
-	typedef short int PrintType;
-	typedef short int RealType;
-	typedef short int AccumulateType;
-	typedef short int AbsType;
-	typedef short int FloatType;
-	typedef BaseLabel<ImageType>::Superclass::PrintType PrintType;
-		typedef BaseLabel<ImageType>::Superclass::RealType RealType;
-		typedef BaseLabel<ImageType>::Superclass::AccumulateType AccumulateType;
-		typedef BaseLabel<ImageType>::Superclass::AbsType AbsType;
-		typedef BaseLabel<ImageType>::Superclass::RealType RealType;
-#else
-	typedef typename BaseLabel<ImageType>::Superclass::ValueType ValueType;
-	typedef typename BaseLabel<ImageType>::Superclass::RealType RealType;
 
-#endif
-};
-}
-#endif
 #endif /* LABEL_H_ */

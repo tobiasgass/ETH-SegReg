@@ -15,7 +15,7 @@ namespace itk{
 
 
 
-template<class TLabel,class TImage>
+template<class TLabelMapper,class TImage>
 class BaseUnaryPotential : public itk::Object{
 public:
 	//itk declarations
@@ -26,7 +26,8 @@ public:
 
 	typedef	TImage ImageType;
 	typedef typename ImageType::Pointer ImagePointerType;
-	typedef TLabel LabelType;
+	typedef TLabelMapper LabelMapperType;
+	typedef typename LabelMapperType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
 
@@ -54,18 +55,19 @@ public:
 };//class
 
 
-template<class TLabel,class TImage,class TInterpolator>
-class RegistrationUnaryPotential : public BaseUnaryPotential<TLabel,TImage>{
+template<class TLabelMapper,class TImage,class TInterpolator>
+class RegistrationUnaryPotential : public BaseUnaryPotential<TLabelMapper,TImage>{
 public:
 	//itk declarations
 	typedef RegistrationUnaryPotential            Self;
-	typedef BaseUnaryPotential<TLabel,TImage>                    Superclass;
+	typedef BaseUnaryPotential<TLabelMapper,TImage>                    Superclass;
 	typedef SmartPointer<Self>        Pointer;
 	typedef SmartPointer<const Self>  ConstPointer;
 
 	typedef	TImage ImageType;
 	typedef typename ImageType::Pointer ImagePointerType;
-	typedef TLabel LabelType;
+	typedef TLabelMapper LabelMapperType;
+	typedef typename LabelMapperType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
 	typedef TInterpolator InterpolatorType;
@@ -86,12 +88,14 @@ public:
 	void SetMovingInterpolator(InterpolatorPointerType movingImage){
 		m_movingInterpolator=movingImage;
 	}
+
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
 		ContinuousIndexType idx;
-		idx= fixedIndex+label.getDisplacement();
+		idx= fixedIndex+LabelMapperType::getDisplacement(label);
 		if (m_movingInterpolator->IsInsideBuffer(idx)){
 			result=fabs(this->m_fixedImage->GetPixel(fixedIndex)-m_movingInterpolator->EvaluateAtContinuousIndex(idx));
+			std::cout<<fixedIndex<<" "<<label<<" "<<idx<<" "<<result<<std::endl;
 		}
 		return result;
 	}

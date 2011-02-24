@@ -17,13 +17,13 @@
  * Returns current/next position in a grid based on size and resolution
  */
 
-template<class TUnaryFunction,class TLabel, class TImage>
-class GraphModel: public itk::Image<TLabel, TImage::ImageDimension>{
+template<class TUnaryFunction,class TLabelMapper, class TImage>
+class GraphModel{
 public:
 	typedef TUnaryFunction UnaryFunctionType;
 	typedef typename UnaryFunctionType::Pointer UnaryFunctionPointerType;
-
-	typedef TLabel LabelType;
+	typedef TLabelMapper LabelMapperType;
+	typedef typename LabelMapperType::LabelType LabelType;
 	typedef typename TImage::IndexType IndexType;
 	typedef typename TImage::OffsetType OffsetType;
 	typedef typename TImage::SizeType SizeType;
@@ -73,13 +73,13 @@ public:
 		m_labelImage=LabelImageType::New();
 		m_labelImage->SetRegions(m_fixedImage->GetLargestPossibleRegion());
 		m_labelImage->SetSpacing(1.0);
-		m_labelImage->SetNumberOfComponentsPerPixel(LabelType::k);
+		m_labelImage->SetNumberOfComponentsPerPixel(LabelMapperType::k);
 		m_labelImage->Allocate();
 	}
 
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
-		LabelType label(labelIndex);
+		LabelType label=LabelMapperType::getLabel(labelIndex);
 //		ContinuousIndexType movingIndex=fixedIndex+label.getDisplacement();
 		itk::Vector<double> test(3);
 		int count=0;
@@ -108,11 +108,11 @@ public:
 		else return 999999;
 	}
 	double getPairwisePotential(int LabelIndex,int LabelIndex2){
-		LabelType l1(LabelIndex);
-		LabelType l2(LabelIndex2);
+		LabelType l1=LabelMapperType::getLabel(LabelIndex);
+		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
 	//	LabelType l=l1-l2;
 		double result=0;
-		for (int d=0;d<m_dim;++d){
+		for (unsigned int d=0;d<m_dim;++d){
 			double tmp=l1[d]-l2[d];
 			result+=tmp*tmp;
 		}
