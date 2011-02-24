@@ -34,6 +34,7 @@ public:
 //	typedef typename LabelConverterType::FieldElementType FieldElementType;
 //	typedef typename LabelConverterType::LabelFieldType LabelFieldType;
 //	typedef typename LabelFieldType::Pointer LabelFieldPointerType;
+
 	typedef typename itk::Image<LabelType> LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 

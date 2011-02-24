@@ -53,7 +53,7 @@ public:
 			it.GoToBegin();
 			for (int i=0;i<m_nNodes;++i){
 				LabelType label=getLabelAtIndex(i);
-				it.Set(label);
+				it.Set((label));
 				++it;
 			}
 #if 0

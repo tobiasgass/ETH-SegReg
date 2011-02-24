@@ -13,12 +13,13 @@
 #include "itkNumericTraits.h"
 
 template<class TImage>
-class BaseLabel : public itk::VariableLengthVector<short int>{//TImage::OffsetType{
+class BaseLabel : public itk::Vector<short int, TImage::ImageDimension+1>{//TImage::OffsetType{
 public:
 	typedef typename TImage::OffsetType OffsetType;
 	//	typedef typename TImage::OffsetType Superclass;
-	typedef typename itk::VariableLengthVector<short int> Superclass;
+	typedef typename itk::Vector<short int> Superclass;
 	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
+	static const int Dimension=TImage::ImageDimension+1;
 	//	typedef typename Superclass::RealType RealType;
 private:
 	int m_index,m_segmentation;
@@ -112,25 +113,29 @@ public:
 
 	}
 };
+#if 1
 namespace itk{
 template <class ImageType>
 class NumericTraits<BaseLabel<ImageType> > {
 public:
-#if 1
+#if 0
 	typedef short int ValueType;
 	typedef short int PrintType;
 	typedef short int RealType;
 	typedef short int AccumulateType;
 	typedef short int AbsType;
 	typedef short int FloatType;
+	typedef BaseLabel<ImageType>::Superclass::PrintType PrintType;
+		typedef BaseLabel<ImageType>::Superclass::RealType RealType;
+		typedef BaseLabel<ImageType>::Superclass::AccumulateType AccumulateType;
+		typedef BaseLabel<ImageType>::Superclass::AbsType AbsType;
+		typedef BaseLabel<ImageType>::Superclass::RealType RealType;
 #else
-	typedef VariableLengthVector<short int> ValueType;
-	typedef VariableLengthVector<short int> PrintType;
-	typedef VariableLengthVector<short int> RealType;
-	typedef VariableLengthVector<short int> AccumulateType;
-	typedef VariableLengthVector<short int> AbsType;
-	typedef VariableLengthVector<short int> FloatType;
+	typedef typename BaseLabel<ImageType>::Superclass::ValueType ValueType;
+	typedef typename BaseLabel<ImageType>::Superclass::RealType RealType;
+
 #endif
 };
 }
+#endif
 #endif /* LABEL_H_ */

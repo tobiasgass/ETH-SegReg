@@ -29,7 +29,7 @@ public:
 	typedef typename TImage::SizeType SizeType;
 	typedef  TImage ImageType;
 	typedef typename TImage::Pointer ImagePointerType;
-	typedef typename itk::VectorImage<LabelType,ImageType::ImageDimension> LabelImageType;
+	typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 
 private:
