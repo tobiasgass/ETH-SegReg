@@ -36,6 +36,7 @@ private:
 	ImagePointerType m_fixedImage;
 	LabelImagePointerType m_labelImage;
 	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors,m_spacing;
+	double m_dblSpacing;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices;
 //	ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
@@ -49,6 +50,7 @@ public:
 //		assert(m_totalSize==movingImage->GetLargestPossibleRegion().GetSize());
 		m_spacing=res;
 		m_nNodes=1;
+		m_dblSpacing=m_spacing[0];
 		for (int d=0;d<m_dim;++d){
 			m_gridSize[d]=m_totalSize[d]/m_spacing[d];
 			m_nNodes*=m_gridSize[d];
@@ -70,13 +72,9 @@ public:
 		}
 		std::cout<<" "<<m_nNodes<<" "<<m_nVertices<<std::endl;
 //		m_ImageInterpolator.SetInput(m_movingImage);
-		m_labelImage=LabelImageType::New();
-		m_labelImage->SetRegions(m_fixedImage->GetLargestPossibleRegion());
-		m_labelImage->SetSpacing(1.0);
-		m_labelImage->SetNumberOfComponentsPerPixel(LabelMapperType::k);
-		m_labelImage->Allocate();
 	}
 
+	double getSpacing(){return m_dblSpacing;}
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
@@ -139,7 +137,7 @@ public:
 	}
 	IndexType getGridPositionAtIndex(int idx){
 		IndexType position;
-		for (int d=m_dim-1;d>=0;--d){
+		for ( int d=m_dim-1;d>=0;--d){
 			position[d]=idx/m_imageLevelDivisors[d];
 			idx-=position[d]*m_imageLevelDivisors[d];
 		}
@@ -151,7 +149,7 @@ public:
 
 	int  getIntegerIndex(IndexType gridIndex){
 		int i=0;
-		for (int d=0;d<m_dim;++d){
+		for (unsigned int d=0;d<m_dim;++d){
 			i+=gridIndex[d]*m_imageLevelDivisors[d];
 		}
 		return i;
@@ -165,7 +163,7 @@ public:
 	std::vector<int> getForwardNeighbours(int index){
 		IndexType position=getGridPositionAtIndex(index);
 		std::vector<int> neighbours;
-		for (int d=0;d<m_dim;++d){
+		for (unsigned int d=0;d<m_dim;++d){
 			OffsetType off;
 			off.Fill(0);
 			if (position[d]<m_gridSize[d]-1){

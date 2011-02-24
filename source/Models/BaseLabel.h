@@ -7,12 +7,15 @@
 
 #ifndef BASELABEL_H_
 #define BASELABEL_H_
+#include "itkLinearInterpolateImageFunction.h"
 
 
 template<class TImage, class TLabel>
 class BaseLabelMapper{
 public:
-	typedef typename TImage::OffsetType OffsetType;
+//	typedef typename TImage::OffsetType OffsetType;
+//	typedef typename itk::LinearInterpolateImageFunction<TImage>::ContinuousIndexType OffsetType;
+	typedef typename itk::Vector<float,TImage::ImageDimension> OffsetType;
 	typedef TLabel LabelType;
 	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
 	static const int Dimension=TImage::ImageDimension+1;

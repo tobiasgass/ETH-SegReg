@@ -91,11 +91,13 @@ public:
 
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
-		ContinuousIndexType idx;
-		idx= fixedIndex+LabelMapperType::getDisplacement(label);
-		if (m_movingInterpolator->IsInsideBuffer(idx)){
-			result=fabs(this->m_fixedImage->GetPixel(fixedIndex)-m_movingInterpolator->EvaluateAtContinuousIndex(idx));
-			std::cout<<fixedIndex<<" "<<label<<" "<<idx<<" "<<result<<std::endl;
+//		ContinuousIndexType idx(LabelMapperType::getDisplacement(label));
+		ContinuousIndexType idx2(fixedIndex);
+		idx2+= LabelMapperType::getDisplacement(label);//idx2;
+		if (m_movingInterpolator->IsInsideBuffer(idx2)){
+			result=fabs(this->m_fixedImage->GetPixel(fixedIndex)-m_movingInterpolator->EvaluateAtContinuousIndex(idx2));
+		}else{
+			result=999999;
 		}
 		return result;
 	}
