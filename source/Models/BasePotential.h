@@ -70,12 +70,13 @@ public:
 	typedef typename LabelMapperType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
+	typedef typename ImageType::SpacingType SpacingType;
 	typedef TInterpolator InterpolatorType;
 	typedef typename InterpolatorType::Pointer InterpolatorPointerType;
 	typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 protected:
 	InterpolatorPointerType m_movingInterpolator;
-	float m_displacementFactor;
+	SpacingType m_displacementFactor;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
@@ -90,7 +91,7 @@ public:
 	void SetMovingInterpolator(InterpolatorPointerType movingImage){
 		m_movingInterpolator=movingImage;
 	}
-	void SetDisplacementFactor(const float & f){m_displacementFactor=f;}
+	void SetDisplacementFactor(const SpacingType & f){m_displacementFactor=f;}
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
 		ContinuousIndexType idx2(fixedIndex);

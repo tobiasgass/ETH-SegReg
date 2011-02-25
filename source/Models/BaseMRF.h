@@ -49,13 +49,17 @@ public:
 	virtual LabelImagePointerType getLabelImage(){
 			LabelImagePointerType labelImage=LabelImageType::New();
 			typename LabelImageType::RegionType region;
-			typename LabelImageType::SizeType size=m_GraphModel->getFixedImage()->GetLargestPossibleRegion().GetSize();
-//			std::cout<<size<<" "<<m_GraphModel->getSpacing()<<std::endl;
-			size=size/m_GraphModel->getSpacing();
-//			std::cout<<size<<std::endl;
+			typename LabelImageType::SizeType size=m_GraphModel->getGridSize();//=m_GraphModel->getFixedImage()->GetLargestPossibleRegion().GetSize();
+
+
 			region.SetSize(size);//m_GraphModel->getSpacing());
 			labelImage->SetRegions(region);
-			labelImage->SetSpacing((m_GraphModel->getSingleSpacing()+1));
+			typename LabelImageType::SpacingType spacing=(m_GraphModel->getSpacing());
+			for (int d=0;d<LabelImageType::ImageDimension;++d){
+				spacing[d]=spacing[d];
+			}
+			labelImage->SetSpacing(spacing);
+//			std::cout<<size<<" "<<m_GraphModel->getSpacing()<<std::endl;
 			labelImage->Allocate();
 			itk::ImageRegionIterator<LabelImageType>  it( labelImage, labelImage->GetLargestPossibleRegion() );
 			it.GoToBegin();

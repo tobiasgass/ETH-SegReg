@@ -11,7 +11,7 @@
 #include <vector>
 #include <assert.h>
 #include "itkVectorImage.h"
-
+#include "itkConstNeighborhoodIterator.h"
 /*
  * Isotropic Graph
  * Returns current/next position in a grid based on size and resolution
@@ -28,6 +28,8 @@ public:
 	typedef typename TImage::OffsetType OffsetType;
 	typedef typename TImage::SizeType SizeType;
 	typedef  TImage ImageType;
+	typedef typename TImage::SpacingType SpacingType;
+
 	typedef typename TImage::Pointer ImagePointerType;
 	typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
@@ -35,26 +37,32 @@ public:
 private:
 	ImagePointerType m_fixedImage;
 	LabelImagePointerType m_labelImage;
-	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors,m_spacing;
-	double m_dblSpacing,m_labelFactor;
+	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors;
+	SpacingType m_spacing,m_labelSpacing;
+	double m_DisplacementScalingFactor;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices;
-//	ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
+	//	ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
 	UnaryFunctionPointerType m_unaryFunction;
 
 public:
 
-	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, SizeType res):m_fixedImage(fixedimage),m_unaryFunction(unaryFunction){
+	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, SpacingType res, double displacementScalingFactor)
+	:m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor)
+	{
 		assert(m_dim>1);
 		assert(m_dim<4);
 		m_totalSize=fixedimage->GetLargestPossibleRegion().GetSize();
-//		assert(m_totalSize==movingImage->GetLargestPossibleRegion().GetSize());
+		//		assert(m_totalSize==movingImage->GetLargestPossibleRegion().GetSize());
 		m_spacing=res;
 		m_nNodes=1;
-		m_dblSpacing=m_spacing[0];
-		m_labelFactor=0.45*m_dblSpacing/LabelMapperType::nDisplacementSamples;
+		//		m_dblSpacing=m_spacing[0];
+
+		m_labelSpacing=0.45*m_spacing/LabelMapperType::nDisplacementSamples;
+
 		for (int d=0;d<(int)m_dim;++d){
-			m_gridSize[d]=m_totalSize[d]/m_spacing[d];
+			std::cout<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
+			m_gridSize[d]=1+m_totalSize[d]/m_spacing[d];
 			m_nNodes*=m_gridSize[d];
 			if (d>0){
 				m_imageLevelDivisors[d]=m_imageLevelDivisors[d-1]*m_gridSize[d-1];
@@ -73,39 +81,33 @@ public:
 			m_nVertices+=(m_gridSize[2]-1)*m_gridSize[1]*m_gridSize[0];
 		}
 		std::cout<<" "<<m_nNodes<<" "<<m_nVertices<<std::endl;
-//		m_ImageInterpolator.SetInput(m_movingImage);
+		//		m_ImageInterpolator.SetInput(m_movingImage);
 	}
 
-	double getSingleSpacing(){return m_dblSpacing;}
-	double getDisplacementFactor(){return m_labelFactor;}
-	SizeType getSpacing(){return m_spacing;}
+
+	SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
+	SpacingType getSpacing(){return m_spacing;}
 
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
-//		ContinuousIndexType movingIndex=fixedIndex+label.getDisplacement();
-		itk::Vector<double> test(3);
-		int count=0;
-//		int radius=m_spacing/2;
+		typename itk::ConstNeighborhoodIterator<ImageType>::RadiusType radius;
+		for (unsigned int d=0;d<m_dim;++d){
+			radius[d]=m_spacing[d]*0.45;
+		}
+
+		typename itk::ConstNeighborhoodIterator<ImageType> nIt(radius,m_fixedImage, m_fixedImage->GetLargestPossibleRegion());
+		nIt.SetLocation(fixedIndex);
 		double res=0.0;
-//		OffsetType off;//=m_spacing/2;
-//		off.Fill(-radius);
-#if 0
-		for (int d=0;d<m_dim;++d){
-			off[0]++;
-			for (int e=0;e<m_dim;++e){
-				if (off[e]>radius){
-					off[e]-radius;
-					off[e+1]++;
-				}
-#endif
-//				if (fixedIndex+off<m_totalSize )//&& movingIndex+off<m_movingSize)
-				res+=m_unaryFunction->getPotential(fixedIndex,label);
+		double count=0;
+		for (unsigned int i=0;i<nIt.Size();++i){
+			bool inBounds;
+			nIt.GetPixel(i,inBounds);
+			if (inBounds){
+				res+=m_unaryFunction->getPotential(nIt.GetIndex(i),label);
 				++count;
-#if 0
 			}
 		}
-#endif
 		if (count>0)
 			return res/count;
 		else return 999999;
@@ -113,7 +115,7 @@ public:
 	double getPairwisePotential(int LabelIndex,int LabelIndex2){
 		LabelType l1=LabelMapperType::getLabel(LabelIndex);
 		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
-	//	LabelType l=l1-l2;
+		//	LabelType l=l1-l2;
 		double result=0;
 		for (unsigned int d=0;d<m_dim;++d){
 			double tmp=l1[d]-l2[d];
@@ -128,7 +130,8 @@ public:
 	IndexType gridToImageIndex(IndexType gridIndex){
 		IndexType imageIndex;
 		for (unsigned int d=0;d<m_dim;++d){
-			imageIndex[d]=gridIndex[d]*m_spacing[d];
+			int t=gridIndex[d]*m_spacing[d]-1;
+			imageIndex[d]=t>0?t:0;
 		}
 		return imageIndex;
 	}
@@ -136,7 +139,7 @@ public:
 	IndexType imageToGridIndex(IndexType imageIndex){
 		IndexType gridIndex;
 		for (int d=0;d<m_dim;++d){
-			gridIndex[d]=imageIndex[d]/m_spacing[d];
+			gridIndex[d]=max(imageIndex[d]-1,0)/m_spacing[d];
 		}
 		return gridIndex;
 	}
@@ -183,6 +186,8 @@ public:
 	{
 		return m_totalSize;
 	}
+	SizeType getGridSize() const
+	{return m_gridSize;}
 
 	void setResolution(LabelType m_resolution)
 	{
