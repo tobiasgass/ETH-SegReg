@@ -17,6 +17,8 @@ public:
 //	typedef typename itk::LinearInterpolateImageFunction<TImage>::ContinuousIndexType OffsetType;
 	typedef typename itk::Vector<float,TImage::ImageDimension> OffsetType;
 	typedef TLabel LabelType;
+	typedef typename  itk::Image<LabelType> LabelImageType;
+	typedef typename LabelImageType::Pointer LabelImagePointerType;
 	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
 	static const int Dimension=TImage::ImageDimension+1;
 

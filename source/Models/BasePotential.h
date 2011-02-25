@@ -74,9 +74,11 @@ public:
 	typedef TInterpolator InterpolatorType;
 	typedef typename InterpolatorType::Pointer InterpolatorPointerType;
 	typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+	typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
 protected:
 	InterpolatorPointerType m_movingInterpolator;
 	SpacingType m_displacementFactor;
+	LabelImagePointerType m_baseLabelMap;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
@@ -88,6 +90,8 @@ public:
 	}
 	virtual void freeMemory(){
 	}
+	void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;}
+	LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
 	void SetMovingInterpolator(InterpolatorPointerType movingImage){
 		m_movingInterpolator=movingImage;
 	}
@@ -97,6 +101,10 @@ public:
 		ContinuousIndexType idx2(fixedIndex);
 		itk::Vector<float,2> disp=LabelMapperType::getDisplacement(label);
 		idx2+= disp*m_displacementFactor;
+		if (m_baseLabelMap){
+			itk::Vector<float,2> baseDisp=LabelMapperType::getDisplacement(m_baseLabelMap->GetPixel(fixedIndex));
+			idx2+=baseDisp;
+		}
 		if (m_movingInterpolator->IsInsideBuffer(idx2)){
 			result=fabs(this->m_fixedImage->GetPixel(fixedIndex)-m_movingInterpolator->EvaluateAtContinuousIndex(idx2));
 		}else{
