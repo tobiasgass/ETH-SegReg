@@ -48,8 +48,14 @@ public:
 
 	virtual LabelImagePointerType getLabelImage(){
 			LabelImagePointerType labelImage=LabelImageType::New();
-			labelImage->SetRegions(m_GraphModel->getFixedImage()->GetLargestPossibleRegion());
-			labelImage->SetSpacing(m_GraphModel->getSpacing());
+			typename LabelImageType::RegionType region;
+			typename LabelImageType::SizeType size=m_GraphModel->getFixedImage()->GetLargestPossibleRegion().GetSize();
+//			std::cout<<size<<" "<<m_GraphModel->getSpacing()<<std::endl;
+			size=size/m_GraphModel->getSpacing();
+//			std::cout<<size<<std::endl;
+			region.SetSize(size);//m_GraphModel->getSpacing());
+			labelImage->SetRegions(region);
+			labelImage->SetSpacing((m_GraphModel->getSingleSpacing()+1));
 			labelImage->Allocate();
 			itk::ImageRegionIterator<LabelImageType>  it( labelImage, labelImage->GetLargestPossibleRegion() );
 			it.GoToBegin();
@@ -57,10 +63,10 @@ public:
 			typedef typename ImageType::IndexType IndexType;
 			for (int i=0;i<m_nNodes;++i){
 				LabelType label=getLabelAtIndex(i);
-				IndexType idx=m_GraphModel->getImagePositionAtIndex(i);
+				IndexType idx=m_GraphModel->getGridPositionAtIndex(i);
 //				std::cout<<i<<" "<<it.GetIndex()<<" "<<idx<<" "<<label<<std::endl;
-				//it.Set(label);
-				labelImage->SetPixel(idx,label);
+				it.Set(label);
+//				labelImage->SetPixel(idx,label);
 				++it;
 
 			}

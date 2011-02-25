@@ -75,6 +75,7 @@ public:
 	typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 protected:
 	InterpolatorPointerType m_movingInterpolator;
+	float m_displacementFactor;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
@@ -82,18 +83,19 @@ public:
 	itkTypeMacro(RegistrationUnaryPotential, Object);
 
 	RegistrationUnaryPotential(){
+		m_displacementFactor=1.0;
 	}
 	virtual void freeMemory(){
 	}
 	void SetMovingInterpolator(InterpolatorPointerType movingImage){
 		m_movingInterpolator=movingImage;
 	}
-
+	void SetDisplacementFactor(const float & f){m_displacementFactor=f;}
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
-//		ContinuousIndexType idx(LabelMapperType::getDisplacement(label));
 		ContinuousIndexType idx2(fixedIndex);
-		idx2+= LabelMapperType::getDisplacement(label);//idx2;
+		itk::Vector<float,2> disp=LabelMapperType::getDisplacement(label);
+		idx2+= disp*m_displacementFactor;
 		if (m_movingInterpolator->IsInsideBuffer(idx2)){
 			result=fabs(this->m_fixedImage->GetPixel(fixedIndex)-m_movingInterpolator->EvaluateAtContinuousIndex(idx2));
 		}else{

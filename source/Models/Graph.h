@@ -36,11 +36,12 @@ private:
 	ImagePointerType m_fixedImage;
 	LabelImagePointerType m_labelImage;
 	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors,m_spacing;
-	double m_dblSpacing;
+	double m_dblSpacing,m_labelFactor;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices;
 //	ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
 	UnaryFunctionPointerType m_unaryFunction;
+
 public:
 
 	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, SizeType res):m_fixedImage(fixedimage),m_unaryFunction(unaryFunction){
@@ -51,7 +52,8 @@ public:
 		m_spacing=res;
 		m_nNodes=1;
 		m_dblSpacing=m_spacing[0];
-		for (int d=0;d<m_dim;++d){
+		m_labelFactor=0.45*m_dblSpacing/LabelMapperType::nDisplacementSamples;
+		for (int d=0;d<(int)m_dim;++d){
 			m_gridSize[d]=m_totalSize[d]/m_spacing[d];
 			m_nNodes*=m_gridSize[d];
 			if (d>0){
@@ -74,7 +76,10 @@ public:
 //		m_ImageInterpolator.SetInput(m_movingImage);
 	}
 
-	double getSpacing(){return m_dblSpacing;}
+	double getSingleSpacing(){return m_dblSpacing;}
+	double getDisplacementFactor(){return m_labelFactor;}
+	SizeType getSpacing(){return m_spacing;}
+
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
@@ -83,7 +88,7 @@ public:
 		int count=0;
 //		int radius=m_spacing/2;
 		double res=0.0;
-		OffsetType off;//=m_spacing/2;
+//		OffsetType off;//=m_spacing/2;
 //		off.Fill(-radius);
 #if 0
 		for (int d=0;d<m_dim;++d){
@@ -122,7 +127,7 @@ public:
 
 	IndexType gridToImageIndex(IndexType gridIndex){
 		IndexType imageIndex;
-		for (int d=0;d<m_dim;++d){
+		for (unsigned int d=0;d<m_dim;++d){
 			imageIndex[d]=gridIndex[d]*m_spacing[d];
 		}
 		return imageIndex;
@@ -163,10 +168,10 @@ public:
 	std::vector<int> getForwardNeighbours(int index){
 		IndexType position=getGridPositionAtIndex(index);
 		std::vector<int> neighbours;
-		for (unsigned int d=0;d<m_dim;++d){
+		for ( int d=0;d<(int)m_dim;++d){
 			OffsetType off;
 			off.Fill(0);
-			if (position[d]<m_gridSize[d]-1){
+			if ((int)position[d]<(int)m_gridSize[d]-1){
 				off[d]+=1;
 				neighbours.push_back(getIntegerIndex(position+off));
 			}
