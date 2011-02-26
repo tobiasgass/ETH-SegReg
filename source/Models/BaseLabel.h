@@ -33,6 +33,14 @@ public:
 		nLabels=nSegmentations*nDisplacements;
 		k=TImage::ImageDimension+1;
 	}
+	static const LabelType scaleDisplacement(const LabelType & label,const itk::Vector<float,TImage::ImageDimension> & scaling){
+		LabelType result(label);
+		for (int d=0;d<TImage::ImageDimension;++d){
+				result[d]=result[d]*scaling[d];
+		}
+		return result;
+	}
+
 	static const LabelType getLabel(int index){
 		LabelType result;
 		int m_segmentation=index/nDisplacements;
@@ -64,7 +72,7 @@ public:
 		}
 		return off;
 	}
-	static const short int getSegmentation(const LabelType & label){
+	static const float getSegmentation(const LabelType & label){
 		return label[k-1];
 	}
 };
@@ -104,6 +112,7 @@ public:
 	static const int getIndex(const LabelType & label){
 		int index=0;
 		index+=label[k-1]*nDisplacements;
+//		std::cout<<label<<" "<<label[k-1]<<" "<<index<<std::endl;
 		//find out direction
 		itk::Vector<double,TImage::ImageDimension> sums;
 		sums.Fill(0);
@@ -116,7 +125,7 @@ public:
 			}
 			if (sums[d]==0){
 				//found it!
-				index=(d)*(2*nDisplacementSamples+1)+label[d]+nDisplacementSamples;
+				index+=(d)*(2*nDisplacementSamples+1)+label[d]+nDisplacementSamples;
 				break;
 			}
 		}
@@ -130,7 +139,7 @@ public:
 		}
 		return off;
 	}
-	static const short int getSegmentation(const LabelType & label){
+	static const float getSegmentation(const LabelType & label){
 		return label[k-1];
 	}
 };

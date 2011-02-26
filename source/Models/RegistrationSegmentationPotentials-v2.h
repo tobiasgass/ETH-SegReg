@@ -254,7 +254,7 @@ public:
 		//-log( p(X,A|T))
 		double log_p_XA_T=m_intensWeight*fabs(imageIntensity-movingIntensity)*m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),1);
 		//-log( p(S_a|T,S_x) )
-		double log_p_SA_TSX =m_posteriorWeight*1000* (segmentationLabel!=deformedSegmentation);
+		double log_p_SA_TSX =m_segmentationWeight*1000* (segmentationLabel!=deformedSegmentation);
 		//-log(  p(S_x|X,A,S_a,T) )
 		//for each index there are nlables/nsegmentation probabilities
 		long int probposition=fixedIntIndex*m_labelConverter->nLabels()/2;
@@ -262,7 +262,7 @@ public:
 		probposition+=+m_labelConverter->getIntegerLabel(label)%m_labelConverter->nLabels();
 		double log_p_SX_XASAT = 0;//m_segmentationWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 		//-log( p(S_a|A) )
-		double log_p_SX_X = m_segmentationWeight*1000*-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));
+		double log_p_SX_X = m_posteriorWeight*1000*-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));
 		//		std::cout<<"UNARIES: "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SA_A<<std::endl;
 		result+=log_p_XA_T+log_p_SA_TSX+log_p_SX_XASAT+log_p_SX_X;
 		//result+=log_p_SA_A;

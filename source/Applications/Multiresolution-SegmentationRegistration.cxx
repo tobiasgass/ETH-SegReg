@@ -37,8 +37,8 @@ typedef unsigned short PixelType;
 const unsigned int D=2;
 typedef Image<PixelType,D> ImageType;
 typedef ImageType::IndexType IndexType;
-typedef itk::Vector<float,D> BaseLabelType;
-typedef SparseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+typedef itk::Vector<float,D+1> BaseLabelType;
+typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
 template<> int LabelMapperType::nLabels=-1;
 template<> int LabelMapperType::nDisplacements=-1;
 template<> int LabelMapperType::nSegmentations=-1;
@@ -84,7 +84,7 @@ int main(int argc, char ** argv)
 	as.defaultErrorHandling();
 
 	if (displacementSampling==-1) displacementSampling=maxDisplacement;
-	bool verbose=true;
+	bool verbose=false;
 	//typedefs
 
 	typedef ImageType::Pointer ImagePointerType;
@@ -168,7 +168,7 @@ int main(int argc, char ** argv)
 
 	//	typedef RegistrationLabel<ImageType> BaseLabelType;
 
-	LabelMapperType * labelmapper=new LabelMapperType(1,maxDisplacement);
+	LabelMapperType * labelmapper=new LabelMapperType(2,maxDisplacement);
 	for (int l=0;l<LabelMapperType::nLabels;++l){
 		std::cout<<l<<" "<<LabelMapperType::getLabel(l)<<" "<<LabelMapperType::getIndex(LabelMapperType::getLabel(l))<<std::endl;
 	}
@@ -178,7 +178,7 @@ int main(int argc, char ** argv)
 
 	typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
 	typedef ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
-	typedef RegistrationUnaryPotential< LabelMapperType, ImageType, ImageInterpolatorType > BaseUnaryPotentialType;
+	typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
 	typedef BaseUnaryPotentialType::Pointer BaseUnaryPotentialPointerType;
 	typedef GraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
 	ImagePointerType deformedImage,deformedSegmentationImage;
@@ -215,15 +215,24 @@ int main(int argc, char ** argv)
 	segmentationInterpolator->SetInputImage(movingSegmentationImage);
 	//unaryPot->SetMovingImage(movingImage);
 	unaryPot->SetMovingInterpolator(movingInterpolator);
+	unaryPot->SetSegmentationInterpolator(segmentationInterpolator);
+	unaryPot->SetWeights(simWeight,rfWeight,segWeight);
+
 	typedef ImageType::SpacingType SpacingType;
-	int nLevels=4;
-	int levels[]={2,4,8,40};
+	int nLevels=5;
+	int levels[]={2,4,8,40,100};
 
 	for (int l=0;l<nLevels;++l){
 		int level=levels[l];
 		SpacingType spacing;
+
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
+		}
+		if (l>3){
+			//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
+			LabelMapperType * labelmapper2=new LabelMapperType(2,1);
+			spacing.Fill(1.0);
 		}
 		std::cout<<"spacing at level "<<level<<" :"<<spacing<<std::endl;
 
@@ -278,22 +287,28 @@ int main(int argc, char ** argv)
 					std::cout<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
 					std::cout<<"Total displacement including previous iterations ="<<LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
 					std::cout<<"Resulting point in moving image :"<<idx+LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+					std::cout<<"Total Label :"<<labelIt.Get()<<std::endl;
 				}
 				idx+=LabelMapperType::getDisplacement(newLabelIt.Get());
-				idx+=LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor()));
-				newLabelIt.Set(newLabelIt.Get()+labelIt.Get().elementMult(graph.getDisplacementFactor()));
+				idx+=LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor());
 				deformedImage->SetPixel(fixedIt.GetIndex(),movingInterpolator->EvaluateAtContinuousIndex(idx));
-				deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),segmentationInterpolator->EvaluateAtContinuousIndex(idx));
+				deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),LabelMapperType::getSegmentation(labelIt.Get())*65535);
+				newLabelIt.Set(newLabelIt.Get()+LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor()));
+
 			}
 			labelScalingFactor*=0.7;
 			ostringstream deformedFilename;
 			deformedFilename<<outputFilename<<"-l"<<l<<"-i"<<i<<".png";
-			//			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedSegmentationImage);
+			ostringstream deformedSegmentationFilename;
+			deformedSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
+			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
+			ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
+
 
 		}
 	}
-	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
-	ImageUtils<ImageType>::writeImage(segmentationOutputFilename, deformedSegmentationImage);
+	//	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
+	//		ImageUtils<ImageType>::writeImage(segmentationOutputFilename, deformedSegmentationImage);
 
 
 	//deformation

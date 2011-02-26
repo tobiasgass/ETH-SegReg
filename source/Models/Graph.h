@@ -50,7 +50,7 @@ public:
 	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, SpacingType res, double displacementScalingFactor)
 	:m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor)
 	{
-		verbose=false;
+		verbose=true;
 		assert(m_dim>1);
 		assert(m_dim<4);
 		m_totalSize=fixedimage->GetLargestPossibleRegion().GetSize();
