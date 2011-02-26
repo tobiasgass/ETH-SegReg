@@ -67,7 +67,7 @@ public:
 			typedef typename ImageType::IndexType IndexType;
 			for (int i=0;i<m_nNodes;++i){
 				LabelType label=getLabelAtIndex(i);
-				IndexType idx=m_GraphModel->getGridPositionAtIndex(i);
+//				IndexType idx=m_GraphModel->getGridPositionAtIndex(i);
 //				std::cout<<i<<" "<<it.GetIndex()<<" "<<idx<<" "<<label<<std::endl;
 				it.Set(label);
 //				labelImage->SetPixel(idx,label);

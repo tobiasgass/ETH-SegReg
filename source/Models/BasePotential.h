@@ -100,7 +100,7 @@ public:
 		double result=0;
 		ContinuousIndexType idx2(fixedIndex);
 		itk::Vector<float,2> disp=LabelMapperType::getDisplacement(label);
-		idx2+= disp*m_displacementFactor;
+		idx2+= disp.elementMult(m_displacementFactor);
 		if (m_baseLabelMap){
 			itk::Vector<float,2> baseDisp=LabelMapperType::getDisplacement(m_baseLabelMap->GetPixel(fixedIndex));
 			idx2+=baseDisp;
