@@ -40,7 +40,8 @@ protected:
 public:
 	typedef typename ImageType::Pointer ImagePointerType;
 	typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
-
+	typedef typename 	itk::Image<float,ImageType::ImageDimension> ProbImageType;
+	typedef typename ProbImageType::Pointer ProbImagePointerType;
 public:
 	segmentationClassifier(){
 		m_data=matrix<float>(1,3);
@@ -87,7 +88,7 @@ public:
 			}
 
 		}
-		std::cout<<i<<" "<<counts[0]<<" "<<counts[1]<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
+//		std::cout<<i<<" "<<counts[0]<<" "<<counts[1]<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
 
 		data.resize(i,nFeatures);
 		std::vector<int> copy=labelVector;
@@ -108,7 +109,7 @@ public:
 
 
 	};
-	ImagePointerType eval(ImagePointerType intensities, ImagePointerType labels, matrix<float> * probabilities){
+	ImagePointerType eval(ImagePointerType intensities, ImagePointerType labels, ProbImagePointerType & probabilities){
 
 		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
@@ -133,23 +134,31 @@ public:
 		}
 		m_Forest->eval(data,labelVector,false);
 		matrix<float> conf = m_Forest->getConfidences();
-		(*probabilities)=matrix<double>(nData,2);
-		for (int i=0;i<nData;++i){
-			(*probabilities)(i,0)=conf(i,0)/(conf(i,0)+conf(i,1));
-			(*probabilities)(i,1)=conf(i,1)/(conf(i,0)+conf(i,1));
-			//			std::cout<<conf(n,0)<<"/"<<conf(n,1)<<std::endl;
-		}
+		//		(*probabilities)=matrix<double>(nData,2);
+		//		for (int i=0;i<nData;++i){
+		//			(*probabilities)(i,0)=conf(i,0)/(conf(i,0)+conf(i,1));
+		//			(*probabilities)(i,1)=conf(i,1)/(conf(i,0)+conf(i,1));
+		//			//			std::cout<<conf(n,0)<<"/"<<conf(n,1)<<std::endl;
+		//		}
 		std::vector<int> predictions=m_Forest->getPredictions();
 
 		typename DuplicatorType::Pointer duplicator = DuplicatorType::New();
 		duplicator->SetInputImage(intensities);
 		duplicator->Update();
 		ImagePointerType returnImage=duplicator->GetOutput();
+		duplicator->Update();
+		probabilities=ProbImageType::New();
+		probabilities->SetRegions(intensities->GetLargestPossibleRegion());
+		probabilities->Allocate();
 		itk::ImageRegionIteratorWithIndex<ImageType> LabelImageIterator(returnImage,returnImage->GetLargestPossibleRegion());
 		i=0;
-		for (LabelImageIterator.GoToBegin();!LabelImageIterator.IsAtEnd();++i,++LabelImageIterator){
+		itk::ImageRegionIteratorWithIndex<ProbImageType> probImageIterator(probabilities,probabilities->GetLargestPossibleRegion());
+
+		for (probImageIterator.GoToBegin(),LabelImageIterator.GoToBegin();!LabelImageIterator.IsAtEnd();++i,++LabelImageIterator,++probImageIterator){
 			//			LabelImageIterator.Set(predictions[i]*65535);
 			LabelImageIterator.Set(conf(i,1)/(conf(i,0)+conf(i,1))*65535);
+			probImageIterator.Set(conf(i,0)/(conf(i,0)+conf(i,1)));
+//			std::cout<<conf(i,0)/(conf(i,0)+conf(i,1))<<std::endl;
 			//			std::cout<<predictions[i]<<" "<<i<<std::endl;
 		}
 		return returnImage;

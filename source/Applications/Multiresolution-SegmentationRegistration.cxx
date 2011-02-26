@@ -15,8 +15,9 @@
 #include "itkHistogramMatchingImageFilter.h"
 #include "Graph.h"
 #include "BaseLabel.h"
-#include "BasePotential.h"
+#include "SRSPotential.h"
 #include "MRF-FAST-PD.h"
+#include "MRF-TRW-S.h"
 #include <itkNearestNeighborInterpolateImageFunction.h>
 #include <itkLinearInterpolateImageFunction.h>
 #include <itkVectorResampleImageFilter.h>
@@ -38,7 +39,7 @@ const unsigned int D=2;
 typedef Image<PixelType,D> ImageType;
 typedef ImageType::IndexType IndexType;
 typedef itk::Vector<float,D+1> BaseLabelType;
-typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+typedef SparseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
 template<> int LabelMapperType::nLabels=-1;
 template<> int LabelMapperType::nDisplacements=-1;
 template<> int LabelMapperType::nSegmentations=-1;
@@ -54,7 +55,7 @@ int main(int argc, char ** argv)
 
 	argstream as(argc, argv);
 	string targetFilename,movingFilename,fixedSegmentationFilename, movingSegmentationFilename, outputFilename,deformableFilename,defFilename="", segmentationOutputFilename;
-	double pairwiseWeight=1;
+	double pairwiseRegistrationWeight=1;
 	double pairwiseSegmentationWeight=1;
 	int displacementSampling=-1;
 	double unaryWeight=1;
@@ -71,7 +72,7 @@ int main(int argc, char ** argv)
 	as >> parameter ("o", outputFilename, "output image (file name)", true);
 	as >> parameter ("O", segmentationOutputFilename, "output segmentation image (file name)", true);
 	as >> parameter ("f", defFilename,"deformation field filename", false);
-	as >> parameter ("p", pairwiseWeight,"weight for pairwise potentials", false);
+	as >> parameter ("rp", pairwiseRegistrationWeight,"weight for pairwise registration potentials", false);
 	as >> parameter ("sp", pairwiseSegmentationWeight,"weight for pairwise segmentation potentials", false);
 
 	as >> parameter ("u", unaryWeight,"weight for unary potentials", false);
@@ -169,9 +170,7 @@ int main(int argc, char ** argv)
 	//	typedef RegistrationLabel<ImageType> BaseLabelType;
 
 	LabelMapperType * labelmapper=new LabelMapperType(2,maxDisplacement);
-	for (int l=0;l<LabelMapperType::nLabels;++l){
-		std::cout<<l<<" "<<LabelMapperType::getLabel(l)<<" "<<LabelMapperType::getIndex(LabelMapperType::getLabel(l))<<std::endl;
-	}
+
 	typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
 	typedef SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
 
@@ -213,15 +212,17 @@ int main(int argc, char ** argv)
 	ImageInterpolatorPointerType movingInterpolator=ImageInterpolatorType::New();
 	SegmentationInterpolatorPointerType segmentationInterpolator=SegmentationInterpolatorType::New();
 	segmentationInterpolator->SetInputImage(movingSegmentationImage);
-	//unaryPot->SetMovingImage(movingImage);
+	unaryPot->SetMovingImage(movingImage);
 	unaryPot->SetMovingInterpolator(movingInterpolator);
 	unaryPot->SetSegmentationInterpolator(segmentationInterpolator);
 	unaryPot->SetWeights(simWeight,rfWeight,segWeight);
+	unaryPot->SetMovingSegmentation(movingSegmentationImage);
+	unaryPot->trainClassifiers();
 
 	typedef ImageType::SpacingType SpacingType;
-	int nLevels=5;
-	int levels[]={2,4,8,40,100};
-
+	int nLevels=6;
+	int levels[]={2,4,8,40,70,100};
+	int nIterPerLevel=5;
 	for (int l=0;l<nLevels;++l){
 		int level=levels[l];
 		SpacingType spacing;
@@ -231,17 +232,20 @@ int main(int argc, char ** argv)
 		}
 		if (l>3){
 			//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
-			LabelMapperType * labelmapper2=new LabelMapperType(2,1);
-			spacing.Fill(1.0);
+			if (l==nLevels-1){
+				LabelMapperType * labelmapper2=new LabelMapperType(2,1);
+				spacing.Fill(1.0);
+			}
+			nIterPerLevel=2;
 		}
 		std::cout<<"spacing at level "<<level<<" :"<<spacing<<std::endl;
 
 		double labelScalingFactor=1;
-		for (int i=0;i<5;++i){
+		for (int i=0;i<nIterPerLevel;++i){
 			std::cout<<std::endl<<std::endl<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl<<std::endl;
 			movingInterpolator->SetInputImage(movingImage);
 
-			GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor);
+			GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
 			unaryPot->SetDisplacementFactor(graph.getDisplacementFactor());
 			unaryPot->SetBaseLabelMap(previousFullDeformation);
 			graph.setLabelImage(previousFullDeformation);
@@ -249,8 +253,9 @@ int main(int argc, char ** argv)
 			std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			//	ok what now: create graph! solve graph! save result!Z
-			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
-			MRFSolverType mrfSolver(&graph,unaryWeight,pairwiseWeight, false);
+			typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
+//			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+			MRFSolverType mrfSolver(&graph,1,1, false);
 			mrfSolver.optimize();
 
 			//Apply/interpolate Transformation
@@ -291,7 +296,7 @@ int main(int argc, char ** argv)
 				}
 				idx+=LabelMapperType::getDisplacement(newLabelIt.Get());
 				idx+=LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor());
-				deformedImage->SetPixel(fixedIt.GetIndex(),movingInterpolator->EvaluateAtContinuousIndex(idx));
+				deformedImage->SetPixel(fixedIt.GetIndex(),segmentationInterpolator->EvaluateAtContinuousIndex(idx));
 				deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),LabelMapperType::getSegmentation(labelIt.Get())*65535);
 				newLabelIt.Set(newLabelIt.Get()+LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor()));
 

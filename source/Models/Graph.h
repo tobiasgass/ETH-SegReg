@@ -29,7 +29,6 @@ public:
 	typedef typename TImage::SizeType SizeType;
 	typedef  TImage ImageType;
 	typedef typename TImage::SpacingType SpacingType;
-
 	typedef typename TImage::Pointer ImagePointerType;
 	typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
@@ -45,10 +44,12 @@ private:
 	//	ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
 	UnaryFunctionPointerType m_unaryFunction;
 	bool verbose;
+	double m_segmentationWeight, m_registrationWeight;
+
 public:
 
-	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, SpacingType res, double displacementScalingFactor)
-	:m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor)
+	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, SpacingType res, double displacementScalingFactor, double segmentationWeight, double registrationWeight)
+	:m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor), m_segmentationWeight(segmentationWeight),m_registrationWeight(registrationWeight)
 	{
 		verbose=true;
 		assert(m_dim>1);
@@ -135,14 +136,26 @@ public:
 		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
 		LabelType oldl1=m_labelImage->GetPixel(fixedIndex1);
 		LabelType oldl2=m_labelImage->GetPixel(fixedIndex2);
-		double result=0;
-		for (unsigned int d=0;d<m_dim;++d){
-			//applying the labels to evaluate to neighboring pixels
-			double tmp=(l1[d]-l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
-			double tmp2=oldl1[d]-oldl2[d];
-			result+=(tmp+tmp2)*(tmp+tmp2);
+		double registrationSmootheness=0;
+		double segmentationSmootheness=0;
+		if (l1.Size()==1 || l1.Size()>=m_dim){
+			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
+			double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
+			segWeight=exp(-segWeight/1);
+			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
-//		std::cout<<oldl1<<" "<<l1<<" "<<oldl2<<" "<<l2<<" "<<result<<std::endl;
+		if (l1.Size()>1){
+			for (unsigned int d=0;d<m_dim;++d){
+				//applying the labels to evaluate to neighboring pixels
+				double tmp=(l1[d]-l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
+				double tmp2=oldl1[d]-oldl2[d];
+				registrationSmootheness+=(tmp+tmp2)*(tmp+tmp2);
+			}
+			registrationSmootheness*=m_registrationWeight;
+		}
+
+		double result=registrationSmootheness+segmentationSmootheness;
+		//		std::cout<<oldl1<<" "<<l1<<" "<<oldl2<<" "<<l2<<" "<<result<<std::endl;
 #else
 		typename itk::ConstNeighborhoodIterator<LabelImageType>::RadiusType radius;
 		assert(m_labelImage);

@@ -8,22 +8,15 @@ LINK_DIRECTORIES(
     /home/gasst/work/lib
  )
 SET(SRSMRFModels_SRC
-  Potentials.h
   Classifier.h
   BaseLabel.h
   BasePotential.h
   BaseMRF.h
+  SRSPotential.h
   MRF-FAST-PD.h
-  Label.h
-  RegistrationSegmentationLabel.h
-  RegistrationSegmentationPotentials-v2.h
-  AlternatingSegmentationRegistrationLabel.h
-  SegmentationLabel.h
-  MRF.h
-  Grid.h
+  MRF-TRW-S.h
   Graph.h
   FAST-PD-mrf-optimisation.h
-  TRW-S-Registration.h
   ImageRegistrationFilter.cxx
 )
 

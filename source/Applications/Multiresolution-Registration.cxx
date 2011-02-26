@@ -25,7 +25,6 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkVectorLinearInterpolateImageFunction.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
-
 #include "itkBSplineInterpolateImageFunction.h"
 
 using namespace std;
@@ -232,7 +231,7 @@ int main(int argc, char ** argv)
 			std::cout<<std::endl<<std::endl<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl<<std::endl;
 			movingInterpolator->SetInputImage(movingImage);
 
-			GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor);
+			GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor,0,pairwiseWeight);
 			unaryPot->SetDisplacementFactor(graph.getDisplacementFactor());
 			unaryPot->SetBaseLabelMap(previousFullDeformation);
 			graph.setLabelImage(previousFullDeformation);
@@ -241,7 +240,7 @@ int main(int argc, char ** argv)
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			//	ok what now: create graph! solve graph! save result!Z
 			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
-			MRFSolverType mrfSolver(&graph,unaryWeight,pairwiseWeight, false);
+			MRFSolverType mrfSolver(&graph,1,1, false);
 			mrfSolver.optimize();
 
 			//Apply/interpolate Transformation
