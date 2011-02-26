@@ -181,7 +181,19 @@ int main(int argc, char ** argv)
 	typedef RegistrationUnaryPotential< LabelMapperType, ImageType, ImageInterpolatorType > BaseUnaryPotentialType;
 	typedef BaseUnaryPotentialType::Pointer BaseUnaryPotentialPointerType;
 	typedef GraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
-	ImagePointerType deformedImage;
+	ImagePointerType deformedImage,deformedSegmentationImage;
+	deformedImage=ImageType::New();
+	deformedImage->SetRegions(targetImage->GetLargestPossibleRegion());
+	deformedImage->SetOrigin(targetImage->GetOrigin());
+	deformedImage->SetSpacing(targetImage->GetSpacing());
+	deformedImage->SetDirection(targetImage->GetDirection());
+	deformedImage->Allocate();
+	deformedSegmentationImage=ImageType::New();
+	deformedSegmentationImage->SetRegions(targetImage->GetLargestPossibleRegion());
+	deformedSegmentationImage->SetOrigin(targetImage->GetOrigin());
+	deformedSegmentationImage->SetSpacing(targetImage->GetSpacing());
+	deformedSegmentationImage->SetDirection(targetImage->GetDirection());
+	deformedSegmentationImage->Allocate();
 	typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 	typedef MRFSolverType::LabelImageType LabelImageType;
 	typedef itk::ImageRegionIterator< LabelImageType>       LabelIteratorType;
@@ -253,12 +265,7 @@ int main(int argc, char ** argv)
 			if (verbose) std::cout<<"interpolating deformation field"<<std::endl;
 			resampler->Update();
 			//apply deformation to moving image
-			deformedImage=ImageType::New();
-			deformedImage->SetRegions(targetImage->GetLargestPossibleRegion());
-			deformedImage->SetOrigin(targetImage->GetOrigin());
-			deformedImage->SetSpacing(targetImage->GetSpacing());
-			deformedImage->SetDirection(targetImage->GetDirection());
-			deformedImage->Allocate();
+
 			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
 			fullDeformation=resampler->GetOutput();
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
@@ -274,14 +281,18 @@ int main(int argc, char ** argv)
 				}
 				idx+=LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor());
 				newLabelIt.Set(newLabelIt.Get()+labelIt.Get().elementMult(graph.getDisplacementFactor()));
-				deformedImage->SetPixel(fixedIt.GetIndex(),segmentationInterpolator->EvaluateAtContinuousIndex(idx));
+				deformedImage->SetPixel(fixedIt.GetIndex(),movingInterpolator->EvaluateAtContinuousIndex(idx));
+				deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),segmentationInterpolator->EvaluateAtContinuousIndex(idx));
 			}
 			labelScalingFactor*=0.7;
 			ostringstream deformedFilename;
 			deformedFilename<<outputFilename<<"-l"<<l<<"-i"<<i<<".png";
-			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
+			//			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedSegmentationImage);
+
 		}
 	}
+	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
+	ImageUtils<ImageType>::writeImage(segmentationOutputFilename, deformedSegmentationImage);
 
 
 	//deformation
@@ -295,13 +306,13 @@ int main(int argc, char ** argv)
 	//deformed image
 	ostringstream deformedFilename;
 	deformedFilename<<outputFilename<<"-p"<<p<<".png";
-	ImagePointerType deformedImage;
-	//	deformedImage=RLC->transformImage(movingSegmentationImage,mrfSolver.getLabelImage());
-	deformedImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
-	//	ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
-	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
-	deformedImage=RLC->transformImage(movingSegmentationImage,mrfSolver.getLabelImage());
-	ImageUtils<ImageType>::writeImage("deformedSegmentation.png", deformedImage);
+	ImagePointerType deformedSegmentationImage;
+	//	deformedSegmentationImage=RLC->transformImage(movingSegmentationImage,mrfSolver.getLabelImage());
+	deformedSegmentationImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
+	//	ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedSegmentationImage);
+	ImageUtils<ImageType>::writeImage(outputFilename, deformedSegmentationImage);
+	deformedSegmentationImage=RLC->transformImage(movingSegmentationImage,mrfSolver.getLabelImage());
+	ImageUtils<ImageType>::writeImage("deformedSegmentation.png", deformedSegmentationImage);
 
 
 	//segmentation
