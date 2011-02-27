@@ -34,7 +34,7 @@ public:
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 
 private:
-	ImagePointerType m_fixedImage;
+	ImagePointerType m_fixedImage,m_fixedGradientImage;
 	LabelImagePointerType m_labelImage;
 	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors;
 	SpacingType m_spacing,m_labelSpacing;
@@ -60,10 +60,11 @@ public:
 		m_nNodes=1;
 		//		m_dblSpacing=m_spacing[0];
 
-		m_labelSpacing=0.45*m_spacing/LabelMapperType::nDisplacementSamples;
-
+		if (LabelMapperType::nDisplacementSamples){
+			m_labelSpacing=0.45*m_spacing/LabelMapperType::nDisplacementSamples;
+		}
 		for (int d=0;d<(int)m_dim;++d){
-			if (verbose) std::cout<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
+			if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
 			m_gridSize[d]=1+m_totalSize[d]/m_spacing[d];
 			m_nNodes*=m_gridSize[d];
 			if (d>0){
@@ -87,6 +88,8 @@ public:
 	}
 
 	void setLabelImage(LabelImagePointerType limg){m_labelImage=limg;}
+	void setGradientImage(ImagePointerType limg){m_fixedGradientImage=limg;}
+
 	SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
 	SpacingType getSpacing(){return m_spacing;}
 
@@ -140,8 +143,14 @@ public:
 		double segmentationSmootheness=0;
 		if (l1.Size()==1 || l1.Size()>=m_dim){
 			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
+#if 0
 			double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
 			segWeight=exp(-segWeight/3000);
+#else
+			assert(m_fixedGradientImage);
+			//if gradient changes, we would also like a segmentation label change
+			double segWeight=1-fabs(m_fixedGradientImage->GetPixel(fixedIndex1) || m_fixedGradientImage->GetPixel(fixedIndex2));
+#endif
 			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
 		if (l1.Size()>1){
@@ -216,10 +225,14 @@ public:
 	}
 	IndexType getGridPositionAtIndex(int idx){
 		IndexType position;
+		std::cout<<" index :"<<idx;
 		for ( int d=m_dim-1;d>=0;--d){
 			position[d]=idx/m_imageLevelDivisors[d];
+			std::cout<<" d:"<<d<<" "<<m_imageLevelDivisors[d]<<" ="<<position[d];
 			idx-=position[d]*m_imageLevelDivisors[d];
+			std::cout<<" "<<idx;
 		}
+		std::cout<<" position:"<<position<<std::endl;
 		return position;
 	}
 	IndexType getImagePositionAtIndex(int idx){

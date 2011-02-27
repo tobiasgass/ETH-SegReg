@@ -43,8 +43,14 @@ public:
 
 	static const LabelType getLabel(int index){
 		LabelType result;
-		int m_segmentation=index/nDisplacements;
-		index=index%nDisplacements;
+		int m_segmentation;
+		if (nDisplacements){
+			m_segmentation=index/nDisplacements;
+			index=index%nDisplacements;
+		}
+		else{
+			m_segmentation=index;
+		}
 		int divisor=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension-1);
 		for (int d=0;d<TImage::ImageDimension;++d){
 			result[d]=index/divisor-nDisplacementSamples;
@@ -57,7 +63,7 @@ public:
 
 	static const int getIndex(const LabelType & label){
 		int index=0;
-		index+=label[k-1]*nDisplacements;
+		index+=label[k-1]*(nDisplacements>0?nDisplacements:1);
 		int factor=1;
 		for (int d=TImage::ImageDimension-1;d>=0;--d){
 			index+=factor*(label[d]+nDisplacementSamples);
@@ -101,8 +107,13 @@ public:
 	static const LabelType getLabel(int index){
 		LabelType result;
 		result.Fill(0);
-		int m_segmentation=index/nDisplacements;
-		index=index%nDisplacements;
+		int m_segmentation;
+		if (nDisplacements){
+			m_segmentation=index/nDisplacements;
+			index=index%nDisplacements;
+		}
+		else
+			m_segmentation=index;
 		int divisor=(double(2*nDisplacementSamples+1));
 		result[index/divisor]=index%divisor-nDisplacementSamples;
 		result[k-1]=m_segmentation;
@@ -111,7 +122,7 @@ public:
 
 	static const int getIndex(const LabelType & label){
 		int index=0;
-		index+=label[k-1]*nDisplacements;
+		index+=label[k-1]*(nDisplacements>0?nDisplacements:1);
 //		std::cout<<label<<" "<<label[k-1]<<" "<<index<<std::endl;
 		//find out direction
 		itk::Vector<double,TImage::ImageDimension> sums;

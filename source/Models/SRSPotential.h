@@ -42,8 +42,11 @@ public:
 	typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
 	typedef pairwiseSegmentationClassifier<ImageType> pairwiseSegmentationClassifierType;
 	typedef segmentationClassifier<ImageType> segmentationClassifierType;
-	typedef typename itk::Image<float,ImageType::ImageDimension> ProbImageType;
+
+	typedef typename itk::Image<itk::Vector<float,2> ,ImageType::ImageDimension> ProbImageType;
 	typedef typename ProbImageType::Pointer ProbImagePointerType;
+	typedef typename itk::LinearInterpolateImageFunction<ProbImageType> FloatImageInterpolatorType;
+	typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
 
 protected:
 	SegmentationInterpolatorPointerType m_segmentationInterpolator;
@@ -52,7 +55,8 @@ protected:
 	pairwiseSegmentationClassifierType m_pairwiseSegmenter;
 	matrix<float> m_segmentationProbs,m_pairwiseSegmentationProbs;
 	ImagePointerType m_movingSegmentation;
-	ProbImagePointerType m_segmentationProbabilities;
+	ProbImagePointerType m_segmentationProbabilities,m_movingSegmentationProbabilities;
+	FloatImageInterpolatorPointerType m_movingSegmentationProbabilityInterpolator;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
@@ -89,6 +93,10 @@ public:
 		m_segmenter.train();
 		std::cout<<"trained"<<std::endl;
 		ImagePointerType probImage=m_segmenter.eval(this->m_fixedImage,this->m_movingSegmentation,m_segmentationProbabilities);
+		ImagePointerType refProbs=m_segmenter.eval(this->m_movingImage,this->m_movingSegmentation,m_movingSegmentationProbabilities);
+		ImageUtils<ImageType>::writeImage("train-classified.png",refProbs);
+		m_movingSegmentationProbabilityInterpolator=FloatImageInterpolatorType::New();
+		m_movingSegmentationProbabilityInterpolator->SetInputImage(m_movingSegmentationProbabilities);
 		std::cout<<"stored confidences"<<m_segmentationProbabilities->GetLargestPossibleRegion().GetSize()<<std::endl;
 		return probImage;
 	}
@@ -117,7 +125,8 @@ public:
 		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
 		int deformedSegmentation=m_segmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0;
 
-
+//		double bla=5000*(m_segmentationProbabilities->GetPixel(fixedIndex)-m_movingSegmentationProbabilityInterpolator->EvaluateAtContinuousIndex(idx2));
+//		std::cout<<bla<<std::endl;
 		//registration based on similarity of label and labelprobability
 		//segProbs holds the probability that the fixedPixel is tissue
 		//so if the prob. of tissue is high and the deformed pixel is also tissue, then the log should be close to zero.
@@ -137,8 +146,7 @@ public:
 		double log_p_SX_XASAT = 0;//m_posteriorWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 		//-log( p(S_a|A) )
 		//		int fixedIntIndex=getIntegerImageIndex(fixedIndex);
-		double segmentationPenalty=fabs(m_segmentationProbabilities->GetPixel(fixedIndex)-(1-segmentationLabel));
-		segmentationPenalty=segmentationPenalty>0.6?segmentationPenalty:0.0;
+		double segmentationPenalty=fabs(m_segmentationProbabilities->GetPixel(fixedIndex)[segmentationLabel]) ;
 //		segmentationPenalty/=2;
 		double log_p_SX_X = m_posteriorWeight*1000*
 				(-log(segmentationPenalty+0.000000001));

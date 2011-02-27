@@ -65,7 +65,7 @@ int main(int argc, char ** argv)
 	as >> parameter ("t", targetFilename, "target image (file name)", true);
 	as >> parameter ("m", movingFilename, "moving image (file name)", true);
 	as >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", true);
-	as >> parameter ("g", fixedSegmentationFilename, "fixed segmentation image (file name)", true);
+	as >> parameter ("g", fixedSegmentationFilename, "some gradient of the fixed (file name)", true);
 
 	as >> parameter ("o", outputFilename, "output image (file name)", true);
 	as >> parameter ("O", segmentationOutputFilename, "output segmentation image (file name)", true);

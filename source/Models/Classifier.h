@@ -40,7 +40,7 @@ protected:
 public:
 	typedef typename ImageType::Pointer ImagePointerType;
 	typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
-	typedef typename 	itk::Image<float,ImageType::ImageDimension> ProbImageType;
+	typedef typename itk::Image<itk::Vector<float,2> ,ImageType::ImageDimension> ProbImageType;
 	typedef typename ProbImageType::Pointer ProbImagePointerType;
 public:
 	segmentationClassifier(){
@@ -156,10 +156,18 @@ public:
 
 		for (probImageIterator.GoToBegin(),LabelImageIterator.GoToBegin();!LabelImageIterator.IsAtEnd();++i,++LabelImageIterator,++probImageIterator){
 			//			LabelImageIterator.Set(predictions[i]*65535);
-			double c=conf(i,1)/(conf(i,0)+conf(i,1));
-			c=c>0.9?c:0;
-			LabelImageIterator.Set(c*65535);
-			probImageIterator.Set(c);//conf(i,1)/(conf(i,0)+conf(i,1)));
+			double tissue=conf(i,0)/(conf(i,0)+conf(i,1));
+			double notTissue=fabs(1-tissue);
+			double thresh=0.4;
+//			tissue=tissue>thresh?tissue:0;
+//			notTissue=notTissue>thresh?notTissue:0;
+			tissue=tissue<thresh?tissue:1.0;
+			notTissue=notTissue<thresh?notTissue:1.0;
+			itk::Vector<float,2> probs;
+			probs[0]=tissue;
+			probs[1]=notTissue;
+			LabelImageIterator.Set(notTissue*65535);
+			probImageIterator.Set(probs);//conf(i,1)/(conf(i,0)+conf(i,1)));
 //			std::cout<<conf(i,0)/(conf(i,0)+conf(i,1))<<std::endl;
 			//			std::cout<<predictions[i]<<" "<<i<<std::endl;
 		}
