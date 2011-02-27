@@ -137,12 +137,16 @@ public:
 		double log_p_SX_XASAT = 0;//m_posteriorWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 		//-log( p(S_a|A) )
 		//		int fixedIntIndex=getIntegerImageIndex(fixedIndex);
-		double log_p_SX_X = m_posteriorWeight*1000*				(-log(fabs(m_segmentationProbabilities->GetPixel(fixedIndex)-segmentationLabel+0.000000001)));
+		double segmentationPenalty=fabs(m_segmentationProbabilities->GetPixel(fixedIndex)-(1-segmentationLabel));
+		segmentationPenalty=segmentationPenalty>0.6?segmentationPenalty:0.0;
+//		segmentationPenalty/=2;
+		double log_p_SX_X = m_posteriorWeight*1000*
+				(-log(segmentationPenalty+0.000000001));
 //		std::cout<<"UNARIES: "<<imageIntensity<<" "<<movingIntensity<<" "<<segmentationLabel<<" "<<deformedSegmentation<<" "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SX_X<<std::endl;
 		result+=log_p_XA_T+log_p_SA_TSX+log_p_SX_XASAT+log_p_SX_X;//+newIdea;
 		//result+=log_p_SA_A;
 		//		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));
-		return result;
+		return result;//*m_segmentationProbabilities->GetPixel(fixedIndex);
 	}
 };
 

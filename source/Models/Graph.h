@@ -141,7 +141,7 @@ public:
 		if (l1.Size()==1 || l1.Size()>=m_dim){
 			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
 			double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
-			segWeight=exp(-segWeight/1);
+			segWeight=exp(-segWeight/3000);
 			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
 		if (l1.Size()>1){

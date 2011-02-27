@@ -156,11 +156,14 @@ public:
 
 		for (probImageIterator.GoToBegin(),LabelImageIterator.GoToBegin();!LabelImageIterator.IsAtEnd();++i,++LabelImageIterator,++probImageIterator){
 			//			LabelImageIterator.Set(predictions[i]*65535);
-			LabelImageIterator.Set(conf(i,1)/(conf(i,0)+conf(i,1))*65535);
-			probImageIterator.Set(conf(i,0)/(conf(i,0)+conf(i,1)));
+			double c=conf(i,1)/(conf(i,0)+conf(i,1));
+			c=c>0.9?c:0;
+			LabelImageIterator.Set(c*65535);
+			probImageIterator.Set(c);//conf(i,1)/(conf(i,0)+conf(i,1)));
 //			std::cout<<conf(i,0)/(conf(i,0)+conf(i,1))<<std::endl;
 			//			std::cout<<predictions[i]<<" "<<i<<std::endl;
 		}
+//		return returnImage;
 		return returnImage;
 
 	}

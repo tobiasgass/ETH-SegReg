@@ -217,30 +217,39 @@ int main(int argc, char ** argv)
 	unaryPot->SetSegmentationInterpolator(segmentationInterpolator);
 	unaryPot->SetWeights(simWeight,rfWeight,segWeight);
 	unaryPot->SetMovingSegmentation(movingSegmentationImage);
-	unaryPot->trainClassifiers();
+	ImagePointerType classified;
+	classified=unaryPot->trainClassifiers();
+	ImageUtils<ImageType>::writeImage("classified.png",classified);
 
 	typedef ImageType::SpacingType SpacingType;
-	int nLevels=6;
-	int levels[]={2,4,8,40,70,100};
+	int nLevels=5;
+//	int levels[]={4,16,40,100,200};
+	int levels[]={1,2,4,8,40,100};
 	int nIterPerLevel=5;
 	for (int l=0;l<nLevels;++l){
 		int level=levels[l];
 		SpacingType spacing;
+		double labelScalingFactor=1;
 
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
+
 		}
-		if (l>3){
+		if (l>2){
+			nIterPerLevel=3;
 			//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
 			if (l==nLevels-1){
 				LabelMapperType * labelmapper2=new LabelMapperType(2,1);
 				spacing.Fill(1.0);
+				pairwiseRegistrationWeight*=25;
+				pairwiseSegmentationWeight*=25;
+				labelScalingFactor=0.01;
+				nIterPerLevel=2;
 			}
-			nIterPerLevel=2;
+
 		}
 		std::cout<<"spacing at level "<<level<<" :"<<spacing<<std::endl;
 
-		double labelScalingFactor=1;
 		for (int i=0;i<nIterPerLevel;++i){
 			std::cout<<std::endl<<std::endl<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl<<std::endl;
 			movingInterpolator->SetInputImage(movingImage);
@@ -254,7 +263,7 @@ int main(int argc, char ** argv)
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			//	ok what now: create graph! solve graph! save result!Z
 			typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
-//			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+			//			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 			MRFSolverType mrfSolver(&graph,1,1, false);
 			mrfSolver.optimize();
 
@@ -301,7 +310,7 @@ int main(int argc, char ** argv)
 				newLabelIt.Set(newLabelIt.Get()+LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor()));
 
 			}
-			labelScalingFactor*=0.7;
+			labelScalingFactor*=0.8;
 			ostringstream deformedFilename;
 			deformedFilename<<outputFilename<<"-l"<<l<<"-i"<<i<<".png";
 			ostringstream deformedSegmentationFilename;
@@ -312,8 +321,8 @@ int main(int argc, char ** argv)
 
 		}
 	}
-	//	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
-	//		ImageUtils<ImageType>::writeImage(segmentationOutputFilename, deformedSegmentationImage);
+		ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
+			ImageUtils<ImageType>::writeImage(segmentationOutputFilename, deformedSegmentationImage);
 
 
 	//deformation
