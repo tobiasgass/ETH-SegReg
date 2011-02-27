@@ -51,12 +51,13 @@ public:
 			typename LabelImageType::RegionType region;
 			typename LabelImageType::SizeType size=m_GraphModel->getGridSize();//=m_GraphModel->getFixedImage()->GetLargestPossibleRegion().GetSize();
 
-
+			typename LabelImageType::PointType origin;
 			region.SetSize(size);//m_GraphModel->getSpacing());
 			labelImage->SetRegions(region);
 			typename LabelImageType::SpacingType spacing=(m_GraphModel->getSpacing());
 			for (int d=0;d<LabelImageType::ImageDimension;++d){
 				spacing[d]=spacing[d];
+				origin[d]=100;
 			}
 			labelImage->SetSpacing(spacing);
 //			std::cout<<size<<" "<<m_GraphModel->getSpacing()<<std::endl;
@@ -67,7 +68,7 @@ public:
 			typedef typename ImageType::IndexType IndexType;
 			for (int i=0;i<m_nNodes;++i){
 				LabelType label=getLabelAtIndex(i);
-//				IndexType idx=m_GraphModel->getGridPositionAtIndex(i);
+				IndexType idx=m_GraphModel->getGridPositionAtIndex(i);
 //				std::cout<<i<<" "<<it.GetIndex()<<" "<<idx<<" "<<label<<std::endl;
 				it.Set(label);
 //				labelImage->SetPixel(idx,label);

@@ -26,6 +26,8 @@ public:
 	typedef typename LabelMapperType::LabelType LabelType;
 	typedef typename TImage::IndexType IndexType;
 	typedef typename TImage::OffsetType OffsetType;
+	typedef typename TImage::PointType PointType;
+
 	typedef typename TImage::SizeType SizeType;
 	typedef  TImage ImageType;
 	typedef typename TImage::SpacingType SpacingType;
@@ -38,6 +40,7 @@ private:
 	LabelImagePointerType m_labelImage;
 	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors;
 	SpacingType m_spacing,m_labelSpacing;
+	PointType m_origin;
 	double m_DisplacementScalingFactor;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices;
@@ -65,7 +68,8 @@ public:
 		}
 		for (int d=0;d<(int)m_dim;++d){
 			if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
-			m_gridSize[d]=1+m_totalSize[d]/m_spacing[d];
+			m_origin[d]=-int(m_spacing[d]/2);
+			m_gridSize[d]=m_totalSize[d]/m_spacing[d];
 			m_nNodes*=m_gridSize[d];
 			if (d>0){
 				m_imageLevelDivisors[d]=m_imageLevelDivisors[d-1]*m_gridSize[d-1];
@@ -92,7 +96,7 @@ public:
 
 	SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
 	SpacingType getSpacing(){return m_spacing;}
-
+	PointType getOrigin(){return m_origin;}
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
@@ -143,7 +147,7 @@ public:
 		double segmentationSmootheness=0;
 		if (l1.Size()==1 || l1.Size()>=m_dim){
 			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
-#if 0
+#if 1
 			double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
 			segWeight=exp(-segWeight/3000);
 #else
@@ -210,7 +214,7 @@ public:
 	IndexType gridToImageIndex(IndexType gridIndex){
 		IndexType imageIndex;
 		for (unsigned int d=0;d<m_dim;++d){
-			int t=gridIndex[d]*m_spacing[d]-1;
+			int t=gridIndex[d]*m_spacing[d]+m_spacing[d]/2;
 			imageIndex[d]=t>0?t:0;
 		}
 		return imageIndex;
@@ -219,20 +223,20 @@ public:
 	IndexType imageToGridIndex(IndexType imageIndex){
 		IndexType gridIndex;
 		for (int d=0;d<m_dim;++d){
-			gridIndex[d]=max(imageIndex[d]-1,0)/m_spacing[d];
+			gridIndex[d]=(imageIndex[d]-m_spacing[d]/2)/m_spacing[d];
 		}
 		return gridIndex;
 	}
 	IndexType getGridPositionAtIndex(int idx){
 		IndexType position;
-		std::cout<<" index :"<<idx;
+//		std::cout<<" index :"<<idx;
 		for ( int d=m_dim-1;d>=0;--d){
 			position[d]=idx/m_imageLevelDivisors[d];
-			std::cout<<" d:"<<d<<" "<<m_imageLevelDivisors[d]<<" ="<<position[d];
+//			std::cout<<" d:"<<d<<" "<<m_imageLevelDivisors[d]<<" ="<<position[d];
 			idx-=position[d]*m_imageLevelDivisors[d];
-			std::cout<<" "<<idx;
+//			std::cout<<" "<<idx;
 		}
-		std::cout<<" position:"<<position<<std::endl;
+//		std::cout<<" position:"<<position<<std::endl;
 		return position;
 	}
 	IndexType getImagePositionAtIndex(int idx){

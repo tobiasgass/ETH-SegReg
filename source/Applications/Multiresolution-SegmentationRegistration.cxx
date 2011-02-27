@@ -26,6 +26,13 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkVectorLinearInterpolateImageFunction.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
+#include "itkImageIterator.h"
+#include "itkImageConstIteratorWithIndex.h"
+#include "itkImageIteratorWithIndex.h"
+#include "itkImageConstIterator.h"
+
+#include <itkImageAdaptor.h>
+#include <itkAddPixelAccessor.h>
 
 #include "itkBSplineInterpolateImageFunction.h"
 
@@ -103,20 +110,7 @@ int main(int argc, char ** argv)
 	ImageType::Pointer fixedSegmentationImage =
 			ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
 
-	ImagePointerType testImg=ImageType::New();
-	ImageType::SizeType s={{8,8}};
-	ImageType::RegionType r(s);
-	ImageType::SpacingType sp;
-	sp[0]=8;
-	sp[1]=8;
-	testImg->SetRegions(r);
-	testImg->SetSpacing(sp);
-	testImg->Allocate();
-	ImageType::PointType p;
-	itk::ImageConstIteratorWithIndex<ImageType> ita(testImg,testImg->GetLargestPossibleRegion());
-	for (ita.GoToBegin();!ita.IsAtEnd();++ita){
-		std::cout<<ita.GetIndex()<<std::endl;
-	}
+
 
 	typedef itk::HistogramMatchingImageFilter<
 			ImageType,
@@ -242,7 +236,7 @@ int main(int argc, char ** argv)
 	typedef ImageType::SpacingType SpacingType;
 	int nLevels=5;
 	nLevels=maxDisplacement>0?nLevels:1;
-//	int levels[]={4,16,40,100,200};
+	//	int levels[]={4,16,40,100,200};
 	int levels[]={2,4,8,20,40,100};
 	int nIterPerLevel=5;
 	for (int l=0;l<nLevels;++l){
@@ -271,7 +265,9 @@ int main(int argc, char ** argv)
 
 			GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
 			graph.setGradientImage(fixedSegmentationImage);
-
+			//			for (int f=0;f<graph.nNodes();++f){
+			//				std::cout<<f<<" "<<graph.getGridPositionAtIndex(f)<<" "<<graph.getImagePositionAtIndex(f)<<std::endl;
+			//			}
 			unaryPot->SetDisplacementFactor(graph.getDisplacementFactor());
 			unaryPot->SetBaseLabelMap(previousFullDeformation);
 			graph.setLabelImage(previousFullDeformation);
@@ -280,7 +276,7 @@ int main(int argc, char ** argv)
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			//	ok what now: create graph! solve graph! save result!Z
 			typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
-			//			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+//						typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 			MRFSolverType mrfSolver(&graph,1,1, false);
 			mrfSolver.optimize();
 
@@ -289,6 +285,7 @@ int main(int argc, char ** argv)
 			//Get label image (deformation)
 			LabelImagePointerType deformation=mrfSolver.getLabelImage();
 			//initialise interpolator
+			//deformation
 
 			LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();
 			labelInterpolator->SetInputImage(deformation);
@@ -298,23 +295,31 @@ int main(int argc, char ** argv)
 			//resample deformation field to fixed image dimension
 			resampler->SetInput( deformation );
 			resampler->SetInterpolator( labelInterpolator );
-			resampler->SetOutputOrigin ( targetImage->GetOrigin() );
-			//	resampler->SetOutputSpacing ( targetImage->GetSpacing() );
+			resampler->SetOutputOrigin(graph.getOrigin());//targetImage->GetOrigin());
+			resampler->SetOutputSpacing ( targetImage->GetSpacing() );
 			resampler->SetOutputDirection ( targetImage->GetDirection() );
 			resampler->SetSize ( targetImage->GetLargestPossibleRegion().GetSize() );
 			if (verbose) std::cout<<"interpolating deformation field"<<std::endl;
 			resampler->Update();
+//			if (defFilename!=""){
+//				//		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
+//				ostringstream labelfield;
+//				labelfield<<defFilename<<"-l"<<l<<"-i"<<i<<".mha";
+//				ImageUtils<LabelImageType>::writeImage(labelfield.str().c_str(),deformation);
+//				ostringstream labelfield2;
+//				labelfield2<<defFilename<<"FULL-l"<<l<<"-i"<<i<<".mha";
+//				ImageUtils<LabelImageType>::writeImage(labelfield2.str().c_str(),resampler->GetOutput());
+//				//
+//			}
 			//apply deformation to moving image
 
 			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
 			fullDeformation=resampler->GetOutput();
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
 			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
-			int i=0;
 			for (newLabelIt.GoToBegin(),fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt,++newLabelIt){
 				ImageInterpolatorType::ContinuousIndexType idx(fixedIt.GetIndex());
-				std::cout<<idx<<" "<<graph.getImagePositionAtIndex(i)<<std::endl;
-				++i;
+
 				if (false){
 					std::cout<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
 					std::cout<<"Total displacement including previous iterations ="<<LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
@@ -339,8 +344,8 @@ int main(int argc, char ** argv)
 
 		}
 	}
-		ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
-			ImageUtils<ImageType>::writeImage(segmentationOutputFilename, deformedSegmentationImage);
+	ImageUtils<ImageType>::writeImage(outputFilename, deformedImage);
+	ImageUtils<ImageType>::writeImage(segmentationOutputFilename, deformedSegmentationImage);
 
 
 	//deformation
