@@ -17,7 +17,7 @@ public:
 	//	typedef typename itk::LinearInterpolateImageFunction<TImage>::ContinuousIndexType OffsetType;
 	typedef typename itk::Vector<float,TImage::ImageDimension> OffsetType;
 	typedef TLabel LabelType;
-	typedef typename  itk::Image<LabelType> LabelImageType;
+	typedef typename  itk::Image<LabelType,TImage::ImageDimension > LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
 	static const int Dimension=TImage::ImageDimension+1;
@@ -36,7 +36,7 @@ public:
 	static const LabelType scaleDisplacement(const LabelType & label,const itk::Vector<float,TImage::ImageDimension> & scaling){
 		LabelType result(label);
 		for (int d=0;d<TImage::ImageDimension;++d){
-				result[d]=result[d]*scaling[d];
+			result[d]=result[d]*scaling[d];
 		}
 		return result;
 	}
@@ -89,7 +89,7 @@ public:
 	//	typedef typename itk::LinearInterpolateImageFunction<TImage>::ContinuousIndexType OffsetType;
 	typedef typename itk::Vector<float,TImage::ImageDimension> OffsetType;
 	typedef TLabel LabelType;
-	typedef typename  itk::Image<LabelType> LabelImageType;
+	typedef typename  itk::Image<LabelType, TImage::ImageDimension> LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
 	static const int Dimension=TImage::ImageDimension+1;
@@ -107,13 +107,14 @@ public:
 	static const LabelType getLabel(int index){
 		LabelType result;
 		result.Fill(0);
-		int m_segmentation;
+		int m_segmentation=0;
 		if (nDisplacements){
 			m_segmentation=index/nDisplacements;
 			index=index%nDisplacements;
 		}
-		else
+		else if(nSegmentations){
 			m_segmentation=index;
+		}
 		int divisor=(double(2*nDisplacementSamples+1));
 		result[index/divisor]=index%divisor-nDisplacementSamples;
 		result[k-1]=m_segmentation;
@@ -122,25 +123,28 @@ public:
 
 	static const int getIndex(const LabelType & label){
 		int index=0;
-		index+=label[k-1]*(nDisplacements>0?nDisplacements:1);
-//		std::cout<<label<<" "<<label[k-1]<<" "<<index<<std::endl;
+		if (nSegmentations){
+			index+=label[k-1]*(nDisplacements>0?nDisplacements:1);
+		}
+		//		std::cout<<label<<" "<<label[k-1]<<" "<<index<<std::endl;
 		//find out direction
-		itk::Vector<double,TImage::ImageDimension> sums;
-		sums.Fill(0);
-		for (int d=0;d<TImage::ImageDimension;++d){
-			for (int d2=0;d2<TImage::ImageDimension;++d2){
-				if (d2!=d){
-//					std::cout<<d<<" "<<d2<<" "<<sums[d]<<std::endl;
-					sums[d]+=abs(label[d2]);//+nDisplacementSamples;
+		if (nDisplacements){
+			itk::Vector<double,TImage::ImageDimension> sums;
+			sums.Fill(0);
+			for (int d=0;d<TImage::ImageDimension;++d){
+				for (int d2=0;d2<TImage::ImageDimension;++d2){
+					if (d2!=d){
+						//					std::cout<<d<<" "<<d2<<" "<<sums[d]<<std::endl;
+						sums[d]+=abs(label[d2]);//+nDisplacementSamples;
+					}
+				}
+				if (sums[d]==0){
+					//found it!
+					index+=(d)*(2*nDisplacementSamples+1)+label[d]+nDisplacementSamples;
+					break;
 				}
 			}
-			if (sums[d]==0){
-				//found it!
-				index+=(d)*(2*nDisplacementSamples+1)+label[d]+nDisplacementSamples;
-				break;
-			}
 		}
-
 		return index;
 	}
 	static const OffsetType getDisplacement(const LabelType & label){

@@ -145,7 +145,7 @@ public:
 		LabelType oldl2=m_labelImage->GetPixel(fixedIndex2);
 		double registrationSmootheness=0;
 		double segmentationSmootheness=0;
-		if (l1.Size()==1 || l1.Size()>=m_dim){
+		if (LabelMapperType::nSegmentations){
 			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
 #if 1
 			double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
@@ -157,12 +157,17 @@ public:
 #endif
 			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
-		if (l1.Size()>1){
+		double constrainedViolatedPenalty=999999;
+		if (LabelMapperType::nDisplacements){
 			for (unsigned int d=0;d<m_dim;++d){
 				//applying the labels to evaluate to neighboring pixels
-				double tmp=(l1[d]-l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
-				double tmp2=oldl1[d]-oldl2[d];
-				registrationSmootheness+=(tmp+tmp2)*(tmp+tmp2);
+				double newDisplacementDifference=(l1[d]-l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
+				double oldDisplacementDifference=oldl1[d]-oldl2[d];
+				double relativePosition=(fixedIndex1[d]-fixedIndex2[d]);
+				double positionNormalizedDifference=fabs(newDisplacementDifference+oldDisplacementDifference-relativePosition);
+				if (positionNormalizedDifference<=0.5* relativePosition|| positionNormalizedDifference> 1.5*relativePosition)
+					positionNormalizedDifference=constrainedViolatedPenalty;
+				registrationSmootheness+=(positionNormalizedDifference)*(positionNormalizedDifference);
 			}
 			registrationSmootheness*=m_registrationWeight;
 		}

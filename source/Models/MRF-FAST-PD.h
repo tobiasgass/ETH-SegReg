@@ -54,6 +54,14 @@ public:
 
 		createGraph();
 	}
+	~NewFastPDMRFSolver(){
+		delete pairs;
+		delete unaryPotentials;
+		delete pairwisePotentials;
+		delete pairwisePotentials2;
+		delete edgeWeights;
+		delete optimizer;
+	}
 	/*
 	 * initialize graph, compute potentials, set up neighbourhood structure
 	 */

@@ -48,6 +48,11 @@ public:
 		m_conf=matrix<float>(1,2);
 		m_labelVector=std::vector<int>(1);
 	};
+	void freeMem(){
+		delete m_Forest;
+		m_data=matrix<float>(0,0);
+		m_conf=matrix<float>(0,0);
+	}
 	void setData(ImagePointerType intensities, ImagePointerType labels){
 		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
@@ -88,7 +93,7 @@ public:
 			}
 
 		}
-//		std::cout<<i<<" "<<counts[0]<<" "<<counts[1]<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
+		//		std::cout<<i<<" "<<counts[0]<<" "<<counts[1]<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
 
 		data.resize(i,nFeatures);
 		std::vector<int> copy=labelVector;
@@ -159,8 +164,8 @@ public:
 			double tissue=conf(i,0)/(conf(i,0)+conf(i,1));
 			double notTissue=fabs(1-tissue);
 			double thresh=0.4;
-//			tissue=tissue>thresh?tissue:0;
-//			notTissue=notTissue>thresh?notTissue:0;
+			//			tissue=tissue>thresh?tissue:0;
+			//			notTissue=notTissue>thresh?notTissue:0;
 			tissue=tissue<thresh?tissue:1.0;
 			notTissue=notTissue<thresh?notTissue:1.0;
 			itk::Vector<float,2> probs;
@@ -168,10 +173,10 @@ public:
 			probs[1]=notTissue;
 			LabelImageIterator.Set(notTissue*65535);
 			probImageIterator.Set(probs);//conf(i,1)/(conf(i,0)+conf(i,1)));
-//			std::cout<<conf(i,0)/(conf(i,0)+conf(i,1))<<std::endl;
+			//			std::cout<<conf(i,0)/(conf(i,0)+conf(i,1))<<std::endl;
 			//			std::cout<<predictions[i]<<" "<<i<<std::endl;
 		}
-//		return returnImage;
+		//		return returnImage;
 		return returnImage;
 
 	}
@@ -278,12 +283,12 @@ public:
 					int label=LabelIterator.GetPixel(r)>0;
 					data(i,0)=centralIntens;
 					data(i,1)=intens;
-					data(i,2)=intens-centralIntens;
-					data(i,3)=fabs(intens-centralIntens);
-					data(i,4)=(intens-centralIntens)*(intens-centralIntens);
-					data(i,6)=centralIntens*centralIntens;
-					data(i,7)=centralIntens*intens;
-					data(i,8)=fabs(intens*centralIntens);
+					data(i,2)=data(i,0)-data(i,1);
+					data(i,3)=fabs(data(i,0)-data(i,1));
+					data(i,4)=(data(i,3))*(data(i,3));
+					data(i,6)=data(i,0)*data(i,0);
+					data(i,7)=data(i,0)*data(i,1);
+					data(i,8)=fabs(data(i,7));
 					data(i,9)=centralLabel;
 					labelVector[i]=label;
 					counts[label]++;
@@ -312,6 +317,41 @@ public:
 
 
 	};
+	void eval(float * probs, int nIntensities){
+		int nFeatures=10;
+		matrix<float> data(nIntensities*nIntensities*2,nFeatures);
+		std::vector<int> labelVector(nIntensities*nIntensities*2);
+		int idx=0;
+		for (int i1=0;i1<nIntensities;++i1){
+			for (int i2=0;i2<nIntensities;++i2){
+				for (int s=0;s<2;++s,++idx){
+					data(idx,0)=1.0/nIntensities*i1;
+					data(idx,1)=1.0/nIntensities*i2;
+					data(idx,2)=data(idx,0)-data(idx,1);
+					data(idx,3)=fabs(data(idx,0)-data(idx,1));
+					data(idx,4)=(data(idx,3))*(data(idx,3));
+					data(idx,6)=data(idx,0)*data(idx,0);
+					data(idx,7)=data(idx,0)*data(idx,1);
+					data(idx,8)=fabs(data(idx,7));
+					data(idx,9)=s;
+					labelVector[idx]=0;
+				}
+
+			}
+		}
+		this->m_Forest->eval(data,labelVector,false);
+		matrix<float> conf = this->m_Forest->getConfidences();
+		idx=0;
+		for (int i1=0;i1<nIntensities;++i1){
+			for (int i2=0;i2<nIntensities;++i2){
+				for (int s=0;s<2;++s,++idx){
+//					std::cout<<i1<<" "<<i2<<" "<<s<<" "<<conf(idx,1)<<std::endl;
+					probs[idx]=conf(idx,1);
+				}
+			}
+		}
+
+	}
 	ImagePointerType eval(matrix<float> &data, std::vector<int> &labelVector, matrix<float> * probabilities){
 		this->m_Forest->eval(data,labelVector,false);
 		matrix<float> conf = this->m_Forest->getConfidences();

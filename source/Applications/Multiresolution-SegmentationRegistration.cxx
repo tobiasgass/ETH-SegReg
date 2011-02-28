@@ -231,10 +231,11 @@ int main(int argc, char ** argv)
 	unaryPot->SetMovingSegmentation(movingSegmentationImage);
 	ImagePointerType classified;
 	classified=unaryPot->trainClassifiers();
-	ImageUtils<ImageType>::writeImage("classified.png",classified);
+//	if (classified)
+//		ImageUtils<ImageType>::writeImage("classified.png",classified);
 
 	typedef ImageType::SpacingType SpacingType;
-	int nLevels=5;
+	int nLevels=6;
 	nLevels=maxDisplacement>0?nLevels:1;
 	//	int levels[]={4,16,40,100,200};
 	int levels[]={2,4,8,20,40,100};
@@ -245,7 +246,17 @@ int main(int argc, char ** argv)
 		double labelScalingFactor=1;
 
 		for (int d=0;d<ImageType::ImageDimension;++d){
-			spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
+			if (level==1){
+				//create a 2 node graph, 1 node is not working
+				if (d==1)
+					spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d]/2;
+				else
+					spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d];
+
+			}
+			else{
+				spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
+			}
 
 		}
 		//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
@@ -328,7 +339,11 @@ int main(int argc, char ** argv)
 				}
 				idx+=LabelMapperType::getDisplacement(newLabelIt.Get());
 				idx+=LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor());
-				deformedImage->SetPixel(fixedIt.GetIndex(),segmentationInterpolator->EvaluateAtContinuousIndex(idx));
+				if (segmentationInterpolator->IsInsideBuffer(idx)){
+					deformedImage->SetPixel(fixedIt.GetIndex(),segmentationInterpolator->EvaluateAtContinuousIndex(idx));
+				}else{
+					deformedImage->SetPixel(fixedIt.GetIndex(),0);
+				}
 				deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),LabelMapperType::getSegmentation(labelIt.Get())*65535);
 				newLabelIt.Set(newLabelIt.Get()+LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor()));
 

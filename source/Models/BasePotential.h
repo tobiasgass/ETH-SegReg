@@ -103,7 +103,7 @@ public:
 		itk::Vector<float,ImageType::ImageDimension> disp=LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(label,this->m_displacementFactor));
 		idx2+= disp;
 		if (m_baseLabelMap){
-			itk::Vector<float,2> baseDisp=LabelMapperType::getDisplacement(m_baseLabelMap->GetPixel(fixedIndex));
+			itk::Vector<float,ImageType::ImageDimension> baseDisp=LabelMapperType::getDisplacement(m_baseLabelMap->GetPixel(fixedIndex));
 			idx2+=baseDisp;
 		}
 		if (m_movingInterpolator->IsInsideBuffer(idx2)){

@@ -44,6 +44,11 @@ public:
 		m_pairwiseWeight=pairwiseWeight;
 		createGraph();
 	}
+	~TRWS_MRFSolver()
+		{
+			delete optimizer;
+			delete nodes;
+		}
 	virtual void createGraph(){
 		//		TRWType::GlobalSize globalSize(labelSampling,labelSampling);
 		//		optimizer = new MRFType(globalSize);
