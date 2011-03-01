@@ -138,12 +138,24 @@ public:
 			itk::Vector<float,ImageType::ImageDimension> baseDisp=LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(fixedIndex));
 			idx2+=baseDisp;
 		}
-		double outOfBoundsPenalty=9999;
-		if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
-			return outOfBoundsPenalty;
-		}
+
 
 		double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+
+		double outOfBoundsPenalty=99999999;
+		bool ooB=false;
+		int oobFactor=1;
+		if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+			for (int d=0;d<ImageType::ImageDimension;++d){
+				if (idx2[d]>this->m_movingInterpolator->GetEndContinuousIndex()[d]){
+					idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d];
+				}
+			}
+			ooB=true;
+			oobFactor=1.5;
+//			return outOfBoundsPenalty;
+//			return m_intensWeight*imageIntensity;
+		}
 		double movingIntensity=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<idx2<<" "<<imageIntensity<<" "<<movingIntensity<<std::endl;
 		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
@@ -159,7 +171,8 @@ public:
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<m_segmentationProbabilities->GetPixel(fixedIndex)<<" "<<deformedSegmentation<<" "<<newIdea<<std::endl;
 
 		//-log( p(X,A|T))
-		double log_p_XA_T=m_intensWeight*fabs(imageIntensity-movingIntensity);//*m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),1);
+		double log_p_XA_T=fabs(imageIntensity-movingIntensity);//*m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),1);
+		log_p_XA_T=m_intensWeight*(log_p_XA_T>10000000?10000:log_p_XA_T);
 		//-log( p(S_a|T,S_x) )
 		double log_p_SA_TSX =m_segmentationWeight*1000* (segmentationLabel!=deformedSegmentation);
 		result+=log_p_XA_T+log_p_SA_TSX;
@@ -179,22 +192,25 @@ public:
 			double threshold=0.8;
 			if (segmentationLabel){
 				segmentationPenalty2=tissueProb>threshold?1.0:tissueProb;
+				if (ooB){
+					segmentationPenalty2=0;
+				}
 			}else{
 				segmentationPenalty2=tissueProb<threshold?1.0:(1-tissueProb);
 			}
-//			std::cout<<(int)movingIntensity/255<<" "<<(int)imageIntensity/255<<" "<<deformedSegmentation<<" "<<tissueProb<<" "<<segmentationPenalty<<" "<<segmentationPenalty2<<std::endl;
+			//			std::cout<<(int)movingIntensity/255<<" "<<(int)imageIntensity/255<<" "<<deformedSegmentation<<" "<<tissueProb<<" "<<segmentationPenalty<<" "<<segmentationPenalty2<<std::endl;
 			double segmentationPosterior=m_posteriorWeight*1000*-log(segmentationPenalty2+0.0000001);
 			double log_p_SX_X = 0;//m_posteriorWeight*segmentationLabel*500*(-log(segmentationPenalty+0.000000001));
-//			if (segmentationLabel){
-//				log_p_SX_X/=10;
-//			}
+			//			if (segmentationLabel){
+			//				log_p_SX_X/=10;
+			//			}
 
 			//		std::cout<<"UNARIES: "<<imageIntensity<<" "<<movingIntensity<<" "<<segmentationLabel<<" "<<deformedSegmentation<<" "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SX_X<<std::endl;
 			result+=+log_p_SX_XASAT+log_p_SX_X+segmentationPosterior;//+newIdea;
 		}
 		//result+=log_p_SA_A;
 		//		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));
-		return result;//*m_segmentationProbabilities->GetPixel(fixedIndex)[1];
+		return oobFactor*result;//*m_segmentationProbabilities->GetPixel(fixedIndex)[1];
 	}
 };
 

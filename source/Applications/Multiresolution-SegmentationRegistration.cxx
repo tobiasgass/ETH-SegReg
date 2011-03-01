@@ -46,6 +46,7 @@ const unsigned int D=2;
 typedef Image<PixelType,D> ImageType;
 typedef ImageType::IndexType IndexType;
 typedef itk::Vector<float,D+1> BaseLabelType;
+//typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
 typedef SparseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
 template<> int LabelMapperType::nLabels=-1;
 template<> int LabelMapperType::nDisplacements=-1;
@@ -173,8 +174,8 @@ int main(int argc, char ** argv)
 	matcher->SetReferenceImage( targetImage );
 #endif
 
-	matcher->SetNumberOfHistogramLevels( 30 );
-	matcher->SetNumberOfMatchPoints( 7 );
+	matcher->SetNumberOfHistogramLevels( 256 );
+	matcher->SetNumberOfMatchPoints( 64 );
 	//	matcher->ThresholdAtMeanIntensityOn();
 	matcher->Update();
 	movingImage=matcher->GetOutput();
@@ -353,8 +354,8 @@ int main(int argc, char ** argv)
 			deformedFilename<<outputFilename<<"-l"<<l<<"-i"<<i<<".png";
 			ostringstream deformedSegmentationFilename;
 			deformedSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
-//			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
-//			ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
+			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
+			ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
 
 
 		}

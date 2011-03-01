@@ -64,7 +64,8 @@ public:
 		//		m_dblSpacing=m_spacing[0];
 
 		if (LabelMapperType::nDisplacementSamples){
-			m_labelSpacing=0.45*m_spacing/LabelMapperType::nDisplacementSamples;
+			m_labelSpacing=0.4*m_spacing/(LabelMapperType::nDisplacementSamples+1);
+			std::cout<<m_spacing<<" "<<LabelMapperType::nDisplacementSamples+1<<" "<<m_labelSpacing<<std::endl;
 		}
 		for (int d=0;d<(int)m_dim;++d){
 			if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
@@ -157,21 +158,50 @@ public:
 #endif
 			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
-		double constrainedViolatedPenalty=999999;
+		double constrainedViolatedPenalty=99999;//std::numeric_limits<double>::max()/(m_nNodes*1000);;
+		bool constrainsViolated=false;
+		//		std::cout<<"DeltaInit: "<<fixedIndex1<<" "<<fixedIndex2<<" "<<l1+oldl1<<" "<<l2+oldl2<<std::endl;
 		if (LabelMapperType::nDisplacements){
+			double d1,d2;
+			int delta;
 			for (unsigned int d=0;d<m_dim;++d){
 				//applying the labels to evaluate to neighboring pixels
-				double newDisplacementDifference=(l1[d]-l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
-				double oldDisplacementDifference=oldl1[d]-oldl2[d];
-				double relativePosition=(fixedIndex1[d]-fixedIndex2[d]);
-				double positionNormalizedDifference=fabs(newDisplacementDifference+oldDisplacementDifference-relativePosition);
-				if (positionNormalizedDifference<=0.5* relativePosition|| positionNormalizedDifference> 1.5*relativePosition)
-					positionNormalizedDifference=constrainedViolatedPenalty;
-				registrationSmootheness+=(positionNormalizedDifference)*(positionNormalizedDifference);
+				d1=(l1[d])*m_labelSpacing[d]*m_DisplacementScalingFactor+oldl1[d];
+				d2=(l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor+oldl2[d];
+				delta=(fixedIndex2[d]-fixedIndex1[d]);
+
+				double relativeAxisPositionDifference=1.0*(d2+delta-d1)/m_spacing[d];
+//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<relativeAxisPositionDifference<<std::endl;
+				//we shall never tear the image!
+				if (delta>0){
+					if (relativeAxisPositionDifference<0){
+						constrainsViolated=true;
+//						exit(0);
+						break;
+					}
+				}
+				else if (delta<0){
+					if (relativeAxisPositionDifference>0){
+						constrainsViolated=true;
+						break;
+					}
+				}
+				if (fabs(relativeAxisPositionDifference)>2){
+					constrainsViolated=true;
+//					exit(0);
+					break;
+				}
+
+				registrationSmootheness+=(relativeAxisPositionDifference)*(relativeAxisPositionDifference);
 			}
 			registrationSmootheness*=m_registrationWeight;
+
 		}
 
+		if (constrainsViolated){
+			return 	m_registrationWeight*constrainedViolatedPenalty;
+		}
+//		std::cout<<registrationSmootheness<<std::endl;
 		double result=registrationSmootheness+segmentationSmootheness;
 		//		std::cout<<oldl1<<" "<<l1<<" "<<oldl2<<" "<<l2<<" "<<result<<std::endl;
 #else
@@ -234,14 +264,14 @@ public:
 	}
 	IndexType getGridPositionAtIndex(int idx){
 		IndexType position;
-//		std::cout<<" index :"<<idx;
+		//		std::cout<<" index :"<<idx;
 		for ( int d=m_dim-1;d>=0;--d){
 			position[d]=idx/m_imageLevelDivisors[d];
-//			std::cout<<" d:"<<d<<" "<<m_imageLevelDivisors[d]<<" ="<<position[d];
+			//			std::cout<<" d:"<<d<<" "<<m_imageLevelDivisors[d]<<" ="<<position[d];
 			idx-=position[d]*m_imageLevelDivisors[d];
-//			std::cout<<" "<<idx;
+			//			std::cout<<" "<<idx;
 		}
-//		std::cout<<" position:"<<position<<std::endl;
+		//		std::cout<<" position:"<<position<<std::endl;
 		return position;
 	}
 	IndexType getImagePositionAtIndex(int idx){
