@@ -164,7 +164,7 @@ public:
 #endif
 			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
-		double constrainedViolatedPenalty=99999;//std::numeric_limits<double>::max()/(m_nNodes*1000);;
+		double constrainedViolatedPenalty=999999999999999999;//std::numeric_limits<double>::max()/(m_nNodes*1000);;
 		bool constrainsViolated=false;
 		//		std::cout<<"DeltaInit: "<<fixedIndex1<<" "<<fixedIndex2<<" "<<l1+oldl1<<" "<<l2+oldl2<<std::endl;
 		if (LabelMapperType::nDisplacements){
@@ -184,19 +184,19 @@ public:
 				//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<relativeAxisPositionDifference<<std::endl;
 				//we shall never tear the image!
 				if (delta>0){
-					if (relativeAxisPositionDifference<0.7){
+					if (relativeAxisPositionDifference<0.8){
 						constrainsViolated=true;
 						//						exit(0);
 						break;
 					}
 				}
 				else if (delta<0){
-					if (relativeAxisPositionDifference>0.7){
+					if (relativeAxisPositionDifference>0.8){
 						constrainsViolated=true;
 						break;
 					}
 				}
-				if (fabs(relativeAxisPositionDifference)>1.3){
+				if (fabs(relativeAxisPositionDifference)>1.2){
 					constrainsViolated=true;
 					//					exit(0);
 					break;
@@ -209,7 +209,7 @@ public:
 		}
 
 		if (constrainsViolated){
-			return 	m_registrationWeight*constrainedViolatedPenalty;
+			return 	constrainedViolatedPenalty;
 		}
 		//		std::cout<<registrationSmootheness<<std::endl;
 		double result=registrationSmootheness+segmentationSmootheness;

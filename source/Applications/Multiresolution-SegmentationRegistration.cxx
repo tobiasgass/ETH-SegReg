@@ -121,7 +121,7 @@ int main(int argc, char ** argv)
 	matcher->SetInput( movingImage );
 	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
 
-#if 1
+#if 0
 	typedef itk::ImageRegionConstIterator< ImageType > ConstIteratorType;
 	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
 	ImageType::RegionType inputRegion;
@@ -240,14 +240,15 @@ int main(int argc, char ** argv)
 	unaryPot->SetMovingSegmentation(movingSegmentationImage);
 	ImagePointerType classified;
 	classified=unaryPot->trainClassifiers();
-	//	if (classified)
-	//		ImageUtils<ImageType>::writeImage("classified.png",classified);
+//	if (classified)
+//		ImageUtils<ImageType>::writeImage("classified.png",classified);
 
 	typedef ImageType::SpacingType SpacingType;
-	int nLevels=6;
+	int nLevels=5;
 	nLevels=maxDisplacement>0?nLevels:1;
 	//	int levels[]={4,16,40,100,200};
-	int levels[]={4,8,20,40,100, 200};
+//	int levels[]={4,8,20,40,100, 200};
+	int levels[]={8,16,32,64,128};
 	int nIterPerLevel=5;
 	int iterationCount=0;
 	for (int l=0;l<nLevels;++l){
@@ -370,9 +371,13 @@ int main(int argc, char ** argv)
 			ostringstream deformedFilename;
 			deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".png";
 			ostringstream deformedSegmentationFilename;
-			deformedSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
-			//			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
-			//			ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
+			deformedSegmentationFilename<<outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".png";
+			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
+			ostringstream tmpSegmentationFilename;
+			tmpSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
+			ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(), segmentationImage);
+			ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
+
 
 
 		}

@@ -123,7 +123,7 @@ void Tree::train(const matrix<float>& data, const std::vector<int>& labels,
     allSamples.insert(allSamples.begin(),m_inBagSamples.begin(),m_inBagSamples.end());
     allSamples.insert(allSamples.begin(),m_outOfBagSamples.begin(),m_outOfBagSamples.end());
 
-    m_rootNode->refine(data,labels,allSamples,m_confidences,m_predictions);
+//    m_rootNode->refine(data,labels,allSamples,m_confidences,m_predictions);
 
     evalOutOfBagSamples(data);
     finalize(data, forestConfidences, forestOutOfBagConfidences, forestOutOfBagVoteNum);
@@ -155,7 +155,7 @@ void Tree::train(const matrix<float>& data, const std::vector<int>& labels, cons
     allSamples.insert(allSamples.begin(),m_inBagSamples.begin(),m_inBagSamples.end());
     allSamples.insert(allSamples.begin(),m_outOfBagSamples.begin(),m_outOfBagSamples.end());
 
-    m_rootNode->refine(data,labels,weights,allSamples,m_confidences,m_predictions);
+//    m_rootNode->refine(data,labels,weights,allSamples,m_confidences,m_predictions);
 
 
     evalOutOfBagSamples(data);
@@ -227,7 +227,7 @@ void Tree::train(const matrix<float>& data, const std::vector<int>& labels, cons
     // Train the root Node
     m_rootNode->train(data, labels, weights, m_inBagSamples, m_confidences, m_predictions);
 
-    bool refine = true;
+    bool refine = false;
     if (refine)
     {
         cout << "refine tree... ";
