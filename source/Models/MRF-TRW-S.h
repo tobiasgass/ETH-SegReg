@@ -46,8 +46,9 @@ public:
 	}
 	~TRWS_MRFSolver()
 		{
+			delete[] nodes;
 			delete optimizer;
-			delete nodes;
+
 		}
 	virtual void createGraph(){
 		//		TRWType::GlobalSize globalSize(labelSampling,labelSampling);

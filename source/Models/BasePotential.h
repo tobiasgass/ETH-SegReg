@@ -79,6 +79,7 @@ protected:
 	InterpolatorPointerType m_movingInterpolator;
 	SpacingType m_displacementFactor;
 	LabelImagePointerType m_baseLabelMap;
+	bool m_haveLabelMap;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
@@ -87,10 +88,11 @@ public:
 
 	RegistrationUnaryPotential(){
 		m_displacementFactor=1.0;
+		m_haveLabelMap=false;
 	}
 	virtual void freeMemory(){
 	}
-	void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;}
+	void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
 	LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
 	void SetMovingInterpolator(InterpolatorPointerType movingImage){
 		m_movingInterpolator=movingImage;

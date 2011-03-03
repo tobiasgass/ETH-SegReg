@@ -48,12 +48,14 @@ private:
 	UnaryFunctionPointerType m_unaryFunction;
 	bool verbose;
 	double m_segmentationWeight, m_registrationWeight;
+	bool m_haveLabelMap;
 
 public:
 
 	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, SpacingType res, double displacementScalingFactor, double segmentationWeight, double registrationWeight)
 	:m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor), m_segmentationWeight(segmentationWeight),m_registrationWeight(registrationWeight)
 	{
+		m_haveLabelMap=false;
 		verbose=true;
 		assert(m_dim>1);
 		assert(m_dim<4);
@@ -92,7 +94,7 @@ public:
 		//		m_ImageInterpolator.SetInput(m_movingImage);
 	}
 
-	void setLabelImage(LabelImagePointerType limg){m_labelImage=limg;}
+	void setLabelImage(LabelImagePointerType limg){m_labelImage=limg;m_haveLabelMap=true;}
 	void setGradientImage(ImagePointerType limg){m_fixedGradientImage=limg;}
 
 	SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
@@ -142,8 +144,12 @@ public:
 #if 1
 		LabelType l1=LabelMapperType::getLabel(LabelIndex);
 		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
-		LabelType oldl1=m_labelImage->GetPixel(fixedIndex1);
-		LabelType oldl2=m_labelImage->GetPixel(fixedIndex2);
+		LabelType oldl1;//=m_labelImage->GetPixel(fixedIndex1);
+		LabelType oldl2;//=m_labelImage->GetPixel(fixedIndex2);
+		if (m_labelImage){
+			oldl1=m_labelImage->GetPixel(fixedIndex1);
+			oldl2=m_labelImage->GetPixel(fixedIndex2);
+		}
 		double registrationSmootheness=0;
 		double segmentationSmootheness=0;
 		if (LabelMapperType::nSegmentations){
@@ -166,29 +172,33 @@ public:
 			int delta;
 			for (unsigned int d=0;d<m_dim;++d){
 				//applying the labels to evaluate to neighboring pixels
-				d1=(l1[d])*m_labelSpacing[d]*m_DisplacementScalingFactor+oldl1[d];
-				d2=(l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor+oldl2[d];
+				d1=(l1[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
+				d2=(l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
+				if (m_labelImage){
+					d1+=oldl1[d];
+					d2+=oldl2[d];
+				}
 				delta=(fixedIndex2[d]-fixedIndex1[d]);
 
 				double relativeAxisPositionDifference=1.0*(d2+delta-d1)/m_spacing[d];
-//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<relativeAxisPositionDifference<<std::endl;
+				//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<relativeAxisPositionDifference<<std::endl;
 				//we shall never tear the image!
 				if (delta>0){
-					if (relativeAxisPositionDifference<0){
+					if (relativeAxisPositionDifference<0.7){
 						constrainsViolated=true;
-//						exit(0);
+						//						exit(0);
 						break;
 					}
 				}
 				else if (delta<0){
-					if (relativeAxisPositionDifference>0){
+					if (relativeAxisPositionDifference>0.7){
 						constrainsViolated=true;
 						break;
 					}
 				}
-				if (fabs(relativeAxisPositionDifference)>2){
+				if (fabs(relativeAxisPositionDifference)>1.3){
 					constrainsViolated=true;
-//					exit(0);
+					//					exit(0);
 					break;
 				}
 
@@ -201,7 +211,7 @@ public:
 		if (constrainsViolated){
 			return 	m_registrationWeight*constrainedViolatedPenalty;
 		}
-//		std::cout<<registrationSmootheness<<std::endl;
+		//		std::cout<<registrationSmootheness<<std::endl;
 		double result=registrationSmootheness+segmentationSmootheness;
 		//		std::cout<<oldl1<<" "<<l1<<" "<<oldl2<<" "<<l2<<" "<<result<<std::endl;
 #else

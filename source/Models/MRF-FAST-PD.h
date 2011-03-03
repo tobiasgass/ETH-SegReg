@@ -55,11 +55,9 @@ public:
 		createGraph();
 	}
 	~NewFastPDMRFSolver(){
-		delete pairs;
-		delete unaryPotentials;
-		delete pairwisePotentials;
-		delete pairwisePotentials2;
-		delete edgeWeights;
+//		delete[] unaryPotentials;
+//		delete[] pairwisePotentials;
+//		delete[] pairwisePotentials2;
 		delete optimizer;
 	}
 	/*

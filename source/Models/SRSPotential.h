@@ -70,6 +70,7 @@ public:
 		m_posteriorWeight=1.0;
 		m_segmenter=segmentationClassifierType();
 		m_pairwiseSegmenter=pairwiseSegmentationClassifierType();
+		this->m_baseLabelMap=NULL;
 	}
 	virtual void freeMemory(){
 	}
@@ -88,8 +89,9 @@ public:
 	ImagePointerType trainClassifiers(){
 		if (m_posteriorWeight>0){
 
-			assert(m_movingImage);
-			assert(m_movingSegmentation);
+			assert(this->m_movingImage);
+			assert(this->m_movingSegmentation);
+#if 0
 			std::cout<<"Training the segmentation classifiers.."<<std::endl;
 			m_segmenter.setData(this->m_movingImage,this->m_movingSegmentation);
 			std::cout<<"set Data..."<<std::endl;
@@ -101,10 +103,12 @@ public:
 			m_movingSegmentationProbabilityInterpolator=FloatImageInterpolatorType::New();
 			m_movingSegmentationProbabilityInterpolator->SetInputImage(m_movingSegmentationProbabilities);
 			std::cout<<"stored confidences"<<m_segmentationProbabilities->GetLargestPossibleRegion().GetSize()<<std::endl;
-			int nIntensities=255;
-			probs=new float[2*nIntensities*nIntensities];
-#if 1
+			m_segmenter.freeMem();
 
+#endif
+			int nIntensities=255;
+#if 0
+			probs=new float[2*nIntensities*nIntensities];
 			m_pairwiseSegmenter.setData(this->m_movingImage,this->m_movingSegmentation);
 			m_pairwiseSegmenter.train();
 			m_pairwiseSegmenter.eval(probs, nIntensities);
@@ -116,11 +120,23 @@ public:
 					}
 				}
 			}
-
-#endif
-			m_segmenter.freeMem();
+			ofstream myFile ("treeProbs.bin", ios::out | ios::binary);
+			myFile.write ((char*)probs,2*nIntensities*nIntensities*sizeof(float) );
 			m_pairwiseSegmenter.freeMem();
-			return probImage;
+#else
+			probs=new float[2*nIntensities*nIntensities];
+			ifstream myFile ("treeProbs.bin", ios::in | ios::binary);
+			if (myFile){
+				myFile.read((char*)probs,2*nIntensities*nIntensities *sizeof(float));
+				std::cout<<" read posterior probs from disk"<<std::endl;
+			}else{
+				std::cout<<" error reading probs"<<std::endl;
+				exit(0);
+
+			}
+#endif
+
+			return NULL;
 		}
 		else return ImageType::New();
 	}
@@ -134,8 +150,9 @@ public:
 		//multiply by current factor
 		idx2+= disp;//.elementMult(this->m_displacementFactor);
 		//if in a multiresolution scheme, also add displacement from former iterations
-		if (this->m_baseLabelMap){
-			itk::Vector<float,ImageType::ImageDimension> baseDisp=LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(fixedIndex));
+		if (this->m_haveLabelMap){
+			itk::Vector<float,ImageType::ImageDimension> baseDisp=
+					LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(fixedIndex));
 			idx2+=baseDisp;
 		}
 
@@ -145,10 +162,14 @@ public:
 		double outOfBoundsPenalty=99999999;
 		bool ooB=false;
 		int oobFactor=1;
+
 		if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
 			for (int d=0;d<ImageType::ImageDimension;++d){
-				if (idx2[d]>this->m_movingInterpolator->GetEndContinuousIndex()[d]){
-					idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d];
+				if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
+					idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+				}
+				if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
+					idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
 				}
 			}
 			ooB=true;
@@ -156,9 +177,12 @@ public:
 //			return outOfBoundsPenalty;
 //			return m_intensWeight*imageIntensity;
 		}
+//		std::cout<<idx2<<" "<<this->m_movingInterpolator->GetEndContinuousIndex()<<std::endl;
+		assert(this->m_movingInterpolator->IsInsideBuffer(idx2));
 		double movingIntensity=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<idx2<<" "<<imageIntensity<<" "<<movingIntensity<<std::endl;
 		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
+
 		int deformedSegmentation=m_segmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0;
 
 		//		double bla=5000*(m_segmentationProbabilities->GetPixel(fixedIndex)-m_movingSegmentationProbabilityInterpolator->EvaluateAtContinuousIndex(idx2));
@@ -185,11 +209,11 @@ public:
 			double log_p_SX_XASAT = 0;//m_posteriorWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 			//-log( p(S_a|A) )
 			//		int fixedIntIndex=getIntegerImageIndex(fixedIndex);
-			double segmentationPenalty=fabs(m_segmentationProbabilities->GetPixel(fixedIndex)[segmentationLabel]) ;
+			double segmentationPenalty=0;//fabs(m_segmentationProbabilities->GetPixel(fixedIndex)[segmentationLabel]) ;
 			//		segmentationPenalty/=2;
 			double tissueProb=probs[deformedSegmentation+int(imageIntensity/256)*2+int(movingIntensity/256)*2*255];
 			double segmentationPenalty2;
-			double threshold=0.8;
+			double threshold=0.6;
 			if (segmentationLabel){
 				segmentationPenalty2=tissueProb>threshold?1.0:tissueProb;
 				if (ooB){
@@ -201,12 +225,14 @@ public:
 			//			std::cout<<(int)movingIntensity/255<<" "<<(int)imageIntensity/255<<" "<<deformedSegmentation<<" "<<tissueProb<<" "<<segmentationPenalty<<" "<<segmentationPenalty2<<std::endl;
 			double segmentationPosterior=m_posteriorWeight*1000*-log(segmentationPenalty2+0.0000001);
 			double log_p_SX_X = 0;//m_posteriorWeight*segmentationLabel*500*(-log(segmentationPenalty+0.000000001));
+			double log_p_SA_AT = 0;//m_posteriorWeight*1000*(-log(m_movingSegmentationProbabilityInterpolator->EvaluateAtContinuousIndex(idx2)[deformedSegmentation]+0.000000001));
+
 			//			if (segmentationLabel){
 			//				log_p_SX_X/=10;
 			//			}
 
 			//		std::cout<<"UNARIES: "<<imageIntensity<<" "<<movingIntensity<<" "<<segmentationLabel<<" "<<deformedSegmentation<<" "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SX_X<<std::endl;
-			result+=+log_p_SX_XASAT+log_p_SX_X+segmentationPosterior;//+newIdea;
+			result+=+log_p_SX_XASAT+log_p_SX_X+segmentationPosterior+log_p_SA_AT;//+newIdea;
 		}
 		//result+=log_p_SA_A;
 		//		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));

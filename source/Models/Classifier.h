@@ -53,6 +53,12 @@ public:
 		m_data=matrix<float>(0,0);
 		m_conf=matrix<float>(0,0);
 	}
+	void save(string filename){
+		m_Forest->save(filename);
+	}
+	void load(string filename){
+			m_Forest->load(filename);
+		}
 	void setData(ImagePointerType intensities, ImagePointerType labels){
 		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
@@ -248,7 +254,7 @@ public:
 
 	}
 	void setData(ImagePointerType intensities, ImagePointerType labels){
-		m_radius=2;
+		m_radius=5;
 		//maximal size
 		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
