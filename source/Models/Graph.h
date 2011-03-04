@@ -138,7 +138,7 @@ public:
 		return (sqrt(result)>trunc?trunc:sqrt(result));
 	}
 
-	double getPairwisePotential(int idx1,int idx2,int LabelIndex,int LabelIndex2){
+	double getPairwisePotential(int idx1,int idx2,int LabelIndex,int LabelIndex2,bool verbose=false){
 		IndexType fixedIndex1=gridToImageIndex(getGridPositionAtIndex(idx2));
 		IndexType fixedIndex2=gridToImageIndex(getGridPositionAtIndex(idx1));
 #if 1
@@ -180,18 +180,18 @@ public:
 				}
 				delta=(fixedIndex2[d]-fixedIndex1[d]);
 
-				double relativeAxisPositionDifference=1.0*(d2+delta-d1)/m_spacing[d];
+				double relativeAxisPositionDifference=1.0*(d2+delta-d1)/(m_spacing[d]*2);
 				//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<relativeAxisPositionDifference<<std::endl;
 				//we shall never tear the image!
 				if (delta>0){
-					if (relativeAxisPositionDifference<0.8){
+					if (relativeAxisPositionDifference<0.2){
 						constrainsViolated=true;
 						//						exit(0);
 						break;
 					}
 				}
 				else if (delta<0){
-					if (relativeAxisPositionDifference>0.8){
+					if (relativeAxisPositionDifference>0.2){
 						constrainsViolated=true;
 						break;
 					}
@@ -209,6 +209,10 @@ public:
 		}
 
 		if (constrainsViolated){
+			if (verbose){
+				std::cout<<fixedIndex1<<" + "<<LabelMapperType::scaleDisplacement(l1,getDisplacementFactor())<<" vs: "
+						<<fixedIndex2<<" + "<<LabelMapperType::scaleDisplacement(l2,getDisplacementFactor())<<std::endl;
+			}
 			return 	constrainedViolatedPenalty;
 		}
 		//		std::cout<<registrationSmootheness<<std::endl;
@@ -328,6 +332,24 @@ public:
 	}
 	ImagePointerType getFixedImage(){
 		return m_fixedImage;
+	}
+	void checkConstraints(LabelImagePointerType labelImage){
+
+		int vCount=0,totalCount=0;
+		for (int n=0;n<m_nNodes;++n){
+			IndexType idx=getImagePositionAtIndex(n);
+			int labelIndex=LabelMapperType::getIndex(labelImage->GetPixel(idx));
+			std::vector<int> nb=getForwardNeighbours(n);
+			for (int i=0;i<nb.size();++i){
+				IndexType idx2=getImagePositionAtIndex(nb[i]);
+				int nBLabel=LabelMapperType::getIndex(labelImage->GetPixel(idx2));
+				if (getPairwisePotential(n,nb[i],labelIndex,nBLabel,true)>999999){
+					vCount++;
+				}
+				totalCount++;
+			}
+		}
+		std::cout<<1.0*vCount/totalCount<<" ratio of violated constraints"<<std::endl;
 	}
 
 };

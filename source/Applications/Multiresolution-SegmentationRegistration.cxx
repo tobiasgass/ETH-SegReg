@@ -175,11 +175,11 @@ int main(int argc, char ** argv)
 	matcher->SetReferenceImage( targetImage );
 #endif
 
-	matcher->SetNumberOfHistogramLevels( 256 );
-	matcher->SetNumberOfMatchPoints( 64 );
+	matcher->SetNumberOfHistogramLevels( 64 );
+	matcher->SetNumberOfMatchPoints( 2 );
 	//	matcher->ThresholdAtMeanIntensityOn();
 	matcher->Update();
-	movingImage=matcher->GetOutput();
+//	movingImage=matcher->GetOutput();
 
 	//	typedef RegistrationLabel<ImageType> BaseLabelType;
 
@@ -247,8 +247,9 @@ int main(int argc, char ** argv)
 	int nLevels=5;
 	nLevels=maxDisplacement>0?nLevels:1;
 	//	int levels[]={4,16,40,100,200};
-//	int levels[]={4,8,20,40,100, 200};
-	int levels[]={8,16,32,64,128};
+	int levels[]={2,4,8,20,40,100, 200};
+//	int levels[]={8,16,32,64,128};
+//	int levels[]={64,312};
 	int nIterPerLevel=5;
 	int iterationCount=0;
 	for (int l=0;l<nLevels;++l){
@@ -337,7 +338,7 @@ int main(int argc, char ** argv)
 
 			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
 			fullDeformation=resampler->GetOutput();
-
+			graph.checkConstraints(fullDeformation);
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
 			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
 			for (newLabelIt.GoToBegin(),fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt,++newLabelIt){
@@ -368,6 +369,7 @@ int main(int argc, char ** argv)
 
 			}
 			labelScalingFactor*=0.8;
+#if 0
 			ostringstream deformedFilename;
 			deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".png";
 			ostringstream deformedSegmentationFilename;
@@ -377,8 +379,15 @@ int main(int argc, char ** argv)
 			tmpSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
 			ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(), segmentationImage);
 			ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
-
-
+			//deformation
+				if (defFilename!=""){
+					ostringstream tmpDeformationFilename;
+					tmpDeformationFilename<<defFilename<<"-l"<<l<<"-i"<<i<<".mha";
+					//		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
+					ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
+					//
+				}
+#endif
 
 		}
 	}

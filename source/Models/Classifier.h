@@ -119,10 +119,24 @@ public:
 		std::cout<<"done adding data. "<<std::endl;
 		m_TrainData.setData(data);
 		m_TrainData.setLabels(labelVector);
-
-
-
 	};
+
+	void eval(int nIntensities, float * probs){
+		matrix<float> data(nIntensities,3);
+		std::vector<int> labelVector(nIntensities,0);
+		for (int i=0;i<nIntensities;++i){
+			double intens=1.0*i/nIntensities;
+			data(i,0)=intens;
+			data(i,1)=intens*intens;
+			data(i,2)=fabs(intens);
+			labelVector[i]=0;
+		}
+		m_Forest->eval(data,labelVector,false);
+		matrix<float> conf = m_Forest->getConfidences();
+		for (int i=0;i<nIntensities;++i){
+			probs[i]=conf(i,1);
+		}
+	}
 	ImagePointerType eval(ImagePointerType intensities, ImagePointerType labels, ProbImagePointerType & probabilities){
 
 		long int nData=1;
@@ -175,8 +189,8 @@ public:
 			double thresh=0.0;
 			//			tissue=tissue>thresh?tissue:0;
 			//			notTissue=notTissue>thresh?notTissue:0;
-//			tissue=tissue>thresh?1.0:tissue;
-//			notTissue=notTissue<thresh?notTissue:1.0;
+			//			tissue=tissue>thresh?1.0:tissue;
+			//			notTissue=notTissue<thresh?notTissue:1.0;
 			itk::Vector<float,2> probs;
 			probs[1]=tissue;
 			probs[0]=notTissue;
@@ -257,55 +271,76 @@ public:
 
 	}
 	void setData(ImagePointerType intensities, ImagePointerType labels){
-		m_radius=5;
+		int maxTrain=1000000;
 		//maximal size
 		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
 			nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
 		std::cout<<nData<<std::endl;
-		nData*=pow(1.0*2*m_radius+1,ImageType::ImageDimension);
 		std::cout<<nData<<" computed"<<std::endl;
 		int nFeatures=10;
-		matrix<float> data(nData,nFeatures);
+		matrix<float> data(maxTrain,nFeatures);
 		std::cout<<nData<<" matrix allocated"<<std::endl;
-		std::vector<int> labelVector(nData);
-		typedef typename itk::ConstNeighborhoodIterator< ImageType > NeighborhoodIteratorType;
-		typename NeighborhoodIteratorType::RadiusType radius;
-		radius.Fill(m_radius);
-		NeighborhoodIteratorType ImageIterator(radius,intensities, intensities->GetLargestPossibleRegion());
-		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator2(intensities, intensities->GetLargestPossibleRegion());
-		itk::ImageRegionIteratorWithIndex<ImageType> LabelIterator2(labels, labels->GetLargestPossibleRegion());
-		NeighborhoodIteratorType LabelIterator(radius,labels, labels->GetLargestPossibleRegion());
-		long int i=0;
-		std::vector<int> counts(2,0);
-		for (ImageIterator.GoToBegin(),ImageIterator2.GoToBegin(), LabelIterator2.GoToBegin(),
-				LabelIterator.GoToBegin();
-				!ImageIterator.IsAtEnd() ;
-				++ImageIterator,++LabelIterator,++ImageIterator2,++LabelIterator2)
+		std::vector<int> labelVector(maxTrain);
+		typedef typename itk::ImageRandomConstIteratorWithIndex< ImageType > IteratorType;
+		IteratorType ImageIterator(intensities, intensities->GetLargestPossibleRegion());
+		ImageIterator.SetNumberOfSamples(nData);
+		int i=0;
+		std::vector<int> counts(4,0);
+		ImageIterator.GoToBegin();
+		for (;!ImageIterator.IsAtEnd() ;
+				++ImageIterator)
 		{
-			assert( !LabelIterator.IsAtEnd());
-			float centralIntens=1.0*ImageIterator.GetCenterPixel()/65535;
-			float centralLabel=LabelIterator.GetCenterPixel()>0;
-			if (centralLabel || (counts[1] && 1.0*counts[1]/(counts[1]+counts[0]) > 0.5 )){
-				for (int r=0;r<ImageIterator.Size();++r,++i){
-					float intens=1.0*ImageIterator.GetPixel(r)/65535;
-					int label=LabelIterator.GetPixel(r)>0;
-					data(i,0)=centralIntens;
-					data(i,1)=intens;
-					data(i,2)=data(i,0)-data(i,1);
-					data(i,3)=fabs(data(i,0)-data(i,1));
-					data(i,4)=(data(i,3))*(data(i,3));
-					data(i,6)=data(i,0)*data(i,0);
-					data(i,7)=data(i,0)*data(i,1);
-					data(i,8)=fabs(data(i,7));
-					data(i,9)=centralLabel;
-					labelVector[i]=label;
-					counts[label]++;
-					//				std::cout<<labelVector[i]<<" "<<label<<" "<<intens<<" "<<centralIntens<<std::endl;
+
+
+			if (i>=maxTrain){
+				break;
+			}
+			float centralIntens=1.0*ImageIterator.Get()/65535;
+			float centralLabel=labels->GetPixel(ImageIterator.GetIndex())>0;
+
+			if (centralLabel || ((counts[1]||counts[3]) && 1.0*(counts[1]+counts[3]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3]))) {
+
+				IteratorType NeighbImageIterator(intensities, intensities->GetLargestPossibleRegion());
+				NeighbImageIterator.SetNumberOfSamples(nData);
+
+				for (NeighbImageIterator.GoToBegin();
+						!NeighbImageIterator.IsAtEnd() ;
+						++NeighbImageIterator)
+				{
+					if (i>=maxTrain){
+						break;
+					}
+					float intens=1.0*NeighbImageIterator.Get()/65535;
+					int label=labels->GetPixel(NeighbImageIterator.GetIndex())>0;
+					//					std::cout<<i<<" "<<labelVector[i]<<" "<<label<<" "<<intens<<" "<<centralIntens<<std::endl;
+
+					if (label || ((counts[0]||counts[2]) && 1.0*(counts[0]+counts[2]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3]))) {
+						if (label ||(counts[3]||counts[2]) && 1.0*(counts[3]+counts[2]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3])) {
+
+							data(i,0)=centralIntens;
+							data(i,1)=intens;
+							data(i,2)=data(i,0)-data(i,1);
+							data(i,3)=fabs(data(i,0)-data(i,1));
+							data(i,4)=(data(i,3))*(data(i,3));
+							data(i,6)=data(i,0)*data(i,0);
+							data(i,7)=data(i,0)*data(i,1);
+							data(i,8)=fabs(data(i,7));
+							data(i,9)=label;
+							labelVector[i]=centralLabel;
+							counts[centralLabel + 2*label]++;
+							++i;
+						}
+					}
 				}
+
+
+				//
+				//					}
+				//				}
 			}
 		}
-		std::cout<<counts[0]<<" "<<counts[1]<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
+		std::cout<<counts[0]<<" "<<counts[1]<<" "<<counts[2]<<" "<<counts[3]<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
 		data.resize(i,nFeatures);
 		std::vector<int> copy=labelVector;
 		labelVector.resize(i);
@@ -315,8 +350,8 @@ public:
 		std::vector<double> weights(labelVector.size());
 
 		for (i=0;i<labelVector.size();++i){
-			weights[i]=1.0;
-			//			weights[i]=1.0/counts[labelVector[i]];
+			//			weights[i]=1.0;
+			weights[i]=1.0/(counts[labelVector[i]]+counts[labelVector[i]+2]);
 		}
 		this->m_weights=weights;
 		std::cout<<"done adding data. "<<std::endl;
@@ -433,7 +468,7 @@ public:
 		for (int d=0;d<ImageType::ImageDimension;++d)
 			nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
 		std::cout<<nData<<std::endl;
-//		nData*=pow(1.0*2*m_radius+1,ImageType::ImageDimension);
+		//		nData*=pow(1.0*2*m_radius+1,ImageType::ImageDimension);
 		std::cout<<nData<<" computed"<<std::endl;
 		int nFeatures=9;
 		matrix<float> data(maxTrain,nFeatures);
@@ -471,22 +506,22 @@ public:
 					}
 					float intens=1.0*NeighbImageIterator.Get()/65535;
 					int label=labels->GetPixel(NeighbImageIterator.GetIndex())>0;
-//					std::cout<<i<<" "<<labelVector[i]<<" "<<label<<" "<<intens<<" "<<centralIntens<<std::endl;
+					//					std::cout<<i<<" "<<labelVector[i]<<" "<<label<<" "<<intens<<" "<<centralIntens<<std::endl;
 
 					if (label || ((counts[0]||counts[2]) && 1.0*(counts[0]+counts[2]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3]))) {
 						if (label ||(counts[3]||counts[2]) && 1.0*(counts[3]+counts[2]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3])) {
 
-						data(i,0)=centralIntens;
-						data(i,1)=intens;
-						data(i,2)=data(i,0)-data(i,1);
-						data(i,3)=fabs(data(i,0)-data(i,1));
-						data(i,4)=(data(i,3))*(data(i,3));
-						data(i,6)=data(i,0)*data(i,0);
-						data(i,7)=data(i,0)*data(i,1);
-						data(i,8)=fabs(data(i,7));
-						labelVector[i]=centralLabel + 2*label;
-						counts[centralLabel + 2*label]++;
-						++i;
+							data(i,0)=centralIntens;
+							data(i,1)=intens;
+							data(i,2)=data(i,0)-data(i,1);
+							data(i,3)=fabs(data(i,0)-data(i,1));
+							data(i,4)=(data(i,3))*(data(i,3));
+							data(i,6)=data(i,0)*data(i,0);
+							data(i,7)=data(i,0)*data(i,1);
+							data(i,8)=fabs(data(i,7));
+							labelVector[i]=centralLabel + 2*label;
+							counts[centralLabel + 2*label]++;
+							++i;
 						}
 					}
 				}
@@ -507,7 +542,7 @@ public:
 		std::vector<double> weights(labelVector.size());
 
 		for (i=0;i<labelVector.size();++i){
-//						weights[i]=1.0;
+			//						weights[i]=1.0;
 			weights[i]=1.0/counts[labelVector[i]];
 		}
 		this->m_weights=weights;
