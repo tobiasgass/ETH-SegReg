@@ -56,7 +56,7 @@ public:
 	:m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor), m_segmentationWeight(segmentationWeight),m_registrationWeight(registrationWeight)
 	{
 		m_haveLabelMap=false;
-		verbose=true;
+		verbose=false;
 		assert(m_dim>1);
 		assert(m_dim<4);
 		m_totalSize=fixedimage->GetLargestPossibleRegion().GetSize();
@@ -90,7 +90,7 @@ public:
 			std::cout<<" "<<m_gridSize[0];
 			m_nVertices+=(m_gridSize[2]-1)*m_gridSize[1]*m_gridSize[0];
 		}
-		if (verbose) std::cout<<" "<<m_nNodes<<" "<<m_nVertices<<std::endl;
+		if (verbose) std::cout<<" "<<m_nNodes<<" "<<m_nVertices<<" "<<LabelMapperType::nLabels<<std::endl;
 		//		m_ImageInterpolator.SetInput(m_movingImage);
 	}
 
@@ -100,6 +100,7 @@ public:
 	SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
 	SpacingType getSpacing(){return m_spacing;}
 	PointType getOrigin(){return m_origin;}
+
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
@@ -124,6 +125,7 @@ public:
 			return res/count;
 		else return 999999;
 	}
+
 	double getPairwisePotential(int LabelIndex,int LabelIndex2){
 		LabelType l1=LabelMapperType::getLabel(LabelIndex);
 		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
@@ -135,6 +137,8 @@ public:
 		}
 		//		std::cout<<sqrt(result)<<std::endl;
 		double trunc=5.0;
+
+
 		return (sqrt(result)>trunc?trunc:sqrt(result));
 	}
 
@@ -219,45 +223,24 @@ public:
 		double result=registrationSmootheness+segmentationSmootheness;
 		//		std::cout<<oldl1<<" "<<l1<<" "<<oldl2<<" "<<l2<<" "<<result<<std::endl;
 #else
-		typename itk::ConstNeighborhoodIterator<LabelImageType>::RadiusType radius;
-		assert(m_labelImage);
-		for (unsigned int d=0;d<m_dim;++d){
-			radius[d]=m_spacing[d]*0.45;
-		}
-		typename itk::ConstNeighborhoodIterator<LabelImageType> nIt(radius,m_labelImage, m_labelImage->GetLargestPossibleRegion());
-		typename itk::ConstNeighborhoodIterator<LabelImageType> nIt2(radius,m_labelImage, m_labelImage->GetLargestPossibleRegion());
-		nIt.SetLocation(fixedIndex1);
-		nIt2.SetLocation(fixedIndex2);
-		int count=0;
-		double result=0;
-		LabelType l1=LabelMapperType::getLabel(LabelIndex);
-		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
-		for (unsigned int i=0;i<nIt.Size();++i){
-			bool inBounds1, inBounds2;
-			LabelType oldl1=nIt.GetPixel(i,inBounds1);
-			LabelType oldl2=nIt2.GetPixel(i,inBounds2);
-			if (inBounds1&&inBounds2){
-
-
-				//	LabelType l=l1-l2;
-				for (unsigned int d=0;d<m_dim;++d){
-					//applying the labels to evaluate to neighboring pixels
-					double tmp=(l1[d]-l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
-					double tmp2=oldl1[d]-oldl2[d];
-					result+=fabs(tmp+tmp2);
-				}
-				++count;
-			}
-		}
-		result/=count;
-		//		std::cout<<sqrt(result)<<std::endl;
+		//hier war mal code bei dem auch die ungebung gesmooth4ed wurde
 #endif
 		double trunc=5.0;
 		return result;
 		return ((result)>trunc?trunc:(result));
 	}
-	double getWeight(int gridIndex1, int gridIndex2){return 1.0;}
-	double getPairwisePotential2(int LabelIndex,int LabelIndex2){ return 0;}
+	double getWeight(int gridIndex1, int gridIndex2){
+		IndexType fixedIndex1=gridToImageIndex(getGridPositionAtIndex(gridIndex1));
+		IndexType fixedIndex2=gridToImageIndex(getGridPositionAtIndex(gridIndex2));
+		double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
+		segWeight=exp(-segWeight/3000);
+		segWeight*=m_segmentationWeight;
+		return segWeight;
+	}
+	double getPairwisePotential2(int LabelIndex,int LabelIndex2){
+		double segmentationSmoothness=fabs(LabelMapperType::getSegmentation(LabelIndex)-LabelMapperType::getSegmentation(LabelIndex2));
+		return segmentationSmoothness*m_segmentationWeight;
+	}
 
 
 	IndexType gridToImageIndex(IndexType gridIndex){

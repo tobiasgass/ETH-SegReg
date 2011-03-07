@@ -42,7 +42,7 @@ using namespace itk;
 #define _MANY_LABELS_
 #define DOUBLEPAIRWISE
 typedef unsigned short PixelType;
-const unsigned int D=2;
+const unsigned int D=3;
 typedef Image<PixelType,D> ImageType;
 typedef ImageType::IndexType IndexType;
 typedef itk::Vector<float,D+1> BaseLabelType;
@@ -179,7 +179,7 @@ int main(int argc, char ** argv)
 	matcher->SetNumberOfMatchPoints( 2 );
 	//	matcher->ThresholdAtMeanIntensityOn();
 	matcher->Update();
-//	movingImage=matcher->GetOutput();
+	//	movingImage=matcher->GetOutput();
 
 	//	typedef RegistrationLabel<ImageType> BaseLabelType;
 
@@ -240,16 +240,16 @@ int main(int argc, char ** argv)
 	unaryPot->SetMovingSegmentation(movingSegmentationImage);
 	ImagePointerType classified;
 	classified=unaryPot->trainClassifiers();
-//	if (classified)
-//		ImageUtils<ImageType>::writeImage("classified.png",classified);
+	//	if (classified)
+	//		ImageUtils<ImageType>::writeImage("classified.nii",classified);
 
 	typedef ImageType::SpacingType SpacingType;
 	int nLevels=5;
 	nLevels=maxDisplacement>0?nLevels:1;
 	//	int levels[]={4,16,40,100,200};
 	int levels[]={2,4,8,20,40,100, 200};
-//	int levels[]={8,16,32,64,128};
-//	int levels[]={64,312};
+	//	int levels[]={8,16,32,64,128};
+	//	int levels[]={64,312};
 	int nIterPerLevel=5;
 	int iterationCount=0;
 	for (int l=0;l<nLevels;++l){
@@ -272,11 +272,11 @@ int main(int argc, char ** argv)
 
 		}
 		//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
-		if (l==nLevels-1){
+		if (l==nLevels-1 &&nSegmentations>1){
 			//			LabelMapperType * labelmapper2=new LabelMapperType(nSegmentations,maxDisplacement>0?1:0);
 			LabelMapperType * labelmapper2=new LabelMapperType(nSegmentations,0);
 			spacing.Fill(1.0);
-			labelScalingFactor=0.01;
+			labelScalingFactor=0.5;
 			nIterPerLevel=1;
 		}
 		std::cout<<"spacing at level "<<level<<" :"<<spacing<<std::endl;
@@ -286,9 +286,7 @@ int main(int argc, char ** argv)
 
 			GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
 			graph.setGradientImage(fixedSegmentationImage);
-			//			for (int f=0;f<graph.nNodes();++f){
-			//				std::cout<<f<<" "<<graph.getGridPositionAtIndex(f)<<" "<<graph.getImagePositionAtIndex(f)<<std::endl;
-			//			}
+
 			unaryPot->SetDisplacementFactor(graph.getDisplacementFactor());
 			if (iterationCount){
 				unaryPot->SetBaseLabelMap(previousFullDeformation);
@@ -298,15 +296,22 @@ int main(int argc, char ** argv)
 			std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			//	ok what now: create graph! solve graph! save result!Z
-			typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
-//			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
-			MRFSolverType mrfSolver(&graph,1,1, false);
-			mrfSolver.optimize();
+			LabelImagePointerType deformation;
+			if (nIterPerLevel>1){
+				typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
+				//			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+				MRFSolverType mrfSolver(&graph,1,1, false);
+				mrfSolver.optimize();
+				deformation=mrfSolver.getLabelImage();
 
-			//Apply/interpolate Transformation
+			}else{
+				//pixel level grid, only use simple MRF
+				typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
+							MRFSolverType mrfSolver(&graph,1,1, false);
+				mrfSolver.optimize();
+				deformation=mrfSolver.getLabelImage();
+			}
 
-			//Get label image (deformation)
-			LabelImagePointerType deformation=mrfSolver.getLabelImage();
 			//initialise interpolator
 			//deformation
 
@@ -342,7 +347,7 @@ int main(int argc, char ** argv)
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
 			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
 			for (newLabelIt.GoToBegin(),fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt,++newLabelIt){
-				ImageInterpolatorType::ContinuousIndexType idx(fixedIt.GetIndex());
+				ImageInterpolatorType::ContinuousIndexType idx=unaryPot->getMovingIndex(fixedIt.GetIndex());
 
 				if (false){
 					std::cout<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
@@ -369,24 +374,24 @@ int main(int argc, char ** argv)
 
 			}
 			labelScalingFactor*=0.8;
-#if 0
+#if 1
 			ostringstream deformedFilename;
-			deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".png";
+			deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".nii";
 			ostringstream deformedSegmentationFilename;
-			deformedSegmentationFilename<<outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".png";
+			deformedSegmentationFilename<<outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".nii";
 			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
 			ostringstream tmpSegmentationFilename;
-			tmpSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
+			tmpSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".nii";
 			ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(), segmentationImage);
 			ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
 			//deformation
-				if (defFilename!=""){
-					ostringstream tmpDeformationFilename;
-					tmpDeformationFilename<<defFilename<<"-l"<<l<<"-i"<<i<<".mha";
-					//		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
-					ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
-					//
-				}
+			if (defFilename!=""){
+				ostringstream tmpDeformationFilename;
+				tmpDeformationFilename<<defFilename<<"-l"<<l<<"-i"<<i<<".mha";
+				//		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
+				ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
+				//
+			}
 #endif
 
 		}

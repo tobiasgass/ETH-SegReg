@@ -30,7 +30,7 @@ public:
 	typedef typename LabelMapperType::LabelType LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
-
+	SizeType m_fixedSize,m_movingSize;
 protected:
 	ImagePointerType m_fixedImage, m_movingImage;
 public:
@@ -45,9 +45,11 @@ public:
 	}
 	void SetMovingImage(ImagePointerType movingImage){
 		m_movingImage=movingImage;
+		m_movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
 	}
 	void SetFixedImage(ImagePointerType fixedImage){
 		m_fixedImage=fixedImage;
+		m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
 	}
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		return 1.0;

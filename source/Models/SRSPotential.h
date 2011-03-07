@@ -57,7 +57,8 @@ protected:
 	ImagePointerType m_movingSegmentation;
 	ProbImagePointerType m_segmentationProbabilities,m_movingSegmentationProbabilities;
 	FloatImageInterpolatorPointerType m_movingSegmentationProbabilityInterpolator;
-	float *m_segmentationPosteriorProbs,*m_segmentationLikelihoodProbs;;
+	float *m_segmentationPosteriorProbs,*m_segmentationLikelihoodProbs;
+	bool m_fixedSegmentation;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
@@ -71,7 +72,9 @@ public:
 		m_segmenter=segmentationClassifierType();
 		m_pairwiseSegmenter=pairwiseSegmentationClassifierType();
 		this->m_baseLabelMap=NULL;
+		m_fixedSegmentation=false;
 	}
+	void setFixedSegmentation(bool f){m_fixedSegmentation=f;}
 	virtual void freeMemory(){
 		delete[] m_segmentationPosteriorProbs;
 		delete[] m_segmentationLikelihoodProbs;
@@ -110,11 +113,11 @@ public:
 			m_movingSegmentationProbabilityInterpolator->SetInputImage(m_movingSegmentationProbabilities);
 			std::cout<<"stored confidences"<<m_segmentationProbabilities->GetLargestPossibleRegion().GetSize()<<std::endl;
 			m_segmenter.freeMem();
-			ofstream myFileL ("treeSegmentationLikelihoodProbsCROP.bin", ios::out | ios::binary);
+			ofstream myFileL ("treeSegmentationLikelihoodProbsCROP-FEMUR-CT.bin", ios::out | ios::binary);
 			myFileL.write ((char*)m_segmentationLikelihoodProbs,nIntensities*sizeof(float) );
 #else
 			m_segmentationLikelihoodProbs=new float[nIntensities];
-			ifstream myFileL("treeSegmentationLikelihoodProbsCROP.bin", ios::in | ios::binary);
+			ifstream myFileL("treeSegmentationLikelihoodProbsCROP-FEMUR-CT.bin", ios::in | ios::binary);
 			if (myFileL){
 				myFileL.read((char*)m_segmentationLikelihoodProbs,nIntensities *sizeof(float));
 				std::cout<<" read posterior m_segmentationLikelihoodProbs from disk"<<std::endl;
@@ -124,17 +127,32 @@ public:
 
 			}
 #endif
+			typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
+			typename DuplicatorType::Pointer duplicator = DuplicatorType::New();
+			duplicator->SetInputImage(this->m_movingImage);
+			duplicator->Update();
+			ImagePointerType returnImage=duplicator->GetOutput();
+			itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator(returnImage,returnImage->GetLargestPossibleRegion());
+			for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
+				//			LabelImageIterator.Set(predictions[i]*65535);
+				double tissue=m_segmentationLikelihoodProbs[(int)ImageIterator.Get()/255];
+				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
+				if (!label)
+					tissue=1-tissue;
+				ImageIterator.Set(tissue*65535);
+			}
+			ImageUtils<ImageType>::writeImage("moving-segmentaitonProbs.nii",returnImage);
 #if 0
 			m_segmentationPosteriorProbs=new float[2*nIntensities*nIntensities];
 			m_pairwiseSegmenter.setData(this->m_movingImage,this->m_movingSegmentation);
 			m_pairwiseSegmenter.train();
 			m_pairwiseSegmenter.eval(m_segmentationPosteriorProbs, nIntensities);
-			ofstream myFile ("treeProbsCROP.bin", ios::out | ios::binary);
+			ofstream myFile ("treeProbsCROP-FEMUR-CT.bin", ios::out | ios::binary);
 			myFile.write ((char*)m_segmentationPosteriorProbs,2*nIntensities*nIntensities*sizeof(float) );
 			m_pairwiseSegmenter.freeMem();
 #else
 			m_segmentationPosteriorProbs=new float[2*nIntensities*nIntensities];
-			ifstream myFile ("treeProbsCROP.bin", ios::in | ios::binary);
+			ifstream myFile ("treeProbsCROP-FEMUR-CT.bin", ios::in | ios::binary);
 			if (myFile){
 				myFile.read((char*)m_segmentationPosteriorProbs,2*nIntensities*nIntensities *sizeof(float));
 				std::cout<<" read posterior m_segmentationPosteriorProbs from disk"<<std::endl;
@@ -148,10 +166,18 @@ public:
 		}
 		else return ImageType::New();
 	}
+	ContinuousIndexType getMovingIndex(IndexType fixedIndex){
+		ContinuousIndexType result;
+
+		for (int d=0;d<ImageType::ImageDimension;++d){
+			result[d]=1.0*this->m_fixedSize[d]*1.0*fixedIndex[d]/this->m_movingSize[d];
+		}
+		return result;
+	}
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
 		//get index in moving image/segmentation
-		ContinuousIndexType idx2(fixedIndex);
+		ContinuousIndexType idx2=getMovingIndex(fixedIndex);
 		//current discrete discplacement label
 		itk::Vector<float,ImageType::ImageDimension> disp=
 				LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(label,this->m_displacementFactor));
@@ -190,7 +216,9 @@ public:
 		double movingIntensity=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<idx2<<" "<<imageIntensity<<" "<<movingIntensity<<std::endl;
 		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
-
+		if (m_fixedSegmentation){
+			segmentationLabel=LabelMapperType::getSegmentation(this->m_baseLabelMap->GetPixel(fixedIndex));
+		}
 		int deformedSegmentation=m_segmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0;
 
 		//		std::cout<<bla<<std::endl;
@@ -218,28 +246,37 @@ public:
 			//		int fixedIntIndex=getIntegerImageIndex(fixedIndex);
 			double segmentationPenalty=0;//fabs(m_segmentationProbabilities->GetPixel(fixedIndex)[segmentationLabel]) ;
 			//		segmentationPenalty/=2;
-			double tissueProb=m_segmentationPosteriorProbs[deformedSegmentation+int(imageIntensity/255)*2+int(movingIntensity/255)*2*255];
+			double tissueProb=1;
+			if (m_segmentationWeight) tissueProb=m_segmentationPosteriorProbs[deformedSegmentation+int(imageIntensity/255)*2+int(movingIntensity/255)*2*255];
 			double segmentationPenalty2;
-			double threshold=0.3;
-			double p_SA_AXT=m_segmentationLikelihoodProbs[int(movingIntensity/255)]*m_segmentationLikelihoodProbs[int(imageIntensity/255)];
+			double threshold=0.5;
+			double p_SA_AXT=m_segmentationLikelihoodProbs[int(imageIntensity/255)];
+			if (m_segmentationWeight)	p_SA_AXT*=m_segmentationLikelihoodProbs[int(movingIntensity/255)];
 			if (segmentationLabel){
 				segmentationPenalty2=tissueProb>threshold?1.0:tissueProb;
-				p_SA_AXT=p_SA_AXT>threshold?1.0:p_SA_AXT;
 				if (ooB){
 					segmentationPenalty2=0;
 				}
 			}else{
 				segmentationPenalty2=(1-tissueProb)>threshold?1.0:(1-tissueProb);
+			}
+			threshold=0.5;
+			//if we weight pairwise segmentation, then we compute p_SA_AXT, if no pairwise weight is present then we assume we only weight segmentation and therefore compute p_SX_X
+			if (m_segmentationWeight && deformedSegmentation || !m_segmentationWeight && segmentationLabel){
+				p_SA_AXT=p_SA_AXT>threshold?1.0:p_SA_AXT;
+			}else{
 				p_SA_AXT=(1-p_SA_AXT)>threshold?1.0:(1-p_SA_AXT);
 			}
 
-
-//m_movingSegmentationProbabilityInterpolator->EvaluateAtContinuousIndex(idx2)[deformedSegmentation]*m_segmentationProbabilities->GetPixel(fixedIndex)[deformedSegmentation];
+			if (!m_segmentationWeight) segmentationPenalty2=1;
+			//			std::cout<<movingIntensity<<" "<<segmentationLabel<<" "<<p_SA_AXT<<" "<<segmentationPenalty2<<std::endl;
+			//m_movingSegmentationProbabilityInterpolator->EvaluateAtContinuousIndex(idx2)[deformedSegmentation]*m_segmentationProbabilities->GetPixel(fixedIndex)[deformedSegmentation];
 			//			double log_p_SA_AXT=-1000*log();
 			//			std::cout<<(int)movingIntensity/255<<" "<<(int)imageIntensity/255<<" "<<deformedSegmentation<<" "<<tissueProb<<" "<<segmentationPenalty<<" "<<segmentationPenalty2<<std::endl;
-			double segmentationPosterior=m_posteriorWeight*1000*-log(p_SA_AXT*segmentationPenalty2+0.0000001);
+			double segmentationPosterior=m_posteriorWeight*1000*-log(segmentationPenalty2+0.0000001);
+
 			double log_p_SX_X = 0;//m_posteriorWeight*segmentationLabel*500*(-log(segmentationPenalty+0.000000001));
-			double log_p_SA_AT = 0;//m_posteriorWeight*1000*(-log(m_movingSegmentationProbabilityInterpolator->EvaluateAtContinuousIndex(idx2)[deformedSegmentation]+0.000000001));
+			double log_p_SA_AT = m_posteriorWeight*10000*(-log(p_SA_AXT+0.000000001));
 			//			std::cout<<deformedSegmentation<<" "<<movingIntensity<<" "<<p_SA_AXT<<" "<<tissueProb<<" "<<log_p_XA_T<<" "<<log_p_SA_TSX<<std::endl;
 
 			//			if (segmentationLabel){
@@ -311,12 +348,12 @@ public:
 			m_pairwiseSegmenter.train();
 			m_pairwiseSegmenter.eval(m_segmentationPosteriorProbs, nIntensities);
 
-			ofstream myFile ("treeProbs4Class.bin", ios::out | ios::binary);
+			ofstream myFile ("treeProbs4Class-FEMUR-CT.bin", ios::out | ios::binary);
 			myFile.write ((char*)m_segmentationPosteriorProbs,nProbs*sizeof(float) );
 			m_pairwiseSegmenter.freeMem();
 #else
 			m_segmentationPosteriorProbs=new float[nProbs];
-			ifstream myFile ("treeProbs4Class.bin", ios::in | ios::binary);
+			ifstream myFile ("treeProbs4Class-FEMUR-CT.bin", ios::in | ios::binary);
 			if (myFile){
 				myFile.read((char*)m_segmentationPosteriorProbs,2*nIntensities*nIntensities *sizeof(float));
 				std::cout<<" read posterior probs from disk"<<std::endl;
