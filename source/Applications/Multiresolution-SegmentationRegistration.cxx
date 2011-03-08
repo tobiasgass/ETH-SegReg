@@ -244,32 +244,32 @@ int main(int argc, char ** argv)
 	//		ImageUtils<ImageType>::writeImage("classified.nii",classified);
 
 	typedef ImageType::SpacingType SpacingType;
-	int nLevels=5;
+	int nLevels=4;
 	nLevels=maxDisplacement>0?nLevels:1;
 	//	int levels[]={4,16,40,100,200};
-	int levels[]={2,4,8,20,40,100, 200};
-	//	int levels[]={8,16,32,64,128};
+	int levels[]={1,2,4,8,20,40,100, 200};
+//	int levels[]={3,9,27,91,100, 200};
+//	int levels[]={4,16,64,100, 200};
+//		int levels[]={8,16,32,64,128};
 	//	int levels[]={64,312};
-	int nIterPerLevel=5;
+	int nIterPerLevel=2;
 	int iterationCount=0;
 	for (int l=0;l<nLevels;++l){
 		int level=levels[l];
 		SpacingType spacing;
 		double labelScalingFactor=1;
-
+		int minSpacing=99999999999999;
+		double divisor;
 		for (int d=0;d<ImageType::ImageDimension;++d){
-			if (level==1){
-				//create a 2 node graph, 1 node is not working
-				if (d==1)
-					spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d]/2;
-				else
-					spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d];
-
+			if(targetImage->GetLargestPossibleRegion().GetSize()[d]/level <minSpacing){
+				minSpacing=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
+//				divisor=1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			}
-			else{
-				spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
-			}
-
+		}
+//		std::cout<<divisor<<std::endl;
+		for (int d=0;d<ImageType::ImageDimension;++d){
+			int div=targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
+			spacing[d]=int(1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/div);
 		}
 		//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
 		if (l==nLevels-1 &&nSegmentations>1){
@@ -311,7 +311,6 @@ int main(int argc, char ** argv)
 				mrfSolver.optimize();
 				deformation=mrfSolver.getLabelImage();
 			}
-
 			//initialise interpolator
 			//deformation
 
@@ -343,7 +342,7 @@ int main(int argc, char ** argv)
 
 			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
 			fullDeformation=resampler->GetOutput();
-			graph.checkConstraints(fullDeformation);
+//			graph.checkConstraints(fullDeformation);
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
 			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
 			for (newLabelIt.GoToBegin(),fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt,++newLabelIt){

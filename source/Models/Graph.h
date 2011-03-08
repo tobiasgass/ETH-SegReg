@@ -168,7 +168,7 @@ public:
 #endif
 			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
-		double constrainedViolatedPenalty=999999999999999999;//std::numeric_limits<double>::max()/(m_nNodes*1000);;
+		double constrainedViolatedPenalty=9999999999999999999999999999;//std::numeric_limits<double>::max()/(m_nNodes*1000);;
 		bool constrainsViolated=false;
 		//		std::cout<<"DeltaInit: "<<fixedIndex1<<" "<<fixedIndex2<<" "<<l1+oldl1<<" "<<l2+oldl2<<std::endl;
 		if (LabelMapperType::nDisplacements){
@@ -184,29 +184,30 @@ public:
 				}
 				delta=(fixedIndex2[d]-fixedIndex1[d]);
 
-				double relativeAxisPositionDifference=1.0*(d2+delta-d1)/(m_spacing[d]*2);
+				double axisPositionDifference=1.0*(d2+delta-d1)/(m_spacing[d]*2);
+				double relativeAxisPositionDifference=1.0*(axisPositionDifference)/(m_spacing[d]*2);
 				//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<relativeAxisPositionDifference<<std::endl;
 				//we shall never tear the image!
 				if (delta>0){
-					if (relativeAxisPositionDifference<0.2){
+					if (relativeAxisPositionDifference<0.4){
 						constrainsViolated=true;
 						//						exit(0);
 						break;
 					}
 				}
 				else if (delta<0){
-					if (relativeAxisPositionDifference>0.2){
+					if (relativeAxisPositionDifference>0.4){
 						constrainsViolated=true;
 						break;
 					}
 				}
-				if (fabs(relativeAxisPositionDifference)>1.2){
+				if (fabs(relativeAxisPositionDifference)>0.1){
 					constrainsViolated=true;
 					//					exit(0);
 					break;
 				}
 
-				registrationSmootheness+=(relativeAxisPositionDifference)*(relativeAxisPositionDifference);
+				registrationSmootheness+=(axisPositionDifference)*(axisPositionDifference);
 			}
 			registrationSmootheness*=m_registrationWeight;
 
@@ -217,6 +218,7 @@ public:
 				std::cout<<fixedIndex1<<" + "<<LabelMapperType::scaleDisplacement(l1,getDisplacementFactor())<<" vs: "
 						<<fixedIndex2<<" + "<<LabelMapperType::scaleDisplacement(l2,getDisplacementFactor())<<std::endl;
 			}
+//			return 	m_registrationWeight*constrainedViolatedPenalty;
 			return 	constrainedViolatedPenalty;
 		}
 		//		std::cout<<registrationSmootheness<<std::endl;
@@ -233,7 +235,7 @@ public:
 		IndexType fixedIndex1=gridToImageIndex(getGridPositionAtIndex(gridIndex1));
 		IndexType fixedIndex2=gridToImageIndex(getGridPositionAtIndex(gridIndex2));
 		double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
-		segWeight=exp(-segWeight/3000);
+		segWeight=exp(-segWeight/10000);
 		segWeight*=m_segmentationWeight;
 		return segWeight;
 	}

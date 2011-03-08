@@ -105,13 +105,16 @@ public:
 			std::cout<<"set Data..."<<std::endl;
 			m_segmenter.train();
 			std::cout<<"trained"<<std::endl;
+#if 0
 			ImagePointerType probImage=m_segmenter.eval(this->m_fixedImage,this->m_movingSegmentation,m_segmentationProbabilities);
 			ImagePointerType refProbs=m_segmenter.eval(this->m_movingImage,this->m_movingSegmentation,m_movingSegmentationProbabilities);
-			m_segmenter.eval(nIntensities,m_segmentationLikelihoodProbs);
 			ImageUtils<ImageType>::writeImage("train-classified.png",refProbs);
 			m_movingSegmentationProbabilityInterpolator=FloatImageInterpolatorType::New();
 			m_movingSegmentationProbabilityInterpolator->SetInputImage(m_movingSegmentationProbabilities);
-			std::cout<<"stored confidences"<<m_segmentationProbabilities->GetLargestPossibleRegion().GetSize()<<std::endl;
+#endif
+			m_segmenter.eval(nIntensities,m_segmentationLikelihoodProbs);
+
+			std::cout<<"stored confidences"<<std::endl;
 			m_segmenter.freeMem();
 			ofstream myFileL ("treeSegmentationLikelihoodProbsCROP-FEMUR-CT.bin", ios::out | ios::binary);
 			myFileL.write ((char*)m_segmentationLikelihoodProbs,nIntensities*sizeof(float) );
@@ -135,11 +138,13 @@ public:
 			itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator(returnImage,returnImage->GetLargestPossibleRegion());
 			for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
 				//			LabelImageIterator.Set(predictions[i]*65535);
-				double tissue=m_segmentationLikelihoodProbs[(int)ImageIterator.Get()/255];
+				double bone=m_segmentationLikelihoodProbs[(int)ImageIterator.Get()/255];
 				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
-				if (!label)
-					tissue=1-tissue;
-				ImageIterator.Set(tissue*65535);
+//				if (!label)
+//					tissue=1-tissue;
+//				tissue=tissue>0.5?1.0:tissue;
+				//	tissue*=tissue;
+				ImageIterator.Set(bone*65535);
 			}
 			ImageUtils<ImageType>::writeImage("moving-segmentaitonProbs.nii",returnImage);
 #if 0
@@ -214,6 +219,13 @@ public:
 		//		std::cout<<idx2<<" "<<this->m_movingInterpolator->GetEndContinuousIndex()<<std::endl;
 		assert(this->m_movingInterpolator->IsInsideBuffer(idx2));
 		double movingIntensity=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
+		double log_p_XA_T;
+		if (imageIntensity<10000 ){
+			log_p_XA_T=0;
+		}
+		else{
+			log_p_XA_T=fabs(imageIntensity-movingIntensity);
+		}
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<idx2<<" "<<imageIntensity<<" "<<movingIntensity<<std::endl;
 		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
 		if (m_fixedSegmentation){
@@ -230,7 +242,6 @@ public:
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<m_segmentationProbabilities->GetPixel(fixedIndex)<<" "<<deformedSegmentation<<" "<<newIdea<<std::endl;
 
 		//-log( p(X,A|T))
-		double log_p_XA_T=fabs(imageIntensity-movingIntensity);//*m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),1);
 		log_p_XA_T=m_intensWeight*(log_p_XA_T>10000000?10000:log_p_XA_T);
 		//-log( p(S_a|T,S_x) )
 		double log_p_SA_TSX =m_segmentationWeight*1000* (segmentationLabel!=deformedSegmentation);
@@ -249,7 +260,7 @@ public:
 			double tissueProb=1;
 			if (m_segmentationWeight) tissueProb=m_segmentationPosteriorProbs[deformedSegmentation+int(imageIntensity/255)*2+int(movingIntensity/255)*2*255];
 			double segmentationPenalty2;
-			double threshold=0.5;
+			double threshold=5.5;
 			double p_SA_AXT=m_segmentationLikelihoodProbs[int(imageIntensity/255)];
 			if (m_segmentationWeight)	p_SA_AXT*=m_segmentationLikelihoodProbs[int(movingIntensity/255)];
 			if (segmentationLabel){
@@ -260,14 +271,18 @@ public:
 			}else{
 				segmentationPenalty2=(1-tissueProb)>threshold?1.0:(1-tissueProb);
 			}
-			threshold=0.5;
+			threshold=0.55;
 			//if we weight pairwise segmentation, then we compute p_SA_AXT, if no pairwise weight is present then we assume we only weight segmentation and therefore compute p_SX_X
 			if (m_segmentationWeight && deformedSegmentation || !m_segmentationWeight && segmentationLabel){
 				p_SA_AXT=p_SA_AXT>threshold?1.0:p_SA_AXT;
 			}else{
 				p_SA_AXT=(1-p_SA_AXT)>threshold?1.0:(1-p_SA_AXT);
 			}
-
+#if 0
+			p_SA_AXT*=p_SA_AXT;
+			segmentationPenalty2*=segmentationPenalty2;
+#endif
+			//			std::cout<<segmentationLabel<<" "<<imageIntensity<<" "<<p_SA_AXT<<std::endl;
 			if (!m_segmentationWeight) segmentationPenalty2=1;
 			//			std::cout<<movingIntensity<<" "<<segmentationLabel<<" "<<p_SA_AXT<<" "<<segmentationPenalty2<<std::endl;
 			//m_movingSegmentationProbabilityInterpolator->EvaluateAtContinuousIndex(idx2)[deformedSegmentation]*m_segmentationProbabilities->GetPixel(fixedIndex)[deformedSegmentation];

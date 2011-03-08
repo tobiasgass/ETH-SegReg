@@ -63,7 +63,7 @@ public:
 		m_Forest->load(filename);
 	}
 	void setData(ImagePointerType intensities, ImagePointerType labels){
-		int maxTrain=1000000;
+		int maxTrain=200000;
 		//maximal size
 		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
@@ -79,18 +79,16 @@ public:
 
 		ImageIterator.SetNumberOfSamples(nData);
 		int i=0;
-		std::vector<int> counts(4,0);
+		std::vector<int> counts(2,0);
 		ImageIterator.GoToBegin();
 		for (;!ImageIterator.IsAtEnd() ;
 				++ImageIterator)
 		{
-
-
 			if (i>=maxTrain){
 				break;
 			}
 			int label=labels->GetPixel(ImageIterator.GetIndex())>0;
-			if (label || (counts[1] && 1.0*counts[1]/(counts[1]+counts[0]) > 0.5 )){
+//			if (label || (counts[1] && 1.0*counts[1]/(counts[1]+counts[0]) > 0.5 )){
 				double intens=1.0*ImageIterator.Get()/65535;
 				data(i,0)=intens;
 				data(i,1)=intens*intens;
@@ -99,7 +97,7 @@ public:
 				counts[labelVector[i]]++;
 				//			std::cout<<data(i,0)<<" "<<labelVector[i]<<std::endl;
 				i++;
-			}
+//			}
 
 		}
 		std::cout<<i<<" "<<counts[0]<<" "<<counts[1]<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
@@ -112,8 +110,9 @@ public:
 		std::vector<double> weights(labelVector.size());
 		for (i=0;i<labelVector.size();++i){
 			if (copy[i]!=labelVector[i]) std::cout<<"bah";
-			//			weights[i]=1.0/counts[labelVector[i]];
-			weights[i]=1.0;
+			weights[i]=1.0/counts[labelVector[i]];
+			//weights[i]=1.0;
+//			weights[i]=labelVector[i]?1:1.5;
 		}
 		m_weights=weights;
 		std::cout<<"done adding data. "<<std::endl;
@@ -223,8 +222,8 @@ public:
 		// TREE
 		hp.maxTreeDepth = configFile.lookup("Tree.maxDepth");
 		hp.bagRatio = configFile.lookup("Tree.bagRatio");
-		hp.numRandomFeatures = configFile.lookup("Tree.numRandomFeatures");
-		hp.numProjFeatures = configFile.lookup("Tree.numProjFeatures");
+		hp.numRandomFeatures = 2;//configFile.lookup("Tree.numRandomFeatures");
+		hp.numProjFeatures = 1;//configFile.lookup("Tree.numProjFeatures");
 		hp.useRandProj = configFile.lookup("Tree.useRandProj");
 		hp.useGPU = configFile.lookup("Tree.useGPU");
 		hp.useSubSamplingWithReplacement = configFile.lookup("Tree.subSampleWR");
@@ -233,7 +232,7 @@ public:
 
 
 		// FOREST
-		hp.numTrees = configFile.lookup("Forest.numTrees");
+		hp.numTrees = 50;//configFile.lookup("Forest.numTrees");
 		hp.useSoftVoting = configFile.lookup("Forest.useSoftVoting");
 		hp.saveForest = configFile.lookup("Forest.saveForest");
 
@@ -270,6 +269,45 @@ public:
 	pairwiseSegmentationClassifier(){
 
 	}
+	void train(){
+			std::cout<<"reading config"<<std::endl;
+			string confFile("/home/gasst/work/progs/rf/randomForest.conf");///home/gasst/work/progs/rf/src/randomForest.conf");
+			HyperParameters hp;
+			Config configFile;
+
+			configFile.readFile(confFile.c_str());
+
+			// DATA
+			hp.trainData = (const char*) configFile.lookup("Data.trainData");
+			hp.trainLabels = (const char*) configFile.lookup("Data.trainLabels");
+			hp.testData = (const char*) configFile.lookup("Data.testData");
+			hp.testLabels = (const char*) configFile.lookup("Data.testLabels");
+			hp.numLabeled = this->m_nData;//configFile.lookup("Data.numLabeled");
+			hp.numClasses = configFile.lookup("Data.numClasses");
+
+			// TREE
+			hp.maxTreeDepth = configFile.lookup("Tree.maxDepth");
+			hp.bagRatio = configFile.lookup("Tree.bagRatio");
+			hp.numRandomFeatures = 6;//configFile.lookup("Tree.numRandomFeatures");
+			hp.numProjFeatures = 4;//configFile.lookup("Tree.numProjFeatures");
+			hp.useRandProj = configFile.lookup("Tree.useRandProj");
+			hp.useGPU = configFile.lookup("Tree.useGPU");
+			hp.useSubSamplingWithReplacement = configFile.lookup("Tree.subSampleWR");
+			hp.verbose = configFile.lookup("Tree.verbose");
+			hp.useInfoGain = configFile.lookup("Tree.useInfoGain");
+
+
+			// FOREST
+			hp.numTrees = 100;//configFile.lookup("Forest.numTrees");
+			hp.useSoftVoting = configFile.lookup("Forest.useSoftVoting");
+			hp.saveForest = configFile.lookup("Forest.saveForest");
+
+			std::cout<<"creating forest"<<std::endl;
+			this->m_Forest= new Forest(hp);
+			std::cout<<"training forest"<<std::endl;
+			this->m_Forest->train(this->m_TrainData.getData(),this->m_TrainData.getLabels(),this->m_weights);//	,this->m_weights);
+			std::cout<<"done"<<std::endl;
+		};
 	void setData(ImagePointerType intensities, ImagePointerType labels){
 		int maxTrain=1000000;
 		//maximal size
@@ -300,7 +338,7 @@ public:
 			float centralLabel=labels->GetPixel(ImageIterator.GetIndex())>0;
 
 			//here add a sample only if it is either 1, or the ratio of pairs with bone as first label is higher than 0.5
-			if (centralLabel || ((counts[1]||counts[3]) && 1.0*(counts[1]+counts[3]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3]))) {
+//			if (centralLabel || ((counts[1]||counts[3]) && 1.0*(counts[1]+counts[3]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3]))) {
 
 				IteratorType NeighbImageIterator(intensities, intensities->GetLargestPossibleRegion());
 				NeighbImageIterator.SetNumberOfSamples(nData>1000?1000:nData);
@@ -316,7 +354,7 @@ public:
 					int label=labels->GetPixel(NeighbImageIterator.GetIndex())>0;
 				//	std::cout<<i<<" "<<labelVector[i]<<" "<<label<<" "<<centralLabel<<" "<<intens<<" "<<centralIntens<<std::endl;
 					//
-					if (label || ((counts[2]||counts[3]) && 1.0*(counts[2]+counts[3]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3]))) {
+//					if (label || ((counts[2]||counts[3]) && 1.0*(counts[2]+counts[3]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3]))) {
 						//if (1.0*(counts[2]+counts[3]) > 0.7* (counts[1]+counts[0]+counts[2]+counts[3])) break;
 //						if (label  ||(counts[3]||counts[2]) && 1.0*(counts[3]+counts[2]) > 0.5* (counts[1]+counts[0]+counts[2]+counts[3])) {
 
@@ -333,8 +371,8 @@ public:
 							counts[centralLabel + 2*label]++;
 							++i;
 //						}
-					}
-				}
+//					}
+//				}
 
 
 				//
@@ -343,7 +381,7 @@ public:
 			}
 		}
 		std::cout<<counts[0]<<" "<<counts[1]<<" "<<counts[2]<<" "<<counts[3]<<std::endl;
-		std::cout<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
+//		std::cout<<" "<<1.0*counts[1]/(counts[1]+counts[0])<<std::endl;
 		data.resize(i,nFeatures);
 		std::vector<int> copy=labelVector;
 		labelVector.resize(i);
@@ -353,8 +391,12 @@ public:
 		std::vector<double> weights(labelVector.size());
 
 		for (i=0;i<labelVector.size();++i){
-			//			weights[i]=1.0;
-			weights[i]=1.0/(counts[labelVector[i]]+counts[labelVector[i]+2]);
+			weights[i]=1.0;
+//			if (labelVector[i]!=3){
+//				weights[i]=1.0/1.5;
+//			}
+//			else
+//				weights[i]=1.0;///(counts[labelVector[i]]+counts[labelVector[i]+2]);
 		}
 		this->m_weights=weights;
 		std::cout<<"done adding data. "<<std::endl;
