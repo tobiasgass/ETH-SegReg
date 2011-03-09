@@ -63,7 +63,7 @@ public:
 		m_Forest->load(filename);
 	}
 	void setData(ImagePointerType intensities, ImagePointerType labels){
-		int maxTrain=200000;
+		int maxTrain=1000000;
 		//maximal size
 		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
@@ -318,7 +318,7 @@ public:
 		std::cout<<nData<<" computed"<<std::endl;
 		int nFeatures=10;
 		matrix<float> data(maxTrain,nFeatures);
-		std::cout<<nData<<" matrix allocated"<<std::endl;
+		std::cout<<maxTrain<<" matrix allocated"<<std::endl;
 		std::vector<int> labelVector(maxTrain);
 		typedef typename itk::ImageRandomConstIteratorWithIndex< ImageType > IteratorType;
 		IteratorType ImageIterator(intensities, intensities->GetLargestPossibleRegion());

@@ -245,14 +245,18 @@ int main(int argc, char ** argv)
 
 	typedef ImageType::SpacingType SpacingType;
 	int nLevels=4;
+	if (nSegmentations>1) nLevels++;
 	nLevels=maxDisplacement>0?nLevels:1;
+	//one more level for segmentation
+
 	//	int levels[]={4,16,40,100,200};
 	int levels[]={1,2,4,8,20,40,100, 200};
+//	int levels[]={2,4,16,32,64,100, 200};
 //	int levels[]={3,9,27,91,100, 200};
 //	int levels[]={4,16,64,100, 200};
 //		int levels[]={8,16,32,64,128};
 	//	int levels[]={64,312};
-	int nIterPerLevel=2;
+	int nIterPerLevel=3;
 	int iterationCount=0;
 	for (int l=0;l<nLevels;++l){
 		int level=levels[l];
@@ -373,7 +377,7 @@ int main(int argc, char ** argv)
 
 			}
 			labelScalingFactor*=0.8;
-#if 1
+#if 0
 			ostringstream deformedFilename;
 			deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".nii";
 			ostringstream deformedSegmentationFilename;
