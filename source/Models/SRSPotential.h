@@ -140,9 +140,9 @@ public:
 				//			LabelImageIterator.Set(predictions[i]*65535);
 				double bone=m_segmentationLikelihoodProbs[(int)ImageIterator.Get()/255];
 				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
-//				if (!label)
-//					tissue=1-tissue;
-//				tissue=tissue>0.5?1.0:tissue;
+				//				if (!label)
+				//					tissue=1-tissue;
+				//				tissue=tissue>0.5?1.0:tissue;
 				//	tissue*=tissue;
 				ImageIterator.Set(bone*65535);
 			}
@@ -247,6 +247,7 @@ public:
 		double log_p_SA_TSX =m_segmentationWeight*1000* (segmentationLabel!=deformedSegmentation);
 		result+=log_p_XA_T+log_p_SA_TSX;
 		if (m_posteriorWeight>0){
+#if 0
 			//-log(  p(S_x|X,A,S_a,T) )
 			//for each index there are nlables/nsegmentation probabilities
 			//		long int probposition=fixedIntIndex*m_labelConverter->nLabels()/2;
@@ -300,6 +301,26 @@ public:
 
 			//		std::cout<<"UNARIES: "<<imageIntensity<<" "<<movingIntensity<<" "<<segmentationLabel<<" "<<deformedSegmentation<<" "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SX_X<<std::endl;
 			result+=+log_p_SX_XASAT+log_p_SX_X+segmentationPosterior+log_p_SA_AT;//+newIdea;
+#else
+
+			double p_SX_X;
+			if (segmentationLabel){
+				p_SX_X=imageIntensity>25000?1:(25000-imageIntensity)/65000;
+			}
+			else{
+				p_SX_X=imageIntensity<20000?1:(imageIntensity-20000)/65000;
+			}
+			double p_SA_A;
+			if (deformedSegmentation){
+				p_SA_A=movingIntensity>25000?1:(25000-movingIntensity)/65000;
+			}
+			else{
+				p_SA_A=movingIntensity<20000?1:(movingIntensity-20000)/65000;
+			}
+//			std::cout<<imageIntensity<<" "<<segmentationLabel<<" "<<p_SX_X<<" "<<movingIntensity<<" "<<deformedSegmentation<<" "<<p_SA_A<<std::endl;
+			result+=m_posteriorWeight*1000*-log(p_SX_X*p_SA_A+0.000001);
+#endif
+
 		}
 		//result+=log_p_SA_A;
 		//		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));
