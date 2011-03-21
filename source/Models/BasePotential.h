@@ -10,7 +10,7 @@
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include <utility>
-
+#include "itkVector.h"
 namespace itk{
 
 
