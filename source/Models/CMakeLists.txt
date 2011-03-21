@@ -2,6 +2,8 @@ INCLUDE_DIRECTORIES(
     /usr/local/include
     /usr/include/libxml2
     /home/gasst/work/include
+    ../External/RF
+    ../Common   
  )
 
 LINK_DIRECTORIES(
@@ -13,14 +15,13 @@ SET(SRSMRFModels_SRC
   BasePotential.h
   BaseMRF.h
   SRSPotential.h
+  SRSPotential.cxx
   MRF-FAST-PD.h
   MRF-TRW-S.h
   Graph.h
-  FAST-PD-mrf-optimisation.h
-  ImageRegistrationFilter.cxx
 )
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )
-TARGET_LINK_LIBRARIES (SRSMRFModels ITKBasicFilters)
+TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters)
 #INSTALL(TARGETS SRSMRFModels)
 #TARGET_LINK_LIBRARIES(ITKAlgorithms ITKStatistics ITKNumerics)

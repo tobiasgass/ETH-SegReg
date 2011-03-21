@@ -39,20 +39,12 @@
 using namespace std;
 using namespace itk;
 
-#define _MANY_LABELS_
-#define DOUBLEPAIRWISE
 typedef unsigned short PixelType;
-const unsigned int D=3;
+const unsigned int D=2;
 typedef Image<PixelType,D> ImageType;
 typedef ImageType::IndexType IndexType;
-typedef itk::Vector<float,D+1> BaseLabelType;
-//typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-typedef SparseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-template<> int LabelMapperType::nLabels=-1;
-template<> int LabelMapperType::nDisplacements=-1;
-template<> int LabelMapperType::nSegmentations=-1;
-template<> int LabelMapperType::nDisplacementSamples=-1;
-template<> int LabelMapperType::k=-1;
+//typedef BaseLabelMapper<ImageType,BaseLabelType> LabelType;
+typedef SparseSegRegLabel<float,D> LabelType;
 
 
 
@@ -113,77 +105,23 @@ int main(int argc, char ** argv)
 			ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
 
 
-
+#if 0
 	typedef itk::HistogramMatchingImageFilter<
 			ImageType,
 			ImageType >   MatchingFilterType;
 	MatchingFilterType::Pointer matcher = MatchingFilterType::New();
 	matcher->SetInput( movingImage );
 	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
-
-#if 0
-	typedef itk::ImageRegionConstIterator< ImageType > ConstIteratorType;
-	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
-	ImageType::RegionType inputRegion;
-	ImageType::RegionType::IndexType inputStart;
-	ImageType::RegionType::SizeType  size;
-	//	110x190+120+120
-	inputStart[0] = int(0.22869*targetImage->GetLargestPossibleRegion().GetSize()[0]);//::atoi( argv[3] );
-	inputStart[1] = int(0.508021*targetImage->GetLargestPossibleRegion().GetSize()[1]);
-	size[0]  = int(0.25*targetImage->GetLargestPossibleRegion().GetSize()[0]);
-	size[1]  = int(0.320856*targetImage->GetLargestPossibleRegion().GetSize()[1]);
-	inputRegion.SetSize( size );
-	inputRegion.SetIndex( inputStart );
-	ImageType::RegionType outputRegion;
-	ImageType::RegionType::IndexType outputStart;
-	outputStart[0] = 0;
-	outputStart[1] = 0;
-	outputRegion.SetSize( size );
-	outputRegion.SetIndex( outputStart );
-	ImageType::Pointer outputImage = ImageType::New();
-	outputImage->SetRegions( outputRegion );
-	const ImageType::SpacingType& spacing = targetImage->GetSpacing();
-	const ImageType::PointType& inputOrigin = targetImage->GetOrigin();
-	double   outputOrigin[ D ];
-
-	for(unsigned int i=0; i< D; i++)
-	{
-		outputOrigin[i] = inputOrigin[i] + spacing[i] * inputStart[i];
-	}
-
-
-	outputImage->SetSpacing( spacing );
-	outputImage->SetOrigin(  outputOrigin );
-	outputImage->Allocate();
-	ConstIteratorType inputIt(   targetImage, inputRegion  );
-	IteratorType      outputIt(  outputImage,         outputRegion );
-
-	inputIt.GoToBegin();
-	outputIt.GoToBegin();
-
-	while( !inputIt.IsAtEnd() )
-	{
-		outputIt.Set(  inputIt.Get()  );
-		++inputIt;
-		++outputIt;
-	}
-
-	matcher->SetReferenceImage( outputImage );
-#else
-
-
 	matcher->SetReferenceImage( targetImage );
-#endif
-
 	matcher->SetNumberOfHistogramLevels( 64 );
 	matcher->SetNumberOfMatchPoints( 2 );
 	//	matcher->ThresholdAtMeanIntensityOn();
 	matcher->Update();
-	//	movingImage=matcher->GetOutput();
-
+	movingImage=matcher->GetOutput();
+#endif
 	//	typedef RegistrationLabel<ImageType> BaseLabelType;
 
-	LabelMapperType * labelmapper=new LabelMapperType(nSegmentations,maxDisplacement);
+	LabelType * labelmapper=new LabelType(nSegmentations,maxDisplacement);
 
 	typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
 	typedef SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
@@ -191,9 +129,9 @@ int main(int argc, char ** argv)
 
 	typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
 	typedef ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
-	typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
+	typedef SegmentationRegistrationUnaryPotential< LabelType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
 	typedef BaseUnaryPotentialType::Pointer BaseUnaryPotentialPointerType;
-	typedef GraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+	typedef GraphModel<BaseUnaryPotentialType,LabelType,ImageType> GraphModelType;
 	ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
 	deformedImage=ImageType::New();
 	deformedImage->SetRegions(targetImage->GetLargestPossibleRegion());
@@ -248,16 +186,7 @@ int main(int argc, char ** argv)
 	if (nSegmentations>1) nLevels++;
 	nLevels=maxDisplacement>0?nLevels:1;
 	//one more level for segmentation
-
-	//	int levels[]={4,16,40,100,200};
-//	int levels[]={1,2,4,8,20,40,100, 200};
 	int levels[]={1,16,50, 200};
-
-//	int levels[]={2,4,16,32,64,100, 200};
-//	int levels[]={3,9,27,91,100, 200};
-//	int levels[]={4,16,64,100, 200};
-//		int levels[]={8,16,32,64,128};
-	//	int levels[]={64,312};
 	int nIterPerLevel=3;
 	int iterationCount=0;
 	for (int l=0;l<nLevels;++l){
@@ -265,23 +194,23 @@ int main(int argc, char ** argv)
 		SpacingType spacing;
 		double labelScalingFactor=1;
 		if (l>0)labelScalingFactor=5;
-		int minSpacing=99999999999999;
-		double divisor;
-		for (int d=0;d<ImageType::ImageDimension;++d){
+		int minSpacing=999999999;
+
+		for (unsigned int d=0;d<ImageType::ImageDimension;++d){
 			if(targetImage->GetLargestPossibleRegion().GetSize()[d]/level <minSpacing){
 				minSpacing=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
-//				divisor=1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			}
 		}
-//		std::cout<<divisor<<std::endl;
+
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			int div=targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			spacing[d]=int(1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/div);
 		}
 		//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
 		if (l==nLevels-1 &&nSegmentations>1){
-			//			LabelMapperType * labelmapper2=new LabelMapperType(nSegmentations,maxDisplacement>0?1:0);
-			LabelMapperType * labelmapper2=new LabelMapperType(nSegmentations,0);
+			//			LabelType * labelmapper2=new LabelType(nSegmentations,maxDisplacement>0?1:0);
+			LabelType::setSegmentationLabels(nSegmentations);
+			LabelType::setDisplacementSamples(0);
 			spacing.Fill(1.0);
 			labelScalingFactor=0.5;
 			nIterPerLevel=1;
@@ -314,7 +243,7 @@ int main(int argc, char ** argv)
 			}else{
 				//pixel level grid, only use simple MRF
 				typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
-							MRFSolverType mrfSolver(&graph,1,1, false);
+				MRFSolverType mrfSolver(&graph,1,1, false);
 				mrfSolver.optimize();
 				deformation=mrfSolver.getLabelImage();
 			}
@@ -349,23 +278,23 @@ int main(int argc, char ** argv)
 
 			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
 			fullDeformation=resampler->GetOutput();
-//			graph.checkConstraints(fullDeformation);
+			//			graph.checkConstraints(fullDeformation);
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
 			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
 			for (newLabelIt.GoToBegin(),fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt,++newLabelIt){
 				ImageInterpolatorType::ContinuousIndexType idx=unaryPot->getMovingIndex(fixedIt.GetIndex());
 
 				if (false){
-					std::cout<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-					std::cout<<"Total displacement including previous iterations ="<<LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-					std::cout<<"Resulting point in moving image :"<<idx+LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+					std::cout<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+					std::cout<<"Total displacement including previous iterations ="<<LabelType::getDisplacement(newLabelIt.Get())+LabelType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+					std::cout<<"Resulting point in moving image :"<<idx+LabelType::getDisplacement(newLabelIt.Get())+LabelType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
 					std::cout<<"Total Label :"<<labelIt.Get()<<std::endl;
 				}
-				BaseLabelType displacement=LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor());
+				BaseLabelType displacement=LabelType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor());
 				if (iterationCount){
 					displacement+=(newLabelIt.Get());
 				}
-				idx+=LabelMapperType::getDisplacement(displacement);
+				idx+=LabelType::getDisplacement(displacement);
 
 				if (segmentationInterpolator->IsInsideBuffer(idx)){
 					deformedImage->SetPixel(fixedIt.GetIndex(),movingInterpolator->EvaluateAtContinuousIndex(idx));
@@ -375,7 +304,7 @@ int main(int argc, char ** argv)
 					deformedImage->SetPixel(fixedIt.GetIndex(),0);
 					deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),0);
 				}
-				segmentationImage->SetPixel(fixedIt.GetIndex(),LabelMapperType::getSegmentation(labelIt.Get())*65535);
+				segmentationImage->SetPixel(fixedIt.GetIndex(),LabelType::getSegmentation(labelIt.Get())*65535);
 				newLabelIt.Set(displacement);
 
 			}

@@ -19,7 +19,6 @@ public:
 	typedef TGraphModel GraphModelType;
 	typedef typename GraphModelType::ImageType ImageType;
 	typedef typename GraphModelType::LabelType LabelType;
-	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 //	typedef typename itk::Image<LabelType, ImageType::ImageDimension> LabelImageType;
 	typedef typename GraphModelType::LabelImageType LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
@@ -31,7 +30,7 @@ public:
 	BaseMRFSolver(GraphModelType * graphModel):m_GraphModel(graphModel)
 	{
 		m_nNodes=m_GraphModel->nNodes();
-		m_nLabels=LabelMapperType::nLabels;
+		m_nLabels=LabelType::nLabels;
 		this->m_nPairs=this->m_GraphModel->nVertices();
 
 	}

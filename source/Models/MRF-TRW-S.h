@@ -20,8 +20,6 @@ public:
 	typedef typename Superclass::LabelType LabelType;
 	typedef Graph::Real Real;
 	typedef TGraphModel GraphModelType;
-	typedef typename GraphModelType::LabelMapperType LabelMapperType;
-
 	//	typedef Graph::Real Real;
 	typedef TypeGeneral TRWType;
 	//	typedef TypeTruncatedQuadratic2D TRWType;
@@ -61,7 +59,7 @@ public:
 		if (verbose) std::cout<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_GraphModel;
 		int nLabels=this->m_nLabels;
-		int runningIndex=0;
+//		int runningIndex=0;
 
 		clock_t start = clock();
 		//		traverse grid
@@ -83,7 +81,7 @@ public:
 		//
 
 
-		double weight=m_pairwiseWeight;
+
 		for (int d=0;d<nNodes;++d){
 			std::vector<int> neighbours= graph->getForwardNeighbours(d);
 			int nNeighbours=neighbours.size();
@@ -122,7 +120,7 @@ public:
 		TRWType::Label l=optimizer->GetSolution(nodes[index]);
 		//		int labelIndex=l.m_kx+l.m_ky*labelSampling;
 		int labelIndex=l;
-		return LabelMapperType::getLabel(labelIndex);
+		return LabelType::getLabel(labelIndex);
 
 	}
 };
@@ -133,7 +131,6 @@ public:
 	typedef typename Superclass::LabelType LabelType;
 	typedef Graph::Real Real;
 	typedef TGraphModel GraphModelType;
-	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 
 	//	typedef Graph::Real Real;
 	typedef TypePotts TRWType;
@@ -174,7 +171,7 @@ public:
 		if (verbose) std::cout<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_GraphModel;
 		int nLabels=this->m_nLabels;
-		int runningIndex=0;
+//		int runningIndex=0;
 
 		clock_t start = clock();
 		//		traverse grid
@@ -196,7 +193,7 @@ public:
 		//
 
 
-		double weight=m_pairwiseWeight;
+//		double weight=m_pairwiseWeight;
 		for (int d=0;d<nNodes;++d){
 			std::vector<int> neighbours= graph->getForwardNeighbours(d);
 			int nNeighbours=neighbours.size();
@@ -229,7 +226,7 @@ public:
 		TRWType::Label l=optimizer->GetSolution(nodes[index]);
 		//		int labelIndex=l.m_kx+l.m_ky*labelSampling;
 		int labelIndex=l;
-		return LabelMapperType::getLabel(labelIndex);
+		return LabelType::getLabel(labelIndex);
 
 	}
 };

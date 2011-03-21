@@ -8,14 +8,16 @@
 #ifndef _BASEPOTENTIALS_H_
 #define _BASEPOTENTIALS_H_
 #include "itkObject.h"
+#include "itkVector.h"
 #include "itkObjectFactory.h"
+#include "itkImage.h"
 #include <utility>
 
 namespace itk{
 
 
 
-template<class TLabelMapper,class TImage>
+template<class TLabel,class TImage>
 class BaseUnaryPotential : public itk::Object{
 public:
 	//itk declarations
@@ -26,8 +28,7 @@ public:
 
 	typedef	TImage ImageType;
 	typedef typename ImageType::Pointer ImagePointerType;
-	typedef TLabelMapper LabelMapperType;
-	typedef typename LabelMapperType::LabelType LabelType;
+	typedef TLabel LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
 	SizeType m_fixedSize,m_movingSize;
@@ -57,26 +58,27 @@ public:
 };//class
 
 
-template<class TLabelMapper,class TImage,class TInterpolator>
-class RegistrationUnaryPotential : public BaseUnaryPotential<TLabelMapper,TImage>{
+template<class TLabel,class TImage,class TInterpolator>
+class RegistrationUnaryPotential : public BaseUnaryPotential<TLabel,TImage>{
 public:
 	//itk declarations
 	typedef RegistrationUnaryPotential            Self;
-	typedef BaseUnaryPotential<TLabelMapper,TImage>                    Superclass;
+	typedef BaseUnaryPotential<TLabel,TImage>                    Superclass;
 	typedef SmartPointer<Self>        Pointer;
 	typedef SmartPointer<const Self>  ConstPointer;
 
 	typedef	TImage ImageType;
 	typedef typename ImageType::Pointer ImagePointerType;
-	typedef TLabelMapper LabelMapperType;
-	typedef typename LabelMapperType::LabelType LabelType;
+
+	typedef TLabel LabelType;
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
 	typedef typename ImageType::SpacingType SpacingType;
 	typedef TInterpolator InterpolatorType;
 	typedef typename InterpolatorType::Pointer InterpolatorPointerType;
 	typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-	typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+	typedef typename itk::Image<LabelType> LabelImageType;
+	typedef typename LabelImageType::Pointer LabelImagePointerType;
 protected:
 	InterpolatorPointerType m_movingInterpolator;
 	SpacingType m_displacementFactor;
@@ -103,11 +105,11 @@ public:
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
 		ContinuousIndexType idx2(fixedIndex);
-	//	itk::Vector<float,2> disp=LabelMapperType::getDisplacement(label).elementMult(m_displacementFactor);
-		itk::Vector<float,ImageType::ImageDimension> disp=LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(label,this->m_displacementFactor));
+	//	itk::Vector<float,2> disp=LabelType::getDisplacement(label).elementMult(m_displacementFactor);
+		itk::Vector<float,ImageType::ImageDimension> disp=LabelType::getDisplacement(LabelType::scaleDisplacement(label,this->m_displacementFactor));
 		idx2+= disp;
 		if (m_baseLabelMap){
-			itk::Vector<float,ImageType::ImageDimension> baseDisp=LabelMapperType::getDisplacement(m_baseLabelMap->GetPixel(fixedIndex));
+			itk::Vector<float,ImageType::ImageDimension> baseDisp=LabelType::getDisplacement(m_baseLabelMap->GetPixel(fixedIndex));
 			idx2+=baseDisp;
 		}
 		if (m_movingInterpolator->IsInsideBuffer(idx2)){

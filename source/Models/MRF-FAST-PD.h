@@ -18,7 +18,6 @@ public:
 	typedef typename Superclass::LabelType LabelType;
 	typedef Graph::Real Real;
 	typedef TGraphModel GraphModelType;
-	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 protected:
 	std::vector<int> pairs;
 	Real * unaryPotentials;
@@ -119,7 +118,7 @@ public:
 
 	virtual LabelType getLabelAtIndex(int index){
 
-		LabelType l=LabelMapperType::getLabel(optimizer->_pinfo[index].label);
+		LabelType l=LabelType::getLabel(optimizer->_pinfo[index].label);
 		return l;
 	}
 };
