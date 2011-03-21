@@ -326,11 +326,11 @@ int main(int argc, char ** argv)
 			for (int l=0;l<nLevels;++l){
 				int level=levels[l];
 				SpacingType spacing;
-				int minSpacing=9999999999;
+				int minSpacing=9999999999999;
 				double labelScalingFactor=1;
 				if (l>0)labelScalingFactor=5;
 
-				for (unsigned int d=0;d<ImageType::ImageDimension;++d){
+				for (int d=0;d<ImageType::ImageDimension;++d){
 					if(targetImage->GetLargestPossibleRegion().GetSize()[d]/level <minSpacing){
 						minSpacing=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
 						//				divisor=1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;

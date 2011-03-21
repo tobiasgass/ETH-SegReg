@@ -23,7 +23,6 @@
 #include "itkConstNeighborhoodIterator.h"
 #include <time.h>
 #include <itkImageRandomConstIteratorWithIndex.h>
-#include <itkImageRegionIteratorWithIndex.h>
 
 
 
