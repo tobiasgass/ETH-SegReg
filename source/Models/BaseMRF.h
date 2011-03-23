@@ -59,6 +59,7 @@ public:
 				spacing[d]=spacing[d];
 				origin[d]=100;
 			}
+			labelImage->SetDirection(m_GraphModel->getDirection());
 			labelImage->SetSpacing(spacing);
 //			std::cout<<size<<" "<<m_GraphModel->getSpacing()<<std::endl;
 			labelImage->Allocate();
@@ -69,7 +70,7 @@ public:
 			for (int i=0;i<m_nNodes;++i){
 				LabelType label=getLabelAtIndex(i);
 				IndexType idx=m_GraphModel->getGridPositionAtIndex(i);
-//				std::cout<<i<<" "<<it.GetIndex()<<" "<<idx<<" "<<label<<std::endl;
+				std::cout<<i<<" "<<it.GetIndex()<<" "<<idx<<" "<<label<<std::endl;
 				it.Set(label);
 //				labelImage->SetPixel(idx,label);
 				++it;

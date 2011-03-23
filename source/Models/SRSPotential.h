@@ -118,11 +118,11 @@ public:
 
 			std::cout<<"stored confidences"<<std::endl;
 			m_segmenter.freeMem();
-			ofstream myFileL ("treeSegmentationLikelihoodProbsCROP-FEMUR-CT.bin", ios::out | ios::binary);
+			ofstream myFileL ("treeSegmentationLikelihoodProbsCROP.bin", ios::out | ios::binary);
 			myFileL.write ((char*)m_segmentationLikelihoodProbs,nIntensities*sizeof(float) );
 #else
 			m_segmentationLikelihoodProbs=new float[nIntensities];
-			ifstream myFileL("treeSegmentationLikelihoodProbsCROP-FEMUR-CT.bin", ios::in | ios::binary);
+			ifstream myFileL("treeSegmentationLikelihoodProbsCROP.bin", ios::in | ios::binary);
 			if (myFileL){
 				myFileL.read((char*)m_segmentationLikelihoodProbs,nIntensities *sizeof(float));
 				std::cout<<" read posterior m_segmentationLikelihoodProbs from disk"<<std::endl;
@@ -154,12 +154,12 @@ public:
 			m_pairwiseSegmenter.setData(this->m_movingImage,this->m_movingSegmentation);
 			m_pairwiseSegmenter.train();
 			m_pairwiseSegmenter.eval(m_segmentationPosteriorProbs, nIntensities);
-			ofstream myFile ("treeProbsCROP-FEMUR-CT.bin", ios::out | ios::binary);
+			ofstream myFile ("treeProbsCROP.bin", ios::out | ios::binary);
 			myFile.write ((char*)m_segmentationPosteriorProbs,2*nIntensities*nIntensities*sizeof(float) );
 			m_pairwiseSegmenter.freeMem();
 #else
 			m_segmentationPosteriorProbs=new float[2*nIntensities*nIntensities];
-			ifstream myFile ("treeProbsCROP-FEMUR-CT.bin", ios::in | ios::binary);
+			ifstream myFile ("treeProbsCROP.bin", ios::in | ios::binary);
 			if (myFile){
 				myFile.read((char*)m_segmentationPosteriorProbs,2*nIntensities*nIntensities *sizeof(float));
 				std::cout<<" read posterior m_segmentationPosteriorProbs from disk"<<std::endl;
@@ -249,7 +249,7 @@ public:
 		double log_p_SA_TSX =m_segmentationWeight*1000* (segmentationLabel!=deformedSegmentation);
 		result+=log_p_XA_T+log_p_SA_TSX;
 		if (m_posteriorWeight>0){
-	#if 0
+	#if 1
 			//-log(  p(S_x|X,A,S_a,T) )
 			//for each index there are nlables/nsegmentation probabilities
 			//		long int probposition=fixedIntIndex*m_labelConverter->nLabels()/2;

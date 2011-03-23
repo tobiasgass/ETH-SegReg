@@ -246,7 +246,7 @@ int main(int argc, char ** argv)
 	//		ImageUtils<ImageType>::writeImage("classified.nii",classified);
 
 	typedef ImageType::SpacingType SpacingType;
-	int nLevels=3;
+	int nLevels=4;
 	if (nSegmentations>1) nLevels++;
 	nLevels=maxDisplacement>0?nLevels:1;
 	//one more level for segmentation
@@ -256,7 +256,7 @@ int main(int argc, char ** argv)
 
 //	double levels[]={1.5,2,4,16,32,64,100, 200};
 //	int levels[]={5,9,27,91,100, 200};
-	int levels[]={4,16,64,100, 200};
+	int levels[]={3,16,32,64,100, 200};
 //		int levels[]={8,16,32,64,128};
 	//	int levels[]={64,312};
 	int nIterPerLevel=5;
@@ -268,9 +268,9 @@ int main(int argc, char ** argv)
 //		if (l>0)labelScalingFactor=5;
 		int minSpacing=999999;
 		for (int d=0;d<ImageType::ImageDimension;++d){
-			std::cout<<level<<" "<<targetImage->GetLargestPossibleRegion().GetSize()[d]/level<<std::endl;
-			if(targetImage->GetLargestPossibleRegion().GetSize()[d]/level < minSpacing){
-				minSpacing=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
+			std::cout<<level<<" "<<targetImage->GetLargestPossibleRegion().GetSize()[d]/(level-1)<<std::endl;
+			if(targetImage->GetLargestPossibleRegion().GetSize()[d]/(level-1) < minSpacing){
+				minSpacing=targetImage->GetLargestPossibleRegion().GetSize()[d]/(level-1)-1;
 //				divisor=1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			}
 		}
@@ -278,7 +278,8 @@ int main(int argc, char ** argv)
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			int div=targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			div=div>0?div:1;
-			spacing[d]=(1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/div);
+			spacing[d]=(1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/div)-1.0/(level-1);
+			std::cout<<targetImage->GetLargestPossibleRegion().GetSize()[d]<<" "<<minSpacing<<" "<<div<<" "<<spacing[d]<<std::endl;
 		}
 		//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
 		if (l==nLevels-1 &&nSegmentations>1){
@@ -294,6 +295,9 @@ int main(int argc, char ** argv)
 			std::cout<<std::endl<<std::endl<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl<<std::endl;
 
 			GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
+//			for (int n=0;n<graph.nNodes();++n){
+//				std::cout<<n<<" "<<graph.getImagePositionAtIndex(n)<<" "<<graph.getGridPositionAtIndex(n)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(n))<<std::endl;
+//			}
 			graph.setGradientImage(fixedSegmentationImage);
 
 			unaryPot->SetDisplacementFactor(graph.getDisplacementFactor());
@@ -337,20 +341,11 @@ int main(int argc, char ** argv)
 			resampler->SetSize ( targetImage->GetLargestPossibleRegion().GetSize() );
 			if (verbose) std::cout<<"interpolating deformation field"<<std::endl;
 			resampler->Update();
-			//			if (defFilename!=""){
-			//				//		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
-			//				ostringstream labelfield;
-			//				labelfield<<defFilename<<"-l"<<l<<"-i"<<i<<".mha";
-			//				ImageUtils<LabelImageType>::writeImage(labelfield.str().c_str(),deformation);
-			//				ostringstream labelfield2;
-			//				labelfield2<<defFilename<<"FULL-l"<<l<<"-i"<<i<<".mha";
-			//				ImageUtils<LabelImageType>::writeImage(labelfield2.str().c_str(),resampler->GetOutput());
-			//				//
-			//			}
-			//apply deformation to moving image
-
-			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
 			fullDeformation=resampler->GetOutput();
+
+
+			//apply deformation to moving image
+			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
 			graph.checkConstraints(fullDeformation);
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
 			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
@@ -381,6 +376,8 @@ int main(int argc, char ** argv)
 				newLabelIt.Set(displacement);
 
 			}
+			IndexType idx={{0,0}};
+					std::cout<<deformation->GetPixel(idx)<<" "<<fullDeformation->GetPixel(idx)<<" "<<previousFullDeformation->GetPixel(idx)<<std::endl;
 			labelScalingFactor*=0.8;
 #if 1
 			ostringstream deformedFilename;

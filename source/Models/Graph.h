@@ -71,8 +71,8 @@ public:
 		}
 		for (int d=0;d<(int)m_dim;++d){
 			if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
-			m_origin[d]=-int(m_spacing[d]/2);
-			m_gridSize[d]=m_totalSize[d]/m_spacing[d];
+			m_origin[d]=0;//-int(m_spacing[d]/2);
+			m_gridSize[d]=m_totalSize[d]/m_spacing[d]+1;
 			m_nNodes*=m_gridSize[d];
 			if (d>0){
 				m_imageLevelDivisors[d]=m_imageLevelDivisors[d-1]*m_gridSize[d-1];
@@ -94,6 +94,7 @@ public:
 		//		m_ImageInterpolator.SetInput(m_movingImage);
 	}
 
+	typename ImageType::DirectionType getDirection(){return m_fixedImage->GetDirection();}
 	void setLabelImage(LabelImagePointerType limg){m_labelImage=limg;m_haveLabelMap=true;}
 	void setGradientImage(ImagePointerType limg){m_fixedGradientImage=limg;}
 
@@ -124,7 +125,7 @@ public:
 					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_spacing[d];
 
 				}
-				//				weight=1.0;
+				//								weight=1.0;
 				//				std::cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<std::endl;
 				res+=weight*m_unaryFunction->getPotential(neighborIndex,label);
 				count+=weight;
@@ -152,8 +153,8 @@ public:
 	}
 
 	double getPairwisePotential(int idx1,int idx2,int LabelIndex,int LabelIndex2,bool verbose=false){
-		IndexType fixedIndex1=gridToImageIndex(getGridPositionAtIndex(idx2));
-		IndexType fixedIndex2=gridToImageIndex(getGridPositionAtIndex(idx1));
+		IndexType fixedIndex1=gridToImageIndex(getGridPositionAtIndex(idx1));
+		IndexType fixedIndex2=gridToImageIndex(getGridPositionAtIndex(idx2));
 #if 1
 		LabelType l1=LabelMapperType::getLabel(LabelIndex);
 		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
@@ -177,8 +178,8 @@ public:
 #endif
 			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
-		double constrainedViolatedPenalty=std::numeric_limits<double>::max()/(m_nNodes*1000);;
-		//		double constrainedViolatedPenalty=9999999999999999999999;
+				double constrainedViolatedPenalty=std::numeric_limits<double>::max()/(m_nNodes*1000);;
+//		double constrainedViolatedPenalty=9999999999;
 		bool constrainsViolated=false;
 		//		std::cout<<"DeltaInit: "<<fixedIndex1<<" "<<fixedIndex2<<" "<<l1+oldl1<<" "<<l2+oldl2<<std::endl;
 		if (LabelMapperType::nDisplacements){
@@ -196,22 +197,22 @@ public:
 
 				double axisPositionDifference=1.0*(d2+delta-d1);///(m_spacing[d]*2);
 				double relativeAxisPositionDifference=1.0*(axisPositionDifference)/(m_spacing[d]);
-//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<axisPositionDifference<<" "<<relativeAxisPositionDifference<<std::endl;
+//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<axisPositionDifference 						 <<" "<<relativeAxisPositionDifference<<std::endl;
 				//we shall never tear the image!
 				if (delta>0){
-					if (relativeAxisPositionDifference<0.0){
+					if (relativeAxisPositionDifference<0){
 						constrainsViolated=true;
 						//						exit(0);
 						break;
 					}
 				}
 				else if (delta<0){
-					if (relativeAxisPositionDifference>0.0){
+					if (relativeAxisPositionDifference>0){
 						constrainsViolated=true;
 						break;
 					}
 				}
-				if (fabs(relativeAxisPositionDifference)>0.37){
+				if (fabs(relativeAxisPositionDifference)>1.5){
 					constrainsViolated=true;
 					//					exit(0);
 					break;
@@ -225,11 +226,12 @@ public:
 
 		if (constrainsViolated){
 			if (verbose){
-				std::cout<<l1<<"/"<<l2<<" "<<fixedIndex1<<" + "<<oldl1+LabelMapperType::scaleDisplacement(l1,getDisplacementFactor())<<" vs: "
-						<<fixedIndex2<<" + "<<oldl2+LabelMapperType::scaleDisplacement(l2,getDisplacementFactor())<<std::endl;
+				std::cout<<l1<<"/"<<l2<<" "
+						<<fixedIndex1<<" -> "<<oldl1<<"+"<<LabelMapperType::scaleDisplacement(l1,getDisplacementFactor())<<" vs: "
+						<<fixedIndex2<<" -> "<<oldl2<<"+"<<LabelMapperType::scaleDisplacement(l2,getDisplacementFactor())<<std::endl;
 			}
-//						return 	m_registrationWeight*constrainedViolatedPenalty;
-			return 	constrainedViolatedPenalty;
+			//						return 	m_registrationWeight*constrainedViolatedPenalty;
+//			return 	constrainedViolatedPenalty;
 		}
 		//		std::cout<<registrationSmootheness<<std::endl;
 		double result=registrationSmootheness+segmentationSmootheness;
@@ -258,7 +260,7 @@ public:
 	IndexType gridToImageIndex(IndexType gridIndex){
 		IndexType imageIndex;
 		for (unsigned int d=0;d<m_dim;++d){
-			int t=gridIndex[d]*m_spacing[d]+m_spacing[d]/2;
+			int t=gridIndex[d]*m_spacing[d];//+m_spacing[d]/2;
 			imageIndex[d]=t>0?t:0;
 		}
 		return imageIndex;
@@ -267,7 +269,8 @@ public:
 	IndexType imageToGridIndex(IndexType imageIndex){
 		IndexType gridIndex;
 		for (int d=0;d<m_dim;++d){
-			gridIndex[d]=(imageIndex[d]-m_spacing[d]/2)/m_spacing[d];
+			gridIndex[d]=(imageIndex[d])/m_spacing[d];
+			//			gridIndex[d]=(imageIndex[d]-m_spacing[d]/2)/m_spacing[d];
 		}
 		return gridIndex;
 	}
@@ -338,7 +341,7 @@ public:
 			for (int i=0;i<nb.size();++i){
 				IndexType idx2=getImagePositionAtIndex(nb[i]);
 				int nBLabel=LabelMapperType::getIndex(labelImage->GetPixel(idx2));
-				if (getPairwisePotential(n,nb[i],labelIndex,nBLabel,true)>999999999999999 ){
+				if (getPairwisePotential(n,nb[i],labelIndex,nBLabel,true)>99999999 ){
 					vCount++;
 				}
 				totalCount++;
