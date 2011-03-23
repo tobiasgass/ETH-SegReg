@@ -61,7 +61,7 @@ public:
 		if (verbose) std::cout<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_GraphModel;
 		int nLabels=this->m_nLabels;
-		int runningIndex=0;
+
 
 		clock_t start = clock();
 		//		traverse grid

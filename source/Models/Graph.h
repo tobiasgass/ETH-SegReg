@@ -117,8 +117,17 @@ public:
 			bool inBounds;
 			nIt.GetPixel(i,inBounds);
 			if (inBounds){
-				res+=m_unaryFunction->getPotential(nIt.GetIndex(i),label);
-				++count;
+				IndexType neighborIndex=nIt.GetIndex(i);
+				//this should be weighted somehow
+				double weight=1.0;
+				for (int d=0;d<m_dim;++d){
+					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_spacing[d];
+
+				}
+				//				weight=1.0;
+				//				std::cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<std::endl;
+				res+=weight*m_unaryFunction->getPotential(neighborIndex,label);
+				count+=weight;
 			}
 		}
 		if (count>0)
@@ -168,7 +177,8 @@ public:
 #endif
 			segmentationSmootheness*=segWeight*m_segmentationWeight;
 		}
-		double constrainedViolatedPenalty=9999999999999999999999999999;//std::numeric_limits<double>::max()/(m_nNodes*1000);;
+		double constrainedViolatedPenalty=std::numeric_limits<double>::max()/(m_nNodes*1000);;
+		//		double constrainedViolatedPenalty=9999999999999999999999;
 		bool constrainsViolated=false;
 		//		std::cout<<"DeltaInit: "<<fixedIndex1<<" "<<fixedIndex2<<" "<<l1+oldl1<<" "<<l2+oldl2<<std::endl;
 		if (LabelMapperType::nDisplacements){
@@ -184,24 +194,24 @@ public:
 				}
 				delta=(fixedIndex2[d]-fixedIndex1[d]);
 
-				double axisPositionDifference=1.0*(d2+delta-d1)/(m_spacing[d]*2);
-				double relativeAxisPositionDifference=1.0*(axisPositionDifference)/(m_spacing[d]*2);
-				//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<relativeAxisPositionDifference<<std::endl;
+				double axisPositionDifference=1.0*(d2+delta-d1);///(m_spacing[d]*2);
+				double relativeAxisPositionDifference=1.0*(axisPositionDifference)/(m_spacing[d]);
+//				std::cout<<"Delta :"<<delta<<" "<<m_spacing[d]<<" "<<axisPositionDifference<<" "<<relativeAxisPositionDifference<<std::endl;
 				//we shall never tear the image!
 				if (delta>0){
-					if (relativeAxisPositionDifference<0.4){
+					if (relativeAxisPositionDifference<0.0){
 						constrainsViolated=true;
 						//						exit(0);
 						break;
 					}
 				}
 				else if (delta<0){
-					if (relativeAxisPositionDifference>0.4){
+					if (relativeAxisPositionDifference>0.0){
 						constrainsViolated=true;
 						break;
 					}
 				}
-				if (fabs(relativeAxisPositionDifference)>0.1){
+				if (fabs(relativeAxisPositionDifference)>0.37){
 					constrainsViolated=true;
 					//					exit(0);
 					break;
@@ -215,10 +225,10 @@ public:
 
 		if (constrainsViolated){
 			if (verbose){
-				std::cout<<fixedIndex1<<" + "<<LabelMapperType::scaleDisplacement(l1,getDisplacementFactor())<<" vs: "
-						<<fixedIndex2<<" + "<<LabelMapperType::scaleDisplacement(l2,getDisplacementFactor())<<std::endl;
+				std::cout<<l1<<"/"<<l2<<" "<<fixedIndex1<<" + "<<oldl1+LabelMapperType::scaleDisplacement(l1,getDisplacementFactor())<<" vs: "
+						<<fixedIndex2<<" + "<<oldl2+LabelMapperType::scaleDisplacement(l2,getDisplacementFactor())<<std::endl;
 			}
-//			return 	m_registrationWeight*constrainedViolatedPenalty;
+//						return 	m_registrationWeight*constrainedViolatedPenalty;
 			return 	constrainedViolatedPenalty;
 		}
 		//		std::cout<<registrationSmootheness<<std::endl;
@@ -328,7 +338,7 @@ public:
 			for (int i=0;i<nb.size();++i){
 				IndexType idx2=getImagePositionAtIndex(nb[i]);
 				int nBLabel=LabelMapperType::getIndex(labelImage->GetPixel(idx2));
-				if (getPairwisePotential(n,nb[i],labelIndex,nBLabel,true)>999999){
+				if (getPairwisePotential(n,nb[i],labelIndex,nBLabel,true)>999999999999999 ){
 					vCount++;
 				}
 				totalCount++;

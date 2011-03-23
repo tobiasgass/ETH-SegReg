@@ -141,7 +141,7 @@ public:
 			for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
 				//			LabelImageIterator.Set(predictions[i]*65535);
 				double bone=m_segmentationLikelihoodProbs[(int)ImageIterator.Get()/255];
-				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
+//				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
 				//				if (!label)
 				//					tissue=1-tissue;
 				//				tissue=tissue>0.5?1.0:tissue;
@@ -200,7 +200,7 @@ public:
 
 		double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
 
-		double outOfBoundsPenalty=99999999;
+
 		bool ooB=false;
 		int oobFactor=1;
 

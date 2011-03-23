@@ -42,7 +42,7 @@ using namespace itk;
 #define _MANY_LABELS_
 #define DOUBLEPAIRWISE
 typedef unsigned short PixelType;
-const unsigned int D=3;
+const unsigned int D=2;
 typedef Image<PixelType,D> ImageType;
 typedef ImageType::IndexType IndexType;
 typedef itk::Vector<float,D+1> BaseLabelType;
@@ -227,6 +227,8 @@ int main(int argc, char ** argv)
 	previousFullDeformation->SetSpacing(targetImage->GetSpacing());
 	previousFullDeformation->SetDirection(targetImage->GetDirection());
 	previousFullDeformation->Allocate();
+	itk::Vector<float, D+1> tmpVox(0.0);
+	previousFullDeformation->FillBuffer(tmpVox);
 	BaseUnaryPotentialPointerType unaryPot=BaseUnaryPotentialType::New();
 	unaryPot->SetFixedImage(targetImage);
 	ImageInterpolatorPointerType movingInterpolator=ImageInterpolatorType::New();
@@ -244,39 +246,39 @@ int main(int argc, char ** argv)
 	//		ImageUtils<ImageType>::writeImage("classified.nii",classified);
 
 	typedef ImageType::SpacingType SpacingType;
-	int nLevels=2;
+	int nLevels=3;
 	if (nSegmentations>1) nLevels++;
 	nLevels=maxDisplacement>0?nLevels:1;
 	//one more level for segmentation
 
-	//	int levels[]={4,16,40,100,200};
-//	int levels[]={1,2,4,8,20,40,100, 200};
-	int levels[]={1,16,50, 200};
 
-//	int levels[]={2,4,16,32,64,100, 200};
-//	int levels[]={3,9,27,91,100, 200};
-//	int levels[]={4,16,64,100, 200};
+//	int levels[]={1,16,50, 200};
+
+//	double levels[]={1.5,2,4,16,32,64,100, 200};
+//	int levels[]={5,9,27,91,100, 200};
+	int levels[]={4,16,64,100, 200};
 //		int levels[]={8,16,32,64,128};
 	//	int levels[]={64,312};
-	int nIterPerLevel=3;
+	int nIterPerLevel=5;
 	int iterationCount=0;
 	for (int l=0;l<nLevels;++l){
-		int level=levels[l];
+		double level=levels[l];
 		SpacingType spacing;
 		double labelScalingFactor=1;
-		if (l>0)labelScalingFactor=5;
-		int minSpacing=99999999999999;
-		double divisor;
+//		if (l>0)labelScalingFactor=5;
+		int minSpacing=999999;
 		for (int d=0;d<ImageType::ImageDimension;++d){
-			if(targetImage->GetLargestPossibleRegion().GetSize()[d]/level <minSpacing){
+			std::cout<<level<<" "<<targetImage->GetLargestPossibleRegion().GetSize()[d]/level<<std::endl;
+			if(targetImage->GetLargestPossibleRegion().GetSize()[d]/level < minSpacing){
 				minSpacing=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
 //				divisor=1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			}
 		}
-//		std::cout<<divisor<<std::endl;
+		std::cout<<minSpacing<<std::endl;
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			int div=targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
-			spacing[d]=int(1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/div);
+			div=div>0?div:1;
+			spacing[d]=(1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/div);
 		}
 		//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
 		if (l==nLevels-1 &&nSegmentations>1){
@@ -349,7 +351,7 @@ int main(int argc, char ** argv)
 
 			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
 			fullDeformation=resampler->GetOutput();
-//			graph.checkConstraints(fullDeformation);
+			graph.checkConstraints(fullDeformation);
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
 			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
 			for (newLabelIt.GoToBegin(),fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt,++newLabelIt){
@@ -382,12 +384,12 @@ int main(int argc, char ** argv)
 			labelScalingFactor*=0.8;
 #if 1
 			ostringstream deformedFilename;
-			deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".nii";
+			deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".png";
 			ostringstream deformedSegmentationFilename;
-			deformedSegmentationFilename<<outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".nii";
+			deformedSegmentationFilename<<outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".png";
 			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
 			ostringstream tmpSegmentationFilename;
-			tmpSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".nii";
+			tmpSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
 			ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(), segmentationImage);
 			ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
 			//deformation
@@ -396,6 +398,8 @@ int main(int argc, char ** argv)
 				tmpDeformationFilename<<defFilename<<"-l"<<l<<"-i"<<i<<".mha";
 				//		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
 				ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
+//				ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),				deformation);
+
 				//
 			}
 #endif
