@@ -19,6 +19,7 @@ SET(SRSMRFModels_SRC
   MRF-FAST-PD.h
   MRF-TRW-S.h
   Graph.h
+  Potential-Registration-NCC.h
 )
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )

@@ -49,7 +49,7 @@ public:
 	typedef typename ProbImageType::Pointer ProbImagePointerType;
 	typedef typename itk::LinearInterpolateImageFunction<ProbImageType> FloatImageInterpolatorType;
 	typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
-
+	typedef typename itk::ConstNeighborhoodIterator<ImageType>::RadiusType RadiusType;
 protected:
 	SegmentationInterpolatorPointerType m_segmentationInterpolator;
 	double m_intensWeight,m_posteriorWeight,m_segmentationWeight;
@@ -61,6 +61,7 @@ protected:
 	FloatImageInterpolatorPointerType m_movingSegmentationProbabilityInterpolator;
 	float *m_segmentationPosteriorProbs,*m_segmentationLikelihoodProbs;
 	bool m_fixedSegmentation;
+	RadiusType m_radius;
 public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
@@ -87,6 +88,7 @@ public:
 	void SetMovingSegmentation(ImagePointerType movSeg){
 		m_movingSegmentation=movSeg;
 	}
+	void setRadius(RadiusType rad){m_radius=rad;}
 	void SetWeights(double intensWeight, double posteriorWeight, double segmentationWeight)
 	{
 		m_intensWeight=(intensWeight);
@@ -141,7 +143,7 @@ public:
 			for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
 				//			LabelImageIterator.Set(predictions[i]*65535);
 				double bone=m_segmentationLikelihoodProbs[(int)ImageIterator.Get()/255];
-//				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
+				//				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
 				//				if (!label)
 				//					tissue=1-tissue;
 				//				tissue=tissue>0.5?1.0:tissue;
@@ -181,7 +183,37 @@ public:
 		}
 		return result;
 	}
+
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
+
+
+		typename itk::ConstNeighborhoodIterator<ImageType> nIt(m_radius,this->m_fixedImage, this->m_fixedImage->GetLargestPossibleRegion());
+		nIt.SetLocation(fixedIndex);
+		double res=0.0;
+		double count=0;
+
+		for (unsigned int i=0;i<nIt.Size();++i){
+			bool inBounds;
+			nIt.GetPixel(i,inBounds);
+			if (inBounds){
+				IndexType neighborIndex=nIt.GetIndex(i);
+				//this should be weighted somehow
+				double weight=1.0;
+				for (int d=0;d<ImageType::ImageDimension;++d){
+					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
+
+				}
+				//								weight=1.0;
+				//				std::cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<std::endl;
+				res+=weight*getLocalPotential(neighborIndex,label);
+				count+=weight;
+			}
+		}
+		if (count>0)
+			return res/count;
+		else return 999999;
+	}
+	double getLocalPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
 		//get index in moving image/segmentation
 		ContinuousIndexType idx2=getMovingIndex(fixedIndex);
@@ -249,7 +281,7 @@ public:
 		double log_p_SA_TSX =m_segmentationWeight*1000* (segmentationLabel!=deformedSegmentation);
 		result+=log_p_XA_T+log_p_SA_TSX;
 		if (m_posteriorWeight>0){
-	#if 1
+#if 1
 			//-log(  p(S_x|X,A,S_a,T) )
 			//for each index there are nlables/nsegmentation probabilities
 			//		long int probposition=fixedIntIndex*m_labelConverter->nLabels()/2;
@@ -281,10 +313,10 @@ public:
 			}else{
 				p_SA_AXT=(1-p_SA_AXT)>threshold?1.0:(1-p_SA_AXT);
 			}
-	#if 0
+#if 0
 			p_SA_AXT*=p_SA_AXT;
 			segmentationPenalty2*=segmentationPenalty2;
-	#endif
+#endif
 			//			std::cout<<segmentationLabel<<" "<<imageIntensity<<" "<<p_SA_AXT<<std::endl;
 			if (!m_segmentationWeight) segmentationPenalty2=1;
 			//			std::cout<<movingIntensity<<" "<<segmentationLabel<<" "<<p_SA_AXT<<" "<<segmentationPenalty2<<std::endl;
@@ -303,7 +335,7 @@ public:
 
 			//		std::cout<<"UNARIES: "<<imageIntensity<<" "<<movingIntensity<<" "<<segmentationLabel<<" "<<deformedSegmentation<<" "<<log_p_XA_T<<" "<<log_p_SA_TSX<<" "<<log_p_SX_XASAT<<" "<<log_p_SX_X<<std::endl;
 			result+=+log_p_SX_XASAT+log_p_SX_X+segmentationPosterior+log_p_SA_AT;//+newIdea;
-	#else
+#else
 
 			double p_SX_X;
 			if (segmentationLabel){
@@ -321,7 +353,7 @@ public:
 			}
 			//			std::cout<<imageIntensity<<" "<<segmentationLabel<<" "<<p_SX_X<<" "<<movingIntensity<<" "<<deformedSegmentation<<" "<<p_SA_A<<std::endl;
 			result+=m_posteriorWeight*1000*-log(p_SX_X*p_SA_A+0.000001);
-	#endif
+#endif
 
 		}
 		//result+=log_p_SA_A;

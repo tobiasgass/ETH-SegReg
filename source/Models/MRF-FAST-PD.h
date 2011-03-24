@@ -33,7 +33,7 @@ public:
 	NewFastPDMRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool secondPairwisePotential=false)
 	:Superclass(graphModel),secondPairwise(secondPairwisePotential)
 	{
-		verbose=true;
+		verbose=false;
 		//		pairs is an array of the form [na nb nc nd...] where (na,nb),(nc,nd) are edges in the graph and na,... are indices of the nodes
 		if (verbose) std::cout<<"allocating "<<this->m_nPairs<<" pairs"<<std::endl;
 		pairs=std::vector<int>(this->m_nPairs*2);

@@ -39,7 +39,7 @@ public:
 	TRWS_MRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool secondPairwisePotential=false)
 	:Superclass(graphModel),secondPairwise(secondPairwisePotential)
 	{
-		verbose=true;
+		verbose=false;
 		m_unaryWeight=unaryWeight;
 		m_pairwiseWeight=pairwiseWeight;
 		createGraph();
@@ -79,7 +79,7 @@ public:
 		}
 		clock_t finish1 = clock();
 		float t = (float) ((double)(finish1 - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
+		if (verbose) std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
 		//
 
 
@@ -100,7 +100,7 @@ public:
 		}
 		clock_t finish = clock();
 		t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
+		if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
 
 	}
 
@@ -114,7 +114,7 @@ public:
 		optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();
 		float t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound"<< lowerBound << std::endl;
+		std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound ;//<< std::endl;
 
 	}
 
@@ -207,7 +207,7 @@ public:
 		}
 		clock_t finish = clock();
 		t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
+//		std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
 
 	}
 
@@ -221,7 +221,7 @@ public:
 		optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();
 		float t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound"<< lowerBound << std::endl;
+		std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound;// << std::endl;
 
 	}
 
