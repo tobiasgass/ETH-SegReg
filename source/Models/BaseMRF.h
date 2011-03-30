@@ -55,12 +55,10 @@ public:
 			region.SetSize(size);//m_GraphModel->getSpacing());
 			labelImage->SetRegions(region);
 			typename LabelImageType::SpacingType spacing=(m_GraphModel->getSpacing());
-			for (int d=0;d<LabelImageType::ImageDimension;++d){
-				spacing[d]=spacing[d];
-				origin[d]=100;
-			}
+			origin=m_GraphModel->getOrigin();
 			labelImage->SetDirection(m_GraphModel->getDirection());
 			labelImage->SetSpacing(spacing);
+			labelImage->SetOrigin(origin);
 //			std::cout<<size<<" "<<m_GraphModel->getSpacing()<<std::endl;
 			labelImage->Allocate();
 			itk::ImageRegionIterator<LabelImageType>  it( labelImage, labelImage->GetLargestPossibleRegion() );

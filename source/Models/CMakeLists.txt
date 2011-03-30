@@ -19,6 +19,7 @@ SET(SRSMRFModels_SRC
   MRF-FAST-PD.h
   MRF-TRW-S.h
   Graph.h
+  Graph-ITKStyle.h
   Potential-Registration-NCC.h
 )
 

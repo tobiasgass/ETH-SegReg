@@ -89,13 +89,23 @@ public:
 		m_movingSegmentation=movSeg;
 	}
 	void setRadius(RadiusType rad){m_radius=rad;}
+	void setRadius(SpacingType rad){
+		for (int d=0;d<ImageType::ImageDimension;++d){
+			m_radius[d]=rad[d];
+		}
+
+	}
+	RadiusType getRadius(){
+			return m_radius;
+		}
+
 	void SetWeights(double intensWeight, double posteriorWeight, double segmentationWeight)
 	{
 		m_intensWeight=(intensWeight);
 		m_posteriorWeight=(posteriorWeight);
 		m_segmentationWeight=(segmentationWeight);
 	}
-	ImagePointerType trainClassifiers(){
+	virtual ImagePointerType trainClassifiers(){
 		if (m_posteriorWeight>0){
 
 			assert(this->m_movingImage);
@@ -213,15 +223,14 @@ public:
 			return res/count;
 		else return 999999;
 	}
-	double getLocalPotential(IndexType fixedIndex, LabelType label){
+	virtual double getLocalPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
 		//get index in moving image/segmentation
 		ContinuousIndexType idx2=getMovingIndex(fixedIndex);
-		//current discrete discplacement label
+		//current discrete discplacement
 		itk::Vector<float,ImageType::ImageDimension> disp=
 				LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(label,this->m_displacementFactor));
-		//multiply by current factor
-		idx2+= disp;//.elementMult(this->m_displacementFactor);
+		idx2+= disp;
 		//if in a multiresolution scheme, also add displacement from former iterations
 		if (this->m_haveLabelMap){
 			itk::Vector<float,ImageType::ImageDimension> baseDisp=
@@ -247,8 +256,6 @@ public:
 			}
 			ooB=true;
 			oobFactor=1;
-			//			return outOfBoundsPenalty;
-			//			return m_intensWeight*imageIntensity;
 		}
 		//		std::cout<<idx2<<" "<<this->m_movingInterpolator->GetEndContinuousIndex()<<std::endl;
 		assert(this->m_movingInterpolator->IsInsideBuffer(idx2));
@@ -258,7 +265,7 @@ public:
 			log_p_XA_T=0;
 		}
 		else{
-			log_p_XA_T=fabs(imageIntensity-movingIntensity);
+			log_p_XA_T=fabs(imageIntensity-movingIntensity)/65535;
 		}
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<idx2<<" "<<imageIntensity<<" "<<movingIntensity<<std::endl;
 		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
@@ -278,7 +285,7 @@ public:
 		//-log( p(X,A|T))
 		log_p_XA_T=m_intensWeight*(log_p_XA_T>10000000?10000:log_p_XA_T);
 		//-log( p(S_a|T,S_x) )
-		double log_p_SA_TSX =m_segmentationWeight*1000* (segmentationLabel!=deformedSegmentation);
+		double log_p_SA_TSX =m_segmentationWeight* (segmentationLabel!=deformedSegmentation);
 		result+=log_p_XA_T+log_p_SA_TSX;
 		if (m_posteriorWeight>0){
 #if 1
@@ -290,7 +297,7 @@ public:
 			double log_p_SX_XASAT = 0;//m_posteriorWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 			//-log( p(S_a|A) )
 			//		int fixedIntIndex=getIntegerImageIndex(fixedIndex);
-			double segmentationPenalty=0;//fabs(m_segmentationProbabilities->GetPixel(fixedIndex)[segmentationLabel]) ;
+//			double segmentationPenalty=0;//fabs(m_segmentationProbabilities->GetPixel(fixedIndex)[segmentationLabel]) ;
 			//		segmentationPenalty/=2;
 			double tissueProb=1;
 			if (m_segmentationWeight) tissueProb=m_segmentationPosteriorProbs[deformedSegmentation+int(imageIntensity/255)*2+int(movingIntensity/255)*2*255];
@@ -308,7 +315,7 @@ public:
 			}
 			threshold=0.55;
 			//if we weight pairwise segmentation, then we compute p_SA_AXT, if no pairwise weight is present then we assume we only weight segmentation and therefore compute p_SX_X
-			if (m_segmentationWeight && deformedSegmentation || !m_segmentationWeight && segmentationLabel){
+			if ( (m_segmentationWeight && deformedSegmentation )|| (!m_segmentationWeight && segmentationLabel)){
 				p_SA_AXT=p_SA_AXT>threshold?1.0:p_SA_AXT;
 			}else{
 				p_SA_AXT=(1-p_SA_AXT)>threshold?1.0:(1-p_SA_AXT);
@@ -323,10 +330,10 @@ public:
 			//m_movingSegmentationProbabilityInterpolator->EvaluateAtContinuousIndex(idx2)[deformedSegmentation]*m_segmentationProbabilities->GetPixel(fixedIndex)[deformedSegmentation];
 			//			double log_p_SA_AXT=-1000*log();
 			//			std::cout<<(int)movingIntensity/255<<" "<<(int)imageIntensity/255<<" "<<deformedSegmentation<<" "<<tissueProb<<" "<<segmentationPenalty<<" "<<segmentationPenalty2<<std::endl;
-			double segmentationPosterior=m_posteriorWeight*1000*-log(segmentationPenalty2+0.0000001);
+			double segmentationPosterior=m_posteriorWeight*-log(segmentationPenalty2+0.0000001);
 
 			double log_p_SX_X = 0;//m_posteriorWeight*segmentationLabel*500*(-log(segmentationPenalty+0.000000001));
-			double log_p_SA_AT = m_posteriorWeight*10000*(-log(p_SA_AXT+0.000000001));
+			double log_p_SA_AT = m_posteriorWeight*(-log(p_SA_AXT+0.000000001));
 			//			std::cout<<deformedSegmentation<<" "<<movingIntensity<<" "<<p_SA_AXT<<" "<<tissueProb<<" "<<log_p_XA_T<<" "<<log_p_SA_TSX<<std::endl;
 
 			//			if (segmentationLabel){

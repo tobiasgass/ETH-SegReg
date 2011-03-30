@@ -15,6 +15,7 @@
 #include "itkHistogramMatchingImageFilter.h"
 #include "Graph.h"
 #include "BaseLabel.h"
+#include "Graph-ITKStyle.h"
 #include "SRSPotential.h"
 #include "Potential-Registration-NCC.h"
 #include "MRF-FAST-PD.h"
@@ -113,14 +114,14 @@ int main(int argc, char ** argv)
 	ImageType::Pointer fixedSegmentationImage =
 			ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
 
-
-
+	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
+#if 0
 	typedef itk::HistogramMatchingImageFilter<
 			ImageType,
 			ImageType >   MatchingFilterType;
 	MatchingFilterType::Pointer matcher = MatchingFilterType::New();
 	matcher->SetInput( movingImage );
-	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
+
 
 #if 0
 	typedef itk::ImageRegionConstIterator< ImageType > ConstIteratorType;
@@ -180,8 +181,8 @@ int main(int argc, char ** argv)
 	matcher->SetNumberOfMatchPoints( 2 );
 	//	matcher->ThresholdAtMeanIntensityOn();
 	matcher->Update();
-	//	movingImage=matcher->GetOutput();
-
+	movingImage=matcher->GetOutput();
+#endif
 	//	typedef RegistrationLabel<ImageType> BaseLabelType;
 
 	LabelMapperType * labelmapper=new LabelMapperType(nSegmentations,maxDisplacement);
@@ -193,29 +194,16 @@ int main(int argc, char ** argv)
 	typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
 	typedef ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
 	typedef NCCRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
-	//	typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
+//		typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
 	typedef BaseUnaryPotentialType::Pointer BaseUnaryPotentialPointerType;
 	typedef BaseUnaryPotentialType::RadiusType RadiusType;
-	typedef GraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+//	typedef ITKGraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+		typedef GraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
 	ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
-	deformedImage=ImageType::New();
-	deformedImage->SetRegions(targetImage->GetLargestPossibleRegion());
-	deformedImage->SetOrigin(targetImage->GetOrigin());
-	deformedImage->SetSpacing(targetImage->GetSpacing());
-	deformedImage->SetDirection(targetImage->GetDirection());
-	deformedImage->Allocate();
-	deformedSegmentationImage=ImageType::New();
-	deformedSegmentationImage->SetRegions(targetImage->GetLargestPossibleRegion());
-	deformedSegmentationImage->SetOrigin(targetImage->GetOrigin());
-	deformedSegmentationImage->SetSpacing(targetImage->GetSpacing());
-	deformedSegmentationImage->SetDirection(targetImage->GetDirection());
-	deformedSegmentationImage->Allocate();
-	segmentationImage=ImageType::New();
-	segmentationImage->SetRegions(targetImage->GetLargestPossibleRegion());
-	segmentationImage->SetOrigin(targetImage->GetOrigin());
-	segmentationImage->SetSpacing(targetImage->GetSpacing());
-	segmentationImage->SetDirection(targetImage->GetDirection());
-	segmentationImage->Allocate();
+	deformedImage=ImageUtils<ImageType>::createEmpty(targetImage);
+	deformedSegmentationImage=ImageUtils<ImageType>::createEmpty(targetImage);
+	segmentationImage=ImageUtils<ImageType>::createEmpty(targetImage);
+
 	typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 	typedef MRFSolverType::LabelImageType LabelImageType;
 	typedef itk::ImageRegionIterator< LabelImageType>       LabelIteratorType;
@@ -243,8 +231,7 @@ int main(int argc, char ** argv)
 	unaryPot->SetSegmentationInterpolator(segmentationInterpolator);
 	unaryPot->SetWeights(simWeight,rfWeight,segWeight);
 	unaryPot->SetMovingSegmentation(movingSegmentationImage);
-	ImagePointerType classified;
-	classified=unaryPot->trainClassifiers();
+	unaryPot->trainClassifiers();
 	//	if (classified)
 	//		ImageUtils<ImageType>::writeImage("classified.nii",classified);
 
@@ -259,62 +246,45 @@ int main(int argc, char ** argv)
 
 	//	double levels[]={1.5,2,4,16,32,64,100, 200};
 	//	int levels[]={5,9,27,91,100, 200};
-	int levels[]={2,4,8,16,32,64,100, 200};
+//	int levels[]={2,4,6,8,32,64,100, 200};
+	int levels[]={2,3,5,9,17,33,32,64,100, 200};
+
 	//		int levels[]={8,16,32,64,128};
 	//	int levels[]={64,312};
 	int nIterPerLevel=5;
 	int iterationCount=0;
-	SpacingType tmpSpace;
-	tmpSpace.Fill(1.0);
-	for (int d=0;d<ImageType::ImageDimension;++d){
-		tmpSpace[d]-=1.0/(targetImage->GetLargestPossibleRegion().GetSize()[d]-1);
-	}
-	GraphModelType checkerGraph(targetImage,unaryPot,tmpSpace,1, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
+
+	GraphModelType checkerGraph(targetImage,unaryPot,9999999,1, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
 
 	for (int l=0;l<nLevels;++l){
-		double level=levels[l];
-		SpacingType spacing;
+		int level=levels[l];
 		double labelScalingFactor=1;
-		//		if (l>0)labelScalingFactor=5;
-		int minSpacing=999999;
-		for (int d=0;d<ImageType::ImageDimension;++d){
-//			std::cout<<level<<" "<<targetImage->GetLargestPossibleRegion().GetSize()[d]/(level-1)<<std::endl;
-			if(targetImage->GetLargestPossibleRegion().GetSize()[d]/(level-1) < minSpacing){
-				minSpacing=(targetImage->GetLargestPossibleRegion().GetSize()[d]/(level-1)-1);
-			}
-		}
-		minSpacing=minSpacing>=1?minSpacing:1.0;
-//		std::cout<<minSpacing<<std::endl;
-		RadiusType radius;
-		for (int d=0;d<ImageType::ImageDimension;++d){
-			int div=targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
-			div=div>0?div:1;
-			spacing[d]=(1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/div)-1.0/(level-1);
-//			std::cout<<targetImage->GetLargestPossibleRegion().GetSize()[d]<<" "<<minSpacing<<" "<<div<<" "<<spacing[d]<<std::endl;
-			radius[d]=1.0*spacing[d];
-			radius[d]=radius[d]<1?1:radius[d];
-		}
+
 		//at 4th level, we switch to full image grid but allow only 1 displacement in each direction
 		if (l==nLevels-1 &&nSegmentations>1){
 			//			LabelMapperType * labelmapper2=new LabelMapperType(nSegmentations,maxDisplacement>0?1:0);
 			LabelMapperType * labelmapper2=new LabelMapperType(nSegmentations,0);
-			spacing.Fill(1.0);
+			level=99999999999;
 			labelScalingFactor=0.5;
 			nIterPerLevel=1;
 		}
-		GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
+		GraphModelType graph(targetImage,unaryPot,level,labelScalingFactor, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
 		graph.setGradientImage(fixedSegmentationImage);
-		unaryPot->setRadius(radius);
+		unaryPot->setRadius(graph.getSpacing());
 		std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
 		std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
 		std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
+		for (int i=0;i<graph.nNodes();++i){
+//			std::cout<<i<<" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
+		}
 		for (int i=0;i<nIterPerLevel;++i,++iterationCount){
 			std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";//std::endl<<std::endl;
+			graph.setDisplacementFactor(labelScalingFactor);
+
 			unaryPot->SetDisplacementFactor(graph.getDisplacementFactor());
-			if (iterationCount){
-				unaryPot->SetBaseLabelMap(previousFullDeformation);
-				graph.setLabelImage(previousFullDeformation);
-			}
+			unaryPot->SetBaseLabelMap(previousFullDeformation);
+			graph.setLabelImage(previousFullDeformation);
+			graph.calculateBackProjections();
 			//	ok what now: create graph! solve graph! save result!Z
 			LabelImagePointerType deformation;
 			if (nIterPerLevel>1){
@@ -339,8 +309,12 @@ int main(int argc, char ** argv)
 			fullDeformation=graph.getFullLabelImage(deformation);
 			//apply deformation to moving image
 			IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
-			graph.checkConstraints(deformation);
-			checkerGraph.checkConstraints(fullDeformation);
+			ostringstream gridCosts,imageCosts;
+			gridCosts<<"costsGrid-l"<<l<<"-i"<<i<<".png";
+			imageCosts<<"costsImage-l"<<l<<"-i"<<i<<".png";
+			checkerGraph.setLabelImage(previousFullDeformation);
+			graph.checkConstraints(deformation,gridCosts.str().c_str());
+//			checkerGraph.checkConstraints(fullDeformation,imageCosts.str());
 
 			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
 			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
@@ -354,9 +328,7 @@ int main(int argc, char ** argv)
 					std::cout<<"Total Label :"<<labelIt.Get()<<std::endl;
 				}
 				BaseLabelType displacement=LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor());
-				if (iterationCount){
-					displacement+=(newLabelIt.Get());
-				}
+				displacement+=(newLabelIt.Get());
 				idx+=LabelMapperType::getDisplacement(displacement);
 
 				if (segmentationInterpolator->IsInsideBuffer(idx)){
@@ -373,7 +345,7 @@ int main(int argc, char ** argv)
 			}
 			IndexType idx={{0,0}};
 			//					std::cout<<deformation->GetPixel(idx)<<" "<<fullDeformation->GetPixel(idx)<<" "<<previousFullDeformation->GetPixel(idx)<<std::endl;
-			labelScalingFactor*=0.3;
+			labelScalingFactor*=0.8;
 #if 1
 			ostringstream deformedFilename;
 			deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".png";
