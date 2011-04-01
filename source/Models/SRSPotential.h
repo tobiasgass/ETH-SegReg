@@ -232,19 +232,14 @@ public:
 				LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(label,this->m_displacementFactor));
 		idx2+= disp;
 		//if in a multiresolution scheme, also add displacement from former iterations
-		if (this->m_haveLabelMap){
-			itk::Vector<float,ImageType::ImageDimension> baseDisp=
-					LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(fixedIndex));
-			idx2+=baseDisp;
-		}
-
+		itk::Vector<float,ImageType::ImageDimension> baseDisp=
+				LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(fixedIndex));
+		idx2+=baseDisp;
 
 		double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
-
-
 		bool ooB=false;
 		int oobFactor=1;
-
+		//check outofbounds and clip deformation
 		if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
 			for (int d=0;d<ImageType::ImageDimension;++d){
 				if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
@@ -255,18 +250,16 @@ public:
 				}
 			}
 			ooB=true;
-			oobFactor=1;
+			oobFactor=1.5;
 		}
-		//		std::cout<<idx2<<" "<<this->m_movingInterpolator->GetEndContinuousIndex()<<std::endl;
-		assert(this->m_movingInterpolator->IsInsideBuffer(idx2));
 		double movingIntensity=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
 		double log_p_XA_T;
-		if (imageIntensity<10000 ){
-			log_p_XA_T=0;
-		}
-		else{
-			log_p_XA_T=fabs(imageIntensity-movingIntensity)/65535;
-		}
+//		if (imageIntensity<10000 ){
+//			log_p_XA_T=0;
+//		}
+//		else{
+		log_p_XA_T=fabs(imageIntensity-movingIntensity)/65535;
+//		}
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<idx2<<" "<<imageIntensity<<" "<<movingIntensity<<std::endl;
 		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
 		if (m_fixedSegmentation){

@@ -12,7 +12,7 @@ INCLUDE_DIRECTORIES(
     /home/gasst/work/include
     /usr/local/include
     /usr/include/libxml2
- )
+ ) 
 
 LINK_DIRECTORIES(
     /home/gasst/work/lib

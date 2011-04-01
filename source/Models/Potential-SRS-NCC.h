@@ -5,8 +5,8 @@
  *      Author: gasst
  */
 
-#ifndef _NCCPOTENTIAL_H_
-#define _NCCPOTENTIAL_H_
+#ifndef _NCCSRSPOTENTIAL_H_
+#define _NCCSRSPOTENTIAL_H_
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include <utility>
@@ -15,10 +15,10 @@
 namespace itk{
 
 template<class TLabelMapper,class TImage,class TSegmentationInterpolator, class TImageInterpolator>
-class NCCRegistrationUnaryPotential : public SegmentationRegistrationUnaryPotential<TLabelMapper,TImage,TSegmentationInterpolator,TImageInterpolator>{
+class NCCSRSUnaryPotential : public SegmentationRegistrationUnaryPotential<TLabelMapper,TImage,TSegmentationInterpolator,TImageInterpolator>{
 public:
 	//itk declarations
-	typedef NCCRegistrationUnaryPotential            Self;
+	typedef NCCSRSUnaryPotential            Self;
 	typedef SegmentationRegistrationUnaryPotential<TLabelMapper,TImage,TSegmentationInterpolator,TImageInterpolator>       Superclass;
 	typedef SmartPointer<Self>        Pointer;
 	typedef SmartPointer<const Self>  ConstPointer;
@@ -38,70 +38,127 @@ public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
 	/** Standard part of every itk Object. */
-	itkTypeMacro(NCCRegistrationUnaryPotential, Object);
+	itkTypeMacro(NCCSRSUnaryPotential, Object);
 
-	NCCRegistrationUnaryPotential(){
+	NCCSRSUnaryPotential(){
 	}
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		typename itk::ConstNeighborhoodIterator<ImageType> nIt(this->m_radius,this->m_fixedImage, this->m_fixedImage->GetLargestPossibleRegion());
 		nIt.SetLocation(fixedIndex);
-		double count=0;
+		double count=0, count2=0.0;
 		double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
 		itk::Vector<float,ImageType::ImageDimension> disp=LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(label,this->m_displacementFactor));
+		double sum=0.0;
+		double result=0;
+
 		for (unsigned int i=0;i<nIt.Size();++i){
 			bool inBounds;
-			nIt.GetPixel(i,inBounds);
+			double f=nIt.GetPixel(i,inBounds);
 			if (inBounds){
 				IndexType neighborIndex=nIt.GetIndex(i);
-				//this should be weighted somehow
-				double weight=1.0;
+				ContinuousIndexType movingIndex(neighborIndex);
+				double weight=0.0;
 				for (int d=0;d<ImageType::ImageDimension;++d){
-					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/this->m_radius[d];
+					double w=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/(this->m_radius[d]);
+					movingIndex[d]+=disp[d];
+					weight+=w*w;
 				}
-				ContinuousIndexType idx2(neighborIndex);
-				idx2+= disp;
-				itk::Vector<float,ImageType::ImageDimension> baseDisp=LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(neighborIndex));
-				idx2+=baseDisp;
-
-				double f=this->m_fixedImage->GetPixel(neighborIndex);
-				if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+				weight=sqrt(weight);
+				itk::Vector<float,ImageType::ImageDimension> baseDisp=
+						LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(neighborIndex));
+				movingIndex+=baseDisp;
+				double m;
+				if (!this->m_movingInterpolator->IsInsideBuffer(movingIndex)){
 					for (int d=0;d<ImageType::ImageDimension;++d){
-						if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
-							idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+						if (movingIndex[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
+							movingIndex[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
 						}
-						else if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
-							idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
+						else if (movingIndex[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
+							movingIndex[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
 						}
 					}
 				}
-				double m=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
+				m=this->m_movingInterpolator->EvaluateAtContinuousIndex(movingIndex);
 				sff+=f*f;
 				smm+=m*m;
 				sfm+=f*m;
 				sf+=f;
 				sm+=m;
-				//				res+=weight*m_unaryFunction->getPotential(neighborIndex,label);
 				count+=1;//weight;
+				count2+=weight;
+				sum+=weight*getLocalPotential(neighborIndex,movingIndex,label);
 			}
 
 		}
-//		std::cout<<fixedIndex<<" "<<label<<" "<<this->m_fixedImage->GetPixel(fixedIndex)<<" "<<(1-fabs(1.0*sfm/sqrt(smm*sff)))<<" "<<sfm<<" "<<sff<<" "<<smm<<std::endl;
-
 		if (count){
 			sff -= ( sf * sf / count );
 			smm -= ( sm * sm / count );
 			sfm -= ( sf * sm / count );
-			double result;
 			if (smm*sff){
-				result=(1-fabs(1.0*sfm/sqrt(smm*sff)));
-//				result=(1-fabs(1.0*sfm/sqrt(smm*sff)+1.0)/2);
-
+				result=-(1.0*sfm/sqrt(smm*sff));
 			}
-			else result=0.5;
-			return this->m_intensWeight*result;
+			else if (sfm>0)result=-1;
+			else result=1;
+			result=this->m_intensWeight*result;
 		}
-		else return 9999999;
+		//no correlation whatsoever
+		else result=0;
+		//sum and norm
+		result=(result+sum/count2)/(this->m_intensWeight+this->m_segmentationWeight+2*this->m_posteriorWeight);
+		return result;
 	}
+	virtual double getLocalPotential(IndexType fixedIndex, ContinuousIndexType movingIndex, LabelType label){
+		double result=0;
+		//get index in moving image/segmentation
+		double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+		double movingIntensity=this->m_movingInterpolator->EvaluateAtContinuousIndex(movingIndex);
+		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
+		if (this->m_fixedSegmentation){
+			segmentationLabel=LabelMapperType::getSegmentation(this->m_baseLabelMap->GetPixel(fixedIndex));
+		}
+		int deformedSegmentation=this->m_segmentationInterpolator->EvaluateAtContinuousIndex(movingIndex)>0;
+		//registration based on similarity of label and labelprobability
+		//segProbs holds the probability that the fixedPixel is tissue
+		//so if the prob. of tissue is high and the deformed pixel is also tissue, then the log should be close to zero.
+		//if the prob of tissue os high and def. pixel is bone, then the term in the brackets becomes small and the neg logarithm large
+		//-log( p(X,A|T))
+		//-log( p(S_a|T,S_x) )
+		double log_p_SA_TSX =this->m_segmentationWeight* (segmentationLabel!=deformedSegmentation);
+		if (this->m_posteriorWeight>0){
+			//-log(  p(S_x|X,A,S_a,T) )
+			//for each index there are nlables/nsegmentation probabilities
+			//		long int probposition=fixedIntIndex*this->m_labelConverter->nLabels()/2;
+			//we are then interested in the probability of the displacementlabel only, disregarding the segmentation
+			//-log( p(S_a|A) )
+			double tissueProb=1;
+			if (this->m_segmentationWeight) tissueProb=this->m_segmentationPosteriorProbs[deformedSegmentation+int(imageIntensity/255)*2+int(movingIntensity/255)*2*255];
+			double segmentationPenalty2;
+			double threshold=5.5;
+			double p_SA_AXT=this->m_segmentationLikelihoodProbs[int(imageIntensity/255)];
+			if (this->m_segmentationWeight)	p_SA_AXT*=this->m_segmentationLikelihoodProbs[int(movingIntensity/255)];
+			if (segmentationLabel){
+				segmentationPenalty2=tissueProb>threshold?1.0:tissueProb;
+			}else{
+				segmentationPenalty2=(1-tissueProb)>threshold?1.0:(1-tissueProb);
+			}
+			threshold=0.55;
+			//if we weight pairwise segmentation, then we compute p_SA_AXT, if no pairwise weight is present then we assume we only weight segmentation and therefore compute p_SX_X
+			if ( (this->m_segmentationWeight && deformedSegmentation )|| (!this->m_segmentationWeight && segmentationLabel)){
+				p_SA_AXT=p_SA_AXT>threshold?1.0:p_SA_AXT;
+			}else{
+				p_SA_AXT=(1-p_SA_AXT)>threshold?1.0:(1-p_SA_AXT);
+			}
+						if (!this->m_segmentationWeight) segmentationPenalty2=1;
+			double segmentationPosterior=this->m_posteriorWeight*-log(segmentationPenalty2+0.0000001);
+
+			double log_p_SA_AT = this->m_posteriorWeight*(-log(p_SA_AXT+0.000000001));
+			result+=segmentationPosterior+log_p_SA_AT;//+newIdea;
+
+		}
+		result+=log_p_SA_TSX;
+		return result;
+	}
+
 };//class
 
 }//namespace

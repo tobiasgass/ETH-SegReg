@@ -157,28 +157,29 @@ public:
 	}
 	virtual double getPairwisePotential(IndexType fixedIndex1,IndexType fixedIndex2,LabelType l1,LabelType l2,bool verbose=false){
 
+		double edgeWeight=fabs(m_backProjFixedImage->GetPixel(imageToGridIndex(fixedIndex1))-m_backProjFixedImage->GetPixel(imageToGridIndex(fixedIndex2)));
+		//		std::cout<<edgeWeight<<" "<<exp(-edgeWeight)<<std::endl;
+		edgeWeight=1;//exp(-edgeWeight);
+
 		//segmentation smoothness
 		double segmentationSmootheness=0;
 		if (LabelMapperType::nSegmentations){
 			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
 			//this weight should rather depend on the interpolated regions
-			double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
-			segWeight=exp(-segWeight/3000);
-			segmentationSmootheness*=segWeight*m_segmentationWeight;
+			segmentationSmootheness*=m_segmentationWeight;
 		}
 
 		double registrationSmootheness=0;
 		if (LabelMapperType::nDisplacements){
-			//registration smoothness
-//			LabelType oldl1=m_fullLabelImage->GetPixel(fixedIndex1);
-//			LabelType oldl2=m_fullLabelImage->GetPixel(fixedIndex2);
+#if 0
 			LabelType oldl1=m_backProjLabelImage->GetPixel(imageToGridIndex(fixedIndex1));
 			LabelType oldl2=m_backProjLabelImage->GetPixel(imageToGridIndex(fixedIndex2));
-
-			//		double constrainedViolatedPenalty=std::numeric_limits<double>::max()/(m_nNodes*1000);;
+#else
+			LabelType oldl1=m_fullLabelImage->GetPixel((fixedIndex1));
+			LabelType oldl2=m_fullLabelImage->GetPixel((fixedIndex2));
+#endif
 			double constrainedViolatedPenalty=65535;//9999999999;
 			bool constrainsViolated=false;
-			//		std::cout<<"DeltaInit1: "<<fixedIndex1<<" "<<fixedIndex2<<std::endl;
 			double d1,d2;
 			int delta;
 			LabelType displacement1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());//+oldl1;
@@ -191,64 +192,41 @@ public:
 
 				d1=displacement1[d];
 				d2=displacement2[d];
-				//				std::cout<<"DeltaInit2: "<<d1<<" "<<d2<<std::endl;
-
 				delta=(fixedIndex2[d]-fixedIndex1[d]);
 
-				double axisPositionDifference=1.0*(d2-d1)/(m_spacing[d]);
-				//				std::cout<<"DeltaInit2: "<<(m_spacing[d])<<" "<<d1<<" "<<d2<<" "<<axisPositionDifference<<std::endl;
+				double axisPositionDifference=1.0*(d2-d1);//(m_spacing[d]);
 
 				double relativeAxisPositionDifference=1.0*(axisPositionDifference+(1.0*delta/m_spacing[d]));
-				//				std::cout<<"DeltaInit3 :"<<axisPositionDifference<<" "<<delta<<" "<<m_spacing[d]<<" "<<relativeAxisPositionDifference<<std::endl;
+
 				//we shall never tear the image!
 				if (delta>0){
 					if (relativeAxisPositionDifference<0.2){
 						constrainsViolated=true;
-						//						exit(0);
-						//						break;
 					}
 				}
 				else if (delta<0){
 					if (relativeAxisPositionDifference>-0.20){
 						constrainsViolated=true;
-						//						break;
 					}
 				}
 				if (fabs(relativeAxisPositionDifference)>1.5){
 					constrainsViolated=true;
-					//					exit(0);
-					//					break;
 				}
 
 				registrationSmootheness+=(axisPositionDifference)*(axisPositionDifference);
 			}
-			//			std::cout<<"DeltaInit1: "<<fixedIndex1<<" ->"<<oldl1<<"+"<<displacement1<<" ,"<<fixedIndex2<<" ->"<<oldl2<<"+"<<displacement2<<" :"<<registrationSmootheness<<std::endl;
-
-			//			std::cout<<registrationSmootheness<<std::endl;
 			registrationSmootheness*=m_registrationWeight;
 			if (false){
 				std::cout<<"DeltaInit1: "<<fixedIndex1<<" ->"<<oldl1<<"+"<<displacement1<<" ,"<<fixedIndex2<<" ->"<<oldl2<<"+"<<displacement2<<" :"<<registrationSmootheness<<std::endl;
-				//					std::cout<<l1<<"/"<<l2<<" "
-				//							<<fixedIndex1<<" -> "<<oldl1<<"+"<<LabelMapperType::scaleDisplacement(l1,getDisplacementFactor())<<" vs: "
-				//							<<fixedIndex2<<" -> "<<oldl2<<"+"<<LabelMapperType::scaleDisplacement(l2,getDisplacementFactor())<<std::endl;
 			}
 			if (constrainsViolated){
-
-
-				//						return 	m_registrationWeight*constrainedViolatedPenalty;
-				//				return 	constrainedViolatedPenalty;
+//								return 	constrainedViolatedPenalty;
 			}
-			//		std::cout<<registrationSmootheness<<std::endl;
-
 		}
-
-
-		double result=(registrationSmootheness+segmentationSmootheness)/m_nVertices;
-		//		std::cout<<oldl1<<" "<<l1<<" "<<oldl2<<" "<<l2<<" "<<result<<std::endl;
-		double trunc=5.0;
+		double result=edgeWeight*(registrationSmootheness+segmentationSmootheness)/m_nVertices;
 		return result;
-		return ((result)>trunc?trunc:(result));
 	}
+
 	double getWeight(int gridIndex1, int gridIndex2){
 		IndexType fixedIndex1=gridToImageIndex(getGridPositionAtIndex(gridIndex1));
 		IndexType fixedIndex2=gridToImageIndex(getGridPositionAtIndex(gridIndex2));
@@ -364,6 +342,7 @@ public:
 		std::cout<<1.0*vCount/(totalCount+0.0000000001)<<" ratio of violated constraints"<<std::endl;
 	}
 	LabelImagePointerType getFullLabelImage(LabelImagePointerType labelImg){
+		typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
 #if 1
 		const unsigned int SplineOrder = 3;
 
@@ -372,9 +351,9 @@ public:
 		typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
 		typedef typename itk::BSplineDecompositionImageFilter<ParamImageType,ParamImageType>			DecompositionType;
 		typedef typename  itk::ImageRegionIterator<ParamImageType> Iterator;
-		typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
 
 		std::vector<typename ParamImageType::Pointer> newImages(ImageType::ImageDimension+1);
+		//interpolate deformation
 		for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
 		{
 			//			std::cout<<k<<" setup"<<std::endl;
@@ -389,25 +368,37 @@ public:
 			for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
 				itCoarse.Set(itOld.Get()[k]);
 			}
-			//			std::cout<<k<<" setCoarse"<<std::endl;
-			typename ResamplerType::Pointer upsampler = ResamplerType::New();
-			typename FunctionType::Pointer function = FunctionType::New();
-			upsampler->SetInput( paramsK );
-			upsampler->SetInterpolator( function );
-			//			upsampler->SetTransform( identityTransform );
-			upsampler->SetSize(m_fixedImage->GetLargestPossibleRegion().GetSize() );
-			upsampler->SetOutputSpacing( m_fixedImage->GetSpacing() );
-			upsampler->SetOutputOrigin( m_fixedImage->GetOrigin());
-
-			typename DecompositionType::Pointer decomposition = DecompositionType::New();
-
-			decomposition->SetSplineOrder( SplineOrder );
-			decomposition->SetInput( upsampler->GetOutput() );
-			//			std::cout<<k<<" sampler"<<std::endl;
-			decomposition->Update();
-			//			std::cout<<k<<" decomp"<<std::endl;
-
-			newImages[k] = decomposition->GetOutput();
+			if (k<ImageType::ImageDimension){
+				typename ResamplerType::Pointer upsampler = ResamplerType::New();
+				typename FunctionType::Pointer function = FunctionType::New();
+				upsampler->SetInput( paramsK );
+				upsampler->SetInterpolator( function );
+				upsampler->SetSize(m_fixedImage->GetLargestPossibleRegion().GetSize() );
+				upsampler->SetOutputSpacing( m_fixedImage->GetSpacing() );
+				upsampler->SetOutputOrigin( m_fixedImage->GetOrigin());
+				typename DecompositionType::Pointer decomposition = DecompositionType::New();
+				decomposition->SetSplineOrder( SplineOrder );
+				decomposition->SetInput( upsampler->GetOutput() );
+				decomposition->Update();
+				newImages[k] = decomposition->GetOutput();
+			}
+			else{
+				typedef typename itk::LinearInterpolateImageFunction<ParamImageType, double> InterpolatorType;
+				typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+				typedef typename itk::ResampleImageFilter< ParamImageType , ParamImageType>	ParamResampleFilterType;
+				InterpolatorPointerType interpolator=InterpolatorType::New();
+				interpolator->SetInputImage(paramsK);
+				typename ParamResampleFilterType::Pointer resampler = ParamResampleFilterType::New();
+				//resample deformation field to fixed image dimension
+				resampler->SetInput( paramsK );
+				resampler->SetInterpolator( interpolator );
+				resampler->SetOutputOrigin(m_fixedImage->GetOrigin());
+				resampler->SetOutputSpacing ( m_fixedImage->GetSpacing() );
+				resampler->SetOutputDirection ( m_fixedImage->GetDirection() );
+				resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
+				resampler->Update();
+				newImages[k] = resampler->GetOutput();
+			}
 		}
 		std::vector< Iterator*> iterators(ImageType::ImageDimension+1);
 		for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
@@ -429,7 +420,8 @@ public:
 				l[k]=iterators[k]->Get();
 				++(*(iterators[k]));
 			}
-			lIt.Set(l);
+			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
+			//			lIt.Set(l);
 		}
 
 		return fullLabelImage;
@@ -452,12 +444,24 @@ public:
 		resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
 		if (verbose) std::cout<<"interpolating deformation field"<<std::endl;
 		resampler->Update();
-		return resampler->GetOutput();
+		LabelImagePointerType fullLabelImage=resampler->GetOutput();
+		LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
+		lIt.GoToBegin();
+		for (;!lIt.IsAtEnd();++lIt){
+			LabelType l=lIt.Get();
+			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
+		}
+		return fullLabelImage;
 #endif
 	}
 
 	void calculateBackProjections(){
 		m_backProjFixedImage=ImageType::New();
+		typename ImageType::RegionType imRegion;
+		imRegion.SetSize(m_gridSize);
+		m_backProjFixedImage->SetOrigin(m_origin);
+		m_backProjFixedImage->SetRegions(imRegion);
+		m_backProjFixedImage->Allocate();
 		m_backProjLabelImage=LabelImageType::New();
 		typename LabelImageType::RegionType region;
 		region.SetSize(m_gridSize);
@@ -466,28 +470,41 @@ public:
 		m_backProjLabelImage->Allocate();
 		bool inBounds;
 		typename itk::ConstNeighborhoodIterator<LabelImageType> nIt(this->m_unaryFunction->getRadius(),this->m_fullLabelImage, this->m_fullLabelImage->GetLargestPossibleRegion());
+		typename itk::ConstNeighborhoodIterator<ImageType> fixedIt(this->m_unaryFunction->getRadius(),this->m_fixedImage, this->m_fixedImage->GetLargestPossibleRegion());
+
 		for (int i=0;i<m_nNodes;++i){
+
 			IndexType gridIndex=getGridPositionAtIndex(i);
-			IndexType imageIndex=imageToGridIndex(gridIndex);
+			IndexType imageIndex=gridToImageIndex(gridIndex);
 			nIt.SetLocation(imageIndex);
+			fixedIt.SetLocation(imageIndex);
+
 			double weightSum=0.0;
 			LabelType labelSum;
+			float valSum=0.0;
 			for (unsigned int n=0;n<nIt.Size();++n){
 				LabelType l=nIt.GetPixel(n,inBounds);
+				float val=fixedIt.GetPixel(n);
+				//				std::cout<<val<<std::endl;
 				if (inBounds){
-					IndexType neighborIndex=nIt.GetIndex();
+					IndexType neighborIndex=nIt.GetIndex(n);
 					double weight=1.0;
 					for (int d=0;d<ImageType::ImageDimension;++d){
-						double w=1-(1.0*fabs(neighborIndex[d]-imageIndex[d]))/(m_spacing[d]); //uhuh radius==spacing?
-						weight*=w;
+						weight*=1-(1.0*fabs(neighborIndex[d]-imageIndex[d]))/(m_spacing[d]); //uhuh radius==spacing?
+						//weight+=w/ImageType::ImageDimension;
 					}
+					//					std::cout<<n<<" "<<neighborIndex<<" "<<imageIndex<<" "<<weight<<" "<<val<<std::endl;
 					labelSum+=l*weight;
+					valSum+=val*weight;
 					weightSum+=weight;
 				}
 
 			}
 			labelSum/=weightSum;
 			m_backProjLabelImage->SetPixel(gridIndex,labelSum);
+			//			std::cout<<gridIndex<<" "<<imageIndex<<" "<<valSum<<" "<<weightSum<<" "<<valSum/weightSum<<std::endl;
+			valSum/=weightSum;
+			m_backProjFixedImage->SetPixel(gridIndex,valSum);
 		}
 	}
 };

@@ -21,6 +21,7 @@ SET(SRSMRFModels_SRC
   Graph.h
   Graph-ITKStyle.h
   Potential-Registration-NCC.h
+  Potential-SRS-NCC.h
 )
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )

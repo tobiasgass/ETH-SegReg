@@ -19,6 +19,7 @@
 #include "SRSPotential.h"
 #include "Potential-Registration-NCC.h"
 #include "MRF-FAST-PD.h"
+#include "Potential-SRS-NCC.h"
 #include "MRF-TRW-S.h"
 #include <itkNearestNeighborInterpolateImageFunction.h>
 #include <itkLinearInterpolateImageFunction.h>
@@ -35,7 +36,7 @@
 
 #include <itkImageAdaptor.h>
 #include <itkAddPixelAccessor.h>
-
+#include "itkDisplacementFieldCompositionFilter.h"
 #include "itkBSplineInterpolateImageFunction.h"
 
 using namespace std;
@@ -115,74 +116,7 @@ int main(int argc, char ** argv)
 			ImageUtils<ImageType>::readImage(fixedSegmentationFilename);
 
 	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
-#if 0
-	typedef itk::HistogramMatchingImageFilter<
-			ImageType,
-			ImageType >   MatchingFilterType;
-	MatchingFilterType::Pointer matcher = MatchingFilterType::New();
-	matcher->SetInput( movingImage );
 
-
-#if 0
-	typedef itk::ImageRegionConstIterator< ImageType > ConstIteratorType;
-	typedef itk::ImageRegionIterator< ImageType>       IteratorType;
-	ImageType::RegionType inputRegion;
-	ImageType::RegionType::IndexType inputStart;
-	ImageType::RegionType::SizeType  size;
-	//	110x190+120+120
-	inputStart[0] = int(0.22869*targetImage->GetLargestPossibleRegion().GetSize()[0]);//::atoi( argv[3] );
-	inputStart[1] = int(0.508021*targetImage->GetLargestPossibleRegion().GetSize()[1]);
-	size[0]  = int(0.25*targetImage->GetLargestPossibleRegion().GetSize()[0]);
-	size[1]  = int(0.320856*targetImage->GetLargestPossibleRegion().GetSize()[1]);
-	inputRegion.SetSize( size );
-	inputRegion.SetIndex( inputStart );
-	ImageType::RegionType outputRegion;
-	ImageType::RegionType::IndexType outputStart;
-	outputStart[0] = 0;
-	outputStart[1] = 0;
-	outputRegion.SetSize( size );
-	outputRegion.SetIndex( outputStart );
-	ImageType::Pointer outputImage = ImageType::New();
-	outputImage->SetRegions( outputRegion );
-	const ImageType::SpacingType& spacing = targetImage->GetSpacing();
-	const ImageType::PointType& inputOrigin = targetImage->GetOrigin();
-	double   outputOrigin[ D ];
-
-	for(unsigned int i=0; i< D; i++)
-	{
-		outputOrigin[i] = inputOrigin[i] + spacing[i] * inputStart[i];
-	}
-
-
-	outputImage->SetSpacing( spacing );
-	outputImage->SetOrigin(  outputOrigin );
-	outputImage->Allocate();
-	ConstIteratorType inputIt(   targetImage, inputRegion  );
-	IteratorType      outputIt(  outputImage,         outputRegion );
-
-	inputIt.GoToBegin();
-	outputIt.GoToBegin();
-
-	while( !inputIt.IsAtEnd() )
-	{
-		outputIt.Set(  inputIt.Get()  );
-		++inputIt;
-		++outputIt;
-	}
-
-	matcher->SetReferenceImage( outputImage );
-#else
-
-
-	matcher->SetReferenceImage( targetImage );
-#endif
-
-	matcher->SetNumberOfHistogramLevels( 64 );
-	matcher->SetNumberOfMatchPoints( 2 );
-	//	matcher->ThresholdAtMeanIntensityOn();
-	matcher->Update();
-	movingImage=matcher->GetOutput();
-#endif
 	//	typedef RegistrationLabel<ImageType> BaseLabelType;
 
 	LabelMapperType * labelmapper=new LabelMapperType(nSegmentations,maxDisplacement);
@@ -193,12 +127,13 @@ int main(int argc, char ** argv)
 
 	typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
 	typedef ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
-	typedef NCCRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
-//		typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
+	//	typedef NCCSRSUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
+	//	typedef NCCRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
+	typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
 	typedef BaseUnaryPotentialType::Pointer BaseUnaryPotentialPointerType;
 	typedef BaseUnaryPotentialType::RadiusType RadiusType;
-//	typedef ITKGraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
-		typedef GraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+	//	typedef ITKGraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+	typedef GraphModel<BaseUnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
 	ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
 	deformedImage=ImageUtils<ImageType>::createEmpty(targetImage);
 	deformedSegmentationImage=ImageUtils<ImageType>::createEmpty(targetImage);
@@ -246,8 +181,10 @@ int main(int argc, char ** argv)
 
 	//	double levels[]={1.5,2,4,16,32,64,100, 200};
 	//	int levels[]={5,9,27,91,100, 200};
-//	int levels[]={2,4,6,8,32,64,100, 200};
-	int levels[]={2,3,5,9,17,33,32,64,100, 200};
+	//	int levels[]={2,4,8,16,32,64,100, 200};
+	//	int levels[]={2,4,6,8,32,64,100, 200};
+//	int levels[]={2,3,5,9,17,33,32,64,100, 200};
+		int levels[]={3,5,9,17,33,32,64,100, 200};
 
 	//		int levels[]={8,16,32,64,128};
 	//	int levels[]={64,312};
@@ -275,7 +212,7 @@ int main(int argc, char ** argv)
 		std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
 		std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 		for (int i=0;i<graph.nNodes();++i){
-//			std::cout<<i<<" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
+			//			std::cout<<i<<" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.gridToImageIndex(graph.getGridPositionAtIndex(i))<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
 		}
 		for (int i=0;i<nIterPerLevel;++i,++iterationCount){
 			std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";//std::endl<<std::endl;
@@ -313,24 +250,23 @@ int main(int argc, char ** argv)
 			gridCosts<<"costsGrid-l"<<l<<"-i"<<i<<".png";
 			imageCosts<<"costsImage-l"<<l<<"-i"<<i<<".png";
 			checkerGraph.setLabelImage(previousFullDeformation);
-			graph.checkConstraints(deformation,gridCosts.str().c_str());
-//			checkerGraph.checkConstraints(fullDeformation,imageCosts.str());
+			//			graph.checkConstraints(deformation,gridCosts.str().c_str());
+			//			checkerGraph.checkConstraints(fullDeformation,imageCosts.str());
 
-			LabelIteratorType labelIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
-			LabelIteratorType newLabelIt(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
-			for (newLabelIt.GoToBegin(),fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt,++newLabelIt){
-				ImageInterpolatorType::ContinuousIndexType idx=unaryPot->getMovingIndex(fixedIt.GetIndex());
+			typedef itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
+			CompositionFilterType::Pointer composer=CompositionFilterType::New();
+			composer->SetInput(0,previousFullDeformation);
+			composer->SetInput(1,fullDeformation);
+			composer->Update();
+			LabelImagePointerType composedDeformation=composer->GetOutput();
 
-				if (false){
-					std::cout<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-					std::cout<<"Total displacement including previous iterations ="<<LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-					std::cout<<"Resulting point in moving image :"<<idx+LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-					std::cout<<"Total Label :"<<labelIt.Get()<<std::endl;
-				}
-				BaseLabelType displacement=LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor());
-				displacement+=(newLabelIt.Get());
+			LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
+			for (fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt){
+				IndexType index=fixedIt.GetIndex();
+				ImageInterpolatorType::ContinuousIndexType idx=unaryPot->getMovingIndex(index);
+				BaseLabelType displacement=labelIt.Get();
+				//				std::cout<<displacement<<std::endl;
 				idx+=LabelMapperType::getDisplacement(displacement);
-
 				if (segmentationInterpolator->IsInsideBuffer(idx)){
 					deformedImage->SetPixel(fixedIt.GetIndex(),movingInterpolator->EvaluateAtContinuousIndex(idx));
 					deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),segmentationInterpolator->EvaluateAtContinuousIndex(idx));
@@ -339,12 +275,9 @@ int main(int argc, char ** argv)
 					deformedImage->SetPixel(fixedIt.GetIndex(),0);
 					deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),0);
 				}
-				segmentationImage->SetPixel(fixedIt.GetIndex(),LabelMapperType::getSegmentation(labelIt.Get())*65535);
-				newLabelIt.Set(displacement);
-
+				segmentationImage->SetPixel(fixedIt.GetIndex(),(LabelMapperType::getSegmentation(fullDeformation->GetPixel(index))>0)*65535);
 			}
-			IndexType idx={{0,0}};
-			//					std::cout<<deformation->GetPixel(idx)<<" "<<fullDeformation->GetPixel(idx)<<" "<<previousFullDeformation->GetPixel(idx)<<std::endl;
+			previousFullDeformation=composedDeformation;
 			labelScalingFactor*=0.8;
 #if 1
 			ostringstream deformedFilename;

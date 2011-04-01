@@ -60,28 +60,27 @@ public:
 				for (int d=0;d<ImageType::ImageDimension;++d){
 					double w=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/(2*this->m_radius[d]);
 					idx2[d]+=disp[d];
-//					idx2[d]+=w*disp[d];
 					weight*=w;
 				}
 				itk::Vector<float,ImageType::ImageDimension> baseDisp=
-						LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(neighborIndex));//THIS SHOULD BE NEIGHBORINDEX BUT THAT SCREWS UP STUFF!!!
-//				std::cout<<fixedIndex<<" "<<LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(fixedIndex))<<" "<<neighborIndex<<" "<<baseDisp<<std::endl;
+						LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(neighborIndex));
 				idx2+=baseDisp;
 				double m;
 				if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+//					continue;
 					m=0;
-//					for (int d=0;d<ImageType::ImageDimension;++d){
-//						if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
-//							idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
-//						}
-//						else if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
-//							idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
-//						}
-//					}
+					for (int d=0;d<ImageType::ImageDimension;++d){
+						if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
+							idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+						}
+						else if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
+							idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
+						}
+					}
 				}
-				else{
+//				else{
 					m=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
-				}
+//				}
 				sff+=f*f;
 				smm+=m*m;
 				sfm+=f*m;
@@ -102,13 +101,16 @@ public:
 			if (smm*sff){
 				result=-(1.0*sfm/sqrt(smm*sff));
 //				result=(1-fabs(1.0*sfm/sqrt(smm*sff)));
-				//				result=(1-fabs(1.0*sfm/sqrt(smm*sff)+1.0)/2);
+//								result=(1-(1.0*sfm/sqrt(smm*sff)+1.0)/2);
 
 			}
-			else result=0.5;
+			else if (sfm>0)result=-1;
+			else result=1;
+//			std::cout<<sfm<<" "<<smm<<" "<<sff<<" "<<result<<std::endl;
 			return this->m_intensWeight*result;
 		}
-		else return 9999999;
+		//no correlation whatsoever
+		else return 0;
 	}
 	virtual ImagePointerType trainClassifiers(){
 		return NULL;
