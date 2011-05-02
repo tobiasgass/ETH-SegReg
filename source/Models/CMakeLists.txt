@@ -20,8 +20,11 @@ SET(SRSMRFModels_SRC
   MRF-TRW-S.h
   Graph.h
   Graph-ITKStyle.h
-  Potential-Registration-NCC.h
   Potential-SRS-NCC.h
+  Potential-SRS-MultiVariateNCC.h
+  Potential-SRS-SAD-SACentered.h
+  SRSConfig.h
+  HierarchicalSRSImageToImageFilter.h
 )
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )

@@ -11,6 +11,8 @@
 #include "itkObjectFactory.h"
 #include <utility>
 #include "itkVector.h"
+#include "itkLinearInterpolateImageFunction.h"
+
 namespace itk{
 
 
@@ -57,7 +59,7 @@ public:
 };//class
 
 
-template<class TLabelMapper,class TImage,class TInterpolator>
+template<class TLabelMapper,class TImage>
 class RegistrationUnaryPotential : public BaseUnaryPotential<TLabelMapper,TImage>{
 public:
 	//itk declarations
@@ -73,7 +75,7 @@ public:
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::SizeType SizeType;
 	typedef typename ImageType::SpacingType SpacingType;
-	typedef TInterpolator InterpolatorType;
+	typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
 	typedef typename InterpolatorType::Pointer InterpolatorPointerType;
 	typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 	typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;

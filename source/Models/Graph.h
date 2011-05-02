@@ -128,7 +128,6 @@ public:
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
-
 		return m_unaryFunction->getPotential(fixedIndex,label)/m_nNodes;
 	}
 
@@ -145,35 +144,30 @@ public:
 		double trunc=5.0;
 
 
-		return (sqrt(result)>trunc?trunc:sqrt(result));
+		return 0;//(sqrt(result)>trunc?trunc:sqrt(result));
 	}
 
 	virtual double getPairwisePotential(int idx1,int idx2,int LabelIndex,int LabelIndex2,bool verbose=false){
-		IndexType fixedIndex1=gridToImageIndex(getGridPositionAtIndex(idx1));
-		IndexType fixedIndex2=gridToImageIndex(getGridPositionAtIndex(idx2));
+		IndexType gridIndex1=getGridPositionAtIndex(idx1);
+		IndexType gridIndex2=getGridPositionAtIndex(idx2);
+		IndexType fixedIndex1=gridToImageIndex(gridIndex1);
+		IndexType fixedIndex2=gridToImageIndex(gridIndex2);
 		LabelType l1=LabelMapperType::getLabel(LabelIndex);
 		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
-		return getPairwisePotential(fixedIndex1,fixedIndex2,l1,l2);
-	}
-	virtual double getPairwisePotential(IndexType fixedIndex1,IndexType fixedIndex2,LabelType l1,LabelType l2,bool verbose=false){
-
-		double edgeWeight=fabs(m_backProjFixedImage->GetPixel(imageToGridIndex(fixedIndex1))-m_backProjFixedImage->GetPixel(imageToGridIndex(fixedIndex2)));
-		//		std::cout<<edgeWeight<<" "<<exp(-edgeWeight)<<std::endl;
-		edgeWeight=1;//exp(-edgeWeight);
 
 		//segmentation smoothness
 		double segmentationSmootheness=0;
 		if (LabelMapperType::nSegmentations){
 			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
 			//this weight should rather depend on the interpolated regions
-			segmentationSmootheness*=m_segmentationWeight;
+//			segmentationSmootheness*=m_segmentationWeight;
 		}
 
 		double registrationSmootheness=0;
 		if (LabelMapperType::nDisplacements){
 #if 0
-			LabelType oldl1=m_backProjLabelImage->GetPixel(imageToGridIndex(fixedIndex1));
-			LabelType oldl2=m_backProjLabelImage->GetPixel(imageToGridIndex(fixedIndex2));
+			LabelType oldl1=m_backProjLabelImage->GetPixel(gridIndex1);
+			LabelType oldl2=m_backProjLabelImage->GetPixel(gridIndex2);
 #else
 			LabelType oldl1=m_fullLabelImage->GetPixel((fixedIndex1));
 			LabelType oldl2=m_fullLabelImage->GetPixel((fixedIndex2));
@@ -184,7 +178,7 @@ public:
 			int delta;
 			LabelType displacement1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());//+oldl1;
 			LabelType displacement2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());//+oldl2;
-#if 1
+#if 0
 			displacement1+=oldl1;
 			displacement2+=oldl2;
 #endif
@@ -223,17 +217,23 @@ public:
 //								return 	constrainedViolatedPenalty;
 			}
 		}
-		double result=edgeWeight*(registrationSmootheness+segmentationSmootheness)/m_nVertices;
-		return result;
+		//the edgeweight includes the segmentationweight!
+		double edgeWeight=getWeight(gridIndex1,gridIndex2);
+		double result=(registrationSmootheness+edgeWeight*segmentationSmootheness);//(m_registrationWeight+edgeWeight*m_segmentationWeight);
+		return result/m_nVertices;
 	}
-
 	double getWeight(int gridIndex1, int gridIndex2){
-		IndexType fixedIndex1=gridToImageIndex(getGridPositionAtIndex(gridIndex1));
-		IndexType fixedIndex2=gridToImageIndex(getGridPositionAtIndex(gridIndex2));
-		double segWeight=fabs(m_fixedImage->GetPixel(fixedIndex1)-m_fixedImage->GetPixel(fixedIndex2));
-		segWeight=exp(-segWeight/10000);
-		segWeight*=m_segmentationWeight;
-		return segWeight;
+		return getWeight(getGridPositionAtIndex(gridIndex1),getGridPositionAtIndex(gridIndex2));
+	}
+	double getWeight(IndexType gridIndex1, IndexType gridIndex2){
+
+		double edgeWeight=fabs(m_backProjFixedImage->GetPixel(gridIndex1)-m_backProjFixedImage->GetPixel(gridIndex2));
+//		double edgeWeight=fabs(m_fixedImage->GetPixel(gridToImageIndex(gridIndex1))-m_fixedImage->GetPixel(gridToImageIndex(gridIndex2)));
+//		std::cout<<edgeWeight;
+		edgeWeight=exp(-edgeWeight/(3200));
+//		std::cout<<" "<<edgeWeight<<std::endl;
+		edgeWeight*=m_segmentationWeight;
+		return edgeWeight;
 	}
 	double getPairwisePotential2(int LabelIndex,int LabelIndex2){
 		double segmentationSmoothness=fabs(LabelMapperType::getSegmentation(LabelIndex)-LabelMapperType::getSegmentation(LabelIndex2));
@@ -316,16 +316,14 @@ public:
 		costMap->Allocate();
 		int vCount=0,totalCount=0;
 		for (int n=0;n<m_nNodes;++n){
-			IndexType imageIdx=getImagePositionAtIndex(n);
 			IndexType gridIdx=getGridPositionAtIndex(n);
 			LabelType l1=labelImage->GetPixel(gridIdx);
 			std::vector<int> nb=getForwardNeighbours(n);
 			double localSum=0.0;
 			for (unsigned int i=0;i<nb.size();++i){
 				IndexType neighbGridIdx=getGridPositionAtIndex(nb[i]);
-				IndexType neighbImageIdx=gridToImageIndex(neighbGridIdx);
 				LabelType l2=labelImage->GetPixel(neighbGridIdx);
-				double pp=getPairwisePotential(imageIdx,neighbImageIdx,l1,l2,true);
+				double pp=getPairwisePotential(n,i,l1,l2,true);
 				if (pp>99 ){
 					vCount++;
 				}
@@ -369,6 +367,7 @@ public:
 				itCoarse.Set(itOld.Get()[k]);
 			}
 			if (k<ImageType::ImageDimension){
+				//bspline interpolation for the displacements
 				typename ResamplerType::Pointer upsampler = ResamplerType::New();
 				typename FunctionType::Pointer function = FunctionType::New();
 				upsampler->SetInput( paramsK );
@@ -383,6 +382,7 @@ public:
 				newImages[k] = decomposition->GetOutput();
 			}
 			else{
+				//linear interpolation for the segmentation label
 				typedef typename itk::LinearInterpolateImageFunction<ParamImageType, double> InterpolatorType;
 				typedef typename InterpolatorType::Pointer InterpolatorPointerType;
 				typedef typename itk::ResampleImageFilter< ParamImageType , ParamImageType>	ParamResampleFilterType;

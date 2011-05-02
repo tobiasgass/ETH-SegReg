@@ -120,6 +120,7 @@ public:
 		nDisplacementSamples=NDisplacementSamples;
 		nDisplacements=(double(2*nDisplacementSamples+1)*TImage::ImageDimension);
 		nLabels=nSegmentations*nDisplacements;
+		std::cout<<"nDisplacements :"<<nDisplacements<<" nSegmentations:"<<nSegmentations<<" nLabels"<<nLabels<<std::endl;
 		k=TImage::ImageDimension+1;
 	}
 	void setSegmentationLabels(int labels){
@@ -128,8 +129,14 @@ public:
 		}
 	void setDisplacementSamples(int nSamples){
 		nDisplacementSamples=nSamples;
-		nDisplacements=(double(2*nDisplacementSamples+1)*TImage::ImageDimension);
+		if (nDisplacementSamples){
+			nDisplacements=(double(2*nDisplacementSamples+1)*TImage::ImageDimension);
+		}
+		else
+			nDisplacements=1;
 		nLabels=nSegmentations*nDisplacements;
+		std::cout<<"nDisplacements :"<<nDisplacements<<" nSegmentations:"<<nSegmentations<<" nLabels"<<nLabels<<std::endl;
+
 	}
 	static const LabelType getLabel(int index){
 		LabelType result;

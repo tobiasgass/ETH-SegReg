@@ -14,12 +14,12 @@
 #include "SRSPotential.h"
 namespace itk{
 
-template<class TLabelMapper,class TImage,class TSegmentationInterpolator, class TImageInterpolator>
-class NCCRegistrationUnaryPotential : public SegmentationRegistrationUnaryPotential<TLabelMapper,TImage,TSegmentationInterpolator,TImageInterpolator>{
+template<class TLabelMapper,class TImage>
+class NCCRegistrationUnaryPotential : public SegmentationRegistrationUnaryPotential<TLabelMapper,TImage>{
 public:
 	//itk declarations
 	typedef NCCRegistrationUnaryPotential            Self;
-	typedef SegmentationRegistrationUnaryPotential<TLabelMapper,TImage,TSegmentationInterpolator,TImageInterpolator>       Superclass;
+	typedef SegmentationRegistrationUnaryPotential<TLabelMapper,TImage>       Superclass;
 	typedef SmartPointer<Self>        Pointer;
 	typedef SmartPointer<const Self>  ConstPointer;
 
@@ -99,18 +99,18 @@ public:
 			sfm -= ( sf * sm / count );
 			double result;
 			if (smm*sff){
-				result=-(1.0*sfm/sqrt(smm*sff));
+				result=1-(1.0*sfm/sqrt(smm*sff)/2);
 //				result=(1-fabs(1.0*sfm/sqrt(smm*sff)));
 //								result=(1-(1.0*sfm/sqrt(smm*sff)+1.0)/2);
 
 			}
-			else if (sfm>0)result=-1;
+			else if (sfm>0)result=0;
 			else result=1;
 //			std::cout<<sfm<<" "<<smm<<" "<<sff<<" "<<result<<std::endl;
 			return this->m_intensWeight*result;
 		}
 		//no correlation whatsoever
-		else return 0;
+		else return 0.5;
 	}
 	virtual ImagePointerType trainClassifiers(){
 		return NULL;
