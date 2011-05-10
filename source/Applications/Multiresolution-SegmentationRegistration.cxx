@@ -8,6 +8,8 @@
 #include "HierarchicalSRSImageToImageFilter.h"
 #include "Potential-SRS-MultiVariateNCC.h"
 #include "Potential-SRS-SAD-SACentered.h"
+#include "Potential-SRS-SAD-PAX_SXSAT.h"
+#include "SRSPotential.h"
 
 using namespace std;
 using namespace itk;
@@ -23,13 +25,14 @@ int main(int argc, char ** argv)
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D+1> BaseLabelType;
-	//typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+//	typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
 	typedef SparseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
 	//	typedef  NCCSRSUnaryPotential< LabelMapperType, ImageType > UnaryPotentialType;
 	//typedef  MultiVariateNCCSRSUnaryPotential< LabelMapperType, ImageType > UnaryPotentialType;
 	//	typedef typename  NCCRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
-	//	typedef typename  SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
-	typedef  SegmentationRegistrationUnaryPotentialPosteriorSA< LabelMapperType, ImageType > UnaryPotentialType;
+	typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType> UnaryPotentialType;
+//	typedef  SegmentationRegistrationUnaryPotentialPosteriorSA< LabelMapperType, ImageType > UnaryPotentialType;
+//	typedef  SegmentationRegistrationUnaryPotentialPosteriorPAXSASXT< LabelMapperType, ImageType > UnaryPotentialType;
 	typedef HierarchicalSRSImageToImageFilter<ImageType,LabelMapperType,UnaryPotentialType > FilterType;
 	//create filter
 	FilterType filter(config);
@@ -39,4 +42,5 @@ int main(int argc, char ** argv)
 	clock_t end = clock();
 	float t = (float) ((double)(end - start) / CLOCKS_PER_SEC);
 	std::cout<<"Finished computation after "<<t<<" seconds"<<std::endl;
+	return 1;
 }

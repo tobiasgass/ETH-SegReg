@@ -160,7 +160,7 @@ public:
 		if (LabelMapperType::nSegmentations){
 			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
 			//this weight should rather depend on the interpolated regions
-//			segmentationSmootheness*=m_segmentationWeight;
+			//			segmentationSmootheness*=m_segmentationWeight;
 		}
 
 		double registrationSmootheness=0;
@@ -178,7 +178,7 @@ public:
 			int delta;
 			LabelType displacement1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());//+oldl1;
 			LabelType displacement2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());//+oldl2;
-#if 0
+#if 1
 			displacement1+=oldl1;
 			displacement2+=oldl2;
 #endif
@@ -214,7 +214,7 @@ public:
 				std::cout<<"DeltaInit1: "<<fixedIndex1<<" ->"<<oldl1<<"+"<<displacement1<<" ,"<<fixedIndex2<<" ->"<<oldl2<<"+"<<displacement2<<" :"<<registrationSmootheness<<std::endl;
 			}
 			if (constrainsViolated){
-//								return 	constrainedViolatedPenalty;
+//				registrationSmootheness=m_registrationWeight*constrainedViolatedPenalty;
 			}
 		}
 		//the edgeweight includes the segmentationweight!
@@ -228,10 +228,10 @@ public:
 	double getWeight(IndexType gridIndex1, IndexType gridIndex2){
 
 		double edgeWeight=fabs(m_backProjFixedImage->GetPixel(gridIndex1)-m_backProjFixedImage->GetPixel(gridIndex2));
-//		double edgeWeight=fabs(m_fixedImage->GetPixel(gridToImageIndex(gridIndex1))-m_fixedImage->GetPixel(gridToImageIndex(gridIndex2)));
-//		std::cout<<edgeWeight;
-		edgeWeight=exp(-edgeWeight/(3200));
-//		std::cout<<" "<<edgeWeight<<std::endl;
+		//		double edgeWeight=fabs(m_fixedImage->GetPixel(gridToImageIndex(gridIndex1))-m_fixedImage->GetPixel(gridToImageIndex(gridIndex2)));
+		//		std::cout<<edgeWeight;
+		edgeWeight=exp(-edgeWeight/(1200));
+		//		std::cout<<" "<<edgeWeight<<std::endl;
 		edgeWeight*=m_segmentationWeight;
 		return edgeWeight;
 	}
@@ -427,6 +427,7 @@ public:
 		return fullLabelImage;
 
 #else
+#if 0
 		typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
 		typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
 		typedef typename itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
@@ -452,6 +453,15 @@ public:
 			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
 		}
 		return fullLabelImage;
+#else
+		LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());
+		lIt.GoToBegin();
+		for (;!lIt.IsAtEnd();++lIt){
+			LabelType l=lIt.Get();
+			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
+		}
+		return labelImg;
+#endif
 #endif
 	}
 

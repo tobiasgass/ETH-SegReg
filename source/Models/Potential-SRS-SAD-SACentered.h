@@ -101,6 +101,8 @@ public:
 	void setRadius(SpacingType rad){
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			m_radius[d]=rad[d];
+			if (m_radius[d]<1)
+				m_radius[d]=1;
 		}
 
 	}
@@ -308,7 +310,7 @@ public:
 		double movingIntensity=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
 		double log_p_XA_T;
 
-//		log_p_XA_T=fabs(imageIntensity-movingIntensity)/65536;
+		//		log_p_XA_T=fabs(imageIntensity-movingIntensity)/65536;
 
 
 
