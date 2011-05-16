@@ -93,7 +93,7 @@ public:
 			m_nVertices=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
 		}
 		if (m_dim==3){
-			std::cout<<" "<<m_gridSize[0];
+			std::cout<<" "<<m_gridSize[2];
 			m_nVertices+=(m_gridSize[2]-1)*m_gridSize[1]*m_gridSize[0];
 		}
 		if (verbose) std::cout<<" "<<m_nNodes<<" "<<m_nVertices<<" "<<LabelMapperType::nLabels<<std::endl;
@@ -214,7 +214,7 @@ public:
 				std::cout<<"DeltaInit1: "<<fixedIndex1<<" ->"<<oldl1<<"+"<<displacement1<<" ,"<<fixedIndex2<<" ->"<<oldl2<<"+"<<displacement2<<" :"<<registrationSmootheness<<std::endl;
 			}
 			if (constrainsViolated){
-//				registrationSmootheness=m_registrationWeight*constrainedViolatedPenalty;
+				//				registrationSmootheness=m_registrationWeight*constrainedViolatedPenalty;
 			}
 		}
 		//the edgeweight includes the segmentationweight!
@@ -226,7 +226,6 @@ public:
 		return getWeight(getGridPositionAtIndex(gridIndex1),getGridPositionAtIndex(gridIndex2));
 	}
 	double getWeight(IndexType gridIndex1, IndexType gridIndex2){
-
 		double edgeWeight=fabs(m_backProjFixedImage->GetPixel(gridIndex1)-m_backProjFixedImage->GetPixel(gridIndex2));
 		//		double edgeWeight=fabs(m_fixedImage->GetPixel(gridToImageIndex(gridIndex1))-m_fixedImage->GetPixel(gridToImageIndex(gridIndex2)));
 		//		std::cout<<edgeWeight;
@@ -427,7 +426,7 @@ public:
 		return fullLabelImage;
 
 #else
-#if 0
+#if 1
 		typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
 		typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
 		typedef typename itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
@@ -466,6 +465,18 @@ public:
 	}
 
 	void calculateBackProjections(){
+		bool zero=false;
+		for (int d=0;d<ImageType::ImageDimension;++d){
+			if (this->m_unaryFunction->getRadius()[d]==0){
+				zero=true;
+				break;
+			}
+		}
+		if (zero){
+			m_backProjFixedImage=m_fixedGradientImage;
+			m_backProjLabelImage=m_fullLabelImage;
+			return;
+		}
 		m_backProjFixedImage=ImageType::New();
 		typename ImageType::RegionType imRegion;
 		imRegion.SetSize(m_gridSize);
@@ -480,7 +491,7 @@ public:
 		m_backProjLabelImage->Allocate();
 		bool inBounds;
 		typename itk::ConstNeighborhoodIterator<LabelImageType> nIt(this->m_unaryFunction->getRadius(),this->m_fullLabelImage, this->m_fullLabelImage->GetLargestPossibleRegion());
-		typename itk::ConstNeighborhoodIterator<ImageType> fixedIt(this->m_unaryFunction->getRadius(),this->m_fixedImage, this->m_fixedImage->GetLargestPossibleRegion());
+		typename itk::ConstNeighborhoodIterator<ImageType> fixedIt(this->m_unaryFunction->getRadius(),this->m_fixedGradientImage, this->m_fixedImage->GetLargestPossibleRegion());
 
 		for (int i=0;i<m_nNodes;++i){
 

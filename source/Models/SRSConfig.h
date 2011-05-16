@@ -49,6 +49,8 @@ public:
 		startTiling=2;
 		iterationsPerLevel=4;
 		train=false;
+		segmentationProbsFilename='segmentation.bin';
+		pairWiseProbsFilename='pairwise.bin';
 	}
 	void parseParams(int argc, char** argv){
 		as= new argstream(argc, argv);

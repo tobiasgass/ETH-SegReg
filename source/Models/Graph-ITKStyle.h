@@ -55,8 +55,8 @@ public:
 		setSpacing(divisor);
 		for (int d=0;d<(int)this->m_dim;++d){
 			if (this->verbose) std::cout<<"total size divided by spacing :"<<1.0*this->m_totalSize[d]/this->m_spacing[d]<<std::endl;
-			this->m_origin[d]=(this->m_spacing[d]/2);
-			this->m_gridSize[d]=this->m_totalSize[d]/this->m_spacing[d];
+			this->m_origin[d]=(this->m_spacing[d]/2-0.5);
+			this->m_gridSize[d]=1.0*this->m_totalSize[d]/((int)this->m_spacing[d]);
 			this->m_nNodes*=this->m_gridSize[d];
 			if (d>0){
 				this->m_imageLevelDivisors[d]=this->m_imageLevelDivisors[d-1]*this->m_gridSize[d-1];
@@ -91,6 +91,7 @@ public:
 			int div=this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			div=div>0?div:1;
 			spacing[d]=(1.0*this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/div);
+			std::cout<<spacing[d]<<" "<<div<<" "<<this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]<<" "<<minSpacing<<std::endl;
 		}
 		this->m_spacing=spacing;
 	}

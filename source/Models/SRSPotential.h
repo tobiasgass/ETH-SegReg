@@ -98,9 +98,9 @@ public:
 	}
 	void setRadius(SpacingType rad){
 		for (int d=0;d<ImageType::ImageDimension;++d){
-			m_radius[d]=rad[d];
-			if (m_radius[d]<1)
-				m_radius[d]=1;
+			m_radius[d]=rad[d]-1;
+			if (m_radius[d]<0)
+				m_radius[d]=0;
 		}
 
 	}
@@ -211,15 +211,29 @@ public:
 
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 
+		bool zero=false;
+		for (int d=0;d<ImageType::ImageDimension;++d){
+			if (m_radius[d]<0.1){
+				zero=true;
+				break;
+			}
+		}
+		if (zero){
+			return getLocalPotential(fixedIndex,label);
+		}
 
 		typename itk::ConstNeighborhoodIterator<ImageType> nIt(m_radius,this->m_fixedImage, this->m_fixedImage->GetLargestPossibleRegion());
 		nIt.SetLocation(fixedIndex);
 		double res=0.0;
 		double count=0;
-		double intensSum=0.0;
-		double segSum=0.0;
-		double segCount=0;
+
 		int totalCount=0;
+		double tmpPost=m_posteriorWeight;
+		double tmpSeg=m_segmentationWeight;
+		double tmpInt=m_intensWeight;
+		int segCount=0.0;
+		double keep=1;
+//		m_intensWeight*=pow(keep,ImageType::ImageDimension);
 		for (unsigned int i=0;i<nIt.Size();++i){
 			bool inBounds;
 			nIt.GetPixel(i,inBounds);
@@ -227,30 +241,50 @@ public:
 				IndexType neighborIndex=nIt.GetIndex(i);
 				//this should be weighted somehow
 				double weight=1.0;
+				double maxD=0.0;
+				double dist=0.0;
 				for (int d=0;d<ImageType::ImageDimension;++d){
-					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
-					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
+					double tmp=1.0*fabs(neighborIndex[d]-fixedIndex[d]);
+					dist+=tmp*tmp;
+					maxD+=m_radius[d]*m_radius[d];
+////					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
+//					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
 
 				}
+				double eucWeight=1-(dist/maxD);
+				if (eucWeight<1-keep){
+					m_posteriorWeight=0.0;
+					m_segmentationWeight=0.0;
+				}
+				else{
+					m_posteriorWeight=tmpPost;
+					m_segmentationWeight=tmpSeg;
+					segCount++;
+				}
+
+				//				eucWeight=weight;
 				//								weight=1.0;
-//								std::cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<std::endl;
-				res+=weight*getLocalPotential(neighborIndex,label, weight,intensSum,segSum,segCount);
-				count+=weight;
+				//								std::cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<" "<<eucWeight<<std::endl;
+				res+=eucWeight*getLocalPotential(neighborIndex,label);
+				count+=eucWeight;//*(m_segmentationWeight+m_intensWeight+m_posteriorWeight);
 				totalCount++;
 			}
 		}
-
+//		std::cout<<1.0*segCount/totalCount<<std::endl;
+		m_posteriorWeight=tmpPost;
+		m_segmentationWeight=tmpSeg;
+		m_intensWeight=tmpInt;
 		if (count>0){
-//			std::cout<<segCount<<" "<<count<<" "<<1-2*fabs(0.5-segCount/count)<<" "<<segSum*2*fabs(0.5-segCount/count)<<std::endl;
-			double segWeight=1-2*fabs(0.5-segCount/count);
-//			std::cout<<res<<" "<<intensSum+segSum<<std::endl;
-//			return 1.0/count*(intensSum+segSum/m_radius[0]);
-//			return 1.0/count*((1-segWeight)*intensSum+segWeight*segSum);
+			//			std::cout<<segCount<<" "<<count<<" "<<1-2*fabs(0.5-segCount/count)<<" "<<segSum*2*fabs(0.5-segCount/count)<<std::endl;
+			//			double segWeight=1-2*fabs(0.5-segCount/count);
+			//			std::cout<<res<<" "<<intensSum+segSum<<std::endl;
+			//			return 1.0/count*(intensSum+segSum/m_radius[0]);
+			//			return 1.0/count*((1-segWeight)*intensSum+segWeight*segSum);
 			return res/count;
 		}
 		else return 999999;
 	}
-	virtual double getLocalPotential(IndexType fixedIndex, LabelType label, double weight, double &intensSum, double &segSum, double &segCount){
+	virtual double getLocalPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
 		//get index in moving image/segmentation
 		ContinuousIndexType idx2=getMovingIndex(fixedIndex);
@@ -293,7 +327,7 @@ public:
 		//			segmentationLabel=LabelMapperType::getSegmentation(this->m_baseLabelMap->GetPixel(fixedIndex));
 		//		}
 		int deformedSegmentation=m_segmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0;
-//		segmentationLabel=deformedSegmentation;
+		//		segmentationLabel=deformedSegmentation;
 		//		std::cout<<bla<<std::endl;
 		//registration based on similarity of label and labelprobability
 		//segProbs holds the probability that the fixedPixel is tissue
@@ -304,7 +338,7 @@ public:
 
 		//-log( p(X,A|T))
 		log_p_XA_T=m_intensWeight*(log_p_XA_T>10000000?10000:log_p_XA_T);
-		intensSum+=weight*log_p_XA_T;
+		//		intensSum+=weightlog_p_XA_T;
 		//-log( p(S_a|T,S_x) )
 		double log_p_SA_TSX =m_segmentationWeight* (segmentationLabel!=deformedSegmentation);
 		result+=log_p_XA_T+log_p_SA_TSX;
@@ -317,8 +351,8 @@ public:
 			double segmentationPosterior=m_posteriorWeight*-log(segmentationProb+0.0000001);
 
 			result+=segmentationPosterior;
-			segSum+=weight*(segmentationPosterior+log_p_SA_TSX);
-			segCount+=weight*deformedSegmentation;
+			//			segSum+=weight*(segmentationPosterior+log_p_SA_TSX);
+			//			segCount+=weight*deformedSegmentation;
 		}
 		//result+=log_p_SA_A;
 		//		result+=-log(m_segmentationProbs(m_labelConverter->getIntegerImageIndex(fixedIndex),segmentationLabel));//m_segmenter.posterior(imageIntensity,segmentationLabel));
