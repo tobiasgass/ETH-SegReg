@@ -86,8 +86,8 @@ public:
 		typedef typename  ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
 		typedef typename  UnaryPotentialType::Pointer UnaryPotentialPointerType;
 		typedef typename  UnaryPotentialType::RadiusType RadiusType;
-//		typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
-		typedef  GraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+		typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+//		typedef  GraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
 		ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
 		deformedImage=ImageUtils<ImageType>::createEmpty(targetImage);
 		deformedSegmentationImage=ImageUtils<ImageType>::createEmpty(targetImage);
@@ -182,12 +182,12 @@ public:
 			//			unaryPot->SetWeights(m_config.simWeight,m_config.rfWeight/(m_config.nLevels-l),m_config.segWeight/(m_config.nLevels-l));
 
 			graph.setGradientImage(fixedSegmentationImage);
-			unaryPot->setRadius(graph.getSpacing());
+			unaryPot->setRadius(graph.getSpacing()*1);
 			std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
 			std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			for (int i=0;i<graph.nNodes();++i){
-				//			std::cout<<i<<" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.gridToImageIndex(graph.getGridPositionAtIndex(i))<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
+//							std::cout<<i<<" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.gridToImageIndex(graph.getGridPositionAtIndex(i))<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
 			}
 			for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
 				std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";//std::endl<<std::endl;
@@ -227,7 +227,7 @@ public:
 				checkerGraph.setLabelImage(previousFullDeformation);
 				//			graph.checkConstraints(deformation,gridCosts.str().c_str());
 				//			checkerGraph.checkConstraints(fullDeformation,imageCosts.str());
-#if 0
+#if 1
 				typedef   itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
 				typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
 				composer->SetInput(1,fullDeformation);
