@@ -155,7 +155,7 @@ public:
 			//at 4th level, we switch to full image grid but allow no displacements
 			if (l==m_config.nLevels-1 &&m_config.nSegmentations>1){
 				//			LabelMapperType * labelmapper2=new LabelMapperType(nSegmentations,maxDisplacement>0?1:0);
-				labelmapper->setDisplacementSamples(2);//=new LabelMapperType(m_config.nSegmentations,0);
+				labelmapper->setDisplacementSamples(1);//=new LabelMapperType(m_config.nSegmentations,0);
 				level=99999999999;
 				labelScalingFactor=1;
 				m_config.iterationsPerLevel=3;
