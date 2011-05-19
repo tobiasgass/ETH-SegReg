@@ -266,7 +266,11 @@ public:
 				//								weight=1.0;
 				//								std::cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<" "<<eucWeight<<std::endl;
 				res+=eucWeight*getLocalPotential(neighborIndex,label);
-				count+=eucWeight;//*(m_segmentationWeight+m_intensWeight+m_posteriorWeight);
+				if (keep<1){
+					count+=eucWeight*(m_segmentationWeight+m_intensWeight+m_posteriorWeight);
+				}else{
+					count+=eucWeight;
+				}
 				totalCount++;
 			}
 		}
@@ -345,6 +349,8 @@ public:
 		if (m_posteriorWeight>0){
 			double log_p_SX_XASAT = 0;//m_posteriorWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 			double segmentationProb=1;
+//			segmentationProb=m_segmentationPosteriorProbs[segmentationLabel+2*segmentationLabel+int(imageIntensity/255)*2*2+int(imageIntensity/255)*2*2*255];
+//			segmentationProb=m_segmentationPosteriorProbs[segmentationLabel+2*segmentationLabel+int(movingIntensity/255)*2*2+int(movingIntensity/255)*2*2*255];
 			segmentationProb=m_segmentationPosteriorProbs[segmentationLabel+2*deformedSegmentation+int(imageIntensity/255)*2*2+int(movingIntensity/255)*2*2*255];
 			//			segmentationProb=m_segmentationPosteriorProbs[deformedSegmentation+2*segmentationLabel+int(movingIntensity/255)*2*2+int(imageIntensity/255)*2*2*255];
 

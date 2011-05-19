@@ -107,9 +107,9 @@ public:
 	virtual void optimize(){
 		MRFEnergy<TRWType>::Options options;
 		TRWType::REAL energy, lowerBound;
-		options.m_iterMax = 10; // maximum number of iterations
-		options.m_printMinIter=11;
-		options.m_printIter=11;
+		options.m_iterMax = 20; // maximum number of iterations
+		options.m_printMinIter=1100;
+		options.m_printIter=1100;
 		clock_t start = clock();
 		optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();

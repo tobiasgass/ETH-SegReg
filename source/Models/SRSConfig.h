@@ -10,6 +10,8 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <vector>
+#include <iterator>
 #include "argstream.h"
 class SRSConfig{
 public:
@@ -98,8 +100,8 @@ public:
 			streamm<<" ";
 			is >>buff;
 			streamm<<buff;
-//			std::cout<<streamm.str()<<std::endl;
-//			std::cout<<buff<<std::endl;
+			//			std::cout<<streamm.str()<<std::endl;
+			//			std::cout<<buff<<std::endl;
 
 		}
 		as= new argstream(streamm.str().c_str());
@@ -138,7 +140,15 @@ public:
 		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename", false);
 		(*as) >> parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);
 		(*as) >> option ("train", train,"train classifier (and save), if not set data will be read from the given files");
-
+		std::vector<int> tmp_levels(6,-1);
+		(*as) >> parameter ("l0", tmp_levels[0],"divisor for level 0", false);
+		(*as) >> parameter ("l1", tmp_levels[1],"divisor for level 1", false);
+		(*as) >> parameter ("l2", tmp_levels[2],"divisor for level 2", false);
+		(*as) >> parameter ("l3", tmp_levels[3],"divisor for level 3", false);
+		(*as) >> parameter ("l4", tmp_levels[4],"divisor for level 4", false);
+		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
+		std::list<int> bla;
+//		(*as) >> values<int> (back_inserter(bla),"descr",nLevels);
 		(*as) >> help();
 		as->defaultErrorHandling();
 		nSegmentations=2;
@@ -148,10 +158,20 @@ public:
 		if (displacementSampling==-1) displacementSampling=maxDisplacement;
 		verbose=false;
 		levels=new int[nLevels+1];
-		levels[0]=startTiling;
-		for (int i=1;i<nLevels+1;++i){
-			levels[i]=levels[i-1]*2-1;
+		if (tmp_levels[0]==-1){
+			levels[0]=startTiling;
+		}else{
+			levels[0]=tmp_levels[0];
 		}
+		for (int i=1;i<nLevels+1;++i){
+			if (tmp_levels[i]==-1){
+				levels[i]=levels[i-1]*2-1;
+			}else{
+				levels[i]=tmp_levels[i];
+			}
+
+		}
+
 	}
 };
 #endif /* CONFIG_H_ */

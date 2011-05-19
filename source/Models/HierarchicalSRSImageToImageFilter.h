@@ -87,7 +87,7 @@ public:
 		typedef typename  UnaryPotentialType::Pointer UnaryPotentialPointerType;
 		typedef typename  UnaryPotentialType::RadiusType RadiusType;
 		typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
-//		typedef  GraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+		//		typedef  GraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
 		ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
 		deformedImage=ImageUtils<ImageType>::createEmpty(targetImage);
 		deformedSegmentationImage=ImageUtils<ImageType>::createEmpty(targetImage);
@@ -155,39 +155,43 @@ public:
 			//at 4th level, we switch to full image grid but allow no displacements
 			if (l==m_config.nLevels-1 &&m_config.nSegmentations>1){
 				//			LabelMapperType * labelmapper2=new LabelMapperType(nSegmentations,maxDisplacement>0?1:0);
-				labelmapper->setDisplacementSamples(0);//=new LabelMapperType(m_config.nSegmentations,0);
+				labelmapper->setDisplacementSamples(2);//=new LabelMapperType(m_config.nSegmentations,0);
 				level=99999999999;
-				labelScalingFactor=0.5;
-				m_config.iterationsPerLevel=1;
+				labelScalingFactor=1;
+				m_config.iterationsPerLevel=3;
 				std::cout<<"Segmentation only! "<<LabelMapperType::nLabels<<" labels."<<std::endl;
 			}
+
+
+
+			//			unaryPot->SetWeights(m_config.simWeight,m_config.rfWeight/(m_config.nLevels-l),m_config.segWeight/(m_config.nLevels-l));
 
 			GraphModelType graph(targetImage,unaryPot,level,labelScalingFactor,m_config.pairwiseSegmentationWeight, m_config.pairwiseRegistrationWeight );
 			double segmentationFactor=1.0;
 			double totalArea=1.0,patchArea=1.0;
+
 			for (int d=0;d<D;++d){
 				totalArea*=targetImage->GetLargestPossibleRegion().GetSize()[d];
 				patchArea*=graph.getGridSize()[d];
 			}
-			segmentationFactor=sqrt(patchArea/totalArea);
+			segmentationFactor=exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
 
 			if (segmentationFactor<minFactor){
 				minFactor=segmentationFactor;
 			}
 			//			segmentationFactor=(segmentationFactor-minFactor)/(1-minFactor)*(1-0.5)+0.5;
-			std::cout<<segmentationFactor<<std::endl;
+			std::cout<<level<<" "<<segmentationFactor<<std::endl;
 			unaryPot->SetWeights(m_config.simWeight,m_config.rfWeight,m_config.segWeight*segmentationFactor);
-
-
-			//			unaryPot->SetWeights(m_config.simWeight,m_config.rfWeight/(m_config.nLevels-l),m_config.segWeight/(m_config.nLevels-l));
-
+			//			unaryPot->SetWeights(m_config.simWeight,m_config.rfWeight,m_config.segWeight);
+			//			graph.setRegistrationWeight(segmentationFactor*m_config.pairwiseRegistrationWeight );
+//			graph.setSegmentationWeight(segmentationFactor*m_config.pairwiseRegistrationWeight );
 			graph.setGradientImage(fixedSegmentationImage);
 			unaryPot->setRadius(graph.getSpacing()*1);
 			std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
 			std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			for (int i=0;i<graph.nNodes();++i){
-//							std::cout<<i<<" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.gridToImageIndex(graph.getGridPositionAtIndex(i))<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
+				//							std::cout<<i<<" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.gridToImageIndex(graph.getGridPositionAtIndex(i))<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
 			}
 			for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
 				std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";//std::endl<<std::endl;
@@ -201,7 +205,7 @@ public:
 				LabelImagePointerType deformation;
 				if (m_config.iterationsPerLevel>1){
 					typedef   TRWS_MRFSolver<GraphModelType> MRFSolverType;
-					//			typedef typename  NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+					//					typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 					MRFSolverType mrfSolver(&graph,1,1, false);
 					mrfSolver.optimize();
 					deformation=mrfSolver.getLabelImage();
@@ -221,12 +225,14 @@ public:
 				fullDeformation=graph.getFullLabelImage(deformation);
 				//apply deformation to moving image
 				IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
-				ostringstream gridCosts,imageCosts;
+				ostringstream gridCosts,imageCosts,backProj;
 				gridCosts<<"costsGrid-l"<<l<<"-i"<<i<<".png";
 				imageCosts<<"costsImage-l"<<l<<"-i"<<i<<".png";
+				backProj<<"backProjImg-l"<<l<<"-i"<<i<<".png";
+				graph.saveBackProj(backProj.str());
 				checkerGraph.setLabelImage(previousFullDeformation);
-				//			graph.checkConstraints(deformation,gridCosts.str().c_str());
-				//			checkerGraph.checkConstraints(fullDeformation,imageCosts.str());
+				//							graph.checkConstraints(deformation,gridCosts.str().c_str());
+				//							checkerGraph.checkConstraints(fullDeformation,imageCosts.str());
 #if 1
 				typedef   itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
 				typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
@@ -248,23 +254,23 @@ public:
 					typename ImageInterpolatorType::ContinuousIndexType idx=labelIt.GetIndex();
 					typename LabelImageType::SizeType size=composedDeformation->GetLargestPossibleRegion().GetSize();
 					idx+=LabelMapperType::getDisplacement(label);
-//					for (int d=0;d<D;++d){
-//						if (idx[d]>=size[d]){
-//							label[d]-=idx[d]-size[d];
-//						}
-//						if (idx[d]<0){
-//							label[d]+=idx[d];
-//						}
-//					}
-//					if (i>0)std::cout<<labelIt.Get()<<" "<<label2It.Get()+label3It.Get()<<" "<<label2It.Get()<<" "<<label3It.Get()<<std::endl;
+					//					for (int d=0;d<D;++d){
+					//						if (idx[d]>=size[d]){
+					//							label[d]-=idx[d]-size[d];
+					//						}
+					//						if (idx[d]<0){
+					//							label[d]+=idx[d];
+					//						}
+					//					}
+					//					if (i>0)std::cout<<labelIt.Get()<<" "<<label2It.Get()+label3It.Get()<<" "<<label2It.Get()<<" "<<label3It.Get()<<std::endl;
 					labelIt.Set(label);
 				}
 #endif
 				for (int ng=0;ng<graph.nNodes();++ng){
 					IndexType gridIndex=graph.getGridPositionAtIndex(ng);
 					IndexType imgIndex=graph.gridToImageIndex(gridIndex);
-//					std::cout<<gridIndex<<" "<<imgIndex<<std::endl;
-//					std::cout<<deformation->GetPixel(gridIndex)<<" "<<fullDeformation->GetPixel(imgIndex)<<" "<<previousFullDeformation->GetPixel(imgIndex)<<" "<<composedDeformation->GetPixel(imgIndex)<<std::endl;
+					//					std::cout<<gridIndex<<" "<<imgIndex<<std::endl;
+					//					std::cout<<deformation->GetPixel(gridIndex)<<" "<<fullDeformation->GetPixel(imgIndex)<<" "<<previousFullDeformation->GetPixel(imgIndex)<<" "<<composedDeformation->GetPixel(imgIndex)<<std::endl;
 				}
 				for (fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt){
 					IndexType index=fixedIt.GetIndex();

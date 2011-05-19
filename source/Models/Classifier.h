@@ -532,8 +532,8 @@ public:
 	};
 
 	void setData(ImagePointerType intensities, ImagePointerType labels){
-		int maxTrain=1000000;
-		m_radius=2;
+		int maxTrain=2000000;
+		m_radius=3;
 		//maximal size
 		long int nData=1;
 		for (int d=0;d<ImageType::ImageDimension;++d)
