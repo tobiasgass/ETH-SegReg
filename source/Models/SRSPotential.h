@@ -67,6 +67,8 @@ protected:
 	RadiusType m_radius;
 	int nIntensities;
 public:
+	ImagePointerType m_groundTruthImage;
+public:
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
 	/** Standard part of every itk Object. */
@@ -219,7 +221,8 @@ public:
 			}
 		}
 		if (zero){
-			return getLocalPotential(fixedIndex,label);
+			double t1,t2;
+			return getLocalPotential(fixedIndex,label,t1,t2);
 		}
 
 		typename itk::ConstNeighborhoodIterator<ImageType> nIt(m_radius,this->m_fixedImage, this->m_fixedImage->GetLargestPossibleRegion());
@@ -231,12 +234,15 @@ public:
 		double tmpPost=m_posteriorWeight;
 		double tmpSeg=m_segmentationWeight;
 		double tmpInt=m_intensWeight;
-		int segCount=0.0;
+		double segCount=0.0;
 		double keep=1;
-//		m_intensWeight*=pow(keep,ImageType::ImageDimension);
+		double segWeightSum=0.0;
+		double segmentationCosts=0,registrationCosts=0;
+		//		m_intensWeight*=pow(keep,ImageType::ImageDimension);
+		int centralIntens=nIt.GetCenterPixel();
 		for (unsigned int i=0;i<nIt.Size();++i){
 			bool inBounds;
-			nIt.GetPixel(i,inBounds);
+			int neighborIntensity=nIt.GetPixel(i,inBounds);
 			if (inBounds){
 				IndexType neighborIndex=nIt.GetIndex(i);
 				//this should be weighted somehow
@@ -247,34 +253,30 @@ public:
 					double tmp=1.0*fabs(neighborIndex[d]-fixedIndex[d]);
 					dist+=tmp*tmp;
 					maxD+=m_radius[d]*m_radius[d];
-////					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
-//					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
+					////					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
+					//					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
 
 				}
 				double eucWeight=1-(dist/maxD);
-				if (eucWeight<1-keep){
-					m_posteriorWeight=0.0;
-					m_segmentationWeight=0.0;
+				if (eucWeight>1-keep || i==nIt.Size()/2){
+					double intensitySimilarity=exp(-fabs(centralIntens-neighborIntensity)/1200);
+					m_posteriorWeight=tmpPost*intensitySimilarity;
+					m_segmentationWeight=tmpSeg*intensitySimilarity;
+					segCount+=eucWeight;
 				}
-				else{
-					m_posteriorWeight=tmpPost;
-					m_segmentationWeight=tmpSeg;
-					segCount++;
+				else{m_posteriorWeight=0.0;
+				m_segmentationWeight=0.0;
 				}
 
 				//				eucWeight=weight;
 				//								weight=1.0;
 				//								std::cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<" "<<eucWeight<<std::endl;
-				res+=eucWeight*getLocalPotential(neighborIndex,label);
-				if (keep<1){
-					count+=eucWeight*(m_segmentationWeight+m_intensWeight+m_posteriorWeight);
-				}else{
-					count+=eucWeight;
-				}
+				res+=eucWeight*getLocalPotential(neighborIndex,label,segmentationCosts, registrationCosts);
+				count+=eucWeight;
 				totalCount++;
 			}
 		}
-//		std::cout<<1.0*segCount/totalCount<<std::endl;
+		//		std::cout<<1.0*segCount/totalCount<<std::endl;
 		m_posteriorWeight=tmpPost;
 		m_segmentationWeight=tmpSeg;
 		m_intensWeight=tmpInt;
@@ -284,11 +286,12 @@ public:
 			//			std::cout<<res<<" "<<intensSum+segSum<<std::endl;
 			//			return 1.0/count*(intensSum+segSum/m_radius[0]);
 			//			return 1.0/count*((1-segWeight)*intensSum+segWeight*segSum);
+			return registrationCosts/count+segmentationCosts/segCount;
 			return res/count;
 		}
 		else return 999999;
 	}
-	virtual double getLocalPotential(IndexType fixedIndex, LabelType label){
+	virtual double getLocalPotential(IndexType fixedIndex, LabelType label, double &segCosts, double & regCosts ){
 		double result=0;
 		//get index in moving image/segmentation
 		ContinuousIndexType idx2=getMovingIndex(fixedIndex);
@@ -346,17 +349,24 @@ public:
 		//-log( p(S_a|T,S_x) )
 		double log_p_SA_TSX =m_segmentationWeight* (segmentationLabel!=deformedSegmentation);
 		result+=log_p_XA_T+log_p_SA_TSX;
+		regCosts+=log_p_XA_T;
+		segCosts+=log_p_SA_TSX;
 		if (m_posteriorWeight>0){
 			double log_p_SX_XASAT = 0;//m_posteriorWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 			double segmentationProb=1;
-//			segmentationProb=m_segmentationPosteriorProbs[segmentationLabel+2*segmentationLabel+int(imageIntensity/255)*2*2+int(imageIntensity/255)*2*2*255];
-//			segmentationProb=m_segmentationPosteriorProbs[segmentationLabel+2*segmentationLabel+int(movingIntensity/255)*2*2+int(movingIntensity/255)*2*2*255];
+#if 1
+			//			segmentationProb=m_segmentationPosteriorProbs[segmentationLabel+2*segmentationLabel+int(imageIntensity/255)*2*2+int(imageIntensity/255)*2*2*255];
+			//			segmentationProb=m_segmentationPosteriorProbs[segmentationLabel+2*segmentationLabel+int(movingIntensity/255)*2*2+int(movingIntensity/255)*2*2*255];
 			segmentationProb=m_segmentationPosteriorProbs[segmentationLabel+2*deformedSegmentation+int(imageIntensity/255)*2*2+int(movingIntensity/255)*2*2*255];
 			//			segmentationProb=m_segmentationPosteriorProbs[deformedSegmentation+2*segmentationLabel+int(movingIntensity/255)*2*2+int(imageIntensity/255)*2*2*255];
-
-			double segmentationPosterior=m_posteriorWeight*-log(segmentationProb+0.0000001);
+			//			double segmentationPosterior=m_posteriorWeight*-log(segmentationProb+0.0000001);
+			double segmentationPosterior=m_posteriorWeight*(1-segmentationProb);
+#else
+			double segmentationPosterior=m_posteriorWeight*(segmentationLabel!=(m_groundTruthImage->GetPixel(fixedIndex)>0));
+#endif
 
 			result+=segmentationPosterior;
+			segCosts+=segmentationPosterior;
 			//			segSum+=weight*(segmentationPosterior+log_p_SA_TSX);
 			//			segCount+=weight*deformedSegmentation;
 		}

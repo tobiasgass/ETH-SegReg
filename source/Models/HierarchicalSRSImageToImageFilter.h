@@ -130,6 +130,7 @@ public:
 		}else{
 			unaryPot->loadPairwiseProbs(m_config.pairWiseProbsFilename);
 		}
+		unaryPot->m_groundTruthImage=fixedSegmentationImage;
 		unaryPot->trainPairwiseLikelihood("dummy.bin");
 		//	if (classified)
 		//		ImageUtils<ImageType>::writeImage("classified.nii",classified);
@@ -159,14 +160,14 @@ public:
 				level=99999999999;
 				labelScalingFactor=1;
 				m_config.iterationsPerLevel=3;
-				std::cout<<"Segmentation only! "<<LabelMapperType::nLabels<<" labels."<<std::endl;
+//				std::cout<<"Segmentation only! "<<LabelMapperType::nLabels<<" labels."<<std::endl;
 			}
 
 
 
 			//			unaryPot->SetWeights(m_config.simWeight,m_config.rfWeight/(m_config.nLevels-l),m_config.segWeight/(m_config.nLevels-l));
 
-			GraphModelType graph(targetImage,unaryPot,level,labelScalingFactor,m_config.pairwiseSegmentationWeight, m_config.pairwiseRegistrationWeight );
+			GraphModelType graph(targetImage,unaryPot,level,labelScalingFactor,m_config.pairwiseSegmentationWeight, level*m_config.pairwiseRegistrationWeight );
 			double segmentationFactor=1.0;
 			double totalArea=1.0,patchArea=1.0;
 
@@ -174,7 +175,7 @@ public:
 				totalArea*=targetImage->GetLargestPossibleRegion().GetSize()[d];
 				patchArea*=graph.getGridSize()[d];
 			}
-			segmentationFactor=exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
+			segmentationFactor=1;//exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
 
 			if (segmentationFactor<minFactor){
 				minFactor=segmentationFactor;
@@ -229,7 +230,7 @@ public:
 				gridCosts<<"costsGrid-l"<<l<<"-i"<<i<<".png";
 				imageCosts<<"costsImage-l"<<l<<"-i"<<i<<".png";
 				backProj<<"backProjImg-l"<<l<<"-i"<<i<<".png";
-				graph.saveBackProj(backProj.str());
+//				graph.saveBackProj(backProj.str());
 				checkerGraph.setLabelImage(previousFullDeformation);
 				//							graph.checkConstraints(deformation,gridCosts.str().c_str());
 				//							checkerGraph.checkConstraints(fullDeformation,imageCosts.str());
@@ -290,7 +291,7 @@ public:
 				}
 				previousFullDeformation=composedDeformation;
 				labelScalingFactor*=0.8;
-#if 1
+#if 0
 				ostringstream deformedFilename;
 				deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".png";
 				ostringstream deformedSegmentationFilename;
