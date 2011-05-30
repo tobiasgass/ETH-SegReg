@@ -6,5 +6,5 @@ ADD_LIBRARY(Utils
   argstream.h
   itkDisplacementFieldCompositionFilter.h
 )
-TARGET_LINK_LIBRARIES(Utils ITKCommon ITKIO ITKReview)
+TARGET_LINK_LIBRARIES(Utils ITKCommon ITKIO )
 

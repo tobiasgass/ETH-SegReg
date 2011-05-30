@@ -55,6 +55,7 @@ public:
 			region.SetSize(size);//m_GraphModel->getSpacing());
 			labelImage->SetRegions(region);
 			typename LabelImageType::SpacingType spacing=(m_GraphModel->getSpacing());
+
 			origin=m_GraphModel->getOrigin();
 			labelImage->SetDirection(m_GraphModel->getDirection());
 			labelImage->SetSpacing(spacing);

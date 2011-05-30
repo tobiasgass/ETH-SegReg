@@ -43,7 +43,8 @@ public:
 	typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 
-
+private:
+	SpacingType m_offset;
 public:
 
 	ITKGraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, int divisor, double displacementScalingFactor, double segmentationWeight, double registrationWeight)
@@ -60,8 +61,10 @@ public:
 		for (int d=0;d<(int)this->m_dim;++d){
 
 			if (this->verbose) std::cout<<"total size divided by spacing :"<<1.0*this->m_totalSize[d]/this->m_spacing[d]<<std::endl;
-			this->m_origin[d]=(this->m_spacing[d]/2-0.5);
-			this->m_gridSize[d]=1.0*this->m_totalSize[d]/((int)this->m_spacing[d]);
+			this->m_origin[d]=this->m_fixedImage->GetOrigin()[d]+(this->m_spacing[d]/2-0.5);
+			this->m_offset[d]=(this->m_origin[d]-this->m_fixedImage->GetOrigin()[d])/this->m_fixedImage->GetSpacing()[d];
+			this->m_gridSize[d]=1.0*this->m_totalSize[d]/((int)this->m_gridSpacing[d]);
+
 			this->m_nNodes*=this->m_gridSize[d];
 			if (d>0){
 				this->m_imageLevelDivisors[d]=this->m_imageLevelDivisors[d-1]*this->m_gridSize[d-1];
@@ -77,7 +80,7 @@ public:
 		}
 		if (this->m_dim==3){
 			std::cout<<" "<<this->m_gridSize[0];
-			this->m_nVertices+=(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
+			this->m_nVertices=this->m_nVertices*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
 		}
 		if (this->verbose) std::cout<<" "<<this->m_nNodes<<" "<<this->m_nVertices<<" "<<LabelMapperType::nLabels<<std::endl;
 		//		this->m_ImageInterpolator.SetInput(this->m_movingImage);
@@ -97,15 +100,17 @@ public:
 			div=div>0?div:1;
 			spacing[d]=(1.0*this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/div);
 			std::cout<<spacing[d]<<" "<<div<<" "<<this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]<<" "<<minSpacing<<std::endl;
+			this->m_gridSpacing[d]=spacing[d];
+			this->m_spacing[d]=spacing[d]*this->m_fixedImage->GetSpacing()[d];
 		}
-		this->m_spacing=spacing;
+
 	}
 
 	virtual IndexType gridToImageIndex(IndexType gridIndex){
 		IndexType imageIndex;
 		for (unsigned int d=0;d<this->m_dim;++d){
-			int t=gridIndex[d]*this->m_spacing[d]+this->m_origin[d];
-			imageIndex[d]=t>0?t:0;
+			int t=gridIndex[d]*this->m_gridSpacing[d]+m_offset[d];
+			imageIndex[d]=t;
 		}
 		return imageIndex;
 	}
@@ -113,7 +118,7 @@ public:
 	virtual IndexType imageToGridIndex(IndexType imageIndex){
 		IndexType gridIndex;
 		for (unsigned int d=0;d<this->m_dim;++d){
-			gridIndex[d]=(imageIndex[d]-this->m_origin[d])/this->m_spacing[d];
+			gridIndex[d]=(imageIndex[d]-m_offset[d])/this->m_gridSpacing[d];
 		}
 		return gridIndex;
 	}

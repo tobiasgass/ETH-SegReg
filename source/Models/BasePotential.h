@@ -105,13 +105,10 @@ public:
 	virtual double getPotential(IndexType fixedIndex, LabelType label){
 		double result=0;
 		ContinuousIndexType idx2(fixedIndex);
-	//	itk::Vector<float,2> disp=LabelMapperType::getDisplacement(label).elementMult(m_displacementFactor);
 		itk::Vector<float,ImageType::ImageDimension> disp=LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(label,this->m_displacementFactor));
 		idx2+= disp;
-		if (m_baseLabelMap){
-			itk::Vector<float,ImageType::ImageDimension> baseDisp=LabelMapperType::getDisplacement(m_baseLabelMap->GetPixel(fixedIndex));
-			idx2+=baseDisp;
-		}
+		itk::Vector<float,ImageType::ImageDimension> baseDisp=LabelMapperType::getDisplacement(m_baseLabelMap->GetPixel(fixedIndex));
+		idx2+=baseDisp;
 		if (m_movingInterpolator->IsInsideBuffer(idx2)){
 			result=fabs(this->m_fixedImage->GetPixel(fixedIndex)-m_movingInterpolator->EvaluateAtContinuousIndex(idx2));
 		}else{

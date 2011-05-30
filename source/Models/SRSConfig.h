@@ -47,7 +47,7 @@ public:
 		segWeight=1;
 		nSegmentations=1;
 		verbose=false;
-		nLevels=4;
+		nLevels=3;
 		startTiling=2;
 		iterationsPerLevel=4;
 		train=false;

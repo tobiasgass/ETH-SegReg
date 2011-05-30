@@ -81,7 +81,15 @@ public:
 	static ImagePointerType readImage(std::string fileName) {
 		ReaderTypePointer reader = ReaderType::New();
 		reader->SetFileName( fileName  );
-		reader->Update();
+		try{
+			reader->Update();
+		}
+		catch( itk::ExceptionObject & err )
+		{
+			std::cerr << "ExceptionObject caught !" << std::endl;
+			std::cerr << err << std::endl;
+		}
+		std::cout<<reader->GetOutput()->GetLargestPossibleRegion()<<std::endl;
 		return reader->GetOutput();
 	}
 
@@ -93,9 +101,15 @@ public:
 		ROIFilterPointerType roiFilter = ROIFilterType::New();
 		roiFilter->SetInput(reader->GetOutput());
 		roiFilter->SetRegionOfInterest(roi);
+		try{
+			roiFilter->Update();
+		}
+		catch( itk::ExceptionObject & err )
+		{
+			std::cerr << "ExceptionObject caught !" << std::endl;
+			std::cerr << err << std::endl;
 
-		roiFilter->Update();
-
+		}
 		return roiFilter->GetOutput();
 	}
 

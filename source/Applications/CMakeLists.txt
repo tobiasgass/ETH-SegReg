@@ -6,6 +6,7 @@ include_directories (${SRS-MRF_SOURCE_DIR}/Utils)
 include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
 include_directories (${SRS-MRF_SOURCE_DIR}/External/TRWS) 
 include_directories (${SRS-MRF_SOURCE_DIR}/External/RF) 
+include_directories (${SRS-MRF_SOURCE_DIR}/External/maxFlow) 
 
 include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
 INCLUDE_DIRECTORIES(
@@ -24,10 +25,10 @@ link_directories (${SRS-MRF_BINARY_DIR}/Models)
 #ADD_EXECUTABLE(Registration Multiresolution-Registration.cxx )
 #TARGET_LINK_LIBRARIES(Registration ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
 ADD_EXECUTABLE(SegReg Multiresolution-SegmentationRegistration.cxx )
-TARGET_LINK_LIBRARIES(SegReg ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
+TARGET_LINK_LIBRARIES(SegReg maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
 
-#ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration-3D.cxx )
-#TARGET_LINK_LIBRARIES(SegReg3D ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
+ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration-3D.cxx )
+TARGET_LINK_LIBRARIES(SegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
 
 #ADD_EXECUTABLE(SegReg-Alt Multiresolution-AlternatingSegmentationRegistration.cxx )
 #TARGET_LINK_LIBRARIES(SegReg-Alt ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )

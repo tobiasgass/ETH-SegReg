@@ -46,7 +46,7 @@ public:
 	}
 	~TRWS_MRFSolver()
 		{
-			delete[] nodes;
+			delete nodes;
 			delete optimizer;
 
 		}
@@ -136,7 +136,8 @@ public:
 	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 
 	//	typedef Graph::Real Real;
-	typedef TypePotts TRWType;
+//	typedef TypePotts TRWType;
+	typedef TypeBinaryFast TRWType;
 	//	typedef TypeTruncatedQuadratic2D TRWType;
 	typedef MRFEnergy<TRWType> MRFType;
 	typedef typename MRFType::NodeId NodeType;
@@ -166,8 +167,9 @@ public:
 	virtual void createGraph(){
 		//		TRWType::GlobalSize globalSize(labelSampling,labelSampling);
 		//		optimizer = new MRFType(globalSize);
-		TRWType::GlobalSize globalSize(this->m_nLabels);
-		optimizer = new MRFType(TRWType::GlobalSize(this->m_nLabels));
+//		TRWType::GlobalSize globalSize(this->m_nLabels);
+//		optimizer = new MRFType(TRWType::GlobalSize(this->m_nLabels));
+		optimizer = new MRFType(TRWType::GlobalSize());
 		int nNodes=this->m_nNodes;
 
 		nodes = new NodeType[nNodes];
@@ -187,7 +189,8 @@ public:
 //				std::cout<<d<<" "<<l1<<" "<<nNodes<<" "<<nLabels<<std::endl;
 				D[l1]=m_unaryWeight*graph->getUnaryPotential(d,l1);
 			}
-			nodes[d] = optimizer->AddNode(TRWType::LocalSize(), TRWType::NodeData(D));
+//			nodes[d] = optimizer->AddNode(TRWType::LocalSize(), TRWType::NodeData(D));
+			nodes[d] = optimizer->AddNode(TRWType::LocalSize(), TRWType::NodeData(D[0],D[1]));
 			//			nodes[currentIntIndex] = optimizer->AddNode(TRWType::LocalSize(), TRWType::NodeData(D));
 		}
 		clock_t finish1 = clock();
@@ -201,7 +204,8 @@ public:
 			std::vector<int> neighbours= graph->getForwardNeighbours(d);
 			int nNeighbours=neighbours.size();
 			for (int i=0;i<nNeighbours;++i){
-				optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(m_pairwiseWeight*graph->getWeight(d,i)));
+//				optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(m_pairwiseWeight*graph->getWeight(d,i)));
+				optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(0,m_pairwiseWeight*graph->getWeight(d,i),m_pairwiseWeight*graph->getWeight(d,i),0));
 				//				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(weight, weight, 8*weight));
 			}
 		}

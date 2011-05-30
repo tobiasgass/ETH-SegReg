@@ -19,7 +19,7 @@
 #include "itkNearestNeighborInterpolateImageFunction.h"
 #include "itkBSplineResampleImageFunction.h"
 #include "itkRescaleIntensityImageFilter.h"
-
+using namespace std;
 /*
  * Isotropic Graph
  * Returns current/next position in a grid based on size and resolution
@@ -46,8 +46,9 @@ public:
 protected:
 	ImagePointerType m_fixedImage,m_fixedGradientImage,m_backProjFixedImage;
 	LabelImagePointerType m_fullLabelImage,m_backProjLabelImage;
-	SizeType m_totalSize,m_gridSize,m_imageLevelDivisors;
-	SpacingType m_spacing,m_labelSpacing;
+	SizeType m_totalSize,m_imageLevelDivisors,m_gridSize;
+
+	SpacingType m_spacing,m_labelSpacing, m_gridSpacing;
 	PointType m_origin;
 	double m_DisplacementScalingFactor;
 	static const unsigned int m_dim=TImage::ImageDimension;
@@ -68,6 +69,7 @@ public:
 		assert(m_dim>1);
 		assert(m_dim<4);
 		m_totalSize=fixedimage->GetLargestPossibleRegion().GetSize();
+		std::cout<<"total "<<m_totalSize<<endl;
 		m_nNodes=1;
 		setSpacing(divisor);
 		if (LabelMapperType::nDisplacementSamples){
@@ -76,8 +78,8 @@ public:
 		}
 		for (int d=0;d<(int)m_dim;++d){
 			if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
-			m_origin[d]=0;//-int(m_spacing[d]/2);
-			m_gridSize[d]=m_totalSize[d]/m_spacing[d];
+			m_origin[d]=m_fixedImage->GetOrigin()[d];//-int(m_spacing[d]/2);
+			m_gridSize[d]=m_totalSize[d]/m_gridSpacing[d];
 			if (m_spacing!=1.0)
 				m_gridSize[d]++;
 			m_nNodes*=m_gridSize[d];
@@ -95,9 +97,9 @@ public:
 		}
 		if (m_dim==3){
 			std::cout<<" "<<m_gridSize[2];
-			m_nVertices+=(m_gridSize[2]-1)*m_gridSize[1]*m_gridSize[0];
+			m_nVertices=this->m_nVertices*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
 		}
-		if (verbose) std::cout<<" "<<m_nNodes<<" "<<m_nVertices<<" "<<LabelMapperType::nLabels<<std::endl;
+		if (verbose) std::cout<<" nodes:"<<m_nNodes<<" vertices:"<<m_nVertices<<" labels:"<<LabelMapperType::nLabels<<std::endl;
 		//		m_ImageInterpolator.SetInput(m_movingImage);
 	}
 	void setRegistrationWeight(double registrationWeight){
@@ -120,8 +122,10 @@ public:
 			div=div>0?div:1;
 			spacing[d]=(1.0*m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/div);
 			if (spacing[d]>1.0) spacing[d]-=1.0/(div);
+			m_gridSpacing[d]=spacing[d];
+			m_spacing[d]=spacing[d]*m_fixedImage->GetSpacing()[d];
 		}
-		m_spacing=spacing;
+
 	}
 	typename ImageType::DirectionType getDirection(){return m_fixedImage->GetDirection();}
 	void setLabelImage(LabelImagePointerType limg){m_fullLabelImage=limg;m_haveLabelMap=true;}
@@ -135,7 +139,7 @@ public:
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
-		return m_unaryFunction->getPotential(fixedIndex,label)/m_nNodes;
+		return m_unaryFunction->getPotential(fixedIndex,label);
 	}
 
 	double getPairwisePotential(int LabelIndex,int LabelIndex2){
@@ -204,7 +208,7 @@ public:
 
 				double axisPositionDifference=1.0*(d2-d1);//(m_spacing[d]);
 
-				double relativeAxisPositionDifference=1.0*(axisPositionDifference+(1.0*delta))/m_spacing[d];
+				double relativeAxisPositionDifference=1.0*(axisPositionDifference+(1.0*delta))/m_gridSpacing[d];
 
 				//we shall never tear the image!
 				if (delta>0){
@@ -247,14 +251,16 @@ public:
 	}
 	double getWeight(IndexType gridIndex1, IndexType gridIndex2){
 		double edgeWeight=fabs(m_backProjFixedImage->GetPixel(gridIndex1)-m_backProjFixedImage->GetPixel(gridIndex2));
+		int s1=m_backProjFixedImage->GetPixel(gridIndex1);
+		int s2=m_backProjFixedImage->GetPixel(gridIndex2);
 		//		double edgeWeight=fabs(m_fixedImage->GetPixel(gridToImageIndex(gridIndex1))-m_fixedImage->GetPixel(gridToImageIndex(gridIndex2)));
 		//		std::cout<<edgeWeight;
 		//		edgeWeight=exp(-edgeWeight/(1200));
 		//		std::cout<<" "<<edgeWeight<<std::endl;
-		edgeWeight=exp(-edgeWeight/(3200));
-
+//		edgeWeight=exp(-edgeWeight/(3200));
+		edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
 		edgeWeight*=m_segmentationWeight;
-		return edgeWeight;
+		return 1+edgeWeight;
 	}
 	double getPairwisePotential2(int LabelIndex,int LabelIndex2){
 		double segmentationSmoothness=fabs(LabelMapperType::getSegmentation(LabelIndex)-LabelMapperType::getSegmentation(LabelIndex2));
@@ -265,7 +271,7 @@ public:
 	virtual IndexType gridToImageIndex(IndexType gridIndex){
 		IndexType imageIndex;
 		for (unsigned int d=0;d<m_dim;++d){
-			int t=gridIndex[d]*m_spacing[d];
+			int t=gridIndex[d]*m_gridSpacing[d];
 			imageIndex[d]=t>0?t:0;
 		}
 		return imageIndex;
@@ -274,7 +280,7 @@ public:
 	virtual IndexType imageToGridIndex(IndexType imageIndex){
 		IndexType gridIndex;
 		for (int d=0;d<m_dim;++d){
-			gridIndex[d]=(imageIndex[d])/m_spacing[d];
+			gridIndex[d]=(imageIndex[d])/m_gridSpacing[d];
 		}
 		return gridIndex;
 	}
@@ -300,7 +306,7 @@ public:
 
 	int nNodes(){return m_nNodes;}
 
-	LabelType getResolution(){return m_spacing;}
+//	LabelType getResolution(){return m_spacing;}
 	int nVertices(){return m_nVertices;}
 
 	std::vector<int> getForwardNeighbours(int index){
@@ -371,7 +377,6 @@ public:
 		typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
 		typedef typename itk::BSplineDecompositionImageFilter<ParamImageType,ParamImageType>			DecompositionType;
 		typedef typename  itk::ImageRegionIterator<ParamImageType> Iterator;
-
 		std::vector<typename ParamImageType::Pointer> newImages(ImageType::ImageDimension+1);
 		//interpolate deformation
 		for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
@@ -386,7 +391,8 @@ public:
 			Iterator itCoarse( paramsK, paramsK->GetLargestPossibleRegion() );
 			LabelIterator itOld(labelImg,labelImg->GetLargestPossibleRegion());
 			for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
-				itCoarse.Set(itOld.Get()[k]);
+				itCoarse.Set((itOld.Get()[k])*(k<ImageType::ImageDimension?getDisplacementFactor()[k]:1));
+//				std::cout<<itCoarse.Get()<<std::endl;
 			}
 			if (k<ImageType::ImageDimension){
 				//bspline interpolation for the displacements
@@ -440,13 +446,18 @@ public:
 		for (;!lIt.IsAtEnd();++lIt){
 			LabelType l;
 			for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ ){
+//				std::cout<<k<<" label: "<<iterators[k]->Get()<<std::endl;
 				l[k]=iterators[k]->Get();
 				++(*(iterators[k]));
 			}
-			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
-			//			lIt.Set(l);
-		}
 
+//			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
+						lIt.Set(l);
+		}
+		for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
+		{
+			delete iterators[k];
+		}
 		return fullLabelImage;
 
 #else

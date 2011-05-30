@@ -162,17 +162,17 @@ public:
 		duplicator->Update();
 		ImagePointerType returnImage=duplicator->GetOutput();
 		itk::ImageRegionIteratorWithIndex<ImageType> ImageIterator(returnImage,returnImage->GetLargestPossibleRegion());
-		for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
-			//			LabelImageIterator.Set(predictions[i]*65535);
-			double bone=m_segmentationLikelihoodProbs[1+2*(int)ImageIterator.Get()/255];
-			//				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
-			//				if (!label)
-			//					tissue=1-tissue;
-			//				tissue=tissue>0.5?1.0:tissue;
-			//	tissue*=tissue;
-			ImageIterator.Set(bone*65535);
-		}
-		ImageUtils<ImageType>::writeImage("moving-segmentaitonProbs.nii",returnImage);
+//		for (ImageIterator.GoToBegin();!ImageIterator.IsAtEnd();++ImageIterator){
+//			//			LabelImageIterator.Set(predictions[i]*65535);
+//			double bone=m_segmentationLikelihoodProbs[1+2*(int)ImageIterator.Get()/255];
+//			//				int label=this->m_movingSegmentation->GetPixel(ImageIterator.GetIndex())>0;
+//			//				if (!label)
+//			//					tissue=1-tissue;
+//			//				tissue=tissue>0.5?1.0:tissue;
+//			//	tissue*=tissue;
+//			ImageIterator.Set(bone*65535);
+//		}
+//		ImageUtils<ImageType>::writeImage("moving-segmentaitonProbs.png",returnImage);
 		return NULL;
 	}
 	virtual ImagePointerType trainPairwiseClassifier(string filename){
@@ -308,7 +308,8 @@ public:
 		bool ooB=false;
 		int oobFactor=1;
 		//check outofbounds and clip deformation
-		if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+		bool inside=this->m_movingInterpolator->IsInsideBuffer(idx2);
+		if (!inside){
 			for (int d=0;d<ImageType::ImageDimension;++d){
 				if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
 					idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;

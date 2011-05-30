@@ -3,6 +3,7 @@ INCLUDE_DIRECTORIES(
     /usr/include/libxml2
     /home/gasst/work/include
     ../External/RF
+    ../External/fastPD
     ../Common
  )
 
@@ -16,8 +17,10 @@ SET(SRSMRFModels_SRC
   BaseMRF.h
   SRSPotential.cxx
   SRSPotential.h
+  SRSPotential-Bone.h
   MRF-FAST-PD.h
   MRF-TRW-S.h
+  MRF-GC.h
   Graph.h
   Graph-ITKStyle.h
   Potential-SRS-NCC.h
@@ -29,6 +32,6 @@ SET(SRSMRFModels_SRC
 )
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )
-TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters)
+TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters FastPD)
 #INSTALL(TARGETS SRSMRFModels)
 #TARGET_LINK_LIBRARIES(ITKAlgorithms ITKStatistics ITKNumerics)
