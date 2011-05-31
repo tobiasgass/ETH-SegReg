@@ -87,8 +87,8 @@ public:
 		typedef typename  ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
 		typedef typename  UnaryPotentialType::Pointer UnaryPotentialPointerType;
 		typedef typename  UnaryPotentialType::RadiusType RadiusType;
-		typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
-		//				typedef  GraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+//		typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+		typedef  GraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
 		ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
 		deformedImage=ImageUtils<ImageType>::createEmpty(targetImage);
 		deformedSegmentationImage=ImageUtils<ImageType>::createEmpty(targetImage);
@@ -140,12 +140,7 @@ public:
 		if (m_config.nSegmentations>1) m_config.nLevels++;
 		m_config.nLevels=m_config.maxDisplacement>0?m_config.nLevels:1;
 		int iterationCount=0;
-		//		for (uint i=0;i<LabelMapperType::nLabels;++i){
-		//			LabelType l=LabelMapperType::getLabel(i);
-		//			int idx=LabelMapperType::getIndex(l);
-		//			std::cout<<i<<" "<<l<<" "<<idx<<" "<<LabelMapperType::getSegmentation(l)<<std::endl;
-		//		}
-		//		GraphModelType checkerGraph(targetImage,unaryPot,9999999,1, m_config.pairwiseSegmentationWeight, m_config.pairwiseRegistrationWeight );
+
 		double minFactor=9999999999;
 		for (int l=0;l<m_config.nLevels;++l){
 
@@ -166,7 +161,7 @@ public:
 
 			//			unaryPot->SetWeights(m_config.simWeight,m_config.rfWeight/(m_config.nLevels-l),m_config.segWeight/(m_config.nLevels-l));
 			std::cout<<"init graph"<<std::endl;
-			GraphModelType graph(targetImage,unaryPot,level,labelScalingFactor,m_config.pairwiseSegmentationWeight, level*m_config.pairwiseRegistrationWeight );
+			GraphModelType graph(targetImage,unaryPot,level,labelScalingFactor,m_config.pairwiseSegmentationWeight, m_config.pairwiseRegistrationWeight );
 			double segmentationFactor=1.0;
 			double totalArea=1.0,patchArea=1.0;
 
@@ -174,7 +169,7 @@ public:
 				totalArea*=targetImage->GetLargestPossibleRegion().GetSize()[d];
 				patchArea*=graph.getGridSize()[d];
 			}
-			segmentationFactor=1;//exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
+			segmentationFactor=exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
 
 			if (segmentationFactor<minFactor){
 				minFactor=segmentationFactor;
@@ -205,7 +200,7 @@ public:
 				LabelImagePointerType deformation;
 				if (LabelMapperType::nDisplacementSamples >0){
 					typedef   TRWS_MRFSolver<GraphModelType> MRFSolverType;
-					//					typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+//										typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 					MRFSolverType mrfSolver(&graph,1,1, false);
 					mrfSolver.optimize();
 					deformation=mrfSolver.getLabelImage();
@@ -296,14 +291,14 @@ public:
 				}
 				previousFullDeformation=composedDeformation;
 				labelScalingFactor*=0.8;
-#if 0
+#if 1
 				ostringstream deformedFilename;
-				deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".png";
+				deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".nii";
 				ostringstream deformedSegmentationFilename;
-				deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".png";
+				deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".nii";
 				ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
 				ostringstream tmpSegmentationFilename;
-				tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
+				tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".nii";
 				ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(), segmentationImage);
 				ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
 				//deformation

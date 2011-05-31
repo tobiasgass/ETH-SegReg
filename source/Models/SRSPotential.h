@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include "ImageUtils.h"
+using namespace std;
 namespace itk{
 
 
@@ -231,13 +232,11 @@ public:
 		double count=0;
 
 		int totalCount=0;
-		double tmpPost=m_posteriorWeight;
-		double tmpSeg=m_segmentationWeight;
-		double tmpInt=m_intensWeight;
+
 		double segCount=0.0;
 		double keep=1;
 		double segWeightSum=0.0;
-		double segmentationCosts=0,registrationCosts=0;
+		double segmentationCosts=0,registrationCosts=0,segmentationCostSum=0,registrationCostSum=0;;
 		//		m_intensWeight*=pow(keep,ImageType::ImageDimension);
 		int centralIntens=nIt.GetCenterPixel();
 		for (unsigned int i=0;i<nIt.Size();++i){
@@ -253,40 +252,27 @@ public:
 					double tmp=1.0*fabs(neighborIndex[d]-fixedIndex[d]);
 					dist+=tmp*tmp;
 					maxD+=m_radius[d]*m_radius[d];
-					////					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
-					//					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
-
 				}
 				double eucWeight=1-(dist/maxD);
+
+				res+=eucWeight*getLocalPotential(neighborIndex,label,segmentationCosts, registrationCosts);
+
 				if (eucWeight>1-keep || i==nIt.Size()/2){
 					double intensitySimilarity=exp(-fabs(centralIntens-neighborIntensity)/1200);
-					m_posteriorWeight=tmpPost*intensitySimilarity;
-					m_segmentationWeight=tmpSeg*intensitySimilarity;
-					segCount+=eucWeight;
+					segmentationCostSum+=eucWeight*intensitySimilarity*segmentationCosts;
+					segCount+=eucWeight*intensitySimilarity;
 				}
-				else{m_posteriorWeight=0.0;
-				m_segmentationWeight=0.0;
-				}
+				registrationCostSum+=eucWeight*registrationCosts;
 
-				//				eucWeight=weight;
-				//								weight=1.0;
-				//								std::cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<" "<<eucWeight<<std::endl;
-				res+=eucWeight*getLocalPotential(neighborIndex,label,segmentationCosts, registrationCosts);
 				count+=eucWeight;
 				totalCount++;
 			}
 		}
 		//		std::cout<<1.0*segCount/totalCount<<std::endl;
-		m_posteriorWeight=tmpPost;
-		m_segmentationWeight=tmpSeg;
-		m_intensWeight=tmpInt;
+
 		if (count>0){
-			//			std::cout<<segCount<<" "<<count<<" "<<1-2*fabs(0.5-segCount/count)<<" "<<segSum*2*fabs(0.5-segCount/count)<<std::endl;
-			//			double segWeight=1-2*fabs(0.5-segCount/count);
-			//			std::cout<<res<<" "<<intensSum+segSum<<std::endl;
-			//			return 1.0/count*(intensSum+segSum/m_radius[0]);
-			//			return 1.0/count*((1-segWeight)*intensSum+segWeight*segSum);
-			return registrationCosts/count+segmentationCosts/segCount;
+//			std::cout<<registrationCostSum<<" "<<count<<" "<<registrationCostSum/count<<endl;
+			return registrationCostSum/count+segmentationCostSum/segCount;
 			return res/count;
 		}
 		else return 999999;
@@ -350,8 +336,8 @@ public:
 		//-log( p(S_a|T,S_x) )
 		double log_p_SA_TSX =m_segmentationWeight* (segmentationLabel!=deformedSegmentation);
 		result+=log_p_XA_T+log_p_SA_TSX;
-		regCosts+=log_p_XA_T;
-		segCosts+=log_p_SA_TSX;
+		regCosts=log_p_XA_T;
+		segCosts=log_p_SA_TSX;
 		if (m_posteriorWeight>0){
 			double log_p_SX_XASAT = 0;//m_posteriorWeight*1000*(-log(m_pairwiseSegmentationProbs(probposition,segmentationLabel)));
 			double segmentationProb=1;

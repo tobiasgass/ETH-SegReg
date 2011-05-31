@@ -139,7 +139,7 @@ public:
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
-		return m_unaryFunction->getPotential(fixedIndex,label);
+		return m_unaryFunction->getPotential(fixedIndex,label)/m_nNodes;
 	}
 
 	double getPairwisePotential(int LabelIndex,int LabelIndex2){
