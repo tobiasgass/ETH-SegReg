@@ -10,12 +10,14 @@
 #include "Potential-SRS-SAD-SACentered.h"
 #include "Potential-SRS-SAD-PAX_SXSAT.h"
 #include "SRSPotential.h"
+#include "bimap.h"
 
 using namespace std;
 using namespace itk;
 
 int main(int argc, char ** argv)
 {
+
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
 	SRSConfig config;
@@ -25,12 +27,12 @@ int main(int argc, char ** argv)
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D+1> BaseLabelType;
-//	typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-	typedef SparseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-	//	typedef  NCCSRSUnaryPotential< LabelMapperType, ImageType > UnaryPotentialType;
+	//typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    typedef SparseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    typedef NCCSRSUnaryPotential< LabelMapperType, ImageType > UnaryPotentialType;
 	//typedef  MultiVariateNCCSRSUnaryPotential< LabelMapperType, ImageType > UnaryPotentialType;
-	//	typedef typename  NCCRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
-	typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType> UnaryPotentialType;
+	//typedef  NCCRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
+   	//typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType> UnaryPotentialType;
 //	typedef  SegmentationRegistrationUnaryPotentialPosteriorSA< LabelMapperType, ImageType > UnaryPotentialType;
 //	typedef  SegmentationRegistrationUnaryPotentialPosteriorPAXSASXT< LabelMapperType, ImageType > UnaryPotentialType;
 	typedef HierarchicalSRSImageToImageFilter<ImageType,LabelMapperType,UnaryPotentialType > FilterType;

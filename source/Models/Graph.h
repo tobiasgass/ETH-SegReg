@@ -7,7 +7,7 @@
 
 #ifndef GRAPH_H
 #define GRAPH_H
-
+ 
 #include <vector>
 #include <assert.h>
 #include "itkVectorImage.h"
@@ -17,6 +17,7 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkBSplineInterpolateImageFunction.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
+#include "itkVectorNearestNeighborInterpolateImageFunction.h"
 #include "itkBSplineResampleImageFunction.h"
 #include "itkRescaleIntensityImageFilter.h"
 using namespace std;
@@ -73,8 +74,8 @@ public:
 		m_nNodes=1;
 		setSpacing(divisor);
 		if (LabelMapperType::nDisplacementSamples){
-			m_labelSpacing=0.4*m_spacing/(LabelMapperType::nDisplacementSamples);
-			if (verbose) std::cout<<"Spacing :"<<m_spacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<m_labelSpacing<<std::endl;
+			m_labelSpacing=0.4*m_gridSpacing/(LabelMapperType::nDisplacementSamples);
+			if (verbose) std::cout<<"Spacing :"<<m_gridSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<m_labelSpacing<<std::endl;
 		}
 		for (int d=0;d<(int)m_dim;++d){
 			if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
@@ -109,7 +110,6 @@ public:
 		m_segmentationWeight=segmentationWeight;
 	}
 	virtual void setSpacing(int divisor){
-		SpacingType spacing;
 		int minSpacing=999999;
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			if(m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/(divisor-1) < minSpacing){
@@ -120,12 +120,12 @@ public:
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			int div=m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			div=div>0?div:1;
-			spacing[d]=(1.0*m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/div);
-			if (spacing[d]>1.0) spacing[d]-=1.0/(div);
-			m_gridSpacing[d]=spacing[d];
-			m_spacing[d]=spacing[d]*m_fixedImage->GetSpacing()[d];
+			double spacing=(1.0*m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/div);
+			if (spacing>1.0) spacing-=1.0/(div);
+			m_gridSpacing[d]=spacing;
+			m_spacing[d]=spacing*m_fixedImage->GetSpacing()[d];
 		}
-
+ 
 	}
 	typename ImageType::DirectionType getDirection(){return m_fixedImage->GetDirection();}
 	void setLabelImage(LabelImagePointerType limg){m_fullLabelImage=limg;m_haveLabelMap=true;}
@@ -139,7 +139,9 @@ public:
 	double getUnaryPotential(int gridIndex, int labelIndex){
 		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
 		LabelType label=LabelMapperType::getLabel(labelIndex);
-		return m_unaryFunction->getPotential(fixedIndex,label)/m_nNodes;
+        double pot=m_unaryFunction->getPotential(fixedIndex,label)/m_nNodes;
+        //        std::cout<<gridIndex<<" "<<getGridPositionAtIndex(gridIndex)<<" "<<label<<" "<<pot<<std::endl;
+		return pot;
 	}
 
 	double getPairwisePotential(int LabelIndex,int LabelIndex2){
@@ -253,14 +255,12 @@ public:
 		double edgeWeight=fabs(m_backProjFixedImage->GetPixel(gridIndex1)-m_backProjFixedImage->GetPixel(gridIndex2));
 		int s1=m_backProjFixedImage->GetPixel(gridIndex1);
 		int s2=m_backProjFixedImage->GetPixel(gridIndex2);
-		//		double edgeWeight=fabs(m_fixedImage->GetPixel(gridToImageIndex(gridIndex1))-m_fixedImage->GetPixel(gridToImageIndex(gridIndex2)));
-		//		std::cout<<edgeWeight;
-		//		edgeWeight=exp(-edgeWeight/(1200));
-		//		std::cout<<" "<<edgeWeight<<std::endl;
-//		edgeWeight=exp(-edgeWeight/(3200));
+ 		//		double edgeWeight=fabs(m_fixedImage->GetPixel(gridToImageIndex(gridIndex1))-m_fixedImage->GetPixel(gridToImageIndex(gridIndex2)));
+        //		edgeWeight=exp(-edgeWeight/(3200));
 		edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
 		edgeWeight*=m_segmentationWeight;
-		return 1+edgeWeight;
+        //edgeWeight+=1;
+		return edgeWeight;
 	}
 	double getPairwisePotential2(int LabelIndex,int LabelIndex2){
 		double segmentationSmoothness=fabs(LabelMapperType::getSegmentation(LabelIndex)-LabelMapperType::getSegmentation(LabelIndex2));
@@ -403,6 +403,7 @@ public:
 				upsampler->SetSize(m_fixedImage->GetLargestPossibleRegion().GetSize() );
 				upsampler->SetOutputSpacing( m_fixedImage->GetSpacing() );
 				upsampler->SetOutputOrigin( m_fixedImage->GetOrigin());
+				upsampler->SetOutputDirection( m_fixedImage->GetDirection());
 				typename DecompositionType::Pointer decomposition = DecompositionType::New();
 				decomposition->SetSplineOrder( SplineOrder );
 				decomposition->SetInput( upsampler->GetOutput() );
@@ -462,7 +463,8 @@ public:
 
 #else
 #if 1
-		typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
+		//typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
+		typedef typename itk::VectorNearestNeighborInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
 		typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
 		typedef typename itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
 		LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();

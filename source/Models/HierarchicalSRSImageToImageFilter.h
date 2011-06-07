@@ -87,8 +87,8 @@ public:
 		typedef typename  ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
 		typedef typename  UnaryPotentialType::Pointer UnaryPotentialPointerType;
 		typedef typename  UnaryPotentialType::RadiusType RadiusType;
-//		typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
-		typedef  GraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+        //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
+        typedef  GraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
 		ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
 		deformedImage=ImageUtils<ImageType>::createEmpty(targetImage);
 		deformedSegmentationImage=ImageUtils<ImageType>::createEmpty(targetImage);
@@ -130,11 +130,14 @@ public:
 			unaryPot->loadPairwiseProbs(m_config.pairWiseProbsFilename);
 		}
 		unaryPot->m_groundTruthImage=fixedSegmentationImage;
-//		unaryPot->trainPairwiseLikelihood("dummy.bin");
+		//		unaryPot->trainPairwiseLikelihood("dummy.bin");
 		//	if (classified)
 		//		ImageUtils<ImageType>::writeImage("classified.nii",classified);
 
 		LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
+        for (int i=0;i<LabelMapperType::nLabels;++i){
+            //cout<<i<<" "<<LabelMapperType::getLabel(i)<<" "<<LabelMapperType::getIndex(LabelMapperType::getLabel(i))<<endl;
+        }
 		typedef typename  ImageType::SpacingType SpacingType;
 
 		if (m_config.nSegmentations>1) m_config.nLevels++;
@@ -169,7 +172,7 @@ public:
 				totalArea*=targetImage->GetLargestPossibleRegion().GetSize()[d];
 				patchArea*=graph.getGridSize()[d];
 			}
-			segmentationFactor=exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
+			segmentationFactor=1;//exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
 
 			if (segmentationFactor<minFactor){
 				minFactor=segmentationFactor;
@@ -181,12 +184,13 @@ public:
 			//			graph.setRegistrationWeight(segmentationFactor*m_config.pairwiseRegistrationWeight );
 			//			graph.setSegmentationWeight(segmentationFactor*m_config.pairwiseRegistrationWeight );
 			graph.setGradientImage(fixedSegmentationImage);
-			unaryPot->setRadius(graph.getSpacing()*0.5);
+			unaryPot->setRadius(graph.getSpacing()*1);
+            //			unaryPot->setRadius(graph.getSpacing()*1);//0.5);
 			std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
 			std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			for (int i=0;i<graph.nNodes();++i){
-//				std::cout<<i<<	" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.gridToImageIndex(graph.getGridPositionAtIndex(i))<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
+				//				std::cout<<i<<	" "<<graph.getGridPositionAtIndex(i)<<" "<<graph.gridToImageIndex(graph.getGridPositionAtIndex(i))<<" "<<graph.getImagePositionAtIndex(i)<<" "<<graph.getIntegerIndex(graph.getGridPositionAtIndex(i))<<std::endl;
 			}
 			for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
 				std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";//std::endl<<std::endl;
@@ -200,16 +204,16 @@ public:
 				LabelImagePointerType deformation;
 				if (LabelMapperType::nDisplacementSamples >0){
 					typedef   TRWS_MRFSolver<GraphModelType> MRFSolverType;
-//										typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+					//										typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 					MRFSolverType mrfSolver(&graph,1,1, false);
 					mrfSolver.optimize();
 					deformation=mrfSolver.getLabelImage();
 
 				}else{
-					//pixel level grid, only use simple MRF
+					//pixel level grid, only use simple binary MRF
 					typedef GC_MRFSolver<GraphModelType> MRFSolverType;
-//					typedef   TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
-//					typedef   NewSimpleFastPDMRFSolver<GraphModelType> MRFSolverType;
+					//					typedef   TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
+					//					typedef   NewSimpleFastPDMRFSolver<GraphModelType> MRFSolverType;
 					MRFSolverType mrfSolver(&graph,1,1, false);
 					mrfSolver.optimize();
 					deformation=mrfSolver.getLabelImage();
@@ -220,9 +224,9 @@ public:
 				//deformation
 
 				fullDeformation=graph.getFullLabelImage(deformation);
-				LabelIteratorType testIt(fullDeformation,fullDeformation->GetLargestPossibleRegion());
+				LabelIteratorType testIt(deformation,deformation->GetLargestPossibleRegion());
 				for (testIt.GoToBegin();!testIt.IsAtEnd();++testIt){
-					//					std::cout<<testIt.Get()<<std::endl;
+                    //std::cout<<testIt.GetIndex()<<" "<<graph.gridToImageIndex(testIt.GetIndex())<<" "<<testIt.Get()<<" "<<fullDeformation->GetPixel(graph.gridToImageIndex(testIt.GetIndex()))<<std::endl;
 				}
 				//apply deformation to moving image
 				IteratorType fixedIt(targetImage,targetImage->GetLargestPossibleRegion());
@@ -255,23 +259,12 @@ public:
 					typename ImageInterpolatorType::ContinuousIndexType idx=labelIt.GetIndex();
 					typename LabelImageType::SizeType size=composedDeformation->GetLargestPossibleRegion().GetSize();
 					idx+=LabelMapperType::getDisplacement(label);
-					//					for (int d=0;d<D;++d){
-					//						if (idx[d]>=size[d]){
-					//							label[d]-=idx[d]-size[d];
-					//						}
-					//						if (idx[d]<0){
-					//							label[d]+=idx[d];
-					//						}
-					//					}
-					//					if (1)std::cout<<labelIt.Get()<<" "<<label2It.Get()+label3It.Get()<<" "<<label2It.Get()<<" "<<label3It.Get()<<std::endl;
 					labelIt.Set(label);
 				}
 #endif
 				for (int ng=0;ng<graph.nNodes();++ng){
 					IndexType gridIndex=graph.getGridPositionAtIndex(ng);
 					IndexType imgIndex=graph.gridToImageIndex(gridIndex);
-					//					std::cout<<gridIndex<<" "<<imgIndex<<std::endl;
-					//					std::cout<<deformation->GetPixel(gridIndex)<<" "<<fullDeformation->GetPixel(imgIndex)<<" "<<previousFullDeformation->GetPixel(imgIndex)<<" "<<composedDeformation->GetPixel(imgIndex)<<std::endl;
 				}
 				for (fixedIt.GoToBegin(),labelIt.GoToBegin();!fixedIt.IsAtEnd();++fixedIt,++labelIt){
 					IndexType index=fixedIt.GetIndex();
@@ -281,7 +274,7 @@ public:
 					idx+=LabelMapperType::getDisplacement(displacement);
 					if (segmentationInterpolator->IsInsideBuffer(idx)){
 						deformedImage->SetPixel(fixedIt.GetIndex(),movingInterpolator->EvaluateAtContinuousIndex(idx));
-						deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),segmentationInterpolator->EvaluateAtContinuousIndex(idx));
+						deformedSegmentationImage->SetPixel(fixedIt.GetIndex(),65535*(segmentationInterpolator->EvaluateAtContinuousIndex(idx)>0));
 
 					}else{
 						deformedImage->SetPixel(fixedIt.GetIndex(),0);
@@ -290,15 +283,22 @@ public:
 					segmentationImage->SetPixel(fixedIt.GetIndex(),(LabelMapperType::getSegmentation(fullDeformation->GetPixel(index)))*65535);
 				}
 				previousFullDeformation=composedDeformation;
-				labelScalingFactor*=0.8;
+				labelScalingFactor*=0.3;
 #if 1
+				std::string suff;
+				if (ImageType::ImageDimension==2){
+					suff=".png";
+				}
+				if (ImageType::ImageDimension==3){
+					suff=".nii";
+				}
 				ostringstream deformedFilename;
-				deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".nii";
+				deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<suff;
 				ostringstream deformedSegmentationFilename;
-				deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".nii";
+				deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
 				ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
 				ostringstream tmpSegmentationFilename;
-				tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".nii";
+				tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
 				ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(), segmentationImage);
 				ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
 				//deformation

@@ -67,7 +67,7 @@ public:
 				ContinuousIndexType movingIndex(neighborIndex);
 				double weight=1.0;
 				for (int d=0;d<ImageType::ImageDimension;++d){
-					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/(this->m_radius[d]+0.0000000001);
+                    //					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/(this->m_radius[d]+0.0000000001);
 					movingIndex[d]+=disp[d];
 				}
 
@@ -93,8 +93,8 @@ public:
 				sf+=f;
 				sm+=m;
 				count+=1;//weight;
-				sum+=weight*getLocalPotential(neighborIndex,movingIndex,label);
-				count2+=weight;
+                //	sum+=weight*getLocalPotential(neighborIndex,movingIndex,label);
+                //	count2+=weight;
 //				double localSeg=getLocalSegmentationProbability(neighborIndex);
 //				std::cout<<label<<" "<<getLocalPotential(neighborIndex,movingIndex,label)<<std::endl;
 //				//				localSeg=localSeg<0.3?0:localSeg;
@@ -107,7 +107,7 @@ public:
 			sff -= ( sf * sf / count );
 			smm -= ( sm * sm / count );
 			sfm -= ( sf * sm / count );
-			if (smm*sff){
+			if (smm*sff>0){
 				result=1-(1.0*sfm/sqrt(smm*sff))/2;
 			}
 			else if (sfm>0)result=0;
@@ -118,7 +118,7 @@ public:
 		else result=0.5;
 		result=this->m_intensWeight*result;
 		//sum and norm
-		result=(result+sum/count2);//(this->m_intensWeight+this->m_segmentationWeight+2*this->m_posteriorWeight);
+		result=(result);//+0*sum/count2);//(this->m_intensWeight+this->m_segmentationWeight+2*this->m_posteriorWeight);
 		//std::cout<<labelWeight/count2<<std::endl;
 		return result;
 	}

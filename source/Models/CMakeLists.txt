@@ -24,6 +24,7 @@ SET(SRSMRFModels_SRC
   Graph.h
   Graph-ITKStyle.h
   Potential-SRS-NCC.h
+  Potential-SRS-NCC-Bone.h
   Potential-SRS-MultiVariateNCC.h
   Potential-SRS-SAD-SACentered.h
   Potential-SRS-SAD-PAX_SXSAT.h

@@ -250,10 +250,13 @@ public:
 				double dist=0.0;
 				for (int d=0;d<ImageType::ImageDimension;++d){
 					double tmp=1.0*fabs(neighborIndex[d]-fixedIndex[d]);
+					weight*=(m_radius[d]-tmp)/m_radius[d];
 					dist+=tmp*tmp;
 					maxD+=m_radius[d]*m_radius[d];
 				}
-				double eucWeight=1-(dist/maxD);
+                double eucWeight=1-(dist/maxD);
+				//double eucWeight=weight;
+                //double eucWeight=1;
 
 				res+=eucWeight*getLocalPotential(neighborIndex,label,segmentationCosts, registrationCosts);
 
@@ -268,11 +271,11 @@ public:
 				totalCount++;
 			}
 		}
-		//		std::cout<<1.0*segCount/totalCount<<std::endl;
+        //        std::cout<<count<<" " <<registrationCostSum<<" "<<totalCount<<std::endl;
 
 		if (count>0){
 //			std::cout<<registrationCostSum<<" "<<count<<" "<<registrationCostSum/count<<endl;
-			return registrationCostSum/count+segmentationCostSum/segCount;
+//			return registrationCostSum/count+segmentationCostSum/segCount;
 			return res/count;
 		}
 		else return 999999;
@@ -307,13 +310,15 @@ public:
 			ooB=true;
 			oobFactor=1.5;
 		}
+        //        std::cout<<ooB<<" "<<idx2<<" "<<fixedIndex<<" "<<label<<std::endl;
 		double movingIntensity=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
 		double log_p_XA_T;
 		//		if (imageIntensity<10000 ){
 		//			log_p_XA_T=0;
 		//		}
 		//		else{
-		log_p_XA_T=fabs(imageIntensity-movingIntensity)/65535;
+		log_p_XA_T=fabs(imageIntensity-movingIntensity);
+        if (ooB) 	log_p_XA_T =imageIntensity;
 		//		}
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<idx2<<" "<<imageIntensity<<" "<<movingIntensity<<std::endl;
 		int segmentationLabel=LabelMapperType::getSegmentation(label)>0;
@@ -331,7 +336,7 @@ public:
 		//		std::cout<<fixedIndex<<" "<<label<<" "<<m_segmentationProbabilities->GetPixel(fixedIndex)<<" "<<deformedSegmentation<<" "<<newIdea<<std::endl;
 
 		//-log( p(X,A|T))
-		log_p_XA_T=m_intensWeight*(log_p_XA_T>10000000?10000:log_p_XA_T);
+		log_p_XA_T=m_intensWeight*(log_p_XA_T);
 		//		intensSum+=weightlog_p_XA_T;
 		//-log( p(S_a|T,S_x) )
 		double log_p_SA_TSX =m_segmentationWeight* (segmentationLabel!=deformedSegmentation);

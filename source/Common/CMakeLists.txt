@@ -2,6 +2,7 @@ find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
 
 ADD_LIBRARY(Utils
+  bimap.h
   ImageUtils.cxx
   argstream.h
   itkDisplacementFieldCompositionFilter.h

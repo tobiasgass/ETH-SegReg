@@ -55,16 +55,16 @@ public:
 		//		this->m_dblSpacing=this->m_spacing[0];
 		setSpacing(divisor);
 		if (LabelMapperType::nDisplacementSamples){
-			this->m_labelSpacing=0.4*this->m_spacing/(LabelMapperType::nDisplacementSamples);
-			if (this->verbose) std::cout<<"Spacing :"<<this->m_spacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<this->m_labelSpacing<<std::endl;
+			this->m_labelSpacing=0.4*this->m_gridSpacing/(LabelMapperType::nDisplacementSamples);
+			if (this->verbose) std::cout<<"Spacing :"<<this->m_gridSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<this->m_labelSpacing<<std::endl;
 		}
 		for (int d=0;d<(int)this->m_dim;++d){
 
 			if (this->verbose) std::cout<<"total size divided by spacing :"<<1.0*this->m_totalSize[d]/this->m_spacing[d]<<std::endl;
 			this->m_origin[d]=this->m_fixedImage->GetOrigin()[d]+(this->m_spacing[d]/2-0.5);
-			this->m_offset[d]=(this->m_origin[d]-this->m_fixedImage->GetOrigin()[d])/this->m_fixedImage->GetSpacing()[d];
+			this->m_offset[d]=(1.0*this->m_gridSpacing[d]/2-0.5);//(this->m_origin[d]-this->m_fixedImage->GetOrigin()[d])/this->m_fixedImage->GetSpacing()[d];
 			this->m_gridSize[d]=1.0*this->m_totalSize[d]/((int)this->m_gridSpacing[d]);
-
+            
 			this->m_nNodes*=this->m_gridSize[d];
 			if (d>0){
 				this->m_imageLevelDivisors[d]=this->m_imageLevelDivisors[d-1]*this->m_gridSize[d-1];
@@ -72,7 +72,7 @@ public:
 				this->m_imageLevelDivisors[d]=1;
 			}
 		}
-
+        cout<<m_offset<<endl;
 		if (this->verbose) std::cout<<"GridSize: "<<this->m_dim<<" ";
 		if (this->m_dim>=2){
 			if (this->verbose) std::cout<<this->m_gridSize[0]<<" "<<this->m_gridSize[1];
