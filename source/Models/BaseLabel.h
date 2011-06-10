@@ -21,6 +21,7 @@ public:
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
 	static const int Dimension=TImage::ImageDimension+1;
+    typedef typename TImage::SpacingType SpacingType;
 
 	//private:
 	//	int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
@@ -49,7 +50,13 @@ public:
 		}
 		return result;
 	}
-
+    static inline const LabelType scaleDisplacement(const LabelType & label,const SpacingType & scaling){
+		LabelType result(label);
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=result[d]*scaling[d];
+		}
+		return result;
+	}
 	static inline const LabelType getLabel(int index){
 		LabelType result;
 		int m_segmentation;
@@ -133,6 +140,7 @@ public:
     typedef typename codeproject::bimap<int, LabelType, std::less<int>, comp<LabelType> > LabelMapType;
     typedef typename std::map<int,LabelType> IndexToLabelMapType;
     typedef typename std::map<LabelType, int , comp<LabelType> > LabelToIndexMapType;
+
 public:
     static LabelMapType labelMap;
     static IndexToLabelMapType indexToLabelMap;

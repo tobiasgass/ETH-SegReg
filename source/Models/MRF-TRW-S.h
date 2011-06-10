@@ -39,7 +39,7 @@ public:
 	TRWS_MRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool secondPairwisePotential=false)
 	:Superclass(graphModel),secondPairwise(secondPairwisePotential)
 	{
-		verbose=false;
+		verbose=true;
 		m_unaryWeight=unaryWeight;
 		m_pairwiseWeight=pairwiseWeight;
 		createGraph();

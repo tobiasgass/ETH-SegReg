@@ -89,8 +89,9 @@ namespace itk{
             double sum=0.0;
             double result=0;
             double labelWeight=0.0;
+            //            std::cout<<nIt.Size()<<std::endl;
             for (unsigned int i=0;i<nIt.Size();++i){
-
+                
                 bool inBounds;
                 double f=nIt.GetPixel(i,inBounds);
                 if (inBounds){
@@ -141,6 +142,7 @@ namespace itk{
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
                     result=1-(1.0*sfm/sqrt(smm*sff))/2;
+                    //result=-(1.0*sfm/sqrt(smm*sff));
                 }
                 else if (sfm>0)result=0;
                 else result=1;

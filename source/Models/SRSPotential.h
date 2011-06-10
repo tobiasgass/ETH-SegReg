@@ -101,7 +101,7 @@ public:
 	}
 	void setRadius(SpacingType rad){
 		for (int d=0;d<ImageType::ImageDimension;++d){
-			m_radius[d]=rad[d]-1;
+			m_radius[d]=rad[d]/this->m_fixedImage->GetSpacing()[d]-1;
 			if (m_radius[d]<0)
 				m_radius[d]=0;
 		}

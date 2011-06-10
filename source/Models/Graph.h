@@ -26,11 +26,14 @@ using namespace std;
  * Returns current/next position in a grid based on size and resolution
  */
 
-template<class TUnaryFunction,class TLabelMapper, class TImage>
+//template<class TUnaryFunction, class TPairwiseFunction, class TLabelMapper, class TImage>
+template<class TUnaryFunction, class TLabelMapper, class TImage>
 class GraphModel{
 public:
 	typedef TUnaryFunction UnaryFunctionType;
 	typedef typename UnaryFunctionType::Pointer UnaryFunctionPointerType;
+    //    typedef TPairwiseFunction PairwiseFunctionType;
+    //	typedef typename PairwiseFunctionType::Pointer PairwiseFunctionPointerType;
 	typedef TLabelMapper LabelMapperType;
 	typedef typename LabelMapperType::LabelType LabelType;
 	typedef typename TImage::IndexType IndexType;
@@ -54,8 +57,9 @@ protected:
 	double m_DisplacementScalingFactor;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices;
-	//	ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
+	//ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
 	UnaryFunctionPointerType m_unaryFunction;
+    //PairwiseFunctionPointerType m_pairwiseFunction;
 	bool verbose;
 	double m_segmentationWeight, m_registrationWeight;
 	bool m_haveLabelMap;
@@ -63,7 +67,7 @@ protected:
 public:
 
 	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, int divisor, double displacementScalingFactor, double segmentationWeight, double registrationWeight)
-	:m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor), m_segmentationWeight(segmentationWeight),m_registrationWeight(registrationWeight)
+        :m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor), m_segmentationWeight(segmentationWeight),m_registrationWeight(registrationWeight)
 	{
 		m_haveLabelMap=false;
 		verbose=true;
@@ -306,7 +310,7 @@ public:
 
 	int nNodes(){return m_nNodes;}
 
-//	LabelType getResolution(){return m_spacing;}
+    //	LabelType getResolution(){return m_spacing;}
 	int nVertices(){return m_nVertices;}
 
 	std::vector<int> getForwardNeighbours(int index){
@@ -367,244 +371,254 @@ public:
 
 		std::cout<<1.0*vCount/(totalCount+0.0000000001)<<" ratio of violated constraints"<<std::endl;
 	}
-	LabelImagePointerType getFullLabelImage(LabelImagePointerType labelImg){
-		typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
-#if 1
-		const unsigned int SplineOrder = 3;
 
-		typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
-		typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
-		typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
-		typedef typename itk::BSplineDecompositionImageFilter<ParamImageType,ParamImageType>			DecompositionType;
-		typedef typename  itk::ImageRegionIterator<ParamImageType> Iterator;
-		std::vector<typename ParamImageType::Pointer> newImages(ImageType::ImageDimension+1);
-		//interpolate deformation
-		for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
-		{
-			//			std::cout<<k<<" setup"<<std::endl;
-			typename ParamImageType::Pointer paramsK=ParamImageType::New();
-			paramsK->SetRegions(labelImg->GetLargestPossibleRegion());
-			paramsK->SetOrigin(labelImg->GetOrigin());
-			paramsK->SetSpacing(labelImg->GetSpacing());
-			paramsK->SetDirection(labelImg->GetDirection());
-			paramsK->Allocate();
-			Iterator itCoarse( paramsK, paramsK->GetLargestPossibleRegion() );
-			LabelIterator itOld(labelImg,labelImg->GetLargestPossibleRegion());
-			for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
-				itCoarse.Set((itOld.Get()[k])*(k<ImageType::ImageDimension?getDisplacementFactor()[k]:1));
-//				std::cout<<itCoarse.Get()<<std::endl;
-			}
-			if (k<ImageType::ImageDimension){
-				//bspline interpolation for the displacements
-				typename ResamplerType::Pointer upsampler = ResamplerType::New();
-				typename FunctionType::Pointer function = FunctionType::New();
-				upsampler->SetInput( paramsK );
-				upsampler->SetInterpolator( function );
-				upsampler->SetSize(m_fixedImage->GetLargestPossibleRegion().GetSize() );
-				upsampler->SetOutputSpacing( m_fixedImage->GetSpacing() );
-				upsampler->SetOutputOrigin( m_fixedImage->GetOrigin());
-				upsampler->SetOutputDirection( m_fixedImage->GetDirection());
-				typename DecompositionType::Pointer decomposition = DecompositionType::New();
-				decomposition->SetSplineOrder( SplineOrder );
-				decomposition->SetInput( upsampler->GetOutput() );
-				decomposition->Update();
-				newImages[k] = decomposition->GetOutput();
-			}
-			else{
-				//linear interpolation for the segmentation label
-				typedef typename itk::NearestNeighborInterpolateImageFunction<ParamImageType, double> InterpolatorType;
-				//				typedef typename itk::LinearInterpolateImageFunction<ParamImageType, double> InterpolatorType;
-				typedef typename InterpolatorType::Pointer InterpolatorPointerType;
-				typedef typename itk::ResampleImageFilter< ParamImageType , ParamImageType>	ParamResampleFilterType;
-				InterpolatorPointerType interpolator=InterpolatorType::New();
-				interpolator->SetInputImage(paramsK);
-				typename ParamResampleFilterType::Pointer resampler = ParamResampleFilterType::New();
-				//resample deformation field to fixed image dimension
-				resampler->SetInput( paramsK );
-				resampler->SetInterpolator( interpolator );
-				resampler->SetOutputOrigin(m_fixedImage->GetOrigin());
-				resampler->SetOutputSpacing ( m_fixedImage->GetSpacing() );
-				resampler->SetOutputDirection ( m_fixedImage->GetDirection() );
-				resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
-				resampler->Update();
-				newImages[k] = resampler->GetOutput();
-			}
-		}
-		std::vector< Iterator*> iterators(ImageType::ImageDimension+1);
-		for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
-		{
-			iterators[k]=new Iterator(newImages[k],newImages[k]->GetLargestPossibleRegion());
-			iterators[k]->GoToBegin();
-		}
-		LabelImagePointerType fullLabelImage=LabelImageType::New();
-		fullLabelImage->SetRegions(m_fixedImage->GetLargestPossibleRegion());
-		fullLabelImage->SetOrigin(m_fixedImage->GetOrigin());
-		fullLabelImage->SetSpacing(m_fixedImage->GetSpacing());
-		fullLabelImage->SetDirection(m_fixedImage->GetDirection());
-		fullLabelImage->Allocate();
-		LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
+    LabelImagePointerType scaleLabelImage(LabelImagePointerType labelImg, SpacingType scalingFactors){
+        typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
+        LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());
 		lIt.GoToBegin();
 		for (;!lIt.IsAtEnd();++lIt){
-			LabelType l;
-			for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ ){
-//				std::cout<<k<<" label: "<<iterators[k]->Get()<<std::endl;
-				l[k]=iterators[k]->Get();
-				++(*(iterators[k]));
-			}
+			lIt.Set(LabelMapperType::scaleDisplacement(lIt.Get(),scalingFactors));
+        }
+        return labelImg;
+    }
+    LabelImagePointerType getFullLabelImage(LabelImagePointerType labelImg){
+        typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
+#if 1
+        const unsigned int SplineOrder = 3;
 
-//			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
-						lIt.Set(l);
-		}
-		for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
-		{
-			delete iterators[k];
-		}
-		return fullLabelImage;
+        typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
+        typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
+        typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
+        typedef typename itk::BSplineDecompositionImageFilter<ParamImageType,ParamImageType>			DecompositionType;
+        typedef typename  itk::ImageRegionIterator<ParamImageType> Iterator;
+        std::vector<typename ParamImageType::Pointer> newImages(ImageType::ImageDimension+1);
+        //interpolate deformation
+        for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
+            {
+                //			std::cout<<k<<" setup"<<std::endl;
+                typename ParamImageType::Pointer paramsK=ParamImageType::New();
+                paramsK->SetRegions(labelImg->GetLargestPossibleRegion());
+                paramsK->SetOrigin(labelImg->GetOrigin());
+                paramsK->SetSpacing(labelImg->GetSpacing());
+                paramsK->SetDirection(labelImg->GetDirection());
+                paramsK->Allocate();
+                Iterator itCoarse( paramsK, paramsK->GetLargestPossibleRegion() );
+                LabelIterator itOld(labelImg,labelImg->GetLargestPossibleRegion());
+                for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
+                    itCoarse.Set((itOld.Get()[k]));//*(k<ImageType::ImageDimension?getDisplacementFactor()[k]:1));
+                    //				std::cout<<itCoarse.Get()<<std::endl;
+                }
+                if (k<ImageType::ImageDimension){
+                    //bspline interpolation for the displacements
+                    typename ResamplerType::Pointer upsampler = ResamplerType::New();
+                    typename FunctionType::Pointer function = FunctionType::New();
+                    upsampler->SetInput( paramsK );
+                    upsampler->SetInterpolator( function );
+                    upsampler->SetSize(m_fixedImage->GetLargestPossibleRegion().GetSize() );
+                    upsampler->SetOutputSpacing( m_fixedImage->GetSpacing() );
+                    upsampler->SetOutputOrigin( m_fixedImage->GetOrigin());
+                    upsampler->SetOutputDirection( m_fixedImage->GetDirection());
+                    typename DecompositionType::Pointer decomposition = DecompositionType::New();
+                    decomposition->SetSplineOrder( SplineOrder );
+                    decomposition->SetInput( upsampler->GetOutput() );
+                    decomposition->Update();
+                    newImages[k] = decomposition->GetOutput();
+                }
+                else{
+                    //linear interpolation for the segmentation label
+                    typedef typename itk::NearestNeighborInterpolateImageFunction<ParamImageType, double> InterpolatorType;
+                    //				typedef typename itk::LinearInterpolateImageFunction<ParamImageType, double> InterpolatorType;
+                    typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+                    typedef typename itk::ResampleImageFilter< ParamImageType , ParamImageType>	ParamResampleFilterType;
+                    InterpolatorPointerType interpolator=InterpolatorType::New();
+                    interpolator->SetInputImage(paramsK);
+                    typename ParamResampleFilterType::Pointer resampler = ParamResampleFilterType::New();
+                    //resample deformation field to fixed image dimension
+                    resampler->SetInput( paramsK );
+                    resampler->SetInterpolator( interpolator );
+                    resampler->SetOutputOrigin(m_fixedImage->GetOrigin());
+                    resampler->SetOutputSpacing ( m_fixedImage->GetSpacing() );
+                    resampler->SetOutputDirection ( m_fixedImage->GetDirection() );
+                    resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
+                    resampler->Update();
+                    newImages[k] = resampler->GetOutput();
+                }
+            }
+        std::vector< Iterator*> iterators(ImageType::ImageDimension+1);
+        for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
+            {
+                iterators[k]=new Iterator(newImages[k],newImages[k]->GetLargestPossibleRegion());
+                iterators[k]->GoToBegin();
+            }
+        LabelImagePointerType fullLabelImage=LabelImageType::New();
+        fullLabelImage->SetRegions(m_fixedImage->GetLargestPossibleRegion());
+        fullLabelImage->SetOrigin(m_fixedImage->GetOrigin());
+        fullLabelImage->SetSpacing(m_fixedImage->GetSpacing());
+        fullLabelImage->SetDirection(m_fixedImage->GetDirection());
+        fullLabelImage->Allocate();
+        LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
+        lIt.GoToBegin();
+        for (;!lIt.IsAtEnd();++lIt){
+            LabelType l;
+            for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ ){
+                //				std::cout<<k<<" label: "<<iterators[k]->Get()<<std::endl;
+                l[k]=iterators[k]->Get();
+                ++(*(iterators[k]));
+            }
+
+            //			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
+            lIt.Set(l);
+        }
+        for ( unsigned int k = 0; k < ImageType::ImageDimension+1; k++ )
+            {
+                delete iterators[k];
+            }
+        return fullLabelImage;
 
 #else
 #if 1
-		//typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
-		typedef typename itk::VectorNearestNeighborInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
-		typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
-		typedef typename itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
-		LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();
-		labelInterpolator->SetInputImage(labelImg);
-		//initialise resampler
+        //typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
+        typedef typename itk::VectorNearestNeighborInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
+        typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
+        typedef typename itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
+        LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();
+        labelInterpolator->SetInputImage(labelImg);
+        //initialise resampler
 
-		typename LabelResampleFilterType::Pointer resampler = LabelResampleFilterType::New();
-		//resample deformation field to fixed image dimension
-		resampler->SetInput( labelImg );
-		resampler->SetInterpolator( labelInterpolator );
-		resampler->SetOutputOrigin(m_fixedImage->GetOrigin());
-		resampler->SetOutputSpacing ( m_fixedImage->GetSpacing() );
-		resampler->SetOutputDirection ( m_fixedImage->GetDirection() );
-		resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
-		if (verbose) std::cout<<"interpolating deformation field"<<std::endl;
-		resampler->Update();
-		LabelImagePointerType fullLabelImage=resampler->GetOutput();
-		LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
-		lIt.GoToBegin();
-		for (;!lIt.IsAtEnd();++lIt){
-			LabelType l=lIt.Get();
-			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
-		}
-		return fullLabelImage;
+        typename LabelResampleFilterType::Pointer resampler = LabelResampleFilterType::New();
+        //resample deformation field to fixed image dimension
+        resampler->SetInput( labelImg );
+        resampler->SetInterpolator( labelInterpolator );
+        resampler->SetOutputOrigin(m_fixedImage->GetOrigin());
+        resampler->SetOutputSpacing ( m_fixedImage->GetSpacing() );
+        resampler->SetOutputDirection ( m_fixedImage->GetDirection() );
+        resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
+        if (verbose) std::cout<<"interpolating deformation field"<<std::endl;
+        resampler->Update();
+        LabelImagePointerType fullLabelImage=resampler->GetOutput();
+        LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
+        lIt.GoToBegin();
+        for (;!lIt.IsAtEnd();++lIt){
+            LabelType l=lIt.Get();
+            lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
+        }
+        return fullLabelImage;
 #else
-		LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());
-		lIt.GoToBegin();
-		for (;!lIt.IsAtEnd();++lIt){
-			LabelType l=lIt.Get();
-			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
-		}
-		return labelImg;
+        LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());
+        lIt.GoToBegin();
+        for (;!lIt.IsAtEnd();++lIt){
+            LabelType l=lIt.Get();
+            lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
+        }
+        return labelImg;
 #endif
 #endif
-	}
+    }
 
-	void calculateBackProjections(){
-		bool zero=false;
-		for (int d=0;d<ImageType::ImageDimension;++d){
-			if (this->m_unaryFunction->getRadius()[d]==0){
-				zero=true;
-				break;
-			}
-		}
-		if (zero){
-			m_backProjFixedImage=m_fixedGradientImage;
-			m_backProjLabelImage=m_fullLabelImage;
-			return;
-		}
-		m_backProjFixedImage=ImageType::New();
-		typename ImageType::RegionType imRegion;
-		imRegion.SetSize(m_gridSize);
-		m_backProjFixedImage->SetOrigin(m_origin);
-		m_backProjFixedImage->SetRegions(imRegion);
-		m_backProjFixedImage->SetSpacing(m_spacing);
-		m_backProjFixedImage->Allocate();
-		m_backProjLabelImage=LabelImageType::New();
-		typename LabelImageType::RegionType region;
-		region.SetSize(m_gridSize);
-		m_backProjLabelImage->SetOrigin(m_origin);
-		m_backProjLabelImage->SetRegions(region);
-		m_backProjLabelImage->SetSpacing(m_spacing);
-		m_backProjLabelImage->Allocate();
-		bool inBounds;
-		typename itk::ConstNeighborhoodIterator<LabelImageType>::RadiusType radius=this->m_unaryFunction->getRadius();
-		typename itk::ConstNeighborhoodIterator<LabelImageType> nIt(radius,this->m_fullLabelImage, this->m_fullLabelImage->GetLargestPossibleRegion());
-		typename itk::ConstNeighborhoodIterator<ImageType> fixedIt(radius,this->m_fixedGradientImage, this->m_fixedImage->GetLargestPossibleRegion());
+    void calculateBackProjections(){
+        bool zero=false;
+        for (int d=0;d<ImageType::ImageDimension;++d){
+            if (this->m_unaryFunction->getRadius()[d]==0){
+                zero=true;
+                break;
+            }
+        }
+        if (zero){
+            m_backProjFixedImage=m_fixedGradientImage;
+            m_backProjLabelImage=m_fullLabelImage;
+            return;
+        }
+        m_backProjFixedImage=ImageType::New();
+        typename ImageType::RegionType imRegion;
+        imRegion.SetSize(m_gridSize);
+        m_backProjFixedImage->SetOrigin(m_origin);
+        m_backProjFixedImage->SetRegions(imRegion);
+        m_backProjFixedImage->SetSpacing(m_spacing);
+        m_backProjFixedImage->Allocate();
+        m_backProjLabelImage=LabelImageType::New();
+        typename LabelImageType::RegionType region;
+        region.SetSize(m_gridSize);
+        m_backProjLabelImage->SetOrigin(m_origin);
+        m_backProjLabelImage->SetRegions(region);
+        m_backProjLabelImage->SetSpacing(m_spacing);
+        m_backProjLabelImage->Allocate();
+        bool inBounds;
+        typename itk::ConstNeighborhoodIterator<LabelImageType>::RadiusType radius=this->m_unaryFunction->getRadius();
+        typename itk::ConstNeighborhoodIterator<LabelImageType> nIt(radius,this->m_fullLabelImage, this->m_fullLabelImage->GetLargestPossibleRegion());
+        typename itk::ConstNeighborhoodIterator<ImageType> fixedIt(radius,this->m_fixedGradientImage, this->m_fixedImage->GetLargestPossibleRegion());
 
-		for (int i=0;i<m_nNodes;++i){
+        for (int i=0;i<m_nNodes;++i){
 
-			IndexType gridIndex=getGridPositionAtIndex(i);
-			IndexType imageIndex=gridToImageIndex(gridIndex);
-			nIt.SetLocation(imageIndex);
-			fixedIt.SetLocation(imageIndex);
+            IndexType gridIndex=getGridPositionAtIndex(i);
+            IndexType imageIndex=gridToImageIndex(gridIndex);
+            nIt.SetLocation(imageIndex);
+            fixedIt.SetLocation(imageIndex);
 
-			double weightSum=0.0;
-			LabelType labelSum;
-			float valSum=0.0;
-			for (unsigned int n=0;n<nIt.Size();++n){
-				LabelType l=nIt.GetPixel(n,inBounds);
-				float val=fixedIt.GetPixel(n);
+            double weightSum=0.0;
+            LabelType labelSum;
+            float valSum=0.0;
+            for (unsigned int n=0;n<nIt.Size();++n){
+                LabelType l=nIt.GetPixel(n,inBounds);
+                float val=fixedIt.GetPixel(n);
 
-				//				std::cout<<val<<std::endl;
-				if (inBounds){
-					IndexType neighborIndex=nIt.GetIndex(n);
-					double weight=1.0;
-					double maxD=0.0;
-					double dist=0.0;
-					for (int d=0;d<ImageType::ImageDimension;++d){
-						double tmp=1.0*fabs(neighborIndex[d]-imageIndex[d]);
-						dist+=tmp*tmp;
-						maxD+=radius[d]*radius[d];
-						////					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
-						//					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
+                //				std::cout<<val<<std::endl;
+                if (inBounds){
+                    IndexType neighborIndex=nIt.GetIndex(n);
+                    double weight=1.0;
+                    double maxD=0.0;
+                    double dist=0.0;
+                    for (int d=0;d<ImageType::ImageDimension;++d){
+                        double tmp=1.0*fabs(neighborIndex[d]-imageIndex[d]);
+                        dist+=tmp*tmp;
+                        maxD+=radius[d]*radius[d];
+                        ////					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
+                        //					weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/m_radius[d];
 
-					}
-//					weight=1-(dist/maxD);
-//					for (int d=0;d<ImageType::ImageDimension;++d){
-//						weight*=1-(1.0*fabs(neighborIndex[d]-imageIndex[d]))/(m_spacing[d]); //uhuh radius==spacing?
-//						//weight+=w/ImageType::ImageDimension;
-//					}
-//					weight=1;
-					//					std::cout<<n<<" "<<neighborIndex<<" "<<imageIndex<<" "<<weight<<" "<<val<<std::endl;
-					labelSum+=l*weight;
-					valSum+=val*weight;
-					weightSum+=weight;
-				}
+                    }
+                    //					weight=1-(dist/maxD);
+                    //					for (int d=0;d<ImageType::ImageDimension;++d){
+                    //						weight*=1-(1.0*fabs(neighborIndex[d]-imageIndex[d]))/(m_spacing[d]); //uhuh radius==spacing?
+                    //						//weight+=w/ImageType::ImageDimension;
+                    //					}
+                    //					weight=1;
+                    //					std::cout<<n<<" "<<neighborIndex<<" "<<imageIndex<<" "<<weight<<" "<<val<<std::endl;
+                    labelSum+=l*weight;
+                    valSum+=val*weight;
+                    weightSum+=weight;
+                }
 
-			}
-			labelSum/=weightSum;
-			m_backProjLabelImage->SetPixel(gridIndex,labelSum);
-			//			std::cout<<gridIndex<<" "<<imageIndex<<" "<<valSum<<" "<<weightSum<<" "<<valSum/weightSum<<std::endl;
-			valSum/=weightSum;
-			m_backProjFixedImage->SetPixel(gridIndex,valSum);
-		}
-		typedef typename itk::RescaleIntensityImageFilter<
-				ImageType, ImageType >  RescaleFilterType;
-		typename RescaleFilterType::Pointer rescaler = RescaleFilterType::New();
-		rescaler->SetOutputMinimum(  0 );
-		rescaler->SetOutputMaximum( 65535 );
-		rescaler->SetInput(m_backProjFixedImage);
-		rescaler->Update();
-		m_backProjFixedImage=rescaler->GetOutput();
-	}
-	void saveBackProj(std::string Filename){
-		typedef typename itk::NearestNeighborInterpolateImageFunction<ImageType, double> InterpolatorType;
-		typedef typename itk::ResampleImageFilter< ImageType , ImageType>	ResampleFilterType;
-		typename InterpolatorType::Pointer interpolator=InterpolatorType::New();
-		interpolator->SetInputImage(m_backProjFixedImage);
-		typename ResampleFilterType::Pointer resampler = ResampleFilterType::New();
-		//resample deformation field to fixed image dimension
-		resampler->SetInput( m_backProjFixedImage );
-		resampler->SetInterpolator( interpolator );
-		resampler->SetOutputOrigin(m_fixedImage->GetOrigin());
-		resampler->SetOutputSpacing ( m_fixedImage->GetSpacing() );
-		resampler->SetOutputDirection ( m_fixedImage->GetDirection() );
-		resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
-		resampler->Update();
-		ImageUtils<ImageType>::writeImage(Filename,resampler->GetOutput());
-	}
+            }
+            labelSum/=weightSum;
+            m_backProjLabelImage->SetPixel(gridIndex,labelSum);
+            //			std::cout<<gridIndex<<" "<<imageIndex<<" "<<valSum<<" "<<weightSum<<" "<<valSum/weightSum<<std::endl;
+            valSum/=weightSum;
+            m_backProjFixedImage->SetPixel(gridIndex,valSum);
+        }
+        typedef typename itk::RescaleIntensityImageFilter<
+        ImageType, ImageType >  RescaleFilterType;
+        typename RescaleFilterType::Pointer rescaler = RescaleFilterType::New();
+        rescaler->SetOutputMinimum(  0 );
+        rescaler->SetOutputMaximum( 65535 );
+        rescaler->SetInput(m_backProjFixedImage);
+        rescaler->Update();
+        m_backProjFixedImage=rescaler->GetOutput();
+    }
+    void saveBackProj(std::string Filename){
+        typedef typename itk::NearestNeighborInterpolateImageFunction<ImageType, double> InterpolatorType;
+        typedef typename itk::ResampleImageFilter< ImageType , ImageType>	ResampleFilterType;
+        typename InterpolatorType::Pointer interpolator=InterpolatorType::New();
+        interpolator->SetInputImage(m_backProjFixedImage);
+        typename ResampleFilterType::Pointer resampler = ResampleFilterType::New();
+        //resample deformation field to fixed image dimension
+        resampler->SetInput( m_backProjFixedImage );
+        resampler->SetInterpolator( interpolator );
+        resampler->SetOutputOrigin(m_fixedImage->GetOrigin());
+        resampler->SetOutputSpacing ( m_fixedImage->GetSpacing() );
+        resampler->SetOutputDirection ( m_fixedImage->GetDirection() );
+        resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
+        resampler->Update();
+        ImageUtils<ImageType>::writeImage(Filename,resampler->GetOutput());
+    }
 };
 
 

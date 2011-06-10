@@ -4,6 +4,7 @@ include(${ITK_USE_FILE})
 ADD_LIBRARY(Utils
   bimap.h
   ImageUtils.cxx
+  FilterUtils.hpp
   argstream.h
   itkDisplacementFieldCompositionFilter.h
 )
