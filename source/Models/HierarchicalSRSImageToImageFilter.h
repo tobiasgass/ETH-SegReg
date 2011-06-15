@@ -42,7 +42,7 @@
 #include <itkAddPixelAccessor.h>
 #include "itkDisplacementFieldCompositionFilter.h"
 #include "itkBSplineInterpolateImageFunction.h"
-#include "itkSignedMaurerDistanceMapImageFilter.h"
+
 using namespace itk;
 template<class TImage, class TLabelMapper, class TUnaryPotential>
 class HierarchicalSRSImageToImageFilter{
@@ -145,11 +145,7 @@ public:
 		double minFactor=9999999999;
         int level;
         double scale=-1, oldscale=-1;
-        typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, ImageType > DistanceTransformType;
-        typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
-        distanceTransform->SetInput(movingSegmentationImage);
-        distanceTransform->Update();
-        ImageUtils<ImageType>::writeImage("dt.nii",distanceTransform->GetOutput());
+       
 		for (int l=0;l<m_config.nLevels;++l){
 
              level=m_config.levels[l];
@@ -168,7 +164,7 @@ public:
 			}
             double sigma=1;
             int offset=1;
-            //scale=1/pow(2,m_config.nLevels-l-1+offset);
+            //            scale=1/pow(1.5,m_config.nLevels-l-1+offset);
             
             scale=7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
             scale=scale<1.0?scale:1.0;
@@ -219,7 +215,7 @@ public:
 				totalArea*=downSampledTarget->GetLargestPossibleRegion().GetSize()[d];
 				patchArea*=graph.getGridSize()[d];
 			}
-			segmentationFactor=exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
+			segmentationFactor=scale*scale*scale*scale*scale;//exp(-(120/level-4));//sqrt(sqrt(sqrt(patchArea/totalArea)));
 
 			if (segmentationFactor<minFactor){
 				minFactor=segmentationFactor;

@@ -20,6 +20,7 @@
 #include "itkVectorNearestNeighborInterpolateImageFunction.h"
 #include "itkBSplineResampleImageFunction.h"
 #include "itkRescaleIntensityImageFilter.h"
+#include "itkSignedMaurerDistanceMapImageFilter.h"
 using namespace std;
 /*
  * Isotropic Graph
@@ -48,7 +49,7 @@ public:
 	typedef typename LabelImageType::Pointer LabelImagePointerType;
 
 protected:
-	ImagePointerType m_fixedImage,m_fixedGradientImage,m_backProjFixedImage;
+	ImagePointerType m_fixedImage,m_fixedGradientImage,m_backProjFixedImage, m_distanceToDeformedSegmentationMap;
 	LabelImagePointerType m_fullLabelImage,m_backProjLabelImage;
 	SizeType m_totalSize,m_imageLevelDivisors,m_gridSize;
 
@@ -276,7 +277,9 @@ public:
 		IndexType imageIndex;
 		for (unsigned int d=0;d<m_dim;++d){
 			int t=gridIndex[d]*m_gridSpacing[d];
-			imageIndex[d]=t>0?t:0;
+            if ( t<0 ){ t=0;}
+                else if (t>=m_totalSize[d]){ t=	m_totalSize[d]-1;}
+			imageIndex[d]=t;
 		}
 		return imageIndex;
 	}
@@ -618,6 +621,41 @@ public:
         resampler->SetSize ( m_fixedImage->GetLargestPossibleRegion().GetSize() );
         resampler->Update();
         ImageUtils<ImageType>::writeImage(Filename,resampler->GetOutput());
+    }
+
+    ImagePointerType deformImage(ImagePointerType segmentationImage, LabelImagePointerType deformation){
+        typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
+        typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+        typename LabelIterator::PointerType deformationIt(deformation,deformation->GetLargestPossibleRegion());
+        typename ImageIterator::PointerType imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());
+        typedef typename itk::LinearInterpolateImageFunction<ImageType, double> ImageInterpolatorType;
+        typename ImageInterpolatorType::Pointer interpolator=ImageInterpolatorType::New();
+        interpolator->SetInput(segmentationImage);
+        ImagePointerType deformed=ImageUtils<ImageType>::createEmpty(segmentationImage);
+        for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
+            IndexType index=deformationIt.GetIndex();
+            typename ImageInterpolatorType::ContinuousIndexType idx=this->m_unaryPotential->getMovingIndex(index);
+            LabelType displacement=deformationIt.Get();
+            idx+=LabelMapperType::getDisplacement(displacement);
+            if (interpolator->IsInsideBuffer(idx)){
+                deformed->SetPixel(imageIt.GetIndex(),interpolator->EvaluateAtContinuousIndex(idx));
+
+            }else{
+                deformed->SetPixel(imageIt.GetIndex(),0);
+            }
+        }
+        return deformed;
+    }
+        
+    void setUpDistanceTransformImage(ImagePointerType segmentationImage){
+        typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, ImageType > DistanceTransformType;
+        typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
+        distanceTransform->SetInput(segmentationImage);
+        distanceTransform->Update();
+        //ImageUtils<ImageType>::writeImage("dt.nii",distanceTransform->GetOutput());
+        m_distanceToDeformedSegmentationMap=distanceTransform->GetOutput();
+    
+
     }
 };
 

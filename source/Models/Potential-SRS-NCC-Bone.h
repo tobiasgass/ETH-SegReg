@@ -59,28 +59,28 @@ namespace itk{
                 }
             }
             if (zero){
-                  ContinuousIndexType movingIndex(fixedIndex);
-                  for (int d=0;d<ImageType::ImageDimension;++d){
-                      movingIndex[d]+=disp[d];
-                  }
+                ContinuousIndexType movingIndex(fixedIndex);
+                for (int d=0;d<ImageType::ImageDimension;++d){
+                    movingIndex[d]+=disp[d];
+                }
                   
-                  itk::Vector<float,ImageType::ImageDimension> baseDisp=
-                      LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(fixedIndex));
-                  movingIndex+=baseDisp;
-                  double m;
-                  if (!this->m_movingInterpolator->IsInsideBuffer(movingIndex)){
-                      for (int d=0;d<ImageType::ImageDimension;++d){
-                          if (movingIndex[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
-                              movingIndex[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
-                          }
-                          else if (movingIndex[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
-                              movingIndex[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
-                          }
-                      }
-                  }
-                  double res=getLocalPotential(fixedIndex,movingIndex,label);
-                  //                  std::cout<<fixedIndex<<" "<<label[3]<<" "<<res<<std::endl;
-                  return res;
+                itk::Vector<float,ImageType::ImageDimension> baseDisp=
+                    LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(fixedIndex));
+                movingIndex+=baseDisp;
+                double m;
+                if (!this->m_movingInterpolator->IsInsideBuffer(movingIndex)){
+                    for (int d=0;d<ImageType::ImageDimension;++d){
+                        if (movingIndex[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
+                            movingIndex[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+                        }
+                        else if (movingIndex[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
+                            movingIndex[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
+                        }
+                    }
+                }
+                double res=getLocalPotential(fixedIndex,movingIndex,label);
+                //                  std::cout<<fixedIndex<<" "<<label[3]<<" "<<res<<std::endl;
+                return res;
             }
             typename itk::ConstNeighborhoodIterator<ImageType> nIt(this->m_radius,this->m_fixedImage, this->m_fixedImage->GetLargestPossibleRegion());
             nIt.SetLocation(fixedIndex);
@@ -99,11 +99,23 @@ namespace itk{
                     IndexType neighborIndex=nIt.GetIndex(i);
                     ContinuousIndexType movingIndex(neighborIndex);
                     double weight=1.0;
-                    for (int d=0;d<ImageType::ImageDimension;++d){
-                        weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/(this->m_radius[d]+0.0000000001);
-                        movingIndex[d]+=disp[d];
-                    }
 
+
+
+                    double maxD=0.0;
+                    double dist=0.0;
+                    for (int d=0;d<ImageType::ImageDimension;++d){
+                        movingIndex[d]+=disp[d];
+                        //weight*=1-(1.0*fabs(neighborIndex[d]-fixedIndex[d]))/(this->m_radius[d]+0.0000000001);
+
+                        double tmp=1.0*fabs(neighborIndex[d]-fixedIndex[d]);
+                        weight*=(this->m_radius[d]-tmp)/this->m_radius[d];
+                        dist+=tmp*tmp;
+
+                        maxD+=this->m_radius[d]*this->m_radius[d];
+                    }
+                    double eucWeight=1-(dist/maxD);
+                    weight=eucWeight;
                     itk::Vector<float,ImageType::ImageDimension> baseDisp=
 						LabelMapperType::getDisplacement(this->m_baseLabelMap->GetPixel(neighborIndex));
                     movingIndex+=baseDisp;
