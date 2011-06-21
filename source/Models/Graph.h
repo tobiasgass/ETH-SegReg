@@ -21,82 +21,128 @@
 #include "itkBSplineResampleImageFunction.h"
 #include "itkRescaleIntensityImageFilter.h"
 #include "itkSignedMaurerDistanceMapImageFilter.h"
+#include <itkImageToImageFilter.h>
+#include <itkBSplineDeformableTransform.h>
+
 using namespace std;
 /*
  * Isotropic Graph
  * Returns current/next position in a grid based on size and resolution
  */
 
-//template<class TUnaryFunction, class TPairwiseFunction, class TLabelMapper, class TImage>
-template<class TUnaryFunction, class TLabelMapper, class TImage>
+template<class TImage, 
+         class TUnaryRegistrationFunction, 
+         class TPairwiseRegistrationFunction, 
+         class TPairwiseSegmentationFunction, 
+         class TPairwiseSegmentationRegistrationFunction,
+         class TLabelMapper>
+
 class GraphModel{
 public:
-	typedef TUnaryFunction UnaryFunctionType;
-	typedef typename UnaryFunctionType::Pointer UnaryFunctionPointerType;
-    //    typedef TPairwiseFunction PairwiseFunctionType;
-    //	typedef typename PairwiseFunctionType::Pointer PairwiseFunctionPointerType;
-	typedef TLabelMapper LabelMapperType;
-	typedef typename LabelMapperType::LabelType LabelType;
+    typedef GraphModel self;
+   	typedef SmartPointer<Self>        Pointer;
+	typedef SmartPointer<const Self>  ConstPointer;
+    itkNewMacro(Self);
+
+    //    typedef  itk::ImageToimageFilter<TImage,TImage> Superclass;
+	typedef TImage ImageType;
 	typedef typename TImage::IndexType IndexType;
 	typedef typename TImage::OffsetType OffsetType;
 	typedef typename TImage::PointType PointType;
-
 	typedef typename TImage::SizeType SizeType;
-	typedef  TImage ImageType;
 	typedef typename TImage::SpacingType SpacingType;
 	typedef typename TImage::Pointer ImagePointerType;
-	typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
-	typedef typename LabelImageType::Pointer LabelImagePointerType;
+	
+   
+    typedef TUnaryRegistrationFunction UnaryRegistrationFunctionType;
+    typedef typename UnaryRegistrationFunctionType::Pointer UnaryRegistrationFunctionPointerType;
+    typedef TPairwiseRegistrationFunction PairwiseRegistrationFunctionType;
+    typedef typename PairwiseRegistrationFunctionType::Pointer PairwiseRegistrationFunctionPointerType;
+    typedef TPairwiseSegmentationFunction PairwiseSegmentationFunctionType;
+    typedef typename PairwiseSegmentationFunctionType::Pointer PairwiseSegmentationFunctionPointerType;
+    typedef TPairwiseSegmentationRegistrationFunction PairwiseSegmentationRegistrationFunctionType;
+    typedef typename PairwiseSegmentationRegistrationFunctionType::Pointer PairwiseSegmentationRegistrationFunctionPointerType;
+    
+	typedef typename LabelMapperType::RegistrationLabelType RegistrationLabelType;
+	typedef typename itk::Image<RegistrationLabelType,ImageType::ImageDimension> RegistrationLabelImageType;
+	typedef typename RegistrationLabelImageType::Pointer RegistrationLabelImagePointerType;
 
+	typedef typename LabelMapperType::SegmentationLabelType SegmentationLabelType;
+	typedef typename itk::Image<SegmentationLabelType,ImageType::ImageDimension> SegmentationLabelImageType;
+	typedef typename SegmentationLabelImageType::Pointer SegmentationLabelImagePointerType;
+    
+    typedef typename itk::BSplineTransform<float,ImageType::ImageDimension,3> BSplineTransformType;
+    typedef typename BSplineTransformType::Pointer BSplineTransformPointerType;
+    
 protected:
-	ImagePointerType m_fixedImage,m_fixedGradientImage,m_backProjFixedImage, m_distanceToDeformedSegmentationMap;
-	LabelImagePointerType m_fullLabelImage,m_backProjLabelImage;
+    
 	SizeType m_totalSize,m_imageLevelDivisors,m_gridSize;
+    
+    //grid spacing in unit pixels
+    SpacingType m_gridSpacing;
+    //grid spacing in terms of input image spacing
+	SpacingType m_spacing;
+    
+    //spacing of the displacement labels
+    SpacingType m_labelSpacing;
 
-	SpacingType m_spacing,m_labelSpacing, m_gridSpacing;
 	PointType m_origin;
 	double m_DisplacementScalingFactor;
 	static const unsigned int m_dim=TImage::ImageDimension;
-	int m_nNodes,m_nVertices;
+	int m_nNodes,m_nVertices, m_nRegistrationNodes, m_nSegmentationNodes;
 	//ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
-	UnaryFunctionPointerType m_unaryFunction;
+	UnaryRegistrationFunctionPointerType m_unaryRegFunction;
+	UnarySegmentationFunctionPointerType m_unarySegFunction;
+    PairwiseSegmentationRegistrationFunctionPointerType m_pairwiseSegRegFunction;
+    PairwiseSegmentationFunctionPointerType m_pairwiseSegFunction;
+    PairwiseRegistrationFunctionPointerType m_pairwiseRegFunction;
+  
     //PairwiseFunctionPointerType m_pairwiseFunction;
 	bool verbose;
 	double m_segmentationWeight, m_registrationWeight;
 	bool m_haveLabelMap;
-
+    ImagePointerType m_fixedImage=NULL;
 public:
 
-	GraphModel(ImagePointerType fixedimage,UnaryFunctionPointerType unaryFunction, int divisor, double displacementScalingFactor, double segmentationWeight, double registrationWeight)
-        :m_fixedImage(fixedimage),m_unaryFunction(unaryFunction),m_DisplacementScalingFactor(displacementScalingFactor), m_segmentationWeight(segmentationWeight),m_registrationWeight(registrationWeight)
-	{
+    GraphModel(){
+        assert(m_dim>1);
+		assert(m_dim<4);
 		m_haveLabelMap=false;
 		verbose=true;
-		assert(m_dim>1);
-		assert(m_dim<4);
-		m_totalSize=fixedimage->GetLargestPossibleRegion().GetSize();
-		std::cout<<"total "<<m_totalSize<<endl;
-		m_nNodes=1;
-		setSpacing(divisor);
+    };
+
+    void setFixedImage(ImagePointerType fixedImage){m_fixedImage=fixedImage;}
+    void setGraph(int nGraphNodesPerEdge){
+        assert(m_fixedImage);
+		m_totalSize=m_fixedimage->GetLargestPossibleRegion().GetSize();
+		std::cout<<"Full image resolution: "<<m_totalSize<<endl;
+		m_nSegmentationNodes=1;
+		m_nRegistrationNodes=1;
+		setSpacing(nGraphNodesPerEdge);
 		if (LabelMapperType::nDisplacementSamples){
 			m_labelSpacing=0.4*m_gridSpacing/(LabelMapperType::nDisplacementSamples);
 			if (verbose) std::cout<<"Spacing :"<<m_gridSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<m_labelSpacing<<std::endl;
 		}
 		for (int d=0;d<(int)m_dim;++d){
 			if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_totalSize[d]/m_spacing[d]<<std::endl;
-			m_origin[d]=m_fixedImage->GetOrigin()[d];//-int(m_spacing[d]/2);
+
+            //origin is original origin
+			m_origin[d]=m_fixedImage->GetOrigin()[d];
+            //
 			m_gridSize[d]=m_totalSize[d]/m_gridSpacing[d];
 			if (m_spacing!=1.0)
 				m_gridSize[d]++;
-			m_nNodes*=m_gridSize[d];
+			m_nRegistrationNodes*=m_gridSize[d];
+            m_nSegmentationNodes*=m_totalSize[d];
 			if (d>0){
 				m_imageLevelDivisors[d]=m_imageLevelDivisors[d-1]*m_gridSize[d-1];
 			}else{
 				m_imageLevelDivisors[d]=1;
 			}
 		}
-
+        m_nNodes=m_nRegistrationNodes+m_nSegmentationNodes;
 		if (verbose) std::cout<<"GridSize: "<<m_dim<<" ";
+        
 		if (m_dim>=2){
 			if (verbose) std::cout<<m_gridSize[0]<<" "<<m_gridSize[1];
 			m_nVertices=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
@@ -115,6 +161,7 @@ public:
 		m_segmentationWeight=segmentationWeight;
 	}
 	virtual void setSpacing(int divisor){
+        assert(m_fixedImage);
 		int minSpacing=999999;
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			if(m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/(divisor-1) < minSpacing){
@@ -132,147 +179,46 @@ public:
 		}
  
 	}
+    
 	typename ImageType::DirectionType getDirection(){return m_fixedImage->GetDirection();}
 	void setLabelImage(LabelImagePointerType limg){m_fullLabelImage=limg;m_haveLabelMap=true;}
 	void setGradientImage(ImagePointerType limg){m_fixedGradientImage=limg;}
-
+    
 	void setDisplacementFactor(double fac){m_DisplacementScalingFactor=fac;}
 	SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
 	SpacingType getSpacing(){return m_spacing;}
 	PointType getOrigin(){return m_origin;}
 
-	double getUnaryPotential(int gridIndex, int labelIndex){
-		IndexType fixedIndex=gridToImageIndex(getGridPositionAtIndex(gridIndex));
-		LabelType label=LabelMapperType::getLabel(labelIndex);
-        double pot=m_unaryFunction->getPotential(fixedIndex,label)/m_nNodes;
-        //        std::cout<<gridIndex<<" "<<getGridPositionAtIndex(gridIndex)<<" "<<label<<" "<<pot<<std::endl;
-		return pot;
-	}
-
-	double getPairwisePotential(int LabelIndex,int LabelIndex2){
-		LabelType l1=LabelMapperType::getLabel(LabelIndex);
-		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
-		//	LabelType l=l1-l2;
-		double result=0;
-		for (unsigned int d=0;d<m_dim;++d){
-			double tmp=(l1[d]-l2[d])*m_labelSpacing[d]*m_DisplacementScalingFactor;
-			result+=tmp*tmp;
-		}
-		//		std::cout<<sqrt(result)<<std::endl;
-		double trunc=5.0;
-
-
-		return 0;//(sqrt(result)>trunc?trunc:sqrt(result));
-	}
-
-	virtual double getPairwisePotential(int idx1,int idx2,int LabelIndex,int LabelIndex2,bool verbose=false){
-		LabelType l1=LabelMapperType::getLabel(LabelIndex);
-		LabelType l2=LabelMapperType::getLabel(LabelIndex2);
-		return getPairwisePotential(idx1,idx2,l1, l2, verbose);
-
-	}
-
-	virtual double getPairwisePotential(int idx1,int idx2,LabelType l1, LabelType l2,bool verbose=false){
-
-		IndexType gridIndex1=getGridPositionAtIndex(idx1);
-		IndexType gridIndex2=getGridPositionAtIndex(idx2);
-		IndexType fixedIndex1=gridToImageIndex(gridIndex1);
-		IndexType fixedIndex2=gridToImageIndex(gridIndex2);
-
-		//segmentation smoothness
-		double segmentationSmootheness=0;
-		if (LabelMapperType::nSegmentations){
-			//			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)!=LabelMapperType::getSegmentation(l2));
-			segmentationSmootheness=fabs(LabelMapperType::getSegmentation(l1)-LabelMapperType::getSegmentation(l2));
-			//this weight should rather depend on the interpolated regions
-			//			segmentationSmootheness*=m_segmentationWeight;
-		}
-
-		double registrationSmootheness=0;
-		if (LabelMapperType::nDisplacements){
-#if 0
-			LabelType oldl1=m_backProjLabelImage->GetPixel(gridIndex1);
-			LabelType oldl2=m_backProjLabelImage->GetPixel(gridIndex2);
-#else
-			LabelType oldl1=m_fullLabelImage->GetPixel((fixedIndex1));
-			LabelType oldl2=m_fullLabelImage->GetPixel((fixedIndex2));
-#endif
-			double constrainedViolatedPenalty=65535;//9999999999;
-			bool constraintsViolated=false;
-			double d1,d2;
-			int delta;
-			LabelType displacement1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());//+oldl1;
-			LabelType displacement2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());//+oldl2;
-#if 1
-			displacement1+=oldl1;
-			displacement2+=oldl2;
-#endif
-			for (unsigned int d=0;d<m_dim;++d){
-
-				d1=displacement1[d];
-				d2=displacement2[d];
-				delta=(fixedIndex2[d]-fixedIndex1[d]);
-
-				double axisPositionDifference=1.0*(d2-d1);//(m_spacing[d]);
-
-				double relativeAxisPositionDifference=1.0*(axisPositionDifference+(1.0*delta))/m_gridSpacing[d];
-
-				//we shall never tear the image!
-				if (delta>0){
-					if (relativeAxisPositionDifference<0.2){
-						constraintsViolated=true;
-					}
-				}
-				else if (delta<0){
-					if (relativeAxisPositionDifference>-0.20){
-						constraintsViolated=true;
-					}
-				}
-				if (fabs(relativeAxisPositionDifference)>1.5){
-					constraintsViolated=true;
-				}
-
-				registrationSmootheness+=(axisPositionDifference)*(axisPositionDifference);
-			}
-			registrationSmootheness*=m_registrationWeight;
-			//			if (false){
-			if (constraintsViolated &&verbose){
-				std::cout<<"DeltaInit1: "<<fixedIndex1<<" ->"<<oldl1<<"+"<<displacement1<<" ,"<<fixedIndex2<<" ->"<<oldl2<<"+"<<displacement2<<" :"<<registrationSmootheness<<std::endl;
-			}
-			if (constraintsViolated ){
-				//				registrationSmootheness=constrainedViolatedPenalty;
-			}
-		}
-		//the edgeweight includes the segmentationweight!
-		double edgeWeight=getWeight(gridIndex1,gridIndex2);
-#if 1
-		double endSegSmoothness=edgeWeight*segmentationSmootheness;
-#else
-		double endSegSmoothness=segmentationSmootheness?edgeWeight:m_segmentationWeight*(1-edgeWeight/m_segmentationWeight);
-#endif
-		double result=(registrationSmootheness+endSegSmoothness);
-		return result/m_nVertices;
-	}
-	double getWeight(int gridIndex1, int gridIndex2){
-		return getWeight(getGridPositionAtIndex(gridIndex1),getGridPositionAtIndex(gridIndex2));
-	}
-	double getWeight(IndexType gridIndex1, IndexType gridIndex2){
-		double edgeWeight=fabs(m_backProjFixedImage->GetPixel(gridIndex1)-m_backProjFixedImage->GetPixel(gridIndex2));
-		int s1=m_backProjFixedImage->GetPixel(gridIndex1);
-		int s2=m_backProjFixedImage->GetPixel(gridIndex2);
- 		//		double edgeWeight=fabs(m_fixedImage->GetPixel(gridToImageIndex(gridIndex1))-m_fixedImage->GetPixel(gridToImageIndex(gridIndex2)));
-        //		edgeWeight=exp(-edgeWeight/(3200));
-		edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
-		edgeWeight*=m_segmentationWeight;
-        //edgeWeight+=1;
-		return edgeWeight;
-	}
-	double getPairwisePotential2(int LabelIndex,int LabelIndex2){
-		double segmentationSmoothness=fabs(LabelMapperType::getSegmentation(LabelIndex)-LabelMapperType::getSegmentation(LabelIndex2));
-		return segmentationSmoothness*m_segmentationWeight;
-	}
-
-
+    
+    double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
+        IndexType graphIndex=getGraphIndex(nodeIndex);
+        LabelType l=LabelMapperType::getLabel(labelIndex);
+        return m_unaryRegistrationPotential->getPotential(graphIndex,l);
+    }
+    double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
+        IndexType imageIndex=getImageIndex(nodeIndex);
+        //Segmentation:labelIndex==segmentationlabel
+        return m_segmentationPotential->getPotential(imageIndex,labelIndex);
+    };
+    double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
+        IndexType graphIndex1=getGraphIndex(nodeIndex1);
+        LabelType l1=LabelMapperType::getLabel(labelIndex1);
+        IndexType graphIndex2=getGraphIndex(nodeIndex2);
+        LabelType l2=LabelMapperType::getLabel(labelIndex2);
+        return m_pairwiseRegistrationPotential->getPotential(graphIndex1, graphIndex2, l1,l2);
+    };
+    double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
+        IndexType graphIndex=getGraphIndex(nodeIndex1);
+        IndexType imageIndex=getImageIndex(nodeIndex2);
+        LabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
+        return m_PairwiseSegmentationRegistrationPotential->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel);
+    }
+    double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
+        IndexType imageIndex1=getImageIndex(nodeIndex1);
+        IndexType imageIndex2=getImageIndex(nodeIndex2);
+        return m_segmentationPotential->getWeight(imageIndex1,imageIndex2);
+    }
+    
 	virtual IndexType gridToImageIndex(IndexType gridIndex){
 		IndexType imageIndex;
 		for (unsigned int d=0;d<m_dim;++d){
