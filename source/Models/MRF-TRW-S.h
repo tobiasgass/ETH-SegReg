@@ -14,80 +14,95 @@
 #include "minimize.cpp"
 #include "treeProbabilities.cpp"
 
+
 template<class TGraphModel>
 class TRWS_SRSMRFSolver {
 public:
 
 
-	typedef Graph::Real Real;
-	typedef TGraphModel GraphModelType;
+    typedef TGraphModel GraphModelType;
 	
 	//	typedef Graph::Real Real;
 	typedef TypeGeneral TRWType;
 	typedef MRFEnergy<TRWType> MRFType;
 	typedef typename MRFType::NodeId NodeType;
-    int m_nNodes,m_nLabels;
 
 protected:
 	MRFType* optimizer;
-	NodeType* nodes;
-	double m_unaryWeight,m_pairwiseWeight;
+	double m_unarySegmentationWeight,m_pairwiseSegmentationWeight;
+	double m_unaryRegistrationWeight,m_pairwiseRegistrationWeight;
+	double m_pairwiseSegmentationRegistrationWeight;
 	bool verbose;
     GraphModelType * m_GraphModel;
-
+    int nNodes, nRegNodes, nSegNodes;
+    NodeType* segNodes;
+    NodeType* regNodes;
 public:
-	TRWS_SRSMRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool vverbose=false)
+	TRWS_SRSMRFSolver(GraphModelType * graphModel,
+                      double unaryRegWeight=1.0, 
+                      double pairwiseRegWeight=1.0, 
+                      double unarySegWeight=1.0, 
+                      double pairwiseSegWeight=1.0, 
+                      double pairwiseSegRegWeight=1.0,
+                      bool vverbose=false)
       :m_GraphModel(graphModel)
 	{
 		verbose=vverbose;
-		m_unaryWeight=unaryWeight;
-		m_pairwiseWeight=pairwiseWeight;
-        m_nNodes=m_GraphModel->nNodes();
-		m_nLabels=LabelMapperType::nLabels;
-		createGraph();
+		m_unarySegmentationWeight=unarySegWeight;
+		m_pairwiseSegmentationWeight=pairwiseSegWeight;
+        m_unaryRegistrationWeight=unaryRegWeight;
+        m_pairwiseRegistrationWeight=pairwiseRegWeight;
+        m_pairwiseSegmentationRegistrationWeight=pairwiseSegRegWeight;
+        createGraph();
 	}
 	~TRWS_SRSMRFSolver()
     {
-        delete nodes[];
+        delete segNodes;
+        delete regNodes;
         delete optimizer;
 
     }
 	virtual void createGraph(){
 		//		TRWType::GlobalSize globalSize(labelSampling,labelSampling);
 		//		optimizer = new MRFType(globalSize);
-	
+        if (verbose) std::cout<<"starting graph init"<<std::endl;
+        GraphModelType* graph=this->m_GraphModel;
         TRWType::GlobalSize globalSize();
 		optimizer = new MRFType(TRWType::GlobalSize());
-		int nNodes=this->m_nNodes;
-        int nRegNodes=graph->nRegNodes();
-        int nSegNodes=graph->nSegNodes();
-		nodes = new NodeType[nNodes];
-		if (verbose) std::cout<<"starting graph init"<<std::endl;
-		GraphModelType* graph=this->m_GraphModel;
-		int nLabels=this->m_nLabels;
+		nNodes=graph->nNodes();
+        nRegNodes=graph->nRegNodes();
+        nSegNodes=graph->nSegNodes();
+       
+        segNodes = new NodeType[nSegNodes];
+        regNodes = new NodeType[nRegNodes];
+
+
         int nRegLabels=graph->nRegLabels();
         int nSegLabels=graph->nSegLabels();
 
 		clock_t start = clock();
 		//		traverse grid
-        
+        if (verbose) std::cout<<"RegUnaries "<<nRegNodes<<std::endl;
         //RegUnaries
+        std::cout<<m_pairwiseSegmentationWeight<<" "<<m_unarySegmentationWeight<<std::endl;
 		TRWType::REAL D1[nRegLabels];
 		for (int d=0;d<nRegNodes;++d){
             for (int l1=0;l1<nRegLabels;++l1)
                 {
-                    D1[l1]=m_unaryWeight*graph->getUnaryRegistrationPotential(d,l1);
+                    D1[l1]=m_unaryRegistrationWeight*graph->getUnaryRegistrationPotential(d,l1);
                 }
-			nodes[d] = optimizer->AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
+			regNodes[d] = optimizer->AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
 		}
+        if (verbose) std::cout<<"SegUnaries"<<std::endl;
+
         //SegUnaries
 		TRWType::REAL D2[nSegLabels];
 		for (int d=0;d<nSegNodes;++d){
             for (int l1=0;l1<nSegLabels;++l1)
                 {
-                    D2[l1]=m_unaryWeight*graph->getUnarySegmentationPotential(d,l1);
+                    D2[l1]=m_unarySegmentationWeight*graph->getUnarySegmentationPotential(d,l1);
                 }
-			nodes[nRegNodes+d] = optimizer->AddNode(TRWType::LocalSize(nSegLabels), TRWType::NodeData(D2));
+			segNodes[d] = optimizer->AddNode(TRWType::LocalSize(nSegLabels), TRWType::NodeData(D2));
 		}
 
 		clock_t finish1 = clock();
@@ -101,13 +116,14 @@ public:
                 std::vector<int> neighbours= graph->getForwardRegistrationNeighbours(d);
                 int nNeighbours=neighbours.size();
                 for (int i=0;i<nNeighbours;++i){
+                    //std::cout<<d<<" "<<regNodes[d]<<" "<<i<<" "<<neighbours[i]<<std::endl;
                     TRWType::REAL V[nRegLabels*nRegLabels];
                     for (int l1=0;l1<nRegLabels;++l1){
                         for (int l2=0;l2<nRegLabels;++l2){
-                            V[l1*nRegLabels+l2]=m_pairwiseWeight*graph->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+                            V[l1*nRegLabels+l2]=m_pairwiseSegmentationWeight*graph->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
                         }
                     }
-                    optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
+                    optimizer->AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
                     //				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(weight, weight, 8*weight));
                 }
 
@@ -119,23 +135,25 @@ public:
                     TRWType::REAL V[nRegLabels*nSegLabels];
                     for (int l1=0;l1<nRegLabels;++l1){
                         for (int l2=0;l2<nSegLabels;++l2){
-                            V[l1+l2*nRegLabels]=m_pairwiseWeight*graph->getPairwiseSegRegPotential(d,neighbours[i],l1,l2);
+                            V[l1+l2*nRegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseSegRegPotential(d,neighbours[i],l1,l2);
                         }
                     }
-                    optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
+                    optimizer->AddEdge(regNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
 
                 }
             
             }
         }
+        std::cout<<" reg and segreg pairwise pots" <<std::endl;
         for (int d=0;d<nSegNodes;++d){
             //pure Segmentation
             std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
             int nNeighbours=neighbours.size();
             for (int i=0;i<nNeighbours;++i){
-                optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,graph->getSegmentationWeight(d,nodes[neighbors[i]]));
+                optimizer->AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i])));
             }
         }    
+        std::cout<<" seg pairwise pots" <<std::endl;
         clock_t finish = clock();
         t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
         if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
@@ -157,13 +175,25 @@ public:
 
     }
 
-    virtual LabelType getLabelAtIndex(int index){
-        TRWType::Label l=optimizer->GetSolution(nodes[index]);
-        //		int labelIndex=l.m_kx+l.m_ky*labelSampling;
-        int labelIndex=l;
-        return LabelMapperType::getLabel(labelIndex);
-
+    virtual std::vector<int> getDeformationLabels(){
+        std::vector<int> labels(nRegNodes);
+        for (int i=0;i<nRegNodes;++i){
+            labels[i]=optimizer->GetSolution(regNodes[i]);
+        }
+        return labels;
     }
+    virtual std::vector<int> getSegmentationLabels(){
+        std::vector<int> labels(nSegNodes);
+        int c=0;
+        for (int i=0;i<nSegNodes;++i){
+            labels[i]=optimizer->GetSolution(segNodes[i]);
+            if (labels[i])
+                ++c;
+        }
+        std::cout <<" coutn"<<c<<std::endl;
+        return labels;
+    }
+
 };
 
 #endif /* TRW_S_REGISTRATION_H_ */

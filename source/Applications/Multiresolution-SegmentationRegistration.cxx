@@ -6,11 +6,12 @@
 
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
-#include "Potential-SRS-MultiVariateNCC.h"
-#include "Potential-SRS-SAD-SACentered.h"
-#include "Potential-SRS-SAD-PAX_SXSAT.h"
-#include "SRSPotential.h"
-#include "bimap.h"
+#include "Graph.h"
+#include "BaseLabel.h"
+#include "Potential-Registration-Unary.h"
+#include "Potential-Registration-Pairwise.h"
+#include "Potential-Segmentation-Unary.h"
+#include "Potential-SegmentationRegistration-Pairwise.h"
 
 using namespace std;
 using namespace itk;
@@ -20,27 +21,36 @@ int main(int argc, char ** argv)
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
-	SRSConfig config;
-	config.parseParams(argc,argv);
+	SRSConfig filterConfig;
+	filterConfig.parseParams(argc,argv);
 	//define types.
 	typedef unsigned short PixelType;
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
-	typedef itk::Vector<float,D+1> BaseLabelType;
-	//typedef BaseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef SparseLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef NCCSRSUnaryPotential< LabelMapperType, ImageType > UnaryPotentialType;
-	//typedef  MultiVariateNCCSRSUnaryPotential< LabelMapperType, ImageType > UnaryPotentialType;
-	//typedef  NCCRegistrationUnaryPotential< LabelMapperType, ImageType, SegmentationInterpolatorType,ImageInterpolatorType > BaseUnaryPotentialType;
-   	//typedef SegmentationRegistrationUnaryPotential< LabelMapperType, ImageType> UnaryPotentialType;
-//	typedef  SegmentationRegistrationUnaryPotentialPosteriorSA< LabelMapperType, ImageType > UnaryPotentialType;
-//	typedef  SegmentationRegistrationUnaryPotentialPosteriorPAXSASXT< LabelMapperType, ImageType > UnaryPotentialType;
-	typedef HierarchicalSRSImageToImageFilter<ImageType,LabelMapperType,UnaryPotentialType > FilterType;
+	typedef itk::Vector<float,D> BaseLabelType;
+    typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialRegistration< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
+    typedef PairwisePotentialSegmentationRegistration< LabelMapperType, ImageType > SegmentationRegistrationPairwisePotentialType;
+	typedef HierarchicalSRSImageToImageFilter<ImageType,
+        LabelMapperType,
+        RegistrationUnaryPotentialType,
+        SegmentationUnaryPotentialType,
+        RegistrationPairwisePotentialType,
+        SegmentationRegistrationPairwisePotentialType> FilterType;
+    
 	//create filter
-	FilterType filter(config);
+    FilterType::Pointer filter=FilterType::New();
+    filter->setConfig(filterConfig);
+    filter->setFixedImage(ImageUtils<ImageType>::readImage(filterConfig.targetFilename));
+    filter->setMovingImage(ImageUtils<ImageType>::readImage(filterConfig.movingFilename));
+    filter->setMovingSegmentation(ImageUtils<ImageType>::readImage(filterConfig.movingSegmentationFilename));
+    filter->setFixedGradientImage(ImageUtils<ImageType>::readImage(filterConfig.fixedGradientFilename));
+
 	clock_t start = clock();
 	//DO IT!
-	filter.run();
+	filter->Update();
 	clock_t end = clock();
 	float t = (float) ((double)(end - start) / CLOCKS_PER_SEC);
 	std::cout<<"Finished computation after "<<t<<" seconds"<<std::endl;

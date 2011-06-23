@@ -27,7 +27,7 @@ link_directories (${SRS-MRF_BINARY_DIR}/Models)
 ADD_EXECUTABLE(SegReg Multiresolution-SegmentationRegistration.cxx )
 TARGET_LINK_LIBRARIES(SegReg maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
 
-ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration-3D.cxx )
+ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration3D.cxx )
 TARGET_LINK_LIBRARIES(SegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
 
 #ADD_EXECUTABLE(SegReg-Alt Multiresolution-AlternatingSegmentationRegistration.cxx )

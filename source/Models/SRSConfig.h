@@ -15,7 +15,7 @@
 #include "argstream.h"
 class SRSConfig{
 public:
-	std::string targetFilename,movingFilename,fixedSegmentationFilename, outputDeformedSegmentationFilename,movingSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename;
+	std::string targetFilename,movingFilename,fixedGradientFilename, outputDeformedSegmentationFilename,movingSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename;
 	std::string segmentationProbsFilename, pairWiseProbsFilename;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
@@ -32,6 +32,7 @@ public:
 	int startTiling;
 	int iterationsPerLevel;
 	bool train;
+    double displacementRescalingFactor;
 private:
 	argstream * as;
 public:
@@ -53,6 +54,7 @@ public:
 		train=false;
 		segmentationProbsFilename='segmentation.bin';
 		pairWiseProbsFilename='pairwise.bin';
+        displacementRescalingFactor=0.5;
 	}
 	void parseParams(int argc, char** argv){
 		as= new argstream(argc, argv);
@@ -61,7 +63,7 @@ public:
 	void copyFrom(SRSConfig c){
 		targetFilename=c.targetFilename;
 		movingFilename=c.movingFilename;
-		fixedSegmentationFilename=c.fixedSegmentationFilename;
+		fixedGradientFilename=c.fixedGradientFilename;
 		outputDeformedSegmentationFilename=c.outputDeformedSegmentationFilename;
 		movingSegmentationFilename=c.movingSegmentationFilename;
 		outputDeformedFilename=c.outputDeformedFilename;
@@ -85,6 +87,7 @@ public:
 		nLevels=c.nLevels;
 		startTiling=c.startTiling;
 		train=c.train;
+        displacementRescalingFactor=c.displacementRescalingFactor;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -119,7 +122,7 @@ public:
 		(*as) >> parameter ("t", targetFilename, "target image (file name)", false);
 		(*as) >> parameter ("m", movingFilename, "moving image (file name)", false);
 		(*as) >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", false);
-		(*as) >> parameter ("g", fixedSegmentationFilename, "fixed segmentation image (file name)", false);
+		(*as) >> parameter ("g", fixedGradientFilename, "fixed gradient image (file name)", false);
 
 		(*as) >> parameter ("o", outputDeformedFilename, "output image (file name)", false);
 		(*as) >> parameter ("S", outputDeformedSegmentationFilename, "output image (file name)", false);
@@ -136,6 +139,7 @@ public:
 		(*as) >> parameter ("nLevels", nLevels,"number of multiresolution pyramid levels", false);
 		(*as) >> parameter ("startlevel", startTiling,"start tiling", false);
 		(*as) >> parameter ("iterationsPerLevel", iterationsPerLevel,"iterationsPerLevel", false);
+        (*as) >> parameter ("r",displacementRescalingFactor,"displacementRescalingFactor", false);
 
 		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename", false);
 		(*as) >> parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);

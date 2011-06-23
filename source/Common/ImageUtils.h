@@ -19,6 +19,7 @@ class ImageUtils {
 
 
 	typedef typename ImageType::Pointer  ImagePointerType;
+	typedef typename ImageType::ConstPointer  ConstImagePointerType;
 	typedef typename ImageType::PixelType PixelType;
 
 
@@ -187,7 +188,7 @@ public:
 		return img;
 	};
 
-	static ImagePointerType createEmpty(ImagePointerType refImg) {
+	static ImagePointerType createEmpty(ConstImagePointerType refImg) {
 		ImagePointerType img=ImageType::New();
 		img->SetRegions(refImg->GetLargestPossibleRegion());
 		img->SetOrigin(refImg->GetOrigin());

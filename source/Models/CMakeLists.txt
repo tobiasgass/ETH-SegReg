@@ -13,23 +13,15 @@ LINK_DIRECTORIES(
 SET(SRSMRFModels_SRC
   Classifier.h
   BaseLabel.h
-  BasePotential.h
-  BaseMRF.h
-  SRSPotential.cxx
-  SRSPotential.h
-  SRSPotential-Bone.h
-  MRF-FAST-PD.h
   MRF-TRW-S.h
-  MRF-GC.h
   Graph.h
-  Graph-ITKStyle.h
-  Potential-SRS-NCC.h
-  Potential-SRS-NCC-Bone.h
-  Potential-SRS-MultiVariateNCC.h
-  Potential-SRS-SAD-SACentered.h
-  Potential-SRS-SAD-PAX_SXSAT.h
   SRSConfig.h
   HierarchicalSRSImageToImageFilter.h
+  Potential-Registration-Pairwise.h
+  Potential-Registration-Unary.h
+  Potential-Segmentation-Unary.h
+  Potential-SegmentationRegistration-Pairwise.h
+  dummy.cxx  
 )
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )

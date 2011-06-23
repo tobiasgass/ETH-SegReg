@@ -8,7 +8,7 @@
 #ifndef BASELABEL_H_
 #define BASELABEL_H_
 #include "itkLinearInterpolateImageFunction.h"
-#include "bimap.h"
+
 
 template<class TImage, class TLabel>
 class BaseLabelMapper{
@@ -137,14 +137,6 @@ public:
     //	static const int Dimension=TImage::ImageDimension+1;
 	//private:
 	//	int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
-    typedef typename codeproject::bimap<int, LabelType, std::less<int>, comp<LabelType> > LabelMapType;
-    typedef typename std::map<int,LabelType> IndexToLabelMapType;
-    typedef typename std::map<LabelType, int , comp<LabelType> > LabelToIndexMapType;
-
-public:
-    static LabelMapType labelMap;
-    static IndexToLabelMapType indexToLabelMap;
-    static LabelToIndexMapType labelToIndexMap;
 public:
 	SparseLabelMapper(){}
 	SparseLabelMapper(int NSegmentations, int NDisplacementSamples){
@@ -156,37 +148,6 @@ public:
 		k=TImage::ImageDimension+1;
         //   setupLabelMap();
 	}
-    void setupLabelMap(){
-        LabelType l;
-        int running=0;
-        for (int s=0;s<nSegmentations;++s){
-            l.Fill(0);
-            l[k-1]=s;
-            std::cout<<running<<" "<<l<<std::endl;
-            //     labelMap[running]=l;
-            indexToLabelMap[running]=l;
-            labelToIndexMap[l]=running;
-              
-            ++running;
-            for (int d=0;d<k-1;++d){
-                LabelType l2=l;
-                for (int dd=-nDisplacementSamples;dd<=nDisplacementSamples;++dd){
-                    if (dd!=0){
-                        l2[d]=dd;
-                        std::cout<<running<<" "<<l2<<std::endl;
-                        //labelMap[running]=l2;
-                        indexToLabelMap[running]=l2;
-                        labelToIndexMap[l2]=running;
-                        std::cout<<running<<" "<< indexToLabelMap[running]<<std::endl;
-                        std::cout<<l2<<" "<< labelToIndexMap[l2]<<std::endl;
-                        ++running;
-                    }
-
-                }
-            }
-
-        }
-    }
     void setSegmentationLabels(int labels){
         nSegmentations=labels;
         nLabels=nSegmentations*nDisplacements;
@@ -267,6 +228,166 @@ public:
     }
 
 };
+template<class TImage, class TLabel>
+class DenseRegistrationLabelMapper{
+public:
+	//	typedef typename TImage::OffsetType OffsetType;
+	//	typedef typename itk::LinearInterpolateImageFunction<TImage>::ContinuousIndexType OffsetType;
+	typedef typename itk::Vector<float,TImage::ImageDimension> OffsetType;
+	typedef TLabel LabelType;
+	typedef typename  itk::Image<LabelType,TImage::ImageDimension > LabelImageType;
+	typedef typename LabelImageType::Pointer LabelImagePointerType;
+	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
+	static const int Dimension=TImage::ImageDimension;
+    typedef typename TImage::SpacingType SpacingType;
+
+	//private:
+	//	int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
+public:
+	DenseRegistrationLabelMapper(){}
+	DenseRegistrationLabelMapper(int NSegmentations, int NDisplacementSamples){
+		nSegmentations=NSegmentations;
+		nDisplacementSamples=NDisplacementSamples;
+		nDisplacements=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension);
+		nLabels=nSegmentations*nDisplacements;
+		k=TImage::ImageDimension;
+	}
+	void setDisplacementSamples(int nSamples){
+		nDisplacementSamples=nSamples;
+		nDisplacements=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension);
+		nLabels=nSegmentations*nDisplacements;
+	}
+	void setSegmentationLabels(int labels){
+		nSegmentations=labels;
+		nLabels=nSegmentations*nDisplacements;
+	}
+	static inline const LabelType scaleDisplacement(const LabelType & label,const itk::Vector<float,TImage::ImageDimension> & scaling){
+		LabelType result(label);
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=result[d]*scaling[d];
+		}
+		return result;
+	}
+    static inline const LabelType scaleDisplacement(const LabelType & label,const SpacingType & scaling){
+		LabelType result(label);
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=result[d]*scaling[d];
+		}
+		return result;
+	}
+	static inline const LabelType getLabel(int index){
+		LabelType result;
+        int divisor=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension-1);
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=index/divisor-nDisplacementSamples;
+			index-=(result[d]+nDisplacementSamples)*divisor;
+			divisor/=2*nDisplacementSamples+1;
+		}
+        return result;
+	}
+
+	static inline const int getIndex(const LabelType & label){
+		int index=0;
+        int factor=1;
+		for (int d=TImage::ImageDimension-1;d>=0;--d){
+			index+=factor*(label[d]+nDisplacementSamples);
+			factor*=2*nDisplacementSamples+1;
+		}
+		return index;
+	}
+	static inline const OffsetType getDisplacement(const LabelType & label){
+		OffsetType off;
+		for (int d=0;d<TImage::ImageDimension;++d){
+			off[d]=label[d];
+		}
+		return off;
+	}
+};
+
+template<class TImage, class TLabel>
+class SparseRegistrationLabelMapper{
+public:
+	//	typedef typename TImage::OffsetType OffsetType;
+	//	typedef typename itk::LinearInterpolateImageFunction<TImage>::ContinuousIndexType OffsetType;
+	typedef typename itk::Vector<float,TImage::ImageDimension> OffsetType;
+	typedef TLabel LabelType;
+	typedef typename  itk::Image<LabelType,TImage::ImageDimension > LabelImageType;
+	typedef typename LabelImageType::Pointer LabelImagePointerType;
+	static int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
+	static const int Dimension=TImage::ImageDimension;
+    typedef typename TImage::SpacingType SpacingType;
+
+	//private:
+	//	int nLabels,nDisplacements,nSegmentations,nDisplacementSamples,k;
+public:
+	SparseRegistrationLabelMapper(){}
+	SparseRegistrationLabelMapper(int NSegmentations, int NDisplacementSamples){
+		nSegmentations=NSegmentations;
+		nDisplacementSamples=NDisplacementSamples;
+		nDisplacements=(double(2*nDisplacementSamples+1)*TImage::ImageDimension);
+		nLabels=nSegmentations+nDisplacements;
+		k=TImage::ImageDimension;
+	}
+	void setDisplacementSamples(int nSamples){
+		nDisplacementSamples=nSamples;
+		nDisplacements=(double(2*nDisplacementSamples+1)*TImage::ImageDimension);
+
+		nLabels=nSegmentations*nDisplacements;
+	}
+	void setSegmentationLabels(int labels){
+		nSegmentations=labels;
+		nLabels=nSegmentations+nDisplacements;
+	}
+	static inline const LabelType scaleDisplacement(const LabelType & label,const itk::Vector<float,TImage::ImageDimension> & scaling){
+		LabelType result(label);
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=result[d]*scaling[d];
+		}
+		return result;
+	}
+    static inline const LabelType scaleDisplacement(const LabelType & label,const SpacingType & scaling){
+		LabelType result(label);
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=result[d]*scaling[d];
+		}
+		return result;
+	}
+
+    static inline const LabelType getLabel(int index){
+        LabelType result;
+        result.Fill(0);
+        int divisor=(double(2*nDisplacementSamples+1));
+        result[index/divisor]=index%divisor-nDisplacementSamples;
+        return result;
+    }
+
+    static inline const int getIndex(const LabelType & label){
+        int index=0;
+        itk::Vector<double,TImage::ImageDimension> sums;
+        sums.Fill(0);
+        for (int d=0;d<TImage::ImageDimension;++d){
+            for (int d2=0;d2<TImage::ImageDimension;++d2){
+                if (d2!=d){
+                    sums[d]+=abs(label[d2]);
+                }
+            }
+            if (sums[d]==0){
+                //found it!
+                index+=(d)*(2*nDisplacementSamples+1)+label[d]+nDisplacementSamples;
+                break;
+            }
+        }
+        return index;
+    }
+    
+	static inline const OffsetType getDisplacement(const LabelType & label){
+		OffsetType off;
+		for (int d=0;d<TImage::ImageDimension;++d){
+			off[d]=label[d];
+		}
+		return off;
+	}
+};
 
 template<class T,class L> int  BaseLabelMapper<T,L>::nLabels=-1;
 template<class T,class L> int  BaseLabelMapper<T,L>::nDisplacements=-1;
@@ -278,18 +399,18 @@ template<class T,class L> int  SparseLabelMapper<T,L>::nDisplacements=-1;
 template<class T,class L> int  SparseLabelMapper<T,L>::nSegmentations=-1;
 template<class T,class L> int  SparseLabelMapper<T,L>::nDisplacementSamples=-1;
 template<class T,class L> int  SparseLabelMapper<T,L>::k=-1;
+template<class T,class L> int  SparseRegistrationLabelMapper<T,L>::nLabels=-1;
+template<class T,class L> int  SparseRegistrationLabelMapper<T,L>::nDisplacements=-1;
+template<class T,class L> int  SparseRegistrationLabelMapper<T,L>::nSegmentations=-1;
+template<class T,class L> int  SparseRegistrationLabelMapper<T,L>::nDisplacementSamples=-1;
+template<class T,class L> int  SparseRegistrationLabelMapper<T,L>::k=-1;
+template<class T,class L> int  DenseRegistrationLabelMapper<T,L>::nLabels=-1;
+template<class T,class L> int  DenseRegistrationLabelMapper<T,L>::nDisplacements=-1;
+template<class T,class L> int  DenseRegistrationLabelMapper<T,L>::nSegmentations=-1;
+template<class T,class L> int  DenseRegistrationLabelMapper<T,L>::nDisplacementSamples=-1;
+template<class T,class L> int  DenseRegistrationLabelMapper<T,L>::k=-1;
 
 
-template <class T, class L> codeproject::bimap<int, L, std::less<int>, comp<L> >  SparseLabelMapper<T,L>::labelMap = codeproject::bimap<int, L, std::less<int>, comp<L> >() ;
-template <class T, class L> std::map<int, L>  SparseLabelMapper<T,L>::indexToLabelMap = std::map<int,L>();
-template <class T, class L> std::map< L, int, comp<L> >  SparseLabelMapper<T,L>::labelToIndexMap = std::map<L,int,comp<L> >();
-//template <class T, class L>   SparseLabelMapper<T,L>::LabelMapperType SparseLabelMapper<T,L>::labelMap = SparseLabelMapper<T,L>::LabelMapperType()  ;
-
-// template<class T,class L> int  SparseLabelMapperDiag<T,L>::nLabels=-1;
-// template<class T,class L> int  SparseLabelMapperDiag<T,L>::nDisplacements=-1;
-// template<class T,class L> int  SparseLabelMapperDiag<T,L>::nSegmentations=-1;
-// template<class T,class L> int  SparseLabelMapperDiag<T,L>::nDisplacementSamples=-1;
-// template<class T,class L> int  SparseLabelMapperDiag<T,L>::k=-1;
 
 
 #endif /* LABEL_H_ */

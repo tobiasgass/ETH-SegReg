@@ -15,10 +15,8 @@
 
 namespace itk{
 
-
-
     template<class TLabelMapper,class TImage>
-    class PairwisePotentialRegistration{
+    class PairwisePotentialRegistration : public itk::Object{
     public:
         //itk declarations
         typedef PairwisePotentialRegistration            Self;
@@ -27,6 +25,7 @@ namespace itk{
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
         typedef TLabelMapper LabelMapperType;
         typedef typename LabelMapperType::LabelType LabelType;
         typedef typename ImageType::IndexType IndexType;
@@ -38,9 +37,7 @@ namespace itk{
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
         SizeType m_fixedSize,m_movingSize;
     protected:
-        ImagePointerType m_fixedImage, m_movingImage;
-        InterpolatorPointerType m_movingInterpolator;
-        SpacingType m_displacementFactor;
+        ConstImagePointerType m_fixedImage, m_movingImage;
         LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
     public:
@@ -50,38 +47,21 @@ namespace itk{
         itkTypeMacro(RegistrationPairwisePotential, Object);
 
         PairwisePotentialRegistration(){
-            m_displacementFactor=1.0;
             m_haveLabelMap=false;
         }
         virtual void freeMemory(){
         }
         void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-        void SetMovingInterpolator(InterpolatorPointerType movingImage){
-            m_movingInterpolator=movingImage;
-        }
-    	void SetMovingImage(ImagePointerType movingImage){
-            m_movingImage=movingImage;
-            m_movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
-        }
-        void SetFixedImage(ImagePointerType fixedImage){
+        void SetFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
             m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
         }
-        void SetDisplacementFactor(const SpacingType & f){m_displacementFactor=f;}
         
         virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement1, LabelType displacement2){
+            assert(m_haveLabelMap);
             double result=0;
-            ContinuousIndexType idx2(fixedIndex);
-            itk::Vector<float,ImageType::ImageDimension> disp=displacement;
-            idx2+= disp;
-            itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
-            idx2+=baseDisp;
-            if (m_movingInterpolator->IsInsideBuffer(idx2)){
-                result=fabs(this->m_fixedImage->GetPixel(fixedIndex)-m_movingInterpolator->EvaluateAtContinuousIndex(idx2));
-            }else{
-                result=999999;
-            }
+            //            std::cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<displacement1<<" "<<displacement2<<std::endl;
             return result;
         }
     };//class
