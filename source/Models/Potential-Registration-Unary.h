@@ -18,10 +18,10 @@ namespace itk{
 
 
     template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistration : public itk::Object{
+    class UnaryPotentialRegistrationNCC : public itk::Object{
     public:
         //itk declarations
-        typedef UnaryPotentialRegistration            Self;
+        typedef UnaryPotentialRegistrationNCC            Self;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
 
@@ -44,25 +44,57 @@ namespace itk{
         SizeType m_fixedSize,m_movingSize;
     protected:
         ConstImagePointerType m_fixedImage, m_movingImage;
+        ConstImagePointerType m_scaledFixedImage, m_scaledMovingImage;
         InterpolatorPointerType m_movingInterpolator;
         LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         bool radiusSet;
         RadiusType m_radius;
         ImageNeighborhoodIteratorType * nIt;
+        double m_scale;
+        SizeType m_scaleITK,m_invertedScaleITK;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
-        itkTypeMacro(RegistrationUnaryPotential, Object);
+        itkTypeMacro(RegistrationUnaryPotentialNCC, Object);
 
-        UnaryPotentialRegistration(){
+        UnaryPotentialRegistrationNCC(){
             m_haveLabelMap=false;
             radiusSet=false;
+            m_fixedImage=NULL;
+            m_movingImage=NULL;
+            m_scale=1.0;
+            m_scaleITK.Fill(1.0);
+        }
+        ~UnaryPotentialRegistrationNCC(){
+            delete nIt;
+        }
+        void Init(){
+            assert(m_fixedImage);
+            assert(m_movingImage);
+            if (m_scale!=1.0){
+                m_scaledFixedImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_fixedImage,1),m_scale);
+                m_scaledMovingImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_movingImage,1),m_scale);
+            }else{
+                m_scaledFixedImage=m_fixedImage;
+                m_scaledMovingImage=m_movingImage;
+            }
+            assert(radiusSet);
+            for (int d=0;d<ImageType::ImageDimension;++d){
+                m_radius[d]*=m_scale;
+            }
+            nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledFixedImage, this->m_scaledFixedImage->GetLargestPossibleRegion());
+            m_movingInterpolator=InterpolatorType::New();
+            m_movingInterpolator->SetInputImage(m_scaledMovingImage);
         }
         
-        
         virtual void freeMemory(){
+        }
+        void SetScale(double s){
+            m_scale=s;
+            m_scaleITK.Fill(s); 
+            m_invertedScaleITK.Fill(1.0/s);
         }
         void SetRadius(SpacingType sp){
             for (int d=0;d<ImageType::ImageDimension;++d){
@@ -76,9 +108,7 @@ namespace itk{
         }
         void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-        void SetMovingInterpolator(InterpolatorPointerType movingImage){
-            m_movingInterpolator=movingImage;
-        }
+      
     	void SetMovingImage(ConstImagePointerType movingImage){
             m_movingImage=movingImage;
             m_movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
@@ -86,13 +116,15 @@ namespace itk{
         void SetFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
             m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
-            assert(radiusSet);
-            nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_fixedImage, this->m_fixedImage->GetLargestPossibleRegion());
+           
         }
         
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
             double result=0;
-            itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
+            LabelType baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
+            baseDisp*=m_scale;
+            disp*=m_scale;
+            fixedIndex=fixedIndex*m_scaleITK;
             nIt->SetLocation(fixedIndex);
             double count=0;
             double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
@@ -101,10 +133,11 @@ namespace itk{
                 double f=nIt->GetPixel(i,inBounds);
                 if (inBounds){
                     IndexType neighborIndex=nIt->GetIndex(i);
+                    IndexType scaledNI=neighborIndex*m_invertedScaleITK;
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     double weight=1.0;
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
+                    idx2+=disp+this->m_baseLabelMap->GetPixel(scaledNI)*m_scale;
                     //                    cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
@@ -159,7 +192,7 @@ namespace itk{
     };//class
 
     template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationSAD : public UnaryPotentialRegistration<TLabelMapper, TImage>{
+    class UnaryPotentialRegistrationSAD : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationSAD           Self;

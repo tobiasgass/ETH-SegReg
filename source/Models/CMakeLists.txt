@@ -21,6 +21,8 @@ SET(SRSMRFModels_SRC
   Potential-Registration-Unary.h
   Potential-Segmentation-Unary.h
   Potential-SegmentationRegistration-Pairwise.h
+  SegmentationGraph.h
+  SegmentationImageFilter.h
   dummy.cxx  
 )
 

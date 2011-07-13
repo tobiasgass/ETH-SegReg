@@ -77,6 +77,7 @@ protected:
 	double m_DisplacementScalingFactor;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices, m_nRegistrationNodes, m_nSegmentationNodes;
+    int m_nRegEdges,m_nSegEdges,m_nSegRegEdges;
 	//ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
 	UnaryRegistrationFunctionPointerType m_unaryRegFunction;
 	UnarySegmentationFunctionPointerType m_unarySegFunction;
@@ -98,11 +99,14 @@ public:
 		verbose=true;
         m_fixedImage=NULL;
     };
+    ~GraphModel(){
+        delete m_fixedNeighborhoodIterator;
+    }
 
     void setFixedImage(ConstImagePointerType fixedImage){
         m_fixedImage=fixedImage;
     }
-    void setUpGraph(int nGraphNodesPerEdge){
+    void initGraph(int nGraphNodesPerEdge){
         assert(m_fixedImage);
 
         //image size
@@ -146,20 +150,30 @@ public:
         //nvertices is not used!?
 		if (m_dim>=2){
 			if (verbose) std::cout<<m_gridSize[0]<<" "<<m_gridSize[1];
-			m_nVertices=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
+			m_nRegEdges=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
+			m_nSegEdges=m_imageSize[1]*(m_imageSize[0]-1)+m_imageSize[0]*(m_imageSize[1]-1);
 		}
 		if (m_dim==3){
 			std::cout<<" "<<m_gridSize[2];
-			m_nVertices=this->m_nVertices*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
+			m_nRegEdges=m_nRegEdges*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
+			m_nSegEdges=m_nSegEdges*this->m_imageSize[2]+(this->m_imageSize[2]-1)*this->m_imageSize[1]*this->m_imageSize[0];
 		}
-		if (verbose) std::cout<<" nodes:"<<m_nNodes<<" vertices:"<<m_nVertices<<" labels:"<<LabelMapperType::nLabels<<std::endl;
-		//		m_ImageInterpolator.SetInput(m_movingImage);
-        
+
         typename ConstImageNeighborhoodIteratorType::RadiusType r;
+        //controls the size of the neighborhood for registration-to-segmentation edges
+        double reductionFactor=1;
         for (int d=0;d<(int)m_dim;++d){
-            r[d]=(m_gridPixelSpacing[d]/2);
+            r[d]=(m_gridPixelSpacing[d]/(2*reductionFactor));
         }
         m_fixedNeighborhoodIterator=new ConstImageNeighborhoodIteratorType(r,m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
+        m_nSegRegEdges=m_nSegmentationNodes/pow(reductionFactor,m_dim);
+        if (verbose) std::cout<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nRegEdges+m_nSegEdges+m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
+        if (verbose) std::cout<<" Segnodes:"<<m_nSegmentationNodes<<"\t SegEdges :"<<m_nSegEdges<<std::endl
+                              <<" Regnodes:"<<m_nRegistrationNodes<<"\t\t RegEdges :"<<m_nRegEdges<<std::endl
+                              <<" SegRegEdges:"<<m_nSegRegEdges<<std::endl;
+                         
+        
+       
         if (verbose) std::cout<<" finished graph init" <<std::endl;
 	}
 
@@ -237,12 +251,12 @@ public:
         IndexType imageIndex=getImageIndexFromCoarseGraphIndex(nodeIndex);
         RegistrationLabelType l=LabelMapperType::getLabel(labelIndex);
         l=LabelMapperType::scaleDisplacement(l,getDisplacementFactor());
-        return m_unaryRegFunction->getPotential(imageIndex,l);
+        return m_unaryRegFunction->getPotential(imageIndex,l)/m_nRegistrationNodes;
     }
     double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
         IndexType imageIndex=getImageIndex(nodeIndex);
         //Segmentation:labelIndex==segmentationlabel
-        double result=m_unarySegFunction->getPotential(imageIndex,labelIndex);
+        double result=m_unarySegFunction->getPotential(imageIndex,labelIndex)/m_nSegmentationNodes;
         if (result<0)
             std::cout<<imageIndex<<" " <<result<<std::endl;
         return result;
@@ -254,19 +268,19 @@ public:
         IndexType graphIndex2=getImageIndexFromCoarseGraphIndex(nodeIndex2);
         RegistrationLabelType l2=LabelMapperType::getLabel(labelIndex2);
         l2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());
-        return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2);
+        return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2)/m_nRegEdges;
     };
     double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
         IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
         IndexType imageIndex=getImageIndex(nodeIndex2);
         RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
         registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
-        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel);
+        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
     }
     double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
         IndexType imageIndex1=getImageIndex(nodeIndex1);
         IndexType imageIndex2=getImageIndex(nodeIndex2);
-        double result=m_unarySegFunction->getWeight(imageIndex1,imageIndex2);
+        double result=m_unarySegFunction->getWeight(imageIndex1,imageIndex2)/m_nSegEdges;
         if (result<0)
             std::cout<<imageIndex1<<" "<<imageIndex2<<" "<<result<<std::endl;
         return result;

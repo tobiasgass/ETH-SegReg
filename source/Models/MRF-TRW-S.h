@@ -37,6 +37,7 @@ protected:
     int nNodes, nRegNodes, nSegNodes;
     NodeType* segNodes;
     NodeType* regNodes;
+    clock_t m_start;
 public:
 	TRWS_SRSMRFSolver(GraphModelType * graphModel,
                       double unaryRegWeight=1.0, 
@@ -57,8 +58,8 @@ public:
 	}
 	~TRWS_SRSMRFSolver()
     {
-        delete segNodes;
-        delete regNodes;
+        delete [] segNodes;
+        delete [] regNodes;
         delete optimizer;
 
     }
@@ -81,10 +82,10 @@ public:
         int nSegLabels=graph->nSegLabels();
 
 		clock_t start = clock();
+        m_start=start;
 		//		traverse grid
         if (verbose) std::cout<<"RegUnaries "<<nRegNodes<<std::endl;
         //RegUnaries
-        std::cout<<m_pairwiseSegmentationWeight<<" "<<m_unarySegmentationWeight<<std::endl;
 		TRWType::REAL D1[nRegLabels];
 		for (int d=0;d<nRegNodes;++d){
             for (int l1=0;l1<nRegLabels;++l1)
@@ -120,7 +121,7 @@ public:
                     TRWType::REAL V[nRegLabels*nRegLabels];
                     for (int l1=0;l1<nRegLabels;++l1){
                         for (int l2=0;l2<nRegLabels;++l2){
-                            V[l1*nRegLabels+l2]=m_pairwiseSegmentationWeight*graph->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+                            V[l1*nRegLabels+l2]=m_pairwiseRegistrationWeight*graph->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
                         }
                     }
                     optimizer->AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
@@ -144,16 +145,25 @@ public:
             
             }
         }
-        std::cout<<" reg and segreg pairwise pots" <<std::endl;
+        //  std::cout<<" reg and segreg pairwise pots" <<std::endl;
+        TRWType::REAL V[nSegLabels*nSegLabels];
         for (int d=0;d<nSegNodes;++d){
             //pure Segmentation
             std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
             int nNeighbours=neighbours.size();
             for (int i=0;i<nNeighbours;++i){
-                optimizer->AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i])));
+                double lambda=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i]);
+                for (int l1=0;l1<nSegLabels;++l1){
+					for (int l2=0;l2<nSegLabels;++l2){
+						V[l1*nSegLabels+l2]=lambda*(l1!=l2);//graph->getPairwisePotential(l1,l2);
+					}
+				}
+                optimizer->AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
+                //                optimizer->AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,lambda));
+              
             }
         }    
-        std::cout<<" seg pairwise pots" <<std::endl;
+        //std::cout<<" seg pairwise pots" <<std::endl;
         clock_t finish = clock();
         t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
         if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
@@ -165,12 +175,12 @@ public:
         MRFEnergy<TRWType>::Options options;
         TRWType::REAL energy, lowerBound;
         options.m_iterMax = 20; // maximum number of iterations
-        options.m_printMinIter=1100;
-        options.m_printIter=1100;
+        options.m_printMinIter=1;
+        options.m_printIter=1;
         clock_t start = clock();
         optimizer->Minimize_TRW_S(options, lowerBound, energy);
         clock_t finish = clock();
-        float t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
+        float t = (float) ((double)(finish - m_start) / CLOCKS_PER_SEC);
         std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound ;//<< std::endl;
 
     }
@@ -190,7 +200,7 @@ public:
             if (labels[i])
                 ++c;
         }
-        std::cout <<" coutn"<<c<<std::endl;
+        //        std::cout <<" coutn"<<c<<std::endl;
         return labels;
     }
 

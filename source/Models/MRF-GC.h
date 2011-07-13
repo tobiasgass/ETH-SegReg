@@ -7,14 +7,11 @@
 
 #ifndef GC_REGISTRATION_H_
 #define GC_REGISTRATION_H_
-#include "BaseMRF.h"
 #include "bgraph.h"
 template<class TGraphModel>
-class GC_MRFSolver : public BaseMRFSolver<TGraphModel>{
+class GC_MRFSolver {
 public:
-	typedef BaseMRFSolver<TGraphModel> Superclass;
-	typedef typename Superclass::LabelType LabelType;
-	typedef Graph::Real Real;
+	
 	typedef TGraphModel GraphModelType;
 	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 
@@ -26,11 +23,14 @@ protected:
 	double m_unaryWeight,m_pairwiseWeight;
 	bool secondPairwise;
 	bool verbose;
+    GraphModelType * m_graphModel;
+    int nNodes;
 public:
-	GC_MRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool secondPairwisePotential=false)
-	:Superclass(graphModel),secondPairwise(secondPairwisePotential)
+	GC_MRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool verb=false)
+
 	{
-		verbose=true;
+        m_graphModel= graphModel;
+		verbose=verbose;
 		m_unaryWeight=unaryWeight;
 		m_pairwiseWeight=pairwiseWeight;
 		createGraph();
@@ -43,10 +43,11 @@ public:
 	virtual void createGraph(){
 
 		if (verbose) std::cout<<"starting graph init"<<std::endl;
-		GraphModelType* graph=this->m_GraphModel;
-		int nLabels=this->m_nLabels;
-		int nNodes=this->m_nNodes;
-		optimizer = new MRFType(nNodes,graph->nVertices());
+		GraphModelType* graph=this->m_graphModel;
+        nNodes=graph->nNodes();
+        
+        int nLabels=graph->nLabels();
+		optimizer = new MRFType(nNodes,graph->nEdges());
 
 		optimizer->add_node(nNodes);
 
@@ -78,10 +79,12 @@ public:
 			for (int i=0;i<nNeighbours;++i){
 				assert(neighbours[i]<nNodes);
                 //                std::cout<<" edge " << m_pairwiseWeight*graph->getWeight(d,neighbours[i])<<" "<< m_pairwiseWeight*graph->getWeight(neighbours[i],d) << std::endl;
-				optimizer -> add_edge(d,neighbours[i], m_pairwiseWeight*graph->getWeight(d,neighbours[i]), m_pairwiseWeight*graph->getWeight(neighbours[i],d));
+                double lambda1=m_pairwiseWeight*graph->getWeight(d,neighbours[i]);
+                double lambda2=m_pairwiseWeight*graph->getWeight(neighbours[i],d);
+				optimizer -> add_edge(d,neighbours[i],lambda1,lambda2);
 			}
 		}
-		std::cout<<vertCount<<" "<<graph->nVertices()<<std::endl;
+		std::cout<<vertCount<<" "<<graph->nEdges()<<std::endl;
 		clock_t finish = clock();
 		t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
 		if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
@@ -99,13 +102,13 @@ public:
 		std::cout<<"Finished after "<<t<<" , resulting energy is "<<flow;//<< std::endl;
 
 	}
-
-	virtual LabelType getLabelAtIndex(int index){
-		//		int labelIndex=l.m_kx+l.m_ky*labelSampling;
-		int labelIndex=optimizer->what_segment(index) == MRFType::SOURCE;
-		return LabelMapperType::getLabel(labelIndex);
-
-	}
+    virtual std::vector<int> getLabels(){
+        std::vector<int> labels(nNodes);
+        for (int i=0;i<nNodes;++i){
+            labels[i]=optimizer->what_segment(i) == MRFType::SOURCE;
+        }
+        return labels;
+    }
 };
 
 #endif /* TRW_S_REGISTRATION_H_ */

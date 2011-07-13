@@ -81,7 +81,8 @@ namespace itk{
             int s1=m_sheetnessImage->GetPixel(idx1);
             int s2=m_sheetnessImage->GetPixel(idx2);
             double edgeWeight=fabs(s1-s2);
-            edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
+            //            edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
+            edgeWeight=exp ( - 0.05 * edgeWeight);
             //edgeWeight+=1;
             return edgeWeight;
         }
