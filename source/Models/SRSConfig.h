@@ -56,6 +56,9 @@ public:
 		pairWiseProbsFilename='pairwise.bin';
         displacementRescalingFactor=0.5;
 	}
+    ~SRSConfig(){
+		//delete as;
+	}
 	void parseParams(int argc, char** argv){
 		as= new argstream(argc, argv);
 		parse();

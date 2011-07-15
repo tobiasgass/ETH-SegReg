@@ -77,7 +77,7 @@ protected:
 	double m_DisplacementScalingFactor;
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices, m_nRegistrationNodes, m_nSegmentationNodes;
-    int m_nRegEdges,m_nSegEdges,m_nSegRegEdges;
+    int m_nRegEdges,m_nSegEdges,m_nSegRegEdges, m_nEdges;
 	//ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
 	UnaryRegistrationFunctionPointerType m_unaryRegFunction;
 	UnarySegmentationFunctionPointerType m_unarySegFunction;
@@ -88,7 +88,7 @@ protected:
 	bool verbose;
 	bool m_haveLabelMap;
     ConstImagePointerType m_fixedImage;
-    ConstImageNeighborhoodIteratorType * m_fixedNeighborhoodIterator;
+    ConstImageNeighborhoodIteratorType m_fixedNeighborhoodIterator;
 
 public:
 
@@ -100,7 +100,7 @@ public:
         m_fixedImage=NULL;
     };
     ~GraphModel(){
-        delete m_fixedNeighborhoodIterator;
+        //delete m_fixedNeighborhoodIterator;
     }
 
     void setFixedImage(ConstImagePointerType fixedImage){
@@ -165,8 +165,9 @@ public:
         for (int d=0;d<(int)m_dim;++d){
             r[d]=(m_gridPixelSpacing[d]/(2*reductionFactor));
         }
-        m_fixedNeighborhoodIterator=new ConstImageNeighborhoodIteratorType(r,m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
+        m_fixedNeighborhoodIterator=ConstImageNeighborhoodIteratorType(r,m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
         m_nSegRegEdges=m_nSegmentationNodes/pow(reductionFactor,m_dim);
+        m_nEdges=m_nRegEdges+m_nSegEdges+m_nSegRegEdges;
         if (verbose) std::cout<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nRegEdges+m_nSegEdges+m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
         if (verbose) std::cout<<" Segnodes:"<<m_nSegmentationNodes<<"\t SegEdges :"<<m_nSegEdges<<std::endl
                               <<" Regnodes:"<<m_nRegistrationNodes<<"\t\t RegEdges :"<<m_nRegEdges<<std::endl
@@ -222,6 +223,14 @@ public:
             position[d]*=m_gridSpacing[d]/m_imageSpacing[d];
 		}
 		return position;
+    }
+    virtual IndexType getClosestGraphIndex(IndexType imageIndex){
+        IndexType position;
+        for (unsigned int d=0;d<m_dim;++d){
+             position[d]=int(imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d]+0.5);
+            //position[d]<<std::fixed << std::setprecision(0) << imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d];
+        }
+        return position;
     }
     virtual int  getGraphIntegerIndex(IndexType gridIndex){
         int i=0;
@@ -317,14 +326,19 @@ public:
     std::vector<int>  getForwardSegRegNeighbours(int index){            
         IndexType imagePosition=getImageIndexFromCoarseGraphIndex(index);
 		std::vector<int> neighbours;
-        m_fixedNeighborhoodIterator->SetLocation(imagePosition);
-        for (unsigned int i=0;i<m_fixedNeighborhoodIterator->Size();++i){
-            IndexType idx=m_fixedNeighborhoodIterator->GetIndex(i);
+        m_fixedNeighborhoodIterator.SetLocation(imagePosition);
+        for (unsigned int i=0;i<m_fixedNeighborhoodIterator.Size();++i){
+            IndexType idx=m_fixedNeighborhoodIterator.GetIndex(i);
             if (m_fixedImage->GetLargestPossibleRegion().IsInside(idx)){
                 neighbours.push_back(getImageIntegerIndex(idx));
             }
         }
         return neighbours;
+    }
+    
+    int getSegRegNeighbor(int index){
+        IndexType position=getImageIndex(index);
+        return getGraphIntegerIndex(getClosestGraphIndex(position));
     }
     
     RegistrationLabelImagePointerType getDeformationImage(std::vector<int>  labels){
@@ -371,7 +385,7 @@ public:
 	{return m_gridSize;}
 
 	int nNodes(){return m_nNodes;}
-	int nVertices(){return m_nVertices;}
+	int nEdges(){return m_nEdges;}
 
 	ImagePointerType getFixedImage(){
 		return m_fixedImage;

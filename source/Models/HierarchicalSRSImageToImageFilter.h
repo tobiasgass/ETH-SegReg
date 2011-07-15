@@ -51,6 +51,7 @@
 #include "itkSignedMaurerDistanceMapImageFilter.h"
 #include <itkImageToImageFilter.h>
 #include <itkBSplineDeformableTransform.h>
+#include "itkImageRegionConstIteratorWithIndex.h"
 
 namespace itk{
 template<class TImage, 
@@ -195,8 +196,10 @@ public:
             double sigma=1;
             int offset=1;
             //roughly compute downscaling
-            scale=0.5;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
+            scale=1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
             scale=scale<1.0?scale:1.0;
+            //full resolution at last level of pyramid enforced
+            //            if (l==(m_config.nLevels-1)) scale=1.0;
             std::cout<<"scale :"<<scale<<std::endl;
             //downsample images if wanted
             ConstImagePointerType downSampledTarget,downSampledReference,downSampledReferenceSegmentation,downSampledTargetSheetness;
@@ -222,7 +225,10 @@ public:
             graph.setDisplacementFactor(labelScalingFactor);
             graph.initGraph(level);
 
-
+//             typename itk::ImageRegionConstIteratorWithIndex<ImageType> ii(downSampledTarget, downSampledTarget->GetLargestPossibleRegion());
+//             for (ii.GoToBegin();!ii.IsAtEnd();++ii){
+//                 std::cout<<ii.GetIndex()<<" "<<graph.getClosestGraphIndex(ii.GetIndex())<<std::endl;
+//             }
             movingInterpolator->SetInputImage(downSampledReference);
             segmentationInterpolator->SetInputImage(downSampledReferenceSegmentation);
 
@@ -230,7 +236,8 @@ public:
             unaryRegistrationPot->SetRadius(graph.getSpacing());
             unaryRegistrationPot->SetFixedImage(downSampledTarget);
             unaryRegistrationPot->SetMovingImage(downSampledReference);
-            unaryRegistrationPot->SetScale(1);
+            //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
+            unaryRegistrationPot->SetScale(0.5);
             unaryRegistrationPot->Init();
             
             pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
@@ -267,7 +274,7 @@ public:
 			std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
 			std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
 			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
-		
+            typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
             for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
 				std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
                 // displacementfactor decreases with iterations
@@ -279,20 +286,24 @@ public:
                 pairwiseSegmentationRegistrationPot->SetBaseLabelMap(previousFullDeformation);
 		
 				//	ok what now: create graph! solve graph! save result!Z
-			
-                typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-                MRFSolverType mrfSolver(&graph,
+#if 1
+
+                MRFSolverType  mrfSolver(&graph,
                                         m_config.simWeight,
                                         m_config.pairwiseRegistrationWeight, 
                                         m_config.rfWeight,
                                         m_config.pairwiseSegmentationWeight, 
                                         m_config.segWeight,
-                                        false);
+                                        true);
                 mrfSolver.optimize();
                 std::cout<<" ]"<<std::endl;
                 deformation=graph.getDeformationImage(mrfSolver.getDeformationLabels());
                 segmentation=graph.getSegmentationImage(mrfSolver.getSegmentationLabels());
 
+#else
+                deformation=graph.getDeformationImage(std::vector<int>(graph.nRegNodes()));
+                segmentation=graph.getSegmentationImage(std::vector<int>(graph.nSegNodes()));
+#endif
 				//initialise interpolator
 				//deformation
 
@@ -371,7 +382,8 @@ public:
             SpacingType sp;
             sp.Fill(1.0);
             finalDeformation=scaleLabelImage(finalDeformation,sp/scale);
-            finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,1/scale);
+            //            finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,1/scale);
+            finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,targetImage);
         }
 
 
@@ -393,7 +405,7 @@ public:
 		}
 
 
-
+        delete labelmapper;
 		//	}
 
 	
@@ -440,11 +452,11 @@ public:
                 
             }
     
-        std::vector< Iterator*> iterators(ImageType::ImageDimension+1);
+        std::vector< Iterator> iterators(ImageType::ImageDimension+1);
         for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
             {
-                iterators[k]=new Iterator(newImages[k],newImages[k]->GetLargestPossibleRegion());
-                iterators[k]->GoToBegin();
+                iterators[k]=Iterator(newImages[k],newImages[k]->GetLargestPossibleRegion());
+                iterators[k].GoToBegin();
             }
         LabelImagePointerType fullLabelImage=LabelImageType::New();
         fullLabelImage->SetRegions(reference->GetLargestPossibleRegion());
@@ -458,8 +470,8 @@ public:
             LabelType l;
             for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ ){
                 //				std::cout<<k<<" label: "<<iterators[k]->Get()<<std::endl;
-                l[k]=iterators[k]->Get();
-                ++(*(iterators[k]));
+                l[k]=iterators[k].Get();
+                ++((iterators[k]));
             }
 
             //			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
@@ -467,7 +479,7 @@ public:
         }
         for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
             {
-                delete iterators[k];
+                //delete iterators[k];
             }
         return fullLabelImage;
     }

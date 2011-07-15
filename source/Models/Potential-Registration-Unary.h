@@ -13,6 +13,9 @@
 #include "itkVector.h"
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkConstNeighborhoodIterator.h"
+#include <itkVectorLinearInterpolateImageFunction.h>
+#include <itkVectorResampleImageFilter.h>
+
 namespace itk{
 
 
@@ -37,6 +40,8 @@ namespace itk{
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+
+        typedef typename LabelMapperType::LabelImageType LabelImageType;
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
@@ -50,7 +55,7 @@ namespace itk{
         bool m_haveLabelMap;
         bool radiusSet;
         RadiusType m_radius;
-        ImageNeighborhoodIteratorType * nIt;
+        ImageNeighborhoodIteratorType nIt;
         double m_scale;
         SizeType m_scaleITK,m_invertedScaleITK;
     public:
@@ -68,14 +73,14 @@ namespace itk{
             m_scaleITK.Fill(1.0);
         }
         ~UnaryPotentialRegistrationNCC(){
-            delete nIt;
+            //delete nIt;
         }
         void Init(){
             assert(m_fixedImage);
             assert(m_movingImage);
             if (m_scale!=1.0){
-                m_scaledFixedImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_fixedImage,1),m_scale);
-                m_scaledMovingImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_movingImage,1),m_scale);
+                m_scaledFixedImage=FilterUtils<ImageType>::LinearResample((m_fixedImage),m_scale);
+                m_scaledMovingImage=FilterUtils<ImageType>::LinearResample((m_movingImage),m_scale);
             }else{
                 m_scaledFixedImage=m_fixedImage;
                 m_scaledMovingImage=m_movingImage;
@@ -84,7 +89,8 @@ namespace itk{
             for (int d=0;d<ImageType::ImageDimension;++d){
                 m_radius[d]*=m_scale;
             }
-            nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledFixedImage, this->m_scaledFixedImage->GetLargestPossibleRegion());
+            //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledFixedImage, this->m_scaledFixedImage->GetLargestPossibleRegion());
+            nIt=ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledFixedImage, this->m_scaledFixedImage->GetLargestPossibleRegion());
             m_movingInterpolator=InterpolatorType::New();
             m_movingInterpolator->SetInputImage(m_scaledMovingImage);
         }
@@ -106,7 +112,37 @@ namespace itk{
             m_radius=sp;
             radiusSet=true;
         }
-        void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
+#define RESAMPLEDLABELMAP
+        void SetBaseLabelMap(LabelImagePointerType blm){
+            m_baseLabelMap=blm;m_haveLabelMap=true;
+#ifdef RESAMPLEDLABELMAP
+            if (m_scale!=1.0){
+                typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType> InterpolatorType;
+                typename InterpolatorType::Pointer interpol=InterpolatorType::New();
+                typedef typename itk::VectorResampleImageFilter<LabelImageType,LabelImageType> ResampleFilterType;
+                typename ResampleFilterType::Pointer resampler=ResampleFilterType::New();
+                resampler->SetInput(blm);
+                resampler->SetInterpolator(interpol);
+                typename LabelImageType::SpacingType spacing,inputSpacing;
+                typename LabelImageType::SizeType size,inputSize;
+                typename LabelImageType::PointType origin,inputOrigin;
+                inputOrigin=blm->GetOrigin();
+                inputSize=blm->GetLargestPossibleRegion().GetSize();
+                inputSpacing=blm->GetSpacing();
+                for (uint d=0;d<LabelImageType::ImageDimension;++d){
+                    size[d]=int(inputSize[d]*m_scale);
+                    spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+                    origin[d]=inputOrigin[d]+0.5*spacing[d]/inputSpacing[d];
+                }
+                resampler->SetOutputOrigin(origin);
+                resampler->SetOutputSpacing ( spacing );
+                resampler->SetOutputDirection ( blm->GetDirection() );
+                resampler->SetSize ( size );
+                resampler->Update();
+                m_baseLabelMap=resampler->GetOutput();
+            }
+#endif
+        }
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
       
     	void SetMovingImage(ConstImagePointerType movingImage){
@@ -118,26 +154,40 @@ namespace itk{
             m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
            
         }
-        
+
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
             double result=0;
+            //            std::cout<<fixedIndex<<"\t "<<disp<<"\t "<<" "<<m_scale<<"\t";
+#ifdef RESAMPLEDLABELMAP
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                fixedIndex[d]*=m_scale;
+            }
             LabelType baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
+#else
+            LabelType baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
+            fixedIndex=fixedIndex*m_scaleITK;
+#endif
             baseDisp*=m_scale;
             disp*=m_scale;
-            fixedIndex=fixedIndex*m_scaleITK;
-            nIt->SetLocation(fixedIndex);
+            //            std::cout<<fixedIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //          nIt->SetLocation(fixedIndex);
+            nIt.SetLocation(fixedIndex);
             double count=0;
             double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
-            for (unsigned int i=0;i<nIt->Size();++i){
+            for (unsigned int i=0;i<nIt.Size();++i){
                 bool inBounds;
-                double f=nIt->GetPixel(i,inBounds);
+                double f=nIt.GetPixel(i,inBounds);
                 if (inBounds){
-                    IndexType neighborIndex=nIt->GetIndex(i);
+                    IndexType neighborIndex=nIt.GetIndex(i);
                     IndexType scaledNI=neighborIndex*m_invertedScaleITK;
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     double weight=1.0;
+#ifdef RESAMPLEDLABELMAP
+                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*m_scale;
+#else
                     idx2+=disp+this->m_baseLabelMap->GetPixel(scaledNI)*m_scale;
+#endif
                     //                    cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
@@ -225,14 +275,14 @@ namespace itk{
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
             double result=0;
             itk::Vector<float,ImageType::ImageDimension> baseDisp=this->m_baseLabelMap->GetPixel(fixedIndex);
-            this->nIt->SetLocation(fixedIndex);
+            this->nIt.etLocation(fixedIndex);
             double count=0;
             double sum=0.0;
             for (unsigned int i=0;i<this->nIt->Size();++i){
                 bool inBounds;
-                double f=this->nIt->GetPixel(i,inBounds);
+                double f=this->nIt.etPixel(i,inBounds);
                 if (inBounds){
-                    IndexType neighborIndex=this->nIt->GetIndex(i);
+                    IndexType neighborIndex=this->nIt.etIndex(i);
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     double weight=1.0;

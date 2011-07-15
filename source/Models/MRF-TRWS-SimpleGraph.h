@@ -90,8 +90,8 @@ public:
 						V[l1*nLabels+l2]=lambda*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
 					}
 				}
-                optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,lambda));
-                //optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
+                //optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,lambda));
+                optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
 				//				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(weight, weight, 8*weight));
 			}
 		}
