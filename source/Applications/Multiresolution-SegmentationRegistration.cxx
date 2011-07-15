@@ -29,7 +29,7 @@ int main(int argc, char ** argv)
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationArtificial< ImageType > SegmentationUnaryPotentialType;
     typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration< LabelMapperType, ImageType > SegmentationRegistrationPairwisePotentialType;

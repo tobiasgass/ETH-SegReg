@@ -372,7 +372,7 @@ public:
         int i=0;
         for (it.GoToBegin();!it.IsAtEnd();++it,++i){
             assert(i<labels.size());
-            it.Set(labels[i]);
+            it.Set(255*labels[i]);
         }
         assert(i==(labels.size()));
         return result;
