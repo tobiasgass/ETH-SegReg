@@ -282,9 +282,16 @@ public:
     double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
         IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
         IndexType imageIndex=getImageIndex(nodeIndex2);
+        //compute distance between center index and patch index
+        double weight=1;
+        for (int d=0;d<m_dim;++d){
+            weight*=1-1.5*fabs(graphIndex[d]-imageIndex[d])/(m_gridPixelSpacing[d]);
+        }
+        if (weight<0){ std::cout<<weight<<std::endl; weight=0;}
         RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
         registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
-        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+        return m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+        //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
     }
     double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
         IndexType imageIndex1=getImageIndex(nodeIndex1);
@@ -304,8 +311,7 @@ public:
 			off.Fill(0);
 			if ((int)position[d]<(int)m_gridSize[d]-1){
 				off[d]+=1;
-           
-				neighbours.push_back(getGraphIntegerIndex(position+off));
+                neighbours.push_back(getGraphIntegerIndex(position+off));
 			}
 		}
 		return neighbours;

@@ -63,12 +63,7 @@ public:
     }
 	~TRWS_SRSMRFSolver()
     {
-
-       //  delete [] edges;
-       //  delete [] segNodes;
-       //  delete [] regNodes;
         delete optimizer;
-        sleep(2);
     }
 	virtual void createGraph(){
 		//		TRWType::GlobalSize globalSize(labelSampling,labelSampling);
@@ -84,13 +79,11 @@ public:
 
         segNodes = vector<NodeType>(nSegNodes,NULL);
         regNodes = vector<NodeType>(nRegNodes,NULL);
-        edges = vector< EdgeType>(nEdges,NULL);
-        cout<<sizeof(EdgeType)<<endl;
+        //   edges = vector< EdgeType>(nEdges,NULL);
+
 		clock_t start = clock();
         m_start=start;
-        std::cout<<nEdges<<std::endl;
-        sleep(2);
-#if 1
+
         int edgeCount=0;
         int nRegLabels=graph->nRegLabels();
         int nSegLabels=graph->nSegLabels();
@@ -149,7 +142,6 @@ public:
 
                     edges[edgeCount]=
                         optimizer->AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vreg));
-                    //delete edges[edgeCount];
                     edgeCount++;
 
 
@@ -175,15 +167,8 @@ public:
 						Vseg[l1*nSegLabels+l2]=lambda*(l1!=l2);//graph->getPairwisePotential(l1,l2);
 					}
 				}
-                edges[edgeCount]= 
                 optimizer->AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
-                //  if (edgeCount) delete edges[edgeCount-1];
-                //free( edges[edgeCount]);
-
-                //delete edges[edgeCount];
                 edgeCount++;
-
-                //                optimizer->AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,lambda));
               
             }
             int segRegNeighbor=graph->getSegRegNeighbor(d);
@@ -192,41 +177,17 @@ public:
                     Vsrs[l1+l2*nRegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseSegRegPotential(segRegNeighbor,d,l1,l2);
                 }
             }
-            edges[edgeCount] =
-                optimizer->AddEdge(regNodes[segRegNeighbor], segNodes[d], TRWType::EdgeData(TRWType::GENERAL,Vsrs));
-            //    if (edgeCount) delete edges[edgeCount-1];
-            //delete edges[edgeCount];
-            // free( edges[edgeCount]);
-            // if (edgeCount) cout<<edgeCount<<" "<<edges[edgeCount]-edges[edgeCount-1]<<endl;
+            optimizer->AddEdge(regNodes[segRegNeighbor], segNodes[d], TRWType::EdgeData(TRWType::GENERAL,Vsrs));
             edgeCount++;
 
         }   
-#if 0
-        for (int i= edgeCount-1; i>=0;--i){
-            //std::cout<<i<<endl;
-            //delete  edges[i];
-            free(edges[i]);
-        }
-
-          for (int i=0;i<nSegNodes;++i){
-              free(segNodes[i]);
-              //delete [] segNodes[i];
-        }
-        for (int i=0;i<nRegNodes;++i){
-            free(regNodes[i]);
-            //delete [] regNodes[i];
-        }
-#endif
-        sleep(1);
-        //for(int x=0;x<edgeCount;++x) delete edges[x];
-        //std::cout<<" seg pairwise pots" <<std::endl;
         clock_t finish = clock();
         t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
         if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
         std::cout<<edgeCount<<std::endl;
         std::cout<<edgeCount<<" "<<nEdges<<endl;
         nEdges=edgeCount;
-#endif
+
     }
     
 
@@ -243,21 +204,6 @@ public:
         clock_t finish = clock();
         float t = (float) ((double)(finish - m_start) / CLOCKS_PER_SEC);
         std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound ;//<< std::endl;
-        std::cout<<"edges to delete :" <<nEdges<<" "<<nSegNodes<<" "<<nRegNodes<<endl;
-        
-#if 0
-        for (int i=0;i<nEdges;++i){
-            delete [] edges[i];
-        }
-        
-        for (int i=0;i<nSegNodes;++i){
-            delete [] segNodes[i];
-        }
-        for (int i=0;i<nRegNodes;++i){
-            delete [] regNodes[i];
-        }
-     
-#endif        
 
     }
 

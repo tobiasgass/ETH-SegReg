@@ -132,7 +132,6 @@ namespace itk{
         }
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            int s= m_sheetnessImage->GetPixel(fixedIndex);
             double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
             switch (segmentationLabel) {

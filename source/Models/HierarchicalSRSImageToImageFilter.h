@@ -237,7 +237,7 @@ public:
             unaryRegistrationPot->SetFixedImage(downSampledTarget);
             unaryRegistrationPot->SetMovingImage(downSampledReference);
             //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
-            unaryRegistrationPot->SetScale(0.5);
+            unaryRegistrationPot->SetScale(1);
             unaryRegistrationPot->Init();
             
             pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
