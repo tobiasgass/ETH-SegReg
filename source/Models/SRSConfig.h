@@ -33,6 +33,7 @@ public:
 	int iterationsPerLevel;
 	bool train;
     double displacementRescalingFactor;
+    double scale;
 private:
 	argstream * as;
 public:
@@ -52,9 +53,10 @@ public:
 		startTiling=2;
 		iterationsPerLevel=4;
 		train=false;
-		segmentationProbsFilename='segmentation.bin';
-		pairWiseProbsFilename='pairwise.bin';
+		segmentationProbsFilename="segmentation.bin";
+		pairWiseProbsFilename="pairwise.bin";
         displacementRescalingFactor=0.5;
+        scale=1;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -91,6 +93,7 @@ public:
 		startTiling=c.startTiling;
 		train=c.train;
         displacementRescalingFactor=c.displacementRescalingFactor;
+        scale=c.scale;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -154,6 +157,8 @@ public:
 		(*as) >> parameter ("l3", tmp_levels[3],"divisor for level 3", false);
 		(*as) >> parameter ("l4", tmp_levels[4],"divisor for level 4", false);
 		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
+        (*as) >> parameter ("scale", scale,"scaling factor for registration potential", false);
+
 		std::list<int> bla;
 //		(*as) >> values<int> (back_inserter(bla),"descr",nLevels);
 		(*as) >> help();

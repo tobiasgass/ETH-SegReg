@@ -30,7 +30,7 @@ int main(int argc, char ** argv)
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
     typedef UnaryPotentialSegmentationArtificial< ImageType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration< LabelMapperType, ImageType > SegmentationRegistrationPairwisePotentialType;
 	typedef HierarchicalSRSImageToImageFilter<ImageType,

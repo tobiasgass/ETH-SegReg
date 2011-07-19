@@ -28,10 +28,13 @@ ADD_EXECUTABLE(SegReg Multiresolution-SegmentationRegistration.cxx )
 TARGET_LINK_LIBRARIES(SegReg maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
 
 ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration3D.cxx )
-TARGET_LINK_LIBRARIES(SegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
+TARGET_LINK_LIBRARIES(SegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so tcmalloc )
 
 ADD_EXECUTABLE(Seg3D Segmentation3D.cxx )
-TARGET_LINK_LIBRARIES(Seg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )
+TARGET_LINK_LIBRARIES(Seg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so tcmalloc)
+
+#ADD_EXECUTABLE(memtest memtest.cxx )
+#TARGET_LINK_LIBRARIES(memtest TRWS  /home/gasst/work/lib/libconfig++.so )
 
 #ADD_EXECUTABLE(SegReg-Alt Multiresolution-AlternatingSegmentationRegistration.cxx )
 #TARGET_LINK_LIBRARIES(SegReg-Alt ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so )

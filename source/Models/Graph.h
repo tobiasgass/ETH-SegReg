@@ -11,7 +11,7 @@
 #include <vector>
 #include <assert.h>
 #include "itkConstNeighborhoodIterator.h"
-
+#include <limits>
 using namespace std;
 /*
  * Isotropic Graph
@@ -34,6 +34,7 @@ public:
     //    typedef  itk::ImageToimageFilter<TImage,TImage> Superclass;
 	typedef TImage ImageType;
     typedef typename TImage::IndexType IndexType;
+    typedef typename TImage::PixelType PixelType;
 	typedef typename TImage::OffsetType OffsetType;
 	typedef typename TImage::PointType PointType;
 	typedef typename TImage::SizeType SizeType;
@@ -180,7 +181,7 @@ public:
 
 	virtual void setSpacing(int divisor){
         assert(m_fixedImage);
-		int minSpacing=999999;
+		unsigned int minSpacing=999999;
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			if(m_imageSize[d]/(divisor-1) < minSpacing){
 				minSpacing=(m_imageSize[d]/(divisor-1)-1);
@@ -260,7 +261,8 @@ public:
         IndexType imageIndex=getImageIndexFromCoarseGraphIndex(nodeIndex);
         RegistrationLabelType l=LabelMapperType::getLabel(labelIndex);
         l=LabelMapperType::scaleDisplacement(l,getDisplacementFactor());
-        return m_unaryRegFunction->getPotential(imageIndex,l)/m_nRegistrationNodes;
+        double result=m_unaryRegFunction->getPotential(imageIndex,l);
+        return result/m_nRegistrationNodes;
     }
     double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
         IndexType imageIndex=getImageIndex(nodeIndex);
@@ -284,7 +286,7 @@ public:
         IndexType imageIndex=getImageIndex(nodeIndex2);
         //compute distance between center index and patch index
         double weight=1;
-        for (int d=0;d<m_dim;++d){
+        for (unsigned int d=0;d<m_dim;++d){
             weight*=1-1.5*fabs(graphIndex[d]-imageIndex[d])/(m_gridPixelSpacing[d]);
         }
         if (weight<0){ std::cout<<weight<<std::endl; weight=0;}
@@ -378,7 +380,7 @@ public:
         int i=0;
         for (it.GoToBegin();!it.IsAtEnd();++it,++i){
             assert(i<labels.size());
-            it.Set(255*labels[i]);
+            it.Set(numeric_limits<PixelType>::max()*labels[i]);
         }
         assert(i==(labels.size()));
         return result;
