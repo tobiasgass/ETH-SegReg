@@ -122,6 +122,13 @@ public:
 		writer->Update();
 	}
 
+	static void writeImage(std::string fileName, ConstImagePointerType image) {
+		WriterTypePointer writer = WriterType::New();
+		writer->SetFileName( fileName );
+		writer->SetInput( image );
+		writer->Update();
+	}
+
 
 	/* Write an itk image as dicom slices to a directory */
 	static void writeImageSeries(std::string directoryname, ImagePointerType image) {

@@ -148,7 +148,7 @@ namespace itk{
             const ConstImagePointerType movingImage = this->GetInput(1);
             const ConstImagePointerType movingSegmentationImage = this->GetInput(2);
             const ConstImagePointerType fixedGradientImage = this->GetInput(3);
-    
+
             //results
             ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
             LabelImagePointerType fullDeformation,previousFullDeformation;
@@ -320,7 +320,7 @@ namespace itk{
                     //deformation
 #if 1
                     fullDeformation=bSplineInterpolateLabelImage(deformation,downSampledTarget);
-                    fullDeformation=scaleLabelImage(fullDeformation,graph.getDisplacementFactor());
+                    //fullDeformation=scaleLabelImage(fullDeformation,graph.getDisplacementFactor());
            
                     //apply deformation to moving image
                     ConstIteratorType fixedIt(downSampledTarget,downSampledTarget->GetLargestPossibleRegion());
@@ -369,7 +369,7 @@ namespace itk{
                     ostringstream tmpSegmentationFilename;
                     tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
                     ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
-                    ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
+                    ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedSegmentationImage);
                     //deformation
                     if (m_config.defFilename!=""){
                         ostringstream tmpDeformationFilename;
@@ -496,7 +496,7 @@ namespace itk{
                 }
             return fullLabelImage;
         }
-    
+
         LabelImagePointerType scaleLabelImage(LabelImagePointerType labelImg, SpacingType scalingFactors){
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
             LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());

@@ -78,7 +78,7 @@ public:
 		//
 
 
-		double weight=m_pairwiseWeight;
+		
 		for (int d=0;d<nNodes;++d){
 			std::vector<int> neighbours= graph->getForwardNeighbours(d);
 			int nNeighbours=neighbours.size();
