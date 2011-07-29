@@ -52,7 +52,8 @@
 #include <itkBSplineDeformableTransform.h>
 #include "itkImageRegionConstIteratorWithIndex.h"
 #include <google/heap-profiler.h>
-
+#include "ChamferDistanceTransform.h"
+#include "itkCastImageFilter.h"
 
 namespace itk{
     template<class TImage, 
@@ -74,13 +75,17 @@ namespace itk{
     
         typedef TImage ImageType;
         static const int D=ImageType::ImageDimension;
+        typedef typename  ImageType::PixelType PixelType;
         typedef typename  ImageType::Pointer ImagePointerType;
         typedef typename  ImageType::ConstPointer ConstImagePointerType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename  ImageType::SpacingType SpacingType;
         typedef typename  itk::ImageRegionIterator< ImageType>       IteratorType;
         typedef typename  itk::ImageRegionConstIterator< ImageType>       ConstIteratorType;
-
+        
+        typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        
         typedef typename  itk::LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
         typedef typename  ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
 
@@ -146,7 +151,13 @@ namespace itk{
             //define input images
             const ConstImagePointerType targetImage = this->GetInput(0);
             const ConstImagePointerType movingImage = this->GetInput(1);
-            const ConstImagePointerType movingSegmentationImage = this->GetInput(2);
+            ConstImagePointerType movingSegmentationImage;
+            if (D==2){
+                //2d segmentations pngs [from matlab] may have screwed up intensities
+                 movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
+            }else{
+                movingSegmentationImage = (this->GetInput(2));
+            }
             const ConstImagePointerType fixedGradientImage = this->GetInput(3);
 
             //results
@@ -190,6 +201,21 @@ namespace itk{
             //asm volatile("" ::: "memory");
             LabelImagePointerType deformation;
             ImagePointerType segmentation;
+            pairwiseSegmentationRegistrationPot->SetDistanceTransform(getDistanceTransform(movingSegmentationImage));
+            typedef typename itk::CastImageFilter<FloatImageType,ImageType> CasterType;
+            typename CasterType::Pointer caster=CasterType::New();
+          
+            caster->SetInput(pairwiseSegmentationRegistrationPot->GetDistanceTransform());
+            caster->Update();
+            ImagePointerType output=caster->GetOutput();
+            if (ImageType::ImageDimension==2){
+                ImageUtils<ImageType>::writeImage("dt.png",(output));    
+            }
+            if (ImageType::ImageDimension==3){
+                ImageUtils<ImageType>::writeImage("dt.nii",(output));
+            }
+            
+            
             for (int l=0;l<m_config.nLevels;++l){
 #if 1
                 level=m_config.levels[l];
@@ -208,8 +234,8 @@ namespace itk{
                     downSampledTarget=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(targetImage,sigma),scale);
                     downSampledReference=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(movingImage,sigma),scale);
                     downSampledReferenceSegmentation=FilterUtils<ImageType>::NNResample((movingSegmentationImage),scale);
-                    //downSampledTargetSheetness=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(fixedGradientImage,sigma),scale);
-                    downSampledTargetSheetness=FilterUtils<ImageType>::NNResample((fixedGradientImage),scale);
+                    downSampledTargetSheetness=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(fixedGradientImage,sigma),scale);
+                    //downSampledTargetSheetness=FilterUtils<ImageType>::NNResample((fixedGradientImage),scale);
                 }
                 else{
                     downSampledTarget=targetImage;
@@ -237,8 +263,13 @@ namespace itk{
                 unaryRegistrationPot->SetRadius(graph.getSpacing());
                 unaryRegistrationPot->SetFixedImage(downSampledTarget);
                 unaryRegistrationPot->SetMovingImage(downSampledReference);
+                double mantisse=(1/m_config.scale);
+                int exponent=m_config.nLevels-l;
+                double reductionFactor=pow(mantisse,exponent);
+                double scaling=1/reductionFactor;
                 //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
-                unaryRegistrationPot->SetScale(m_config.scale);
+                cout<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
+                unaryRegistrationPot->SetScale(scaling);
                 unaryRegistrationPot->Init();
             
                 pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
@@ -251,7 +282,8 @@ namespace itk{
                 pairwiseSegmentationRegistrationPot->SetMovingSegmentationInterpolator(segmentationInterpolator);
                 pairwiseSegmentationRegistrationPot->SetMovingInterpolator(movingInterpolator);
                 pairwiseSegmentationRegistrationPot->SetFixedImage(downSampledTarget);
-            
+                pairwiseSegmentationRegistrationPot->SetAsymmetryWeight(m_config.asymmetry);
+
 
                 //register images and potentials
                 graph.setUnaryRegistrationFunction(unaryRegistrationPot);
@@ -278,7 +310,7 @@ namespace itk{
 #endif
                 typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                 for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
-                    std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :["<<std::endl;;
+                    std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
                     // displacementfactor decreases with iterations
 #if 1
                     graph.setDisplacementFactor(labelScalingFactor);
@@ -297,12 +329,13 @@ namespace itk{
                                                                      m_config.rfWeight,
                                                                      m_config.pairwiseSegmentationWeight, 
                                                                      m_config.segWeight,
-                                                                     true);
+                                                                     m_config.verbose);
                         mrfSolver->createGraph();
-                        mrfSolver->optimize();
+                        mrfSolver->optimize(m_config.optIter);
                         std::cout<<" ]"<<std::endl;
                         deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
                         segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
+                        
                         delete mrfSolver;
 #else
                         //     HeapProfilerStart("segreg") ;
@@ -353,40 +386,41 @@ namespace itk{
                     deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config.displacementRescalingFactor;
-#if 1
-                    std::string suff;
-                    if (ImageType::ImageDimension==2){
-                        suff=".png";
-                    }
-                    if (ImageType::ImageDimension==3){
-                        suff=".nii";
-                    }
-                    ostringstream deformedFilename;
-                    deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<suff;
-                    ostringstream deformedSegmentationFilename;
-                    deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
-                    ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
-                    ostringstream tmpSegmentationFilename;
-                    tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
-                    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
-                    ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedSegmentationImage);
-                    //deformation
-                    if (m_config.defFilename!=""){
-                        ostringstream tmpDeformationFilename;
-                        tmpDeformationFilename<<m_config.defFilename<<"-l"<<l<<"-i"<<i<<".mha";
-                        //		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
-                        ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
-                        //					ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
+                    if (m_config.verbose){
+                        std::string suff;
+                        if (ImageType::ImageDimension==2){
+                            suff=".png";
+                        }
+                        if (ImageType::ImageDimension==3){
+                            suff=".nii";
+                        }
+                        ostringstream deformedFilename;
+                        deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<suff;
+                        ostringstream deformedSegmentationFilename;
+                        deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
+                        ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
+                        ostringstream tmpSegmentationFilename;
+                        tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
+                        ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
+                        ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedSegmentationImage);
+                        //deformation
+                        if (m_config.defFilename!=""){
+                            ostringstream tmpDeformationFilename;
+                            tmpDeformationFilename<<m_config.defFilename<<"-l"<<l<<"-i"<<i<<".mha";
+                            //		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
+                            ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
+                            //					ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
 
-                        //
+                            //
+                        }
                     }
-#endif
+
 #endif
                 }
                 std::cout<<std::endl<<std::endl;
             }
 
-        
+
             LabelImagePointerType finalDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
             ImagePointerType finalSegmentation=(segmentation);
 
@@ -398,7 +432,14 @@ namespace itk{
                 //            finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,1/scale);
                 finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,targetImage);
             }
-
+            if (ImageType::ImageDimension==2){
+                ImageUtils<ImageType>::writeImage("dt-def.png",deformImage(output,finalDeformation));    
+            }
+            if (ImageType::ImageDimension==3){
+                ImageUtils<ImageType>::writeImage("dt-def.nii",deformImage(output,finalDeformation));
+            }
+          
+            
 
             ImagePointerType finalDeformedReference=deformImage(movingImage,finalDeformation);
             ImagePointerType finalDeformedReferenceSegmentation=deformSegmentationImage(movingSegmentationImage,finalDeformation);
@@ -541,6 +582,41 @@ namespace itk{
             }
             return deformed;
         }
+
+        ImagePointerType deformImage(ImagePointerType image, LabelImagePointerType deformation){
+            //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
+            typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
+            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+            LabelIterator deformationIt(deformation,deformation->GetLargestPossibleRegion());
+
+            typedef typename itk::LinearInterpolateImageFunction<ImageType, double> ImageInterpolatorType;
+            typename ImageInterpolatorType::Pointer interpolator=ImageInterpolatorType::New();
+
+            interpolator->SetInputImage(image);
+            ImagePointerType deformed=ImageType::New();//ImageUtils<ImageType>::createEmpty(image);
+      
+            deformed->SetRegions(deformation->GetLargestPossibleRegion());
+            deformed->SetOrigin(deformation->GetOrigin());
+            deformed->SetSpacing(deformation->GetSpacing());
+            deformed->SetDirection(deformation->GetDirection());
+            deformed->Allocate();
+            ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
+            for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
+                IndexType index=deformationIt.GetIndex();
+                typename ImageInterpolatorType::ContinuousIndexType idx(index);
+                LabelType displacement=deformationIt.Get();
+                idx+=(displacement);
+                if (interpolator->IsInsideBuffer(idx)){
+                    imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
+                    //deformed->SetPixel(imageIt.GetIndex(),interpolator->EvaluateAtContinuousIndex(idx));
+
+                }else{
+                    imageIt.Set(0);
+                    //                deformed->SetPixel(imageIt.GetIndex(),0);
+                }
+            }
+            return deformed;
+        }
         ImagePointerType deformSegmentationImage(ConstImagePointerType segmentationImage, LabelImagePointerType deformation){
             //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
@@ -558,14 +634,17 @@ namespace itk{
             deformed->SetDirection(deformation->GetDirection());
             deformed->Allocate();
             ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
-
+            PixelType multiplier=numeric_limits<PixelType>::max();
+            if (LabelMapperType::nSegmentations>1){
+                multiplier=numeric_limits<PixelType>::max()/(LabelMapperType::nSegmentations-1);
+            }
             for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
                 IndexType index=deformationIt.GetIndex();
                 typename ImageInterpolatorType::ContinuousIndexType idx(index);
                 LabelType displacement=deformationIt.Get();
                 idx+=(displacement);
                 if (interpolator->IsInsideBuffer(idx)){
-                    imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
+                    imageIt.Set((multiplier*floor(interpolator->EvaluateAtContinuousIndex(idx)+0.5)));
 
                 }else{
                     imageIt.Set(0);
@@ -573,15 +652,42 @@ namespace itk{
             }
             return deformed;
         }
-        void setUpDistanceTransformImage(ImagePointerType segmentationImage){
-            typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, ImageType > DistanceTransformType;
+ 
+        FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage){
+#if 0
+            typedef ChamferDistanceTransform<ImageType, FloatImageType> CDT;
+            CDT cdt;
+            return cdt.compute(segmentationImage, CDT::MANHATTEN, true);
+#else
+            typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;
             typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
             distanceTransform->SetInput(segmentationImage);
+            distanceTransform->SquaredDistanceOff ();
+            distanceTransform->UseImageSpacingOn();
             distanceTransform->Update();
-            //ImageUtils<ImageType>::writeImage("dt.nii",distanceTransform->GetOutput());
-            //m_distanceToDeformedSegmentationMap=distanceTransform->GetOutput();
-    
+            return distanceTransform->GetOutput();
+#endif
+        }
 
+        ConstImagePointerType fixSegmentationImage(ConstImagePointerType segmentationImage){
+            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
+            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
+            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
+            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
+            hash_map<int, int> map;
+            int c=0;
+            for (imageIt.GoToBegin();!imageIt.IsAtEnd();++imageIt){
+                int seg=floor(imageIt.Get()+0.5);
+                if (map.find(seg)==map.end()){
+                    map[seg]=c;
+                    ++c;
+                }
+            }
+            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
+                imageIt2.Set(map[floor(imageIt.Get()+0.5)]);
+            }
+            return (ConstImagePointerType)newImage;
         }
     }; //class
 } //namespace

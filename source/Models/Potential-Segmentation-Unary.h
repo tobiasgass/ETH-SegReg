@@ -10,7 +10,7 @@
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include <utility>
-
+#include <itkStatisticsImageFilter.h>
 namespace itk{
 
 
@@ -32,11 +32,14 @@ namespace itk{
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         SizeType m_fixedSize;
+
+        typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
         ConstImagePointerType m_fixedImage, m_sheetnessImage;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
+        double m_gradientSigma;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -57,21 +60,21 @@ namespace itk{
         }
         void SetGradientImage(ConstImagePointerType sheetnessImage){
             m_sheetnessImage=sheetnessImage;
+            
+            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+            filter->SetInput(m_sheetnessImage);
+            filter->Update();
+            m_gradientSigma=filter->GetSigma();
         }
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
             int s= m_sheetnessImage->GetPixel(fixedIndex);
             double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
-            switch (segmentationLabel) {
-            case 1  :
+            if (segmentationLabel>0) {
                 segmentationProb = (imageIntensity < -500 ) ? 1 : 0;
-                break;
-            case 0:
-                segmentationProb = ( imageIntensity > 400) && ( s > 0 ) ? 1 : 0;
-                break;
-            default:
-                assert(false);
+            }else{
+                segmentationProb = ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
             }
             //        std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             return segmentationProb;
@@ -82,7 +85,7 @@ namespace itk{
             int s2=m_sheetnessImage->GetPixel(idx2);
             double edgeWeight=fabs(s1-s2);
             //            edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
-            edgeWeight=exp ( - 0.05 * edgeWeight);
+            edgeWeight=exp ( - edgeWeight/m_gradientSigma);
             //edgeWeight+=1;
             return edgeWeight;
         }
@@ -153,7 +156,7 @@ namespace itk{
             int s2=m_sheetnessImage->GetPixel(idx2);
             double edgeWeight=fabs(s1-s2);
             //            edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
-            edgeWeight=exp ( - 0.05 * edgeWeight);
+            edgeWeight=exp ( - 0.05 * 255* edgeWeight);
             //edgeWeight+=1;
             return edgeWeight;
         }
@@ -205,15 +208,11 @@ namespace itk{
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
             double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
-            switch (segmentationLabel) {
-            case 1  :
+            if (segmentationLabel>=1) {
                 segmentationProb = (imageIntensity < 85 && imageIntensity>170  ) ? 1 : 0;
-                break;
-            case 0:
+            }
+            else{
                 segmentationProb =  (imageIntensity > 85 && imageIntensity<170  )  ? 1 : 0;
-                break;
-            default:
-                assert(false);
             }
             //        std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             return segmentationProb;

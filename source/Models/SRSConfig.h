@@ -33,7 +33,8 @@ public:
 	int iterationsPerLevel;
 	bool train;
     double displacementRescalingFactor;
-    double scale;
+    double scale,asymmetry;
+    int optIter;
 private:
 	argstream * as;
 public:
@@ -56,7 +57,7 @@ public:
 		segmentationProbsFilename="segmentation.bin";
 		pairWiseProbsFilename="pairwise.bin";
         displacementRescalingFactor=0.5;
-        scale=1;
+        scale=1;asymmetry=0;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -93,7 +94,8 @@ public:
 		startTiling=c.startTiling;
 		train=c.train;
         displacementRescalingFactor=c.displacementRescalingFactor;
-        scale=c.scale;
+        scale=c.scale;asymmetry=c.asymmetry;
+        optIter=c.optIter;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -145,7 +147,9 @@ public:
 		(*as) >> parameter ("nLevels", nLevels,"number of multiresolution pyramid levels", false);
 		(*as) >> parameter ("startlevel", startTiling,"start tiling", false);
 		(*as) >> parameter ("iterationsPerLevel", iterationsPerLevel,"iterationsPerLevel", false);
+		(*as) >> parameter ("optIter", optIter,"max iterations of optimizer", false);
         (*as) >> parameter ("r",displacementRescalingFactor,"displacementRescalingFactor", false);
+        (*as) >> parameter ("asymmetry",asymmetry,"asymmetry in segreg potential", false);
 
 		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename", false);
 		(*as) >> parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);
@@ -158,17 +162,19 @@ public:
 		(*as) >> parameter ("l4", tmp_levels[4],"divisor for level 4", false);
 		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
         (*as) >> parameter ("scale", scale,"scaling factor for registration potential", false);
+        (*as) >> option ("verbose", verbose,"get verbose output");
+        (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=1)", false);
 
 		std::list<int> bla;
 //		(*as) >> values<int> (back_inserter(bla),"descr",nLevels);
 		(*as) >> help();
 		as->defaultErrorHandling();
-		nSegmentations=2;
+	
 		if (segWeight==0 && pairwiseSegmentationWeight==0 && rfWeight==0 ){
 			nSegmentations=1;
 		}
 		if (displacementSampling==-1) displacementSampling=maxDisplacement;
-		verbose=false;
+	
 		levels=new int[nLevels+1];
 		if (tmp_levels[0]==-1){
 			levels[0]=startTiling;

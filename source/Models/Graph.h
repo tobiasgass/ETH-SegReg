@@ -79,6 +79,7 @@ protected:
 	static const unsigned int m_dim=TImage::ImageDimension;
 	int m_nNodes,m_nVertices, m_nRegistrationNodes, m_nSegmentationNodes;
     int m_nRegEdges,m_nSegEdges,m_nSegRegEdges, m_nEdges;
+    int m_nSegmentationLabels,m_nDisplacementLabels;
 	//ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
 	UnaryRegistrationFunctionPointerType m_unaryRegFunction;
 	UnarySegmentationFunctionPointerType m_unarySegFunction;
@@ -99,6 +100,8 @@ public:
 		m_haveLabelMap=false;
 		verbose=true;
         m_fixedImage=NULL;
+        m_nSegmentationLabels=LabelMapperType::nSegmentations;
+        m_nDisplacementLabels=LabelMapperType::nDisplacements;
     };
     ~GraphModel(){
         //delete m_fixedNeighborhoodIterator;
@@ -285,14 +288,30 @@ public:
         IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
         IndexType imageIndex=getImageIndex(nodeIndex2);
         //compute distance between center index and patch index
-        double weight=1;
+        double dist=0;
         for (unsigned int d=0;d<m_dim;++d){
-            weight*=1-1.5*fabs(graphIndex[d]-imageIndex[d])/(m_gridPixelSpacing[d]);
+            dist+=fabs(graphIndex[d]-imageIndex[d]);
         }
+        double weight=1;//exp(-dist/2);
         if (weight<0){ std::cout<<weight<<std::endl; weight=0;}
         RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
         registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
         return m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+        //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+    }
+    double getPairwiseRegSegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
+        IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
+        IndexType imageIndex=getImageIndex(nodeIndex2);
+        //compute distance between center index and patch index
+        double dist=0;
+        for (unsigned int d=0;d<m_dim;++d){
+            dist+=fabs(graphIndex[d]-imageIndex[d]);
+        }
+        double weight=1;//exp(-dist/2);
+        if (weight<0){ std::cout<<weight<<std::endl; weight=0;}
+        RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
+        registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
+        return m_pairwiseSegRegFunction->getBackwardPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
         //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
     }
     double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
@@ -378,9 +397,14 @@ public:
         result->Allocate();
         typename itk::ImageRegionIterator<ImageType> it(result,result->GetLargestPossibleRegion());
         int i=0;
-        for (it.GoToBegin();!it.IsAtEnd();++it,++i){
-            assert(i<labels.size());
-            it.Set(numeric_limits<PixelType>::max()*labels[i]);
+        if (m_nSegmentationLabels){
+            for (it.GoToBegin();!it.IsAtEnd();++it,++i){
+                assert(i<labels.size());
+                it.Set(numeric_limits<PixelType>::max()/(m_nSegmentationLabels-1)*labels[i]);
+            }
+        }else{  for (it.GoToBegin();!it.IsAtEnd();++it,++i){
+            it.Set(0);
+            }
         }
         assert(i==(labels.size()));
         return result;

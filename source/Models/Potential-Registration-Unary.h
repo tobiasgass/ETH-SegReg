@@ -1,3 +1,4 @@
+
 /*
  * Potentials.h
  *
@@ -112,10 +113,8 @@ namespace itk{
             m_radius=sp;
             radiusSet=true;
         }
-#define RESAMPLEDLABELMAP
         void SetBaseLabelMap(LabelImagePointerType blm){
             m_baseLabelMap=blm;m_haveLabelMap=true;
-#ifdef RESAMPLEDLABELMAP
             if (m_scale!=1.0){
                 typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType> InterpolatorType;
                 typename InterpolatorType::Pointer interpol=InterpolatorType::New();
@@ -141,7 +140,7 @@ namespace itk{
                 resampler->Update();
                 m_baseLabelMap=resampler->GetOutput();
             }
-#endif
+
         }
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
       
@@ -157,15 +156,11 @@ namespace itk{
 
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
             double result=0;
-#ifdef RESAMPLEDLABELMAP
+
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 fixedIndex[d]*=m_scale;
             }
             LabelType baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
-#else
-            LabelType baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
-            fixedIndex=fixedIndex*m_scaleITK;
-#endif
             //std::cout<<baseDisp<<" "<<disp<<std::endl;
             baseDisp*=m_scale;
             disp*=m_scale;
@@ -183,15 +178,15 @@ namespace itk{
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-#ifdef RESAMPLEDLABELMAP
+
                     idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*m_scale;
-#else
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(scaledNI)*m_scale;
-#endif
+
                     //cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+                        continue;
                         m=0;
+                        
 #if 0
                         for (int d=0;d<ImageType::ImageDimension;++d){
                             if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
@@ -268,8 +263,17 @@ namespace itk{
         UnaryPotentialRegistrationSAD(){}
         
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
-            double result=0;
-            itk::Vector<float,ImageType::ImageDimension> baseDisp=this->m_baseLabelMap->GetPixel(fixedIndex);
+             double result=0;
+
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                fixedIndex[d]*=this->m_scale;
+            }
+            LabelType baseDisp=this->m_baseLabelMap->GetPixel(fixedIndex);
+            //std::cout<<baseDisp<<" "<<disp<<std::endl;
+            baseDisp*=this->m_scale;
+            disp*=this->m_scale;
+            //            std::cout<<fixedIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //          nIt->SetLocation(fixedIndex);
             this->nIt.SetLocation(fixedIndex);
             double count=0;
             //double sum=0.0;
@@ -281,8 +285,9 @@ namespace itk{
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
-                    //                    cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+
+                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+                    
                     double m;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
                         continue;

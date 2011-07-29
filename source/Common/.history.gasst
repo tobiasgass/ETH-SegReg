@@ -1,3 +1,5 @@
 2010-11-05.16-36-29 cp ../../../ETH-Tools/source/ImageUtils.h .
 2010-11-05.16-36-42 cp /home/cvcourse/include/argstream.h .
 2010-11-05.17-03-08 less ../../../ETH-Tools/source/CMakeLists.txt
+2011-07-27.09-17-01 cp ../../../ETH-Tools/source/ChamferDistanceTransform.h .
+2011-07-27.10-09-36 cp ../../../ETH-Tools/source/ChamferDistanceTransform.h .

@@ -15,6 +15,7 @@
 #include "treeProbabilities.cpp"
 #include <vector>
 #include <google/heap-profiler.h>
+#include "ordering.cpp"
 //#include "malloc.c"
 using namespace std;
 
@@ -42,8 +43,8 @@ protected:
     vector<NodeType> segNodes;
     vector<NodeType> regNodes;
     clock_t m_start;
-    vector<EdgeType> edges;
-    vector< vector<int> > pointers;
+    int nRegLabels;
+    int nSegLabels;
 public:
 	TRWS_SRSMRFSolver(GraphModelType * graphModel,
                       double unaryRegWeight=1.0, 
@@ -54,7 +55,6 @@ public:
                       bool vverbose=false)
         :m_optimizer(TRWType::GlobalSize()),m_GraphModel(graphModel)
 	{
-        cout<<"construction"<<endl;
 		verbose=vverbose;
 		m_unarySegmentationWeight=unarySegWeight;
 		m_pairwiseSegmentationWeight=pairwiseSegWeight;
@@ -67,75 +67,9 @@ public:
     TRWS_SRSMRFSolver()  :m_optimizer(TRWType::GlobalSize()){}
 	~TRWS_SRSMRFSolver()
     {
-        for (unsigned int i=0; i<pointers.size();++i){
-        }
-        cout<<"deleted mem"<<endl;
-     }
-
-    void init2(){
-        clock_t start = clock();
-        m_start=start;
-        int nLabels=10;
-        int nNodes=3000000;
-        
-
-        for (unsigned int i=0;i<nNodes;++i){
-            pointers.push_back( vector<int>(nLabels*nLabels));
-        }
-        //cout<<pointers[0]<<endl;
-        sleep(1);
-        cout<<"allocated"<<endl;
-        HeapProfilerDump("dump after alloc");
-        for (unsigned int i=0;i<pointers.size();++i){
-            //  pointers[i]->clear();
-            //            delete pointers[i];
-            //pointers[i]=NULL;
-        }
-        HeapProfilerDump("dump after delete");
-        sleep(1);
-        nEdges=1;
-      
-        
-    }
-    void init(){        
-        GraphModelType* graph=this->m_GraphModel;
-        clock_t start = clock();
-        m_start=start;
-        
-        nEdges=1;
-        nRegNodes=graph->nRegNodes();
-        nSegNodes=graph->nSegNodes();
-        int nLabels=10;
-        int nLabels2=3;
-        int nNodes=3000000;
-        //m_optimizer=MRFType(TRWType::GlobalSize());
-        vector<NodeType> nodes(nNodes*2, NULL);
-
-
-        TRWType::GlobalSize globalSize();
-        TRWType::REAL D1[nLabels];
-        TRWType::REAL D2[nLabels2];
-        for (int n=0;n<nNodes;++n){
-            nodes[n]=m_optimizer.AddNode(TRWType::LocalSize(nLabels), TRWType::NodeData(D1));
-            nodes[n+nNodes]=m_optimizer.AddNode(TRWType::LocalSize(nLabels2), TRWType::NodeData(D2));
-        }
-        TRWType::REAL V[nLabels*nLabels];
-        TRWType::REAL V2[nLabels*nLabels];
-        int c=0;
-        for (int n=0;n<nNodes-1;++n){
-            assert(nodes[n]);
-            assert(nodes[n+1]);
-            assert(nodes[n+nNodes-1]);
-            assert(n+nNodes-1<nNodes*2-2);
-            // edges[n]= 
-                  m_optimizer.AddEdge(nodes[n], nodes[n+1], TRWType::EdgeData(TRWType::GENERAL,V));
-            //            edges[n+nNodes-1]= 
-            m_optimizer.AddEdge(nodes[n], nodes[n+nNodes-1], TRWType::EdgeData(TRWType::GENERAL,V2));
-            c+=2;
-        }
-        std::cout<<edges.size()<<" "<<c<<std::endl;
     }
 
+ 
 	virtual void createGraph(){
 
         if (verbose) std::cout<<std::endl<<"starting graph init"<<std::endl;
@@ -153,50 +87,32 @@ public:
         m_start=start;
 
         int edgeCount=0;
-        int nRegLabels=graph->nRegLabels();
-        int nSegLabels=graph->nSegLabels();
+         nRegLabels=graph->nRegLabels();
+         nSegLabels=graph->nSegLabels();
 
 		//		traverse grid
-        if (verbose) std::cout<<"RegUnaries "<<nRegNodes<<std::endl;
+        if (nRegLabels){
         //RegUnaries
-		TRWType::REAL D1[nRegLabels];
-		for (int d=0;d<nRegNodes;++d){
+        TRWType::REAL D1[nRegLabels];
+        for (int d=0;d<nRegNodes;++d){
             for (int l1=0;l1<nRegLabels;++l1)
                 {
                     D1[l1]=m_unaryRegistrationWeight*graph->getUnaryRegistrationPotential(d,l1);
                 }
             regNodes[d] = 
                 m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
-            
-		}
-        if (verbose) std::cout<<"SegUnaries"<<std::endl;
-
-        //SegUnaries
-		TRWType::REAL D2[nSegLabels];
-		for (int d=0;d<nSegNodes;++d){
-            for (int l1=0;l1<nSegLabels;++l1)
-                {
-                    D2[l1]=m_unarySegmentationWeight*graph->getUnarySegmentationPotential(d,l1);
-                }
-            segNodes[d] = 
-                m_optimizer.AddNode(TRWType::LocalSize(nSegLabels), TRWType::NodeData(D2));
-		}
-
-		clock_t finish1 = clock();
-		float t = (float) ((double)(finish1 - start) / CLOCKS_PER_SEC);
-		if (verbose) std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
-
-		// Pairwise potentials
-#if 0
+            // Pairwise potentials
+        }
         TRWType::REAL Vreg[nRegLabels*nRegLabels];
         for (int l1=0;l1<nRegLabels;++l1){
             for (int l2=0;l2<nRegLabels;++l2){
                 Vreg[l1*nRegLabels+l2]=0;
             }
         }
+
         for (int d=0;d<nRegNodes;++d){
             
-			{//pure Registration
+            {//pure Registration
                 std::vector<int> neighbours= graph->getForwardRegistrationNeighbours(d);
                 int nNeighbours=neighbours.size();
                 for (int i=0;i<nNeighbours;++i){
@@ -208,86 +124,171 @@ public:
                         }
                     }
                     
-
+                    
                     // edges[edgeCount]=
                     m_optimizer.AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vreg));
                     edgeCount++;
                 }
-
+                
             }
         }
-#endif
-
-        //  std::cout<<" reg and segreg pairwise pots" <<std::endl;
-        TRWType::REAL Vseg[nSegLabels*nSegLabels];
-        TRWType::REAL Vsrs[nRegLabels*nSegLabels];
-
+            
+        }
+        if (nSegLabels){
+        //SegUnaries
+        TRWType::REAL D2[nSegLabels];
         for (int d=0;d<nSegNodes;++d){
+            for (int l1=0;l1<nSegLabels;++l1)
+                {
+                    D2[l1]=m_unarySegmentationWeight*graph->getUnarySegmentationPotential(d,l1);
+                }
+            segNodes[d] = 
+                m_optimizer.AddNode(TRWType::LocalSize(nSegLabels), TRWType::NodeData(D2));
+                
+            //  std::cout<<" reg and segreg pairwise pots" <<std::endl;
+       
+        }
+        //#define FORWARD
+#define BACKWARD
+#ifdef FORWARD
+        TRWType::REAL Vsrs[nRegLabels*nSegLabels];
+#endif
+#ifdef  BACKWARD
+        TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
+#endif
+        for (int d=0;d<nSegNodes;++d){   
+            TRWType::REAL Vseg[nSegLabels*nSegLabels];
+            
             //pure Segmentation
             std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
             int nNeighbours=neighbours.size();
             for (int i=0;i<nNeighbours;++i){
                 double lambda=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i]);
                 for (int l1=0;l1<nSegLabels;++l1){
-					for (int l2=0;l2<nSegLabels;++l2){
-						Vseg[l1*nSegLabels+l2]=lambda*(l1!=l2);//graph->getPairwisePotential(l1,l2);
-					}
-				}
+                    for (int l2=0;l2<nSegLabels;++l2){
+                        Vseg[l1*nSegLabels+l2]=lambda*(l1!=l2);//graph->getPairwisePotential(l1,l2);
+                    }
+                }
                 m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
                 edgeCount++;
-              
+                
             }
+            if (nRegLabels){
             int segRegNeighbor=graph->getSegRegNeighbor(d);
+
             for (int l1=0;l1<nRegLabels;++l1){
                 for (int l2=0;l2<nSegLabels;++l2){
-                    Vsrs[l1+l2*nRegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseSegRegPotential(segRegNeighbor,d,l1,l2);
+                    //forward
+#ifdef FORWARD
+                    Vsrs[l2+l1*nSegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseSegRegPotential(segRegNeighbor,d,l1,l2);
+#endif
+#ifdef BACKWARD
+                    VsrsBack[l1+l2*nRegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseRegSegPotential(segRegNeighbor,d,l1,l2);
+#endif
                 }
             }
-            m_optimizer.AddEdge(regNodes[segRegNeighbor], segNodes[d], TRWType::EdgeData(TRWType::GENERAL,Vsrs));
+#ifdef FORWARD
+            m_optimizer.AddEdge(segNodes[d], regNodes[segRegNeighbor]             , TRWType::EdgeData(TRWType::GENERAL,Vsrs));
+#endif
+#ifdef BACKWARD
+            m_optimizer.AddEdge(regNodes[segRegNeighbor], segNodes[d]             , TRWType::EdgeData(TRWType::GENERAL,VsrsBack));
+#endif
             edgeCount++;
-
-        }   
+            }
+                
+        }
+        }
         clock_t finish = clock();
-        t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
+        clock_t t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
         if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
-        std::cout<<edgeCount<<" "<<nEdges<<endl;
         nEdges=edgeCount;
 
     }
     
 
-    virtual void optimize(){
-        std::cout<<"EDGES " <<nEdges<<endl;
+    virtual void optimize(int maxIter=20){
+        if (verbose) std::cout<<"EDGES " <<nEdges<<endl;
+        //m_optimizer.SetAutomaticOrdering();
+
         MRFEnergy<TRWType>::Options options;
         TRWType::REAL energy=-1, lowerBound=-1;
-        options.m_iterMax = 20; // maximum number of iterations
+        options.m_iterMax = maxIter; // maximum number of iterations
         options.m_printMinIter=1;
         options.m_printIter=1;
         options.verbose=verbose;
+        options.m_eps=-1;
         m_optimizer.Minimize_TRW_S(options, lowerBound, energy);
         clock_t finish = clock();
         float t = (float) ((double)(finish - m_start) / CLOCKS_PER_SEC);
-        std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound << std::endl;
+        std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound ;//std::endl;
 
+        if (verbose){
+            std::cout<<std::endl;
+            evalSolution();
+        }
     }
 
     virtual std::vector<int> getDeformationLabels(){
-        std::vector<int> labels(nRegNodes);
+        std::vector<int> labels(nRegNodes,0);
         for (int i=0;i<nRegNodes;++i){
-            labels[i]=m_optimizer.GetSolution(regNodes[i]);
+            if (nRegLabels){
+                labels[i]=m_optimizer.GetSolution(regNodes[i]);
+            }
         }
         return labels;
     }
     virtual std::vector<int> getSegmentationLabels(){
-        std::vector<int> labels(nSegNodes);
+        std::vector<int> labels(nSegNodes,0);
         int c=0;
-        for (int i=0;i<nSegNodes;++i){
-            labels[i]=m_optimizer.GetSolution(segNodes[i]);
-            if (labels[i])
-                ++c;
+        if (nSegLabels){
+            for (int i=0;i<nSegNodes;++i){
+                         labels[i]=m_optimizer.GetSolution(segNodes[i]);
+                if (labels[i])
+                    ++c;
+            }
         }
-        //        std::cout <<" coutn"<<c<<std::endl;
         return labels;
+    }
+
+    void evalSolution(){
+        double sumUReg=0,sumUSeg=0,sumPSeg=0,sumPSegReg=0;
+        GraphModelType* graph=this->m_GraphModel;
+        
+		clock_t start = clock();
+        m_start=start;
+        if (nRegLabels){
+		for (int d=0;d<nRegNodes;++d){
+            sumUReg+=m_unaryRegistrationWeight*graph->getUnaryRegistrationPotential(d,m_optimizer.GetSolution(regNodes[d]));
+		}
+        }
+        if (nSegLabels){
+		for (int d=0;d<nSegNodes;++d){
+            sumUSeg+=m_unarySegmentationWeight*graph->getUnarySegmentationPotential(d,m_optimizer.GetSolution(segNodes[d]));
+            if (nRegLabels){
+            std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
+            int nNeighbours=neighbours.size();
+            for (int i=0;i<nNeighbours;++i){
+                sumPSeg+=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i])*(m_optimizer.GetSolution(segNodes[d])!=m_optimizer.GetSolution(segNodes[neighbours[i]]));
+            }
+            int segRegNeighbor=graph->getSegRegNeighbor(d);
+#ifdef FORWARD
+            sumPSegReg+=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseSegRegPotential(segRegNeighbor,d,m_optimizer.GetSolution(regNodes[segRegNeighbor]),m_optimizer.GetSolution(segNodes[d]));
+#endif
+#ifdef BACKWARD
+            sumPSegReg+=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseRegSegPotential(segRegNeighbor,d,m_optimizer.GetSolution(regNodes[segRegNeighbor]),m_optimizer.GetSolution(segNodes[d]));
+#endif
+            }
+
+
+        }   
+        }
+        std::cout<<"RegU :\t\t"<<sumUReg<<endl
+                 <<"SegU :\t\t"<<sumUSeg<<endl
+                 <<"SegP :\t\t"<<sumPSeg<<endl
+                 <<"SegRegP :\t"<<sumPSegReg<<endl;
+        clock_t finish = clock();
+        double t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
+        if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
     }
 
 };

@@ -6,6 +6,7 @@ ADD_LIBRARY(Utils
   FilterUtils.hpp
   argstream.h
   itkDisplacementFieldCompositionFilter.h
+  ChamferDistanceTransform.h
 )
 TARGET_LINK_LIBRARIES(Utils ITKCommon ITKIO )
 
