@@ -263,7 +263,7 @@ namespace itk{
         UnaryPotentialRegistrationSAD(){}
         
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
-             double result=0;
+            double result=0;
 
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 fixedIndex[d]*=this->m_scale;
@@ -307,5 +307,136 @@ namespace itk{
                 return 999999999;
         }
     };//class
+    
+    template<class TLabelMapper,class TImage>
+    class UnaryPotentialRegistrationNCCWithSegmentationPrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    public:
+        //itk declarations
+        typedef UnaryPotentialRegistrationNCCWithSegmentationPrior           Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
+
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+    private:
+        ConstImagePointerType m_segmentationPrior, m_atlasSegmentation;
+        double m_alpha;
+        NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
+        
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(RegistrationUnaryPotentialSAD, Object);
+
+       UnaryPotentialRegistrationNCCWithSegmentationPrior(){}
+        
+        void SetSegmentationPrior(ConstImagePointerType prior){
+            m_segmentationPrior=prior;
+            m_segPriorInterpolator=InterpolatorType::New();
+            m_segPriorInterpolator->SetInputImage(prior);
+        }
+        void SetAtlasSegmentation(ConstImagePointerType atlas){
+            m_atlasSegmentation=atlas;
+            m_atlasSegmentationInterpolator=InterpolatorType::New();
+            m_atlasSegmentationInterpolator->SetInputImage(atlas);
+        }
+        void SetAlpha(double alpha){m_alpha=alpha;}
+        
+        virtual double getPotential(IndexType fixedIndex, LabelType disp){
+            double result=0;
+
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                fixedIndex[d]*=this->m_scale;
+            }
+            LabelType baseDisp=this->m_baseLabelMap->GetPixel(fixedIndex);
+            //std::cout<<baseDisp<<" "<<disp<<std::endl;
+            baseDisp*=this->m_scale;
+            disp*=this->m_scale;
+            //            std::cout<<fixedIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //          nIt->SetLocation(fixedIndex);
+            this->nIt.SetLocation(fixedIndex);
+            double count=0;
+            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
+            double segmentationPenalty=0.0;
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double f=this->nIt.GetPixel(i,inBounds);
+                if (inBounds){
+                    IndexType neighborIndex=this->nIt.GetIndex(i);
+                    IndexType scaledNI=neighborIndex*this->m_invertedScaleITK;
+                    //this should be weighted somehow
+                    ContinuousIndexType idx2(neighborIndex);
+                    //double weight=1.0;
+
+                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+
+                    //cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    double m;
+                    if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+                        continue;
+                        m=0;
+                        
+#if 0
+                        for (int d=0;d<ImageType::ImageDimension;++d){
+                            if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
+                                idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+                            }
+                            else if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
+                                idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
+                            }
+                        }
+#endif
+                    }else{
+                        m=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
+                    }
+                    //cout<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    sff+=f*f;
+                    smm+=m*m;
+                    sfm+=f*m;
+                    sf+=f;
+                    sm+=m;
+                    count+=1;
+                    segmentationPenalty+=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)!=this->m_segPriorInterpolator->EvaluateAtContinuousIndex(idx2);
+                }
+
+            }
+            if (count){
+                sff -= ( sf * sf / count );
+                smm -= ( sm * sm / count );
+                sfm -= ( sf * sm / count );
+                if (smm*sff>0){
+                    result=1-(1.0*sfm/sqrt(smm*sff)/2);
+                
+
+                }
+                else {
+                    if (sfm>0) result=0;
+                    else result=1;
+                }
+            }
+            //no correlation whatsoever
+            else result=0.5;
+            //result=result>0.5?0.5:result;
+            return (1-this->m_alpha)*result+this->m_alpha*segmentationPenalty/count;
+        }
+    };//class
+
 }//namespace
 #endif /* POTENTIALS_H_ */

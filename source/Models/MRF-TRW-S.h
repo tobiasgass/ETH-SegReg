@@ -91,7 +91,7 @@ public:
         nSegLabels=graph->nSegLabels();
 
 		//		traverse grid
-        if (nRegLabels){
+        if ( (m_pairwiseSegmentationRegistrationWeight || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels){
             //RegUnaries
             TRWType::REAL D1[nRegLabels];
             for (int d=0;d<nRegNodes;++d){
@@ -134,7 +134,7 @@ public:
             }
             
         }
-        if (nSegLabels){
+        if ( (m_pairwiseSegmentationRegistrationWeight || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight) && nSegLabels){
             std::cout<<"SEGLABELS" <<nSegLabels<<std::endl;
             //SegUnaries
             TRWType::REAL D2[nSegLabels];
@@ -149,17 +149,11 @@ public:
                 //  std::cout<<" reg and segreg pairwise pots" <<std::endl;
        
             }
-            //#define FORWARD
-#define BACKWARD
-#ifdef FORWARD
-            TRWType::REAL Vsrs[nRegLabels*nSegLabels];
-#endif
-#ifdef  BACKWARD
+            
             TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
-#endif
             for (int d=0;d<nSegNodes;++d){   
                 TRWType::REAL Vseg[nSegLabels*nSegLabels];
-            
+                
                 //pure Segmentation
                 std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
                 int nNeighbours=neighbours.size();
@@ -172,29 +166,22 @@ public:
                     }
                     m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
                     edgeCount++;
-                
+                    
                 }
-                if (nRegLabels){
-                    int segRegNeighbor=graph->getSegRegNeighbor(d);
-
-                    for (int l1=0;l1<nRegLabels;++l1){
-                        for (int l2=0;l2<nSegLabels;++l2){
-                            //forward
-#ifdef FORWARD
-                            Vsrs[l2+l1*nSegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseSegRegPotential(segRegNeighbor,d,l1,l2);
-#endif
-#ifdef BACKWARD
-                            VsrsBack[l1+l2*nRegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseRegSegPotential(segRegNeighbor,d,l1,l2);
-#endif
+                if (m_pairwiseSegmentationRegistrationWeight>0 && nRegLabels){
+                    std::vector<int> segRegNeighbors=graph->getSegRegNeighbor(d);
+                    nNeighbours=segRegNeighbors.size();
+                    for (int i=0;i<nNeighbours;++i){
+                        
+                        for (int l1=0;l1<nRegLabels;++l1){
+                            for (int l2=0;l2<nSegLabels;++l2){
+                                //forward
+                                VsrsBack[l1+l2*nRegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseRegSegPotential(segRegNeighbors[i],d,l1,l2);
+                            }
                         }
+                        m_optimizer.AddEdge(regNodes[segRegNeighbors[i]], segNodes[d]             , TRWType::EdgeData(TRWType::GENERAL,VsrsBack));
+                        edgeCount++;
                     }
-#ifdef FORWARD
-                    m_optimizer.AddEdge(segNodes[d], regNodes[segRegNeighbor]             , TRWType::EdgeData(TRWType::GENERAL,Vsrs));
-#endif
-#ifdef BACKWARD
-                    m_optimizer.AddEdge(regNodes[segRegNeighbor], segNodes[d]             , TRWType::EdgeData(TRWType::GENERAL,VsrsBack));
-#endif
-                    edgeCount++;
                 }
                 
             }
@@ -225,14 +212,14 @@ public:
 
         if (verbose){
             std::cout<<std::endl;
-            evalSolution();
+            //            evalSolution();
         }
     }
 
     virtual std::vector<int> getDeformationLabels(){
         std::vector<int> labels(nRegNodes,0);
-        for (int i=0;i<nRegNodes;++i){
-            if (nRegLabels){
+        if (nRegLabels){
+            for (int i=0;i<nRegNodes;++i){
                 labels[i]=m_optimizer.GetSolution(regNodes[i]);
             }
         }
@@ -240,12 +227,9 @@ public:
     }
     virtual std::vector<int> getSegmentationLabels(){
         std::vector<int> labels(nSegNodes,0);
-        int c=0;
         if (nSegLabels){
             for (int i=0;i<nSegNodes;++i){
                 labels[i]=m_optimizer.GetSolution(segNodes[i]);
-                if (labels[i])
-                    ++c;
             }
         }
         return labels;
@@ -271,13 +255,10 @@ public:
                     for (int i=0;i<nNeighbours;++i){
                         sumPSeg+=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i])*(m_optimizer.GetSolution(segNodes[d])!=m_optimizer.GetSolution(segNodes[neighbours[i]]));
                     }
-                    int segRegNeighbor=graph->getSegRegNeighbor(d);
-#ifdef FORWARD
-                    sumPSegReg+=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseSegRegPotential(segRegNeighbor,d,m_optimizer.GetSolution(regNodes[segRegNeighbor]),m_optimizer.GetSolution(segNodes[d]));
-#endif
-#ifdef BACKWARD
-                    sumPSegReg+=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseRegSegPotential(segRegNeighbor,d,m_optimizer.GetSolution(regNodes[segRegNeighbor]),m_optimizer.GetSolution(segNodes[d]));
-#endif
+                    std::vector<int> segRegNeighbors=graph->getSegRegNeighbor(d);
+                    for (unsigned int n=0;n<segRegNeighbors.size();++n){
+                        sumPSegReg+=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseRegSegPotential(segRegNeighbors[n],d,m_optimizer.GetSolution(regNodes[segRegNeighbors[n]]),m_optimizer.GetSolution(segNodes[d]));
+                    }
                 }
 
 

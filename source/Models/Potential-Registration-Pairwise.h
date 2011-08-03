@@ -26,6 +26,7 @@ namespace itk{
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
+        static const unsigned int D=ImageType::ImageDimension;
         typedef TLabelMapper LabelMapperType;
         typedef typename LabelMapperType::LabelType LabelType;
         typedef typename ImageType::IndexType IndexType;
@@ -61,8 +62,29 @@ namespace itk{
         virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement1, LabelType displacement2){
             assert(m_haveLabelMap);
             double result=0;
-            //            std::cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<displacement1<<" "<<displacement2<<std::endl;
-            return result;
+            
+
+			LabelType oldl1=m_baseLabelMap->GetPixel((fixedIndex1));
+			LabelType oldl2=m_baseLabelMap->GetPixel((fixedIndex2));
+			double d1,d2;
+			int delta;
+			displacement1+=oldl1;
+			displacement2+=oldl2;
+
+			for (unsigned int d=0;d<D;++d){
+
+				d1=displacement1[d];
+				d2=displacement2[d];
+				delta=(fixedIndex2[d]-fixedIndex1[d]);
+
+				double axisPositionDifference=1.0*(d2-d1);//(m_spacing[d]);
+
+				result+=(axisPositionDifference)*(axisPositionDifference);
+			}
+
+			//			if (false){
+            
+            return sqrt(result);
         }
     };//class
 

@@ -70,6 +70,7 @@ public:
 	typedef TImage ImageType;
     static const int D=ImageType::ImageDimension;
     typedef typename  ImageType::Pointer ImagePointerType;
+    typedef typename  ImageType::PixelType PixelType;
     typedef typename  ImageType::ConstPointer ConstImagePointerType;
     typedef typename ImageType::IndexType IndexType;
     typedef typename  ImageType::SpacingType SpacingType;
@@ -163,12 +164,25 @@ public:
         mrfSolver.optimize();
         std::cout<<" ]"<<std::endl;
         segmentation=graph.getSegmentationImage(mrfSolver.getLabels());
-
+        if (D==2){
+            segmentation=fixSegmentationImage(segmentation);
+        }
 		ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename, segmentation);
 
         	
 	}
-
+    ImagePointerType fixSegmentationImage(ImagePointerType segmentationImage){
+        ImagePointerType newImage=ImageUtils<ImageType>::createEmpty((ConstImagePointerType)segmentationImage);
+        typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
+        typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+        ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
+        ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
+        hash_map<int, int> map;
+        for (imageIt2.GoToBegin(),imageIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++imageIt2){
+            imageIt2.Set(imageIt.Get()*std::numeric_limits<PixelType>::max());
+        }
+        return newImage;
+    }
 }; //class
 } //namespace
 #endif /* HIERARCHICALSRSIMAGETOIMAGEFILTER_H_ */

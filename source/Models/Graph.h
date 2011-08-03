@@ -236,6 +236,14 @@ public:
         }
         return position;
     }
+    virtual IndexType getLowerGraphIndex(IndexType imageIndex){
+        IndexType position;
+        for (unsigned int d=0;d<m_dim;++d){
+             position[d]=int(imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d]);
+            //position[d]<<std::fixed << std::setprecision(0) << imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d];
+        }
+        return position;
+    }
     virtual int  getGraphIntegerIndex(IndexType gridIndex){
         int i=0;
         for (unsigned int d=0;d<m_dim;++d){
@@ -303,15 +311,19 @@ public:
         IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
         IndexType imageIndex=getImageIndex(nodeIndex2);
         //compute distance between center index and patch index
-        double dist=0;
-        for (unsigned int d=0;d<m_dim;++d){
-            dist+=fabs(graphIndex[d]-imageIndex[d]);
-        }
         double weight=1;//exp(-dist/2);
-        if (weight<0){ std::cout<<weight<<std::endl; weight=0;}
+#if 0
+        double dist=1;
+        for (unsigned int d=0;d<m_dim;++d){
+            //            std::cout<<dist<<" "<<graphIndex[d]-imageIndex[d]<<" "<<std::endl;
+            dist*=1.0-fabs((1.0*graphIndex[d]-imageIndex[d])/(m_gridPixelSpacing[d]));
+        }
+        weight=dist;
+#endif
+        //        if (true){ std::cout<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
         RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
         registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
-        return m_pairwiseSegRegFunction->getBackwardPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+        return weight*m_pairwiseSegRegFunction->getBackwardPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
         //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
     }
     double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
@@ -363,9 +375,42 @@ public:
         return neighbours;
     }
     
-    int getSegRegNeighbor(int index){
+    std::vector<int> getSegRegNeighbor(int index){
         IndexType position=getImageIndex(index);
-        return getGraphIntegerIndex(getClosestGraphIndex(position));
+        std::vector<int> neighbours;
+        neighbours.push_back(getGraphIntegerIndex(getClosestGraphIndex(position)));
+        return neighbours;
+    }
+    std::vector<int> getSegRegNeighbors(int index){
+        IndexType position=getLowerGraphIndex(getImageIndex(index));
+        std::vector<int> neighbours;
+        neighbours.push_back(getGraphIntegerIndex(position));
+        OffsetType off;
+        off.Fill(0);
+        for (int d=1;d<pow(2,m_dim);++d){
+            int carry=1;
+            bool inBounds=true;
+            for (unsigned int d2=0;d2<m_dim;++d2){
+                if (carry && off[d2]>0 ){
+                    off[d2]=0;
+                }
+                else{
+                    off[d2]=1;
+                    break;
+                }
+            }
+            for (unsigned int d2=0;d2<m_dim;++d2){
+                if (position[d2]+off[d2]>=m_gridSize[d2]){
+                    inBounds=false;
+                    break;
+                }
+            }
+            if (inBounds){
+                //std::cout<<getImageIndex(index)<<" "<<position<<" "<<off<<" "<<position+off<<" "<<getGraphIntegerIndex(position+off)<<std::endl;
+                neighbours.push_back(getGraphIntegerIndex(position+off));
+            }
+        }
+        return neighbours;
     }
     
     RegistrationLabelImagePointerType getDeformationImage(std::vector<int>  labels){

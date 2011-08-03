@@ -154,7 +154,7 @@ namespace itk{
             ConstImagePointerType movingSegmentationImage;
             if (D==2){
                 //2d segmentations pngs [from matlab] may have screwed up intensities
-                 movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
+                movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
             }else{
                 movingSegmentationImage = (this->GetInput(2));
             }
@@ -376,7 +376,7 @@ namespace itk{
                     for (label3It.GoToBegin(),label2It.GoToBegin(),labelIt.GoToBegin();!labelIt.IsAtEnd();++label2It,++labelIt,++label3It){
                         LabelType label=label2It.Get()+label3It.Get();
                         typename ImageInterpolatorType::ContinuousIndexType idx=labelIt.GetIndex();
-                        typename LabelImageType::SizeType size=composedDeformation->GetLargestPossibleRegion().GetSize();
+                        //typename LabelImageType::SizeType size=composedDeformation->GetLargestPossibleRegion().GetSize();
                         idx+=LabelMapperType::getDisplacement(label);
                         labelIt.Set(label);
                     }
@@ -466,6 +466,8 @@ namespace itk{
         }
         LabelImagePointerType bSplineInterpolateLabelImage(LabelImagePointerType labelImg, ConstImagePointerType reference){
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
+            LabelImagePointerType fullLabelImage;
+#if 1
             const unsigned int SplineOrder = 3;
             typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
             typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
@@ -512,7 +514,7 @@ namespace itk{
                     iterators[k]=Iterator(newImages[k],newImages[k]->GetLargestPossibleRegion());
                     iterators[k].GoToBegin();
                 }
-            LabelImagePointerType fullLabelImage=LabelImageType::New();
+            fullLabelImage=LabelImageType::New();
             fullLabelImage->SetRegions(reference->GetLargestPossibleRegion());
             fullLabelImage->SetOrigin(reference->GetOrigin());
             fullLabelImage->SetSpacing(reference->GetSpacing());
@@ -531,10 +533,35 @@ namespace itk{
                 //			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
                 lIt.Set(l);
             }
-            for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
-                {
-                    //delete iterators[k];
-                }
+#else          
+
+            typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
+            //typedef typename itk::VectorNearestNeighborInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
+            typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
+            typedef typename itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
+            LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();
+            labelInterpolator->SetInputImage(labelImg);
+            //initialise resampler
+            
+            typename LabelResampleFilterType::Pointer resampler = LabelResampleFilterType::New();
+            //resample deformation field to fixed image dimension
+            resampler->SetInput( labelImg );
+            resampler->SetInterpolator( labelInterpolator );
+            resampler->SetOutputOrigin(reference->GetOrigin());
+            resampler->SetOutputSpacing ( reference->GetSpacing() );
+            resampler->SetOutputDirection ( reference->GetDirection() );
+            resampler->SetSize ( reference->GetLargestPossibleRegion().GetSize() );
+            resampler->Update();
+            fullLabelImage=resampler->GetOutput();
+#if 0
+            LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
+            lIt.GoToBegin();
+            for (;!lIt.IsAtEnd();++lIt){
+                LabelType l=lIt.Get();
+                lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
+            }
+#endif
+#endif
             return fullLabelImage;
         }
 
