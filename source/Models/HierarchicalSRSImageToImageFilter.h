@@ -324,7 +324,7 @@ namespace itk{
                     {
 #if 1
                         MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,
+                                                                     m_config.simWeight,//*exp(-i),
                                                                      m_config.pairwiseRegistrationWeight, 
                                                                      m_config.rfWeight,
                                                                      m_config.pairwiseSegmentationWeight, 
@@ -634,10 +634,13 @@ namespace itk{
             deformed->SetDirection(deformation->GetDirection());
             deformed->Allocate();
             ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
+
+            //for png images we need to scale the output inteneisities so they are visible in standard png viewers
             PixelType multiplier=numeric_limits<PixelType>::max();
             if (LabelMapperType::nSegmentations>1){
                 multiplier=numeric_limits<PixelType>::max()/(LabelMapperType::nSegmentations-1);
             }
+            if (D==3) multiplier=1;
             for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
                 IndexType index=deformationIt.GetIndex();
                 typename ImageInterpolatorType::ContinuousIndexType idx(index);

@@ -171,7 +171,7 @@ public:
 		as->defaultErrorHandling();
 	
 		if (segWeight==0 && pairwiseSegmentationWeight==0 && rfWeight==0 ){
-			nSegmentations=1;
+			nSegmentations=0;
 		}
 		if (displacementSampling==-1) displacementSampling=maxDisplacement;
 	
