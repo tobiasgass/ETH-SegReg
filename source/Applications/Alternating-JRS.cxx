@@ -5,7 +5,7 @@
 #include "argstream.h"
 
 #include "SRSConfig.h"
-#include "HierarchicalSRSImageToImageFilter.h"
+#include "HierarchicalJRSImageToImageFilter.h"
 #include "Graph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
@@ -29,18 +29,14 @@ int main(int argc, char ** argv)
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    //    typedef UnaryPotentialSegmentationArtificial2< ImageType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
-    //    typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationWithRegistrationPrior< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialRegistrationNCCWithSegmentationPrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationRegistration< LabelMapperType, ImageType > SegmentationRegistrationPairwisePotentialType;
-	typedef HierarchicalSRSImageToImageFilter<ImageType,
+  	typedef HierarchicalJRSImageToImageFilter<ImageType,
         LabelMapperType,
         RegistrationUnaryPotentialType,
         SegmentationUnaryPotentialType,
-        RegistrationPairwisePotentialType,
-        SegmentationRegistrationPairwisePotentialType>        FilterType;
+        RegistrationPairwisePotentialType >        FilterType;
     
 	//create filter
     FilterType::Pointer filter=FilterType::New();

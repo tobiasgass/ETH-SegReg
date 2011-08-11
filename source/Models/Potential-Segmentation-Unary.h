@@ -40,102 +40,79 @@ namespace itk{
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         double m_gradientSigma;
+        double m_gradientScaling;
     public:
-        /** Method for creation through the object factory. */
+         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentation, Object);
 
         UnaryPotentialSegmentation(){
-            m_haveLabelMap=false;
+            this->m_haveLabelMap=false;
         }
         virtual void freeMemory(){
         }
-        //        void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
-        //LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-
+        void SetGradientScaling(double s){m_gradientScaling=s;}
         void SetFixedImage(ConstImagePointerType fixedImage){
-            m_fixedImage=fixedImage;
-            m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
+            this->m_fixedImage=fixedImage;
+            this->m_fixedSize=this->m_fixedImage->GetLargestPossibleRegion().GetSize();
         }
         void SetGradientImage(ConstImagePointerType sheetnessImage){
-            m_sheetnessImage=sheetnessImage;
+            this->m_sheetnessImage=sheetnessImage;
             
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
-            filter->SetInput(m_sheetnessImage);
+            filter->SetInput(this->m_sheetnessImage);
             filter->Update();
-            m_gradientSigma=filter->GetSigma();
+            this->m_gradientSigma=filter->GetSigma();
+            this->m_gradientSigma*=this->m_gradientSigma;
+            std::cout<<"Gradient std deviation: "<<m_gradientSigma<<std::endl;
         }
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            int s= m_sheetnessImage->GetPixel(fixedIndex);
-            double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
+            int s= this->m_sheetnessImage->GetPixel(fixedIndex);
+            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
             if (segmentationLabel>0) {
+                //segmentationProb = exp(imageIntensity+500);//(imageIntensity < -500 ) ? 1 : 0;
                 segmentationProb = (imageIntensity < -500 ) ? 1 : 0;
             }else{
                 segmentationProb = ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
+                //segmentationProb = exp(imageIntensity-300);// ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
             }
             //        std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             return segmentationProb;
         }
 
         virtual double getWeight(IndexType idx1, IndexType idx2){
-            int s1=m_sheetnessImage->GetPixel(idx1);
-            int s2=m_sheetnessImage->GetPixel(idx2);
+            int s1=this->m_sheetnessImage->GetPixel(idx1);
+            int s2=this->m_sheetnessImage->GetPixel(idx2);
             double edgeWeight=fabs(s1-s2);
-            //            edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
-            edgeWeight=exp ( - edgeWeight/m_gradientSigma);
-            //edgeWeight+=1;
+            edgeWeight*=edgeWeight;
+            //edgeWeight=(s1 < s2) ? 1.0 : exp( - 20* (edgeWeight/this->m_gradientSigma) );
+            edgeWeight= exp( - 20 * (edgeWeight/this->m_gradientSigma) );
             return edgeWeight;
         }
     };//class
     template<class TImage>
-    class UnaryPotentialSegmentationArtificial: public itk::Object{
+    class UnaryPotentialSegmentationArtificial: public UnaryPotentialSegmentation<TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialSegmentationArtificial            Self;
-        typedef itk::Object Superclass;
+        typedef  UnaryPotentialSegmentation<TImage> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
-        typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-
         typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::SizeType SizeType;
-        typedef typename ImageType::SpacingType SpacingType;
-        SizeType m_fixedSize;
-    protected:
-        ConstImagePointerType m_fixedImage, m_sheetnessImage;
-        SpacingType m_displacementFactor;
-        //LabelImagePointerType m_baseLabelMap;
-        bool m_haveLabelMap;
+
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationArtificial, Object);
-
-        UnaryPotentialSegmentationArtificial(){
-            m_haveLabelMap=false;
-        }
-        virtual void freeMemory(){
-        }
-        //        void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
-        //LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-
-        void SetFixedImage(ConstImagePointerType fixedImage){
-            m_fixedImage=fixedImage;
-            m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
-        }
-        void SetGradientImage(ConstImagePointerType sheetnessImage){
-            m_sheetnessImage=sheetnessImage;
-        }
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
+            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
             switch (segmentationLabel) {
             case 1  :
@@ -151,65 +128,29 @@ namespace itk{
             return segmentationProb;
         }
 
-        virtual double getWeight(IndexType idx1, IndexType idx2){
-            int s1=m_sheetnessImage->GetPixel(idx1);
-            int s2=m_sheetnessImage->GetPixel(idx2);
-            double edgeWeight=fabs(s1-s2);
-            //            edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
-            edgeWeight=exp ( - 0.05 * 255* edgeWeight);
-            //edgeWeight+=1;
-            return edgeWeight;
-        }
+      
     };//class
     template<class TImage>
-    class UnaryPotentialSegmentationArtificial2: public itk::Object{
+    class UnaryPotentialSegmentationArtificial2: public  UnaryPotentialSegmentation<TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialSegmentationArtificial2            Self;
-        typedef itk::Object Superclass;
+        typedef UnaryPotentialSegmentation<TImage> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
-
-        typedef	TImage ImageType;
-        typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-
+        typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::SizeType SizeType;
-        typedef typename ImageType::SpacingType SpacingType;
-        SizeType m_fixedSize;
-    protected:
-        ConstImagePointerType m_fixedImage, m_sheetnessImage;
-        SpacingType m_displacementFactor;
-        //LabelImagePointerType m_baseLabelMap;
-        bool m_haveLabelMap;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationArtificial2, Object);
-
-        UnaryPotentialSegmentationArtificial2(){
-            m_haveLabelMap=false;
-        }
-        virtual void freeMemory(){
-        }
-        //        void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
-        //LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-
-        void SetFixedImage(ConstImagePointerType fixedImage){
-            m_fixedImage=fixedImage;
-            m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
-        }
-        void SetGradientImage(ConstImagePointerType sheetnessImage){
-            m_sheetnessImage=sheetnessImage;
-        }
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
+            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
             if (segmentationLabel>=1) {
-                segmentationProb = (imageIntensity < 85 && imageIntensity>170  ) ? 1 : 0;
+                segmentationProb = (imageIntensity < 85 || imageIntensity>170  ) ? 1 : 0;
             }
             else{
                 segmentationProb =  (imageIntensity > 85 && imageIntensity<170  )  ? 1 : 0;
@@ -218,23 +159,14 @@ namespace itk{
             return segmentationProb;
         }
 
-        virtual double getWeight(IndexType idx1, IndexType idx2){
-            int s1=m_sheetnessImage->GetPixel(idx1);
-            int s2=m_sheetnessImage->GetPixel(idx2);
-            double edgeWeight=fabs(s1-s2);
-            //            edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
-            edgeWeight=exp ( - 0.05 * edgeWeight);
-            //edgeWeight+=1;
-            return edgeWeight;
-        }
     };//class
 
     template<class TImage>
-    class UnaryPotentialSegmentationWithRegistrationPrior: public itk::Object{
+    class UnaryPotentialSegmentationWithRegistrationPrior: public UnaryPotentialSegmentation<TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialSegmentationWithRegistrationPrior            Self;
-        typedef itk::Object Superclass;
+        typedef  UnaryPotentialSegmentation<TImage> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
 
@@ -243,133 +175,67 @@ namespace itk{
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
         typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::SizeType SizeType;
-        typedef typename ImageType::SpacingType SpacingType;
-        SizeType m_fixedSize;
-
-        typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
-        ConstImagePointerType m_fixedImage, m_sheetnessImage, m_deformationPrior;
-       
-          
-        SpacingType m_displacementFactor;
-        //LabelImagePointerType m_baseLabelMap;
-        bool m_haveLabelMap;
-        double m_gradientSigma;
+        ConstImagePointerType m_deformationPrior;
         double m_alpha;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentation, Object);
-
-        UnaryPotentialSegmentationWithRegistrationPrior(){
-            m_haveLabelMap=false;
-        }
-        virtual void freeMemory(){
-        }
-        //        void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
-        //LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-
-        void SetFixedImage(ConstImagePointerType fixedImage){
-            m_fixedImage=fixedImage;
-            m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
-        }
-        void SetGradientImage(ConstImagePointerType sheetnessImage){
-            m_sheetnessImage=sheetnessImage;
-            
-            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
-            filter->SetInput(m_sheetnessImage);
-            filter->Update();
-            m_gradientSigma=filter->GetSigma();
-        }
         void SetDeformationPrior(ConstImagePointerType deformedSegmentation){
-            m_deformationPrior=deformedSegmentation;
+            this->m_deformationPrior=deformedSegmentation;
         }
           
-        void SetAlpha(double alpha){m_alpha=alpha;}
+        void SetAlpha(double alpha){this->m_alpha=alpha;}
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            int s= m_sheetnessImage->GetPixel(fixedIndex);
-            double imageIntensity=m_fixedImage->GetPixel(fixedIndex);
+            int s= this->m_sheetnessImage->GetPixel(fixedIndex);
+            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
+#if 0
+            if (segmentationLabel>=1) {
+                segmentationProb = (imageIntensity < 85 || imageIntensity>170  ) ? 1 : 0;
+            }
+            else{
+                segmentationProb =  (imageIntensity > 85 && imageIntensity<170  )  ? 1 : 0;
+            }
+#else
             if (segmentationLabel>0) {
                 segmentationProb = (imageIntensity < -500 ) ? 1 : 0;
             }else{
                 segmentationProb = ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
             }
-            int deformedSegmentationPenalty=(segmentationLabel==m_deformationPrior->GetPixel(fixedIndex));
-            //        std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
-            return (1-m_alpha)*segmentationProb+m_alpha*deformedSegmentationPenalty;
+#endif
+            int deformedSegmentationPenalty=0;
+            if (this->m_deformationPrior)
+                deformedSegmentationPenalty=(segmentationLabel!=this->m_deformationPrior->GetPixel(fixedIndex));
+            //std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<" "<<this->m_alpha*deformedSegmentationPenalty<<std::endl;
+            return segmentationProb+this->m_alpha*deformedSegmentationPenalty;
         }
 
-        virtual double getWeight(IndexType idx1, IndexType idx2){
-            int s1=m_sheetnessImage->GetPixel(idx1);
-            int s2=m_sheetnessImage->GetPixel(idx2);
-            double edgeWeight=fabs(s1-s2);
-            //            edgeWeight=(s1 < s2) ? 1.0 : exp ( - 0.05 * edgeWeight);
-            edgeWeight=exp ( - edgeWeight/m_gradientSigma);
-            //edgeWeight+=1;
-            return edgeWeight;
-        }
     };//class
 
 
 
     template<class TImage>
-    class UnaryPotentialSegmentationProb: public itk::Object{
+    class UnaryPotentialSegmentationProb: public UnaryPotentialSegmentation<TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialSegmentationProb            Self;
-        typedef itk::Object Superclass;
+        typedef  UnaryPotentialSegmentation<TImage> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
-
-        typedef	TImage ImageType;
-        typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-
+        typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::SizeType SizeType;
-        typedef typename ImageType::SpacingType SpacingType;
-        SizeType m_fixedSize;
-
-        typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
-    protected:
-        ConstImagePointerType m_fixedImage, m_sheetnessImage;
-        SpacingType m_displacementFactor;
-        //LabelImagePointerType m_baseLabelMap;
-        bool m_haveLabelMap;
-        double m_gradientSigma;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationProb, Object);
-
-        UnaryPotentialSegmentationProb(){
-            m_haveLabelMap=false;
-        }
-        virtual void freeMemory(){
-        }
-        //        void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
-        //LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-
-        void SetFixedImage(ConstImagePointerType fixedImage){
-            m_fixedImage=fixedImage;
-            m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
-        }
-        void SetGradientImage(ConstImagePointerType sheetnessImage){
-            m_sheetnessImage=sheetnessImage;
-            
-            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
-            filter->SetInput(m_sheetnessImage);
-            filter->Update();
-            m_gradientSigma=filter->GetSigma();
-        }
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double imageIntensity=1.0*m_fixedImage->GetPixel(fixedIndex)/255;
+            double imageIntensity=1.0*this->m_fixedImage->GetPixel(fixedIndex)/255;
             double segmentationProb=1;
             if (segmentationLabel>0) {
                 segmentationProb = 1-imageIntensity;//(imageIntensity < 0.7 ) ? 1 : 0;
@@ -381,14 +247,38 @@ namespace itk{
             return segmentationProb;
         }
 
-        virtual double getWeight(IndexType idx1, IndexType idx2){
-            int s1=m_sheetnessImage->GetPixel(idx1);
-            int s2=m_sheetnessImage->GetPixel(idx2);
-            double edgeWeight=fabs(s1-s2);
-            edgeWeight=exp ( - edgeWeight/m_gradientSigma);
-            //edgeWeight+=1;
-            return edgeWeight;
-        }
     };//class
+
+    template<class TImage>
+    class UnaryPotentialSegmentationUnsignedBone: public UnaryPotentialSegmentation<TImage> {
+    public:
+        //itk declarations
+        typedef UnaryPotentialSegmentationUnsignedBone            Self;
+        typedef UnaryPotentialSegmentation<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+    public:
+        
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialSegmentationUnsignedBone, Object);
+
+        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
+            int s=this->m_sheetnessImage->GetPixel(fixedIndex);
+            
+            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+            double segmentationProb=1;
+            if (segmentationLabel>0) {
+                segmentationProb = (imageIntensity < (-500+1000)*255.0/2000 ) ? 1 : 0;
+            }else{
+                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000 ) && ( s > 128 ) ? 1 : 0;
+            }
+            return segmentationProb;
+        }
+    };
 }//namespace
 #endif /* POTENTIALS_H_ */

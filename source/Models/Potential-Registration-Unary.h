@@ -174,7 +174,6 @@ namespace itk{
                 double f=nIt.GetPixel(i,inBounds);
                 if (inBounds){
                     IndexType neighborIndex=nIt.GetIndex(i);
-                    IndexType scaledNI=neighborIndex*m_invertedScaleITK;
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
@@ -215,7 +214,7 @@ namespace itk{
                 smm -= ( sm * sm / count );
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
-                    result=1-(1.0*sfm/sqrt(smm*sff)/2);
+                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
                 
 
                 }
@@ -326,7 +325,7 @@ namespace itk{
         typedef typename ImageType::SpacingType SpacingType;
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
-
+        static const unsigned int D=ImageType::ImageDimension;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
 
@@ -345,17 +344,27 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(RegistrationUnaryPotentialSAD, Object);
 
-       UnaryPotentialRegistrationNCCWithSegmentationPrior(){}
+        UnaryPotentialRegistrationNCCWithSegmentationPrior(){}
         
         void SetSegmentationPrior(ConstImagePointerType prior){
-            m_segmentationPrior=prior;
-            m_segPriorInterpolator=InterpolatorType::New();
-            m_segPriorInterpolator->SetInputImage(prior);
+            if (prior){
+                if (this->m_scale!=1.0){
+                    m_segmentationPrior=FilterUtils<ImageType>::LinearResample((prior),this->m_scale);
+                }else{
+                    m_segmentationPrior=prior;  
+            
+                }}
         }
         void SetAtlasSegmentation(ConstImagePointerType atlas){
-            m_atlasSegmentation=atlas;
-            m_atlasSegmentationInterpolator=InterpolatorType::New();
-            m_atlasSegmentationInterpolator->SetInputImage(atlas);
+            if (this->m_scale!=1.0){
+                m_atlasSegmentation=FilterUtils<ImageType>::LinearResample((atlas),this->m_scale);
+            }else{
+                m_atlasSegmentation=atlas;
+            
+            }
+          
+            m_atlasSegmentationInterpolator=NNInterpolatorType::New();
+            m_atlasSegmentationInterpolator->SetInputImage(m_atlasSegmentation);
         }
         void SetAlpha(double alpha){m_alpha=alpha;}
         
@@ -374,13 +383,12 @@ namespace itk{
             this->nIt.SetLocation(fixedIndex);
             double count=0;
             double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
-            double segmentationPenalty=0.0;
+            double segmentationPenalty=0.0,distanceSum=0.0;
             for (unsigned int i=0;i<this->nIt.Size();++i){
                 bool inBounds;
                 double f=this->nIt.GetPixel(i,inBounds);
                 if (inBounds){
                     IndexType neighborIndex=this->nIt.GetIndex(i);
-                    IndexType scaledNI=neighborIndex*this->m_invertedScaleITK;
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
@@ -413,7 +421,18 @@ namespace itk{
                     sf+=f;
                     sm+=m;
                     count+=1;
-                    segmentationPenalty+=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)!=this->m_segPriorInterpolator->EvaluateAtContinuousIndex(idx2);
+                    double weight=1.0;
+                    //                    for (unsigned int d=0;d<D;++d){
+                    //    weight*=1.0-fabs((1.0*fixedIndex[d]-neighborIndex[d])/(this->m_radius[d]));
+                    // }
+                    weight=1.0;
+                    if (this->m_segmentationPrior && m_alpha>0){
+                        int deformedAtlasSegmentationLabel=(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0);
+                        int segmentationPriorLabel=(this->m_segmentationPrior->GetPixel(neighborIndex)>0);
+                        segmentationPenalty+=weight*(deformedAtlasSegmentationLabel!=segmentationPriorLabel);
+                        // cout<<this->m_segmentationPrior->GetLargestPossibleRegion().GetSize()<<" "<<neighborIndex<<" "<<fixedIndex<<" "<<idx2<<" "<<m_atlasSegmentation->GetLargestPossibleRegion().GetSize()<<" "<<deformedAtlasSegmentationLabel<<" "<<segmentationPriorLabel<<endl;
+                    }
+                    distanceSum+=weight;
                 }
 
             }
@@ -422,19 +441,172 @@ namespace itk{
                 smm -= ( sm * sm / count );
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
-                    result=1-(1.0*sfm/sqrt(smm*sff)/2);
-                
-
+                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
                 }
                 else {
                     if (sfm>0) result=0;
                     else result=1;
                 }
+                result=result+this->m_alpha*segmentationPenalty/distanceSum;
             }
             //no correlation whatsoever
             else result=0.5;
             //result=result>0.5?0.5:result;
-            return (1-this->m_alpha)*result+this->m_alpha*segmentationPenalty/count;
+            return result;
+        }
+    };//class
+    template<class TLabelMapper,class TImage>
+    class UnaryPotentialRegistrationNCCWithBonePrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    public:
+        //itk declarations
+        typedef UnaryPotentialRegistrationNCCWithBonePrior           Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+        static const unsigned int D=ImageType::ImageDimension;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
+
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+    private:
+        ConstImagePointerType m_targetSheetness, m_atlasSegmentation;
+        double m_alpha;
+        NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
+        
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(RegistrationUnaryPotentialWithBonePrior, Object);
+
+        UnaryPotentialRegistrationNCCWithBonePrior(){}
+        
+      
+        void SetAtlasSegmentation(ConstImagePointerType atlas){
+            if (this->m_scale!=1.0){
+                m_atlasSegmentation=FilterUtils<ImageType>::LinearResample((atlas),this->m_scale);
+            }else{
+                m_atlasSegmentation=atlas;
+            
+            }
+            m_atlasSegmentationInterpolator=NNInterpolatorType::New();
+            m_atlasSegmentationInterpolator->SetInputImage(m_atlasSegmentation);
+        }
+        void SetAlpha(double alpha){m_alpha=alpha;}
+        
+        int getSegmentationCost(int deformedSegmentationLabel, double imageIntensity, int s){
+            
+            int segmentationProb;
+            if (deformedSegmentationLabel>0) {
+                segmentationProb = (imageIntensity < (-500+1000)*255.0/2000 ) ? 1 : 0;
+            }else{
+                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000  &&s>0 ) ? 1 : 0;
+            }
+            return segmentationProb;
+
+        }
+          
+        void SetTargetSheetness(ConstImagePointerType img){
+            if (this->m_scale!=1.0){
+                m_targetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale);
+
+            }else{
+                m_targetSheetness=img;
+            }
+        }
+        virtual double getPotential(IndexType fixedIndex, LabelType disp){
+            double result=0;
+
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                fixedIndex[d]*=this->m_scale;
+            }
+            LabelType baseDisp=this->m_baseLabelMap->GetPixel(fixedIndex);
+            //std::cout<<baseDisp<<" "<<disp<<std::endl;
+            baseDisp*=this->m_scale;
+            disp*=this->m_scale;
+            //            std::cout<<fixedIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //          nIt->SetLocation(fixedIndex);
+            this->nIt.SetLocation(fixedIndex);
+            double count=0;
+            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
+            double segmentationPenalty=0.0,distanceSum=0.0;
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double f=this->nIt.GetPixel(i,inBounds);
+                if (inBounds){
+                    IndexType neighborIndex=this->nIt.GetIndex(i);
+                    //this should be weighted somehow
+                    ContinuousIndexType idx2(neighborIndex);
+                    //double weight=1.0;
+
+                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+
+                    //cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    double m;
+                    if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+                        continue;
+                        m=0;
+                        
+#if 0
+                        for (int d=0;d<ImageType::ImageDimension;++d){
+                            if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
+                                idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+                            }
+                            else if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
+                                idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
+                            }
+                        }
+#endif
+                    }else{
+                        m=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
+                    }
+                    //cout<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    sff+=f*f;
+                    smm+=m*m;
+                    sfm+=f*m;
+                    sf+=f;
+                    sm+=m;
+                    count+=1;
+                    double weight=1.0;
+                    for (unsigned int d=0;d<D;++d){
+                        weight*=1.0-fabs((1.0*fixedIndex[d]-neighborIndex[d])/(this->m_radius[d]));
+                    }
+                    weight=1.0;
+                    segmentationPenalty+=weight*getSegmentationCost(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0,f, m_targetSheetness->GetPixel(neighborIndex));
+                    distanceSum+=weight;
+                }
+
+            }
+            if (count){
+                sff -= ( sf * sf / count );
+                smm -= ( sm * sm / count );
+                sfm -= ( sf * sm / count );
+                if (smm*sff>0){
+                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
+                }
+                else {
+                    if (sfm>0) result=0;
+                    else result=1;
+                }
+                result=result+1*segmentationPenalty/distanceSum;
+            }
+            //no correlation whatsoever
+            else result=0.5;
+            //result=result>0.5?0.5:result;
+            return result;
         }
     };//class
 

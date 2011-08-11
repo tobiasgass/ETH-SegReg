@@ -77,22 +77,35 @@ public:
 		if (verbose) std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
 		//
 
-
+        //#define POTTS
+#define BACKWARD
 		
 		for (int d=0;d<nNodes;++d){
 			std::vector<int> neighbours= graph->getForwardNeighbours(d);
 			int nNeighbours=neighbours.size();
 			for (int i=0;i<nNeighbours;++i){
 				TRWType::REAL V[nLabels*nLabels];
+				TRWType::REAL V2[nLabels*nLabels];
                 double lambda=graph->getWeight(d,neighbours[i]);
+                double lambda2=graph->getWeight(neighbours[i],d);
 				for (int l1=0;l1<nLabels;++l1){
 					for (int l2=0;l2<nLabels;++l2){
-						V[l1*nLabels+l2]=lambda*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
+						V[l1+nLabels*l2]=lambda*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
+                        //						V[l1+nLabels*l2+nLabels*nLabels]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
+                        V2[l1*nLabels+l2]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
 					}
 				}
-                //optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,lambda));
+#ifdef POTTS
+                optimizer->AddEdge(nodes[neighbours[i]], nodes[d], TRWType::EdgeData(TRWType::POTTS,lambda2));
+#ifdef BACKWARD
+                optimizer->AddEdge(nodes[neighbours[i]], nodes[d], TRWType::EdgeData(TRWType::POTTS,lambda2));
+#endif
+#else
                 optimizer->AddEdge(nodes[d], nodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,V));
-				//				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(weight, weight, 8*weight));
+#ifdef BACKWARD
+                optimizer->AddEdge(nodes[neighbours[i]], nodes[d], TRWType::EdgeData(TRWType::GENERAL,V2));
+#endif
+#endif
 			}
 		}
 		clock_t finish = clock();
@@ -101,12 +114,13 @@ public:
 
 	}
 
-	virtual void optimize(){
+	virtual void optimize(int maxiter){
 		MRFEnergy<TRWType>::Options options;
 		TRWType::REAL energy, lowerBound;
-		options.m_iterMax = 20; // maximum number of iterations
-		options.m_printMinIter=1100;
-		options.m_printIter=1100;
+		options.m_iterMax = maxiter; // maximum number of iterations
+		options.m_printMinIter=11;
+		options.m_printIter=11;
+        options.verbose=verbose;
 		clock_t start = clock();
 		optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();
@@ -193,12 +207,13 @@ public:
 			int nNeighbours=neighbours.size();
 			for (int i=0;i<nNeighbours;++i){
                 double l1=m_pairwiseWeight*graph->getWeight(d,i);
+                //double l2=m_pairwiseWeight*graph->getWeight(i,d);
                 TRWType::EdgeData edge(0,l1,l1,0);
-                
+                //                TRWType::EdgeData edge2(0,l2,l2,0);
+
 				optimizer->AddEdge(nodes[d], nodes[neighbours[i]], edge);
-                double l2=m_pairwiseWeight*graph->getWeight(i,d);
-                TRWType::EdgeData edge2(0,l2,l2,0);
-                //				optimizer->AddEdge( nodes[neighbours[i]],nodes[d], edge2);
+                //optimizer->AddEdge( nodes[neighbours[i]],nodes[d], edge);
+
 
 				//				optimizer->AddEdge(nodes[currentIntIndex], nodes[neighbours[i]], TRWType::EdgeData(weight, weight, 8*weight));
 			}
@@ -209,12 +224,13 @@ public:
 
 	}
 
-	virtual void optimize(){
+	virtual void optimize(int optiter){
 		MRFEnergy<TRWType>::Options options;
 		TRWType::REAL energy, lowerBound;
-		options.m_iterMax = 10; // maximum number of iterations
-		options.m_printMinIter=11;
-		options.m_printIter=11;
+		options.m_iterMax = optiter; // maximum number of iterations
+		options.m_printMinIter=1;
+		options.m_printIter=1;
+        options.verbose=verbose;
 		clock_t start = clock();
         optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();

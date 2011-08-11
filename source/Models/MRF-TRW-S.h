@@ -135,13 +135,14 @@ public:
             
         }
         if ( (m_pairwiseSegmentationRegistrationWeight || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight) && nSegLabels){
-            std::cout<<"SEGLABELS" <<nSegLabels<<std::endl;
+
             //SegUnaries
             TRWType::REAL D2[nSegLabels];
             for (int d=0;d<nSegNodes;++d){
                 for (int l1=0;l1<nSegLabels;++l1)
                     {
                         D2[l1]=m_unarySegmentationWeight*graph->getUnarySegmentationPotential(d,l1);
+                        //  std::cout<<d<<" "<< D2[l1] <<std::endl;
                     }
                 segNodes[d] = 
                     m_optimizer.AddNode(TRWType::LocalSize(nSegLabels), TRWType::NodeData(D2));
@@ -153,23 +154,28 @@ public:
             TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
             for (int d=0;d<nSegNodes;++d){   
                 TRWType::REAL Vseg[nSegLabels*nSegLabels];
+                TRWType::REAL Vseg2[nSegLabels*nSegLabels];
                 
                 //pure Segmentation
                 std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
                 int nNeighbours=neighbours.size();
                 for (int i=0;i<nNeighbours;++i){
-                    double lambda=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i]);
+                    double lambda=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i]);                    
+                    double lambda2=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(neighbours[i],d);
                     for (int l1=0;l1<nSegLabels;++l1){
                         for (int l2=0;l2<nSegLabels;++l2){
-                            Vseg[l1*nSegLabels+l2]=lambda*(l1!=l2);//graph->getPairwisePotential(l1,l2);
+                            Vseg[l1*nSegLabels+l2]=lambda*(l1!=l2);
+                            //  Vseg[l1*nSegLabels+l2+nSegLabels*nSegLabels]=lambda2*(l1!=l2);
+                            //      Vseg2[l1*nSegLabels+l2]=lambda2*(l1!=l2);
                         }
                     }
                     m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
+                    //m_optimizer.AddEdge(segNodes[neighbours[i]],segNodes[d], TRWType::EdgeData(TRWType::GENERAL,Vseg2));
                     edgeCount++;
                     
                 }
                 if (m_pairwiseSegmentationRegistrationWeight>0 && nRegLabels){
-                    std::vector<int> segRegNeighbors=graph->getSegRegNeighbor(d);
+                    std::vector<int> segRegNeighbors=graph->getSegRegNeighbors(d);
                     nNeighbours=segRegNeighbors.size();
                     for (int i=0;i<nNeighbours;++i){
                         

@@ -51,6 +51,7 @@
 #include "itkSignedMaurerDistanceMapImageFilter.h"
 #include <itkImageToImageFilter.h>
 #include <itkBSplineDeformableTransform.h>
+#include "MRF-FAST-PD.h"
 
 namespace itk{
 template<class TImage, 
@@ -145,7 +146,7 @@ public:
         std::cout<<"init graph"<<std::endl;
         GraphModelType graph;
         graph.setFixedImage(targetImage);
-        graph.initGraph();
+        graph.initGraph(1);
         //setup segmentation potentials
         unarySegmentationPot->SetFixedImage(targetImage);
         unarySegmentationPot->SetGradientImage(fixedGradientImage);
@@ -153,15 +154,16 @@ public:
         graph.setUnarySegmentationFunction(unarySegmentationPot);
         //	ok what now: create graph! solve graph! save result!Z
 		
-        typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
-        //typedef GC_MRFSolver<GraphModelType> MRFSolverType;
-        //        typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
+        //typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
+        typedef GC_MRFSolver<GraphModelType> MRFSolverType;
+        //typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
+        //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
                 
         MRFSolverType mrfSolver(&graph,
                                 m_config.rfWeight,
                                 m_config.pairwiseSegmentationWeight, 
-                                false);
-        mrfSolver.optimize();
+                                m_config.verbose);
+        mrfSolver.optimize(m_config.optIter);
         std::cout<<" ]"<<std::endl;
         segmentation=graph.getSegmentationImage(mrfSolver.getLabels());
         if (D==2){

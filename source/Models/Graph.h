@@ -423,7 +423,7 @@ public:
         result->SetOrigin(m_origin);
         result->Allocate();
         typename itk::ImageRegionIterator<RegistrationLabelImageType> it(result,region);
-        int i=0;
+        unsigned int i=0;
         for (it.GoToBegin();!it.IsAtEnd();++it,++i){
             assert(i<labels.size());
             RegistrationLabelType l=LabelMapperType::getLabel(labels[i]);
@@ -440,12 +440,13 @@ public:
         result->SetDirection(m_fixedImage->GetDirection());
         result->SetOrigin(m_fixedImage->GetOrigin());
         result->Allocate();
+        //        cout<<result->GetLargestPossibleRegion()<<" "<<labels.size()<<" "<<m_nSegmentationLabels<<endl;
         typename itk::ImageRegionIterator<ImageType> it(result,result->GetLargestPossibleRegion());
-        int i=0;
+        unsigned int i=0;
         if (m_nSegmentationLabels){
             for (it.GoToBegin();!it.IsAtEnd();++it,++i){
                 assert(i<labels.size());
-                it.Set(numeric_limits<PixelType>::max()/(m_nSegmentationLabels-1)*labels[i]);
+                it.Set(labels[i]);
             }
         }else{  for (it.GoToBegin();!it.IsAtEnd();++it,++i){
             it.Set(0);

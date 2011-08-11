@@ -5,7 +5,7 @@
 #include "argstream.h"
 
 #include "SRSConfig.h"
-#include "HierarchicalSRSImageToImageFilter.h"
+#include "AlternatingHierarchicalSRSImageToImageFilter.h"
 #include "Graph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
@@ -29,13 +29,11 @@ int main(int argc, char ** argv)
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    //    typedef UnaryPotentialSegmentationArtificial2< ImageType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
-    //    typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationArtificial< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration< LabelMapperType, ImageType > SegmentationRegistrationPairwisePotentialType;
-	typedef HierarchicalSRSImageToImageFilter<ImageType,
+	typedef AlternatingHierarchicalSRSImageToImageFilter<ImageType,
         LabelMapperType,
         RegistrationUnaryPotentialType,
         SegmentationUnaryPotentialType,

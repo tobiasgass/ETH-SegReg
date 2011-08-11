@@ -86,7 +86,7 @@ namespace itk{
         void setFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
         }
-        void initGraph(){
+        void initGraph(int dummy=1){
             assert(m_fixedImage);
 
             //image size

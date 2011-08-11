@@ -91,7 +91,7 @@ public:
 
 	}
 
-	virtual void optimize(){
+	virtual void optimize(int optiter){
 
 		clock_t start = clock();
 		if (verbose) std::cout<<"starting maxFlow"<<std::endl;
@@ -103,9 +103,11 @@ public:
 
 	}
     virtual std::vector<int> getLabels(){
+        GraphModelType* graph=this->m_graphModel;
         std::vector<int> labels(nNodes);
         for (int i=0;i<nNodes;++i){
             labels[i]=optimizer->what_segment(i) == MRFType::SOURCE;
+            //labels[i]=graph->getUnaryPotential(i,1)*graph->nNodes();//optimizer->what_segment(i) == MRFType::SOURCE;
         }
         return labels;
     }
