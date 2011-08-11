@@ -307,12 +307,13 @@ public:
         return m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
         //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
     }
+    //#define MULTISEGREGNEIGHBORS
     double getPairwiseRegSegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
         IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
         IndexType imageIndex=getImageIndex(nodeIndex2);
         //compute distance between center index and patch index
         double weight=1;//exp(-dist/2);
-#if 0
+#ifdef MULTISEGREGNEIGHBORS
         double dist=1;
         for (unsigned int d=0;d<m_dim;++d){
             //            std::cout<<dist<<" "<<graphIndex[d]-imageIndex[d]<<" "<<std::endl;
@@ -363,6 +364,7 @@ public:
 		return neighbours;
 	}
     std::vector<int>  getForwardSegRegNeighbours(int index){            
+
         IndexType imagePosition=getImageIndexFromCoarseGraphIndex(index);
 		std::vector<int> neighbours;
         m_fixedNeighborhoodIterator.SetLocation(imagePosition);
@@ -375,16 +377,12 @@ public:
         return neighbours;
     }
     
-    std::vector<int> getSegRegNeighbor(int index){
-        IndexType position=getImageIndex(index);
-        std::vector<int> neighbours;
-        neighbours.push_back(getGraphIntegerIndex(getClosestGraphIndex(position)));
-        return neighbours;
-    }
     std::vector<int> getSegRegNeighbors(int index){
         IndexType position=getLowerGraphIndex(getImageIndex(index));
         std::vector<int> neighbours;
         neighbours.push_back(getGraphIntegerIndex(position));
+#ifdef MULTISEGREGNEIGHBORS
+        
         OffsetType off;
         off.Fill(0);
         for (int d=1;d<pow(2,m_dim);++d){
@@ -410,6 +408,7 @@ public:
                 neighbours.push_back(getGraphIntegerIndex(position+off));
             }
         }
+#endif
         return neighbours;
     }
     

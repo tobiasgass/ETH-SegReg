@@ -326,7 +326,7 @@ namespace itk{
                     {
 #if 1
                         MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,//*exp(-i),
+                                                                     m_config.simWeight,///pow(mantisse,exponent-1) ,//*exp(-(m_config.nLevels-l-1)),
                                                                      m_config.pairwiseRegistrationWeight, 
                                                                      m_config.rfWeight,
                                                                      m_config.pairwiseSegmentationWeight,
