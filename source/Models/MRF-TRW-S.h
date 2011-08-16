@@ -154,14 +154,14 @@ public:
             TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
             for (int d=0;d<nSegNodes;++d){   
                 TRWType::REAL Vseg[nSegLabels*nSegLabels];
-                TRWType::REAL Vseg2[nSegLabels*nSegLabels];
+                //                TRWType::REAL Vseg2[nSegLabels*nSegLabels];
                 
                 //pure Segmentation
                 std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
                 int nNeighbours=neighbours.size();
                 for (int i=0;i<nNeighbours;++i){
                     double lambda=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i]);                    
-                    double lambda2=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(neighbours[i],d);
+                    //double lambda2=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(neighbours[i],d);
                     for (int l1=0;l1<nSegLabels;++l1){
                         for (int l2=0;l2<nSegLabels;++l2){
                             Vseg[l1*nSegLabels+l2]=lambda*(l1!=l2);
@@ -236,6 +236,7 @@ public:
         if (nSegLabels){
             for (int i=0;i<nSegNodes;++i){
                 labels[i]=m_optimizer.GetSolution(segNodes[i]);
+                //labels[i]=this->m_GraphModel->getUnarySegmentationPotential(i,1)*nSegNodes;//m_optimizer.GetSolution(segNodes[i]);
             }
         }
         return labels;

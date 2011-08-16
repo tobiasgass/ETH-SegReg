@@ -42,7 +42,7 @@ namespace itk{
         double m_gradientSigma;
         double m_gradientScaling;
     public:
-         /** Method for creation through the object factory. */
+        /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentation, Object);
@@ -74,9 +74,19 @@ namespace itk{
             double segmentationProb=1;
             if (segmentationLabel>0) {
                 //segmentationProb = exp(imageIntensity+500);//(imageIntensity < -500 ) ? 1 : 0;
-                segmentationProb = (imageIntensity < -500 ) ? 1 : 0;
+                if (imageIntensity < -500)
+                    segmentationProb = 2;
+                else if (imageIntensity <300)
+                    segmentationProb = 1;
+                else
+                    segmentationProb = 0;
             }else{
-                segmentationProb = ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
+                if (imageIntensity > 300 && s>0)
+                    segmentationProb = 2;
+                else if (imageIntensity >-500)
+                    segmentationProb = 1;
+                else
+                    segmentationProb = 0;
                 //segmentationProb = exp(imageIntensity-300);// ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
             }
             //        std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
@@ -242,7 +252,7 @@ namespace itk{
             }else{
                 segmentationProb = imageIntensity;//( imageIntensity > 0.4) ? 1 : 0;
             }
-            std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
+            //   std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             
             return segmentationProb;
         }
@@ -269,15 +279,68 @@ namespace itk{
 
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
             int s=this->m_sheetnessImage->GetPixel(fixedIndex);
-            
+            int bone=(300+1000)*255.0/2000;
+            int tissue=(-500+1000)*255.0/2000;
             double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
             if (segmentationLabel>0) {
-                segmentationProb = (imageIntensity < (-500+1000)*255.0/2000 ) ? 1 : 0;
+                if (imageIntensity < tissue)
+                    segmentationProb = exp(-(imageIntensity-tissue));
+                else if (imageIntensity < bone) 
+                    segmentationProb = 0.69; //log (0.5);
+                else
+                    segmentationProb = 0;
             }else{
-                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000 ) && ( s > 128 ) ? 1 : 0;
+                if ((imageIntensity >  bone)  && s>128)
+                    segmentationProb = exp(-(imageIntensity-bone));
+                else if (imageIntensity >tissue)
+                    segmentationProb =0.69 ;
+                else
+                    segmentationProb = 0;
+                
+                //            if (segmentationLabel>0) {
+                //                segmentationProb = (imageIntensity < (-500+1000)*255.0/2000 ) ? 1 : 0;
+                //            }else{
+                //                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000 ) && ( s > 128 ) ? 1 : 0;
             }
             return segmentationProb;
+        }
+    };
+
+    template<class TImage>
+    class UnaryPotentialSegmentationUnsignedBoneWithPrior: public UnaryPotentialSegmentationUnsignedBone<TImage> {
+    public:
+        //itk declarations
+        typedef UnaryPotentialSegmentationUnsignedBoneWithPrior            Self;
+        typedef UnaryPotentialSegmentationUnsignedBone<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+    protected:
+        ConstImagePointerType m_deformationPrior;
+        double m_alpha;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialSegmentationUnsignedBoneWithPrior, Object);
+          
+
+        void SetDeformationPrior(ConstImagePointerType deformedSegmentation){
+            this->m_deformationPrior=deformedSegmentation;
+        }
+          
+        void SetAlpha(double alpha){this->m_alpha=alpha;}     
+          
+        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
+            double origPotential=Superclass::getPotential(fixedIndex,segmentationLabel);
+            double priorPotential=0;
+            if (this->m_deformationPrior)
+                priorPotential=(segmentationLabel!=this->m_deformationPrior->GetPixel(fixedIndex));
+            return origPotential+m_alpha*priorPotential;
         }
     };
 }//namespace

@@ -29,7 +29,7 @@ int main(int argc, char ** argv)
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef UnaryPotentialSegmentationWithRegistrationPrior< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationUnsignedBoneWithPrior< ImageType > SegmentationUnaryPotentialType;
     typedef UnaryPotentialRegistrationNCCWithSegmentationPrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
   	typedef HierarchicalJRSImageToImageFilter<ImageType,

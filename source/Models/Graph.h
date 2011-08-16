@@ -313,12 +313,14 @@ public:
         IndexType imageIndex=getImageIndex(nodeIndex2);
         //compute distance between center index and patch index
         double weight=1;//exp(-dist/2);
-#ifdef MULTISEGREGNEIGHBORS
+        //#ifdef MULTISEGREGNEIGHBORS
+#if 0
         double dist=1;
         for (unsigned int d=0;d<m_dim;++d){
             //            std::cout<<dist<<" "<<graphIndex[d]-imageIndex[d]<<" "<<std::endl;
             dist*=1.0-fabs((1.0*graphIndex[d]-imageIndex[d])/(m_gridPixelSpacing[d]));
         }
+        if (dist<0.1) dist=0.1;
         weight=dist;
 #endif
         //        if (true){ std::cout<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
@@ -378,10 +380,12 @@ public:
     }
     
     std::vector<int> getSegRegNeighbors(int index){
-        IndexType position=getLowerGraphIndex(getImageIndex(index));
         std::vector<int> neighbours;
-        neighbours.push_back(getGraphIntegerIndex(position));
 #ifdef MULTISEGREGNEIGHBORS
+        IndexType position=getLowerGraphIndex(getImageIndex(index));
+
+        neighbours.push_back(getGraphIntegerIndex(position));
+
         
         OffsetType off;
         off.Fill(0);
@@ -408,6 +412,10 @@ public:
                 neighbours.push_back(getGraphIntegerIndex(position+off));
             }
         }
+#else
+        IndexType position=getClosestGraphIndex(getImageIndex(index));
+        neighbours.push_back(getGraphIntegerIndex(position));
+
 #endif
         return neighbours;
     }

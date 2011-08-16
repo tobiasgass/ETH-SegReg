@@ -12,6 +12,7 @@
 #include "Potential-Registration-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-SegmentationRegistration-Pairwise.h"
+#include "MRF-FAST-PD.h"
 
 using namespace std;
 using namespace itk;

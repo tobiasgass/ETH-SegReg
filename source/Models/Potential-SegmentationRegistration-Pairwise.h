@@ -95,7 +95,7 @@ namespace itk{
         }
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
 
-        //edge from  segmentation to Registration
+#if 0        //edge from  segmentation to Registration
         virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
             ContinuousIndexType idx2(fixedIndex2);
@@ -132,7 +132,7 @@ namespace itk{
             //            cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<displacement<<" "<<segmentationLabel<<" "<<deformedAtlasSegmentation<<" "<<idx2<<" "<<result<<endl;
             return result;
         }
-
+#endif
         //edge from registration to segmentation
         virtual double getBackwardPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
@@ -157,13 +157,17 @@ namespace itk{
             distanceToDeformedSegmentation= m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
             //std::cout<<deformedAtlasSegmentation<<std::endl;
             result=0;
-            if (deformedAtlasSegmentation){
+            if (deformedAtlasSegmentation>0){
                 if (deformedAtlasSegmentation!=segmentationLabel){
-                    result=m_asymm;//*fabs(distanceToDeformedSegmentation);
+                    result=1;//*fabs(distanceToDeformedSegmentation);
+                    //result=fabs(distanceToDeformedSegmentation);
                 }
             }else{
-                if (segmentationLabel){
+                if (segmentationLabel==2){
+                    result=fabs(distanceToDeformedSegmentation);
+                }else if (segmentationLabel){
                     result=1;//+fabs(distanceToDeformedSegmentation);
+                    //result=fabs(distanceToDeformedSegmentation);
                 }
             }
            

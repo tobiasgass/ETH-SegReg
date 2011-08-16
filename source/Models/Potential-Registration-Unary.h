@@ -590,21 +590,24 @@ namespace itk{
                 }
 
             }
+            double thresh=0.4;
             if (count){
                 sff -= ( sf * sf / count );
                 smm -= ( sm * sm / count );
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
                     result=(1-1.0*sfm/sqrt(smm*sff))/2;
+                    //result>thresh?thresh:result;
+                    //result=-log((1.0*sfm/sqrt(smm*sff)+1)/2);
                 }
                 else {
                     if (sfm>0) result=0;
                     else result=1;
                 }
-                result=result+1*segmentationPenalty/distanceSum;
+                result=result+this->m_alpha*segmentationPenalty/distanceSum;
             }
-            //no correlation whatsoever
-            else result=0.5;
+            //no correlation whatsoever (-log(0.5))
+            else result=0.693147;
             //result=result>0.5?0.5:result;
             return result;
         }

@@ -140,8 +140,6 @@ public:
 		optimizer->run();
 	}
     virtual std::vector<int> getLabels(){
-        GraphModelType* graph=this->m_GraphModel;
-
         std::vector<int> labels(m_nNodes);
         for (int i=0;i<m_nNodes;++i){
             labels[i]=optimizer->_pinfo[i].label;

@@ -217,6 +217,17 @@ namespace itk{
             
             
             for (int l=0;l<m_config.nLevels;++l){
+
+                //compute scaling factor for downsampling the images in the registration potential
+                double mantisse=(1/m_config.scale);
+                int exponent=m_config.nLevels-l;
+                if (D==3)
+                    exponent--;
+                double reductionFactor=pow(mantisse,exponent);
+                double scaling=1/reductionFactor;
+                //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
+                cout<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
+
 #if 1
                 level=m_config.levels[l];
                 double labelScalingFactor=1;
@@ -224,6 +235,11 @@ namespace itk{
                 
                 //roughly compute downscaling
                 scale=1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
+
+                if (D==3){
+                    scale=scaling;
+                    scaling=0.5;
+                }
                 scale=scale<1.0?scale:1.0;
                 //full resolution at last level of pyramid enforced
                 //            if (l==(m_config.nLevels-1)) scale=1.0;
@@ -265,12 +281,7 @@ namespace itk{
                 unaryRegistrationPot->SetMovingImage(downSampledReference);
                 //unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
                 //unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);
-                double mantisse=(1/m_config.scale);
-                int exponent=m_config.nLevels-l;
-                double reductionFactor=pow(mantisse,exponent);
-                double scaling=1/reductionFactor;
-                //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
-                cout<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
+               
                 unaryRegistrationPot->SetScale(scaling);
                 unaryRegistrationPot->Init();
             
@@ -323,10 +334,14 @@ namespace itk{
                     pairwiseSegmentationRegistrationPot->SetBaseLabelMap(previousFullDeformation);
 #endif
                     //	ok what now: create graph! solve graph! save result!Z
+                    double linearIncreasingWeight=1.0/(m_config.nLevels-l);
+                    double expIncreasingWeight=exp(-(m_config.nLevels-l-1));
+                    double linearDecreasingWeight=1-linearIncreasingWeight;
+                    double expDecreasingWeight=exp(-l);
                     {
 #if 1
                         MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,///pow(mantisse,exponent-1) ,//*exp(-(m_config.nLevels-l-1)),
+                                                                     m_config.simWeight,//*exp(-(l)),///pow(mantisse,exponent-1) ,//*exp(-(m_config.nLevels-l-1)),
                                                                      m_config.pairwiseRegistrationWeight, 
                                                                      m_config.rfWeight,
                                                                      m_config.pairwiseSegmentationWeight,
@@ -712,6 +727,16 @@ namespace itk{
 #else
             typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;
             typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
+            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
+            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
+            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
+            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
+            int value=2;//nSegmentations;
+            if (D==2) value=std::numeric_limits<PixelType>::max()-1;
+            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
+                imageIt2.Set(imageIt.Get()==value);
+            }
             distanceTransform->SetInput(segmentationImage);
             distanceTransform->SquaredDistanceOff ();
             distanceTransform->UseImageSpacingOn();

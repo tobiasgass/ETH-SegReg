@@ -63,16 +63,16 @@ namespace itk{
              class TUnaryRegistrationPotential, 
              class TUnarySegmentationPotential,
              class TPairwiseRegistrationPotential           >
-    class HierarchicalJRSImageToImageFilter: public itk::ImageToImageFilter<TImage,TImage>{
+    class HierarchicalJRSImageToImageFilter2: public HierarchicalJRSImageToImageFilter2<TImage,TLabelMapper,TUnaryRegistrationPotential,TUnarySegmentationPotential,TPairwiseRegistrationPotential>{
     public:
-        typedef HierarchicalJRSImageToImageFilter Self;
-        typedef ImageToImageFilter< TImage, TImage > Superclass;
+        typedef HierarchicalJRSImageToImageFilter2 Self;
+        typedef HierarchicalJRSImageToImageFilter2<TImage,TLabelMapper,TUnaryRegistrationPotential,TUnarySegmentationPotential,TPairwiseRegistrationPotential> SuperClass;
         typedef SmartPointer< Self >        Pointer;
     
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Run-time type information (and related methods). */
-        itkTypeMacro(HierarchicalJRSImageToImageFilter, ImageToImageFilter);
+        itkTypeMacro(HierarchicalJRSImageToImageFilter2, ImageToImageFilter);
     
         typedef TImage ImageType;
         static const int D=ImageType::ImageDimension;
@@ -123,96 +123,15 @@ namespace itk{
                             PairwisePotentialSegmentationRegistrationType,
                             LabelMapperType> GraphModelType;
         typedef  typename itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
-    private:
-        SRSConfig m_config;
     
     public:
-        HierarchicalJRSImageToImageFilter(){
-            this->SetNumberOfRequiredInputs(4);
-        }
-    
-        void setConfig(SRSConfig c){
-            m_config=c;
-        }
 
-        void setFixedImage(ImagePointerType img){
-            SetNthInput(0,img);
-        }
-        void setMovingImage(ImagePointerType img){
-            SetNthInput(1,img);
-        }
-        void setMovingSegmentation(ImagePointerType img){
-            SetNthInput(2,img);
-        }
-        void setFixedGradientImage(ImagePointerType img){
-            SetNthInput(3,img);
-        }
 
         virtual void Update(){
-            ImagePointerType previousSegmentation, oldSegmentation;
-            ImagePointerType previousDeformedReferenceSegmentation;
-            bool converged=false;
-            int iter=0;
-            while (!converged){
 
-                //compute updates
-                double alpha=m_config.segWeight;//+(1-exp(-1.0*iter/100));
-                //   if (!iter) alpha=0;
-#if 0
-                previousSegmentation=segmentImage(previousDeformedReferenceSegmentation,iter==0?0:alpha);
-                previousDeformedReferenceSegmentation=registerImagesAndDeformSegmentation(previousSegmentation,alpha);
-#else
-                previousDeformedReferenceSegmentation=registerImagesAndDeformSegmentation(previousSegmentation,iter==0?0:alpha);
-                previousSegmentation=segmentImage(previousDeformedReferenceSegmentation,alpha);
-#endif
-                
-                //save intermediate results
-                std::string suff;
-                if (ImageType::ImageDimension==2){
-                    suff=".png";
-                }
-                if (ImageType::ImageDimension==3){
-                    suff=".nii";
-                }
-
-                ostringstream deformedSegmentationFilename;
-                deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-i"<<iter<<suff;
-
-                ostringstream tmpSegmentationFilename;
-                tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-i"<<iter<<suff;
-                
-                if (D==3){
-                    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),previousSegmentation);
-                    ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),previousDeformedReferenceSegmentation);
-                
-                }else{
-                    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)previousSegmentation, m_config.nSegmentations));
-                    ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)previousDeformedReferenceSegmentation ,m_config.nSegmentations));
-
-                }
-                
-
-                double dice=compareSegmentations(oldSegmentation,previousSegmentation);
-                double dice2=compareSegmentations(previousSegmentation,previousDeformedReferenceSegmentation);
-                std::cout<<endl<<endl<<"----------------------------------------------"<<endl;
-                std::cout<<D<<" Iteration :"<<iter<<", dice (oldSeg vs. newSeg)="<<dice<<", dice (newSeg vs. newDefSeg)="<<dice2<< std::endl;                   
-                std::cout<<"----------------------------------------------"<<endl<<endl;; 
-                if (iter>=10 || (dice>0.99 && dice2>0.99) ){
-                    converged=true;
-                }
-                ++iter;
-                oldSegmentation=previousSegmentation;
-            }
-        }
-
-        
-        ImagePointerType registerImagesAndDeformSegmentation(ImagePointerType segmentationPrior, double alpha=0){
-            ImagePointerType deformedSegmentation;
-            
-            //define input images
             const ConstImagePointerType targetImage = this->GetInput(0);
-            
             const ConstImagePointerType movingImage = this->GetInput(1);
+            
             ConstImagePointerType movingSegmentationImage;
             if (D==2){
                 //2d segmentations pngs [from matlab] may have screwed up intensities
@@ -222,7 +141,7 @@ namespace itk{
             }
       
             //results
-            ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
+            ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage, segmentationPrior;
             LabelImagePointerType fullDeformation,previousFullDeformation;
         
             //allocate memory
@@ -294,7 +213,7 @@ namespace itk{
                 unaryRegistrationPot->SetFixedImage(downSampledTarget);
                 unaryRegistrationPot->SetMovingImage(downSampledReference);
                 unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
-                unaryRegistrationPot->SetSegmentationPrior((ConstImagePointerType)segmentationPrior);
+            
                 unaryRegistrationPot->SetAlpha(alpha);
               
              
@@ -331,41 +250,63 @@ namespace itk{
                     //register deformation from previous iteration
                     unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                     pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
-                    //	ok what now: create graph! solve graph! save result!Z
-                    {
-
-                        MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,//*exp(-i),
-                                                                     m_config.pairwiseRegistrationWeight, 
-                                                                     0,
-                                                                     0,
-                                                                     0,
-                                                                     m_config.verbose);
-                        mrfSolver->createGraph();
-                        mrfSolver->optimize(m_config.optIter);
-                        std::cout<<" ]"<<std::endl;
-                        deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
+                    
+                    int iter=0;
+                    while (!converged){
+                        unaryRegistrationPot->SetSegmentationPrior((ConstImagePointerType)segmentationPrior);
+                        LabelImagePointerType composedDeformation;
+                        //register
+                        {
+                             //	ok what now: create graph! solve graph! save result!Z
+                            MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
+                                                                         m_config.simWeight,//*exp(-i),
+                                                                         m_config.pairwiseRegistrationWeight, 
+                                                                         0,
+                                                                         0,
+                                                                         0,
+                                                                         m_config.verbose);
+                            mrfSolver->createGraph();
+                            mrfSolver->optimize(m_config.optIter);
+                            std::cout<<" ]"<<std::endl;
+                            deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
+                            
+                            delete mrfSolver;
                         
-                        delete mrfSolver;
+                        
+                            //initialise interpolator
+                            //deformation
+                            
+                            fullDeformation=bSplineInterpolateLabelImage(deformation,downSampledTarget);
+                            //fullDeformation=scaleLabelImage(fullDeformation,graph.getDisplacementFactor());
+                            
+                            //apply deformation to moving image
+                            ConstIteratorType fixedIt(downSampledTarget,downSampledTarget->GetLargestPossibleRegion());
+                            typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
+                            composer->SetInput(1,fullDeformation);
+                            composer->SetInput(0,previousFullDeformation);
+                            composer->Update();
+                            composedDeformation=composer->GetOutput();
+                            deformedImage=deformImage(downSampledReference,composedDeformation);
+                            deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
+                        }
+                        
+                        
+                        //segment
+                        {
+                            segmentationPrior=segmentImage(deformedSegmentationImage,alpha);
+                        }
+                     
+                        //check convergence
+                        double dice=compareSegmentations(oldSegmentation,previousSegmentation);
+                        double dice2=compareSegmentations(previousSegmentation,previousDeformedReferenceSegmentation);
+                        std::cout<<endl<<endl<<"----------------------------------------------"<<endl;
+                        std::cout<<D<<" Iteration :"<<iter<<", dice (oldSeg vs. newSeg)="<<dice<<", dice (newSeg vs. newDefSeg)="<<dice2<< std::endl;                   
+                        std::cout<<"----------------------------------------------"<<endl<<endl;; 
+                        if (iter>=10 || (dice>0.99 && dice2>0.99) ){
+                            converged=true;
+                        }
+                        ++iter;
                     }
-
-                    //initialise interpolator
-                    //deformation
-
-                    fullDeformation=bSplineInterpolateLabelImage(deformation,downSampledTarget);
-                    //fullDeformation=scaleLabelImage(fullDeformation,graph.getDisplacementFactor());
-           
-                    //apply deformation to moving image
-                    ConstIteratorType fixedIt(downSampledTarget,downSampledTarget->GetLargestPossibleRegion());
-                    typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
-                    composer->SetInput(1,fullDeformation);
-                    composer->SetInput(0,previousFullDeformation);
-                    composer->Update();
-                    LabelImagePointerType composedDeformation=composer->GetOutput();
-                    LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
-                
-                    deformedImage=deformImage(downSampledReference,composedDeformation);
-                    deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config.displacementRescalingFactor;
 
@@ -386,10 +327,26 @@ namespace itk{
             }
           
             
-
-            //ImagePointerType finalDeformedReference=deformImage(movingImage,finalDeformation);
-            ImagePointerType finalDeformedReferenceSegmentation=deformSegmentationImage(movingSegmentationImage,finalDeformation);
-            return finalDeformedReferenceSegmentation;
+            
+            //save intermediate results
+            std::string suff;
+            if (ImageType::ImageDimension==2){
+                suff=".png";
+            }
+            if (ImageType::ImageDimension==3){
+                suff=".nii";
+            }
+            
+            if (D==3){
+                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),previousSegmentation);
+                ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),previousDeformedReferenceSegmentation);
+                
+            }else{
+                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)previousSegmentation, m_config.nSegmentations));
+                ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)previousDeformedReferenceSegmentation ,m_config.nSegmentations));
+                
+            }
+            
         }
 
 #define GC
