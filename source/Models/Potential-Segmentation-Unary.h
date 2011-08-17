@@ -72,19 +72,21 @@ namespace itk{
             int s= this->m_sheetnessImage->GetPixel(fixedIndex);
             double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
             double segmentationProb=1;
+            int tissue=-500;
+            int bone=300;
             if (segmentationLabel>0) {
                 //segmentationProb = exp(imageIntensity+500);//(imageIntensity < -500 ) ? 1 : 0;
-                if (imageIntensity < -500)
-                    segmentationProb = 2;
-                else if (imageIntensity <300)
-                    segmentationProb = 1;
+                if (imageIntensity < tissue)
+                    segmentationProb = fabs(tissue-imageIntensity);
+                else if (imageIntensity <bone)
+                    segmentationProb = 0.69;
                 else
                     segmentationProb = 0;
             }else{
-                if (imageIntensity > 300 && s>0)
-                    segmentationProb = 2;
-                else if (imageIntensity >-500)
-                    segmentationProb = 1;
+                if (imageIntensity > bone && s>0)
+                    segmentationProb = fabs(imageIntensity-bone);
+                else if (imageIntensity > tissue)
+                    segmentationProb = 0.69;
                 else
                     segmentationProb = 0;
                 //segmentationProb = exp(imageIntensity-300);// ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
@@ -285,14 +287,14 @@ namespace itk{
             double segmentationProb=1;
             if (segmentationLabel>0) {
                 if (imageIntensity < tissue)
-                    segmentationProb = exp(-(imageIntensity-tissue));
+                    segmentationProb =fabs(imageIntensity-tissue);
                 else if (imageIntensity < bone) 
                     segmentationProb = 0.69; //log (0.5);
                 else
                     segmentationProb = 0;
             }else{
                 if ((imageIntensity >  bone)  && s>128)
-                    segmentationProb = exp(-(imageIntensity-bone));
+                    segmentationProb = fabs(imageIntensity-bone);
                 else if (imageIntensity >tissue)
                     segmentationProb =0.69 ;
                 else

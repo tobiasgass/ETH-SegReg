@@ -47,15 +47,19 @@ namespace itk{
         typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
         SizeType m_fixedSize,m_movingSize;
+        typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
+
+
     protected:
         ConstImagePointerType m_fixedImage, m_movingImage;
         SegmentationInterpolatorPointerType m_movingSegmentationInterpolator;
-        FloatImageInterpolatorPointerType m_movingDistanceTransformInterpolator;
+        FloatImageInterpolatorPointerType m_movingDistanceTransformInterpolator, m_movingBackgroundDistanceTransformInterpolator;
         ImageInterpolatorPointerType  m_movingInterpolator;
         LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         double m_asymm;
         FloatImagePointerType m_distanceTransform;
+        double sigma1, sigma2;
         
     public:
         /** Method for creation through the object factory. */
@@ -92,6 +96,21 @@ namespace itk{
             m_distanceTransform=dt;
             m_movingDistanceTransformInterpolator=FloatImageInterpolatorType::New();
             m_movingDistanceTransformInterpolator->SetInputImage(dt);
+            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+            filter->SetInput(dt);
+            filter->Update();
+            sigma1=filter->GetSigma();
+            cout<<"distance transform main segmentation sigma :"<<sigma1<<endl;
+
+        }
+        void SetBackgroundDistanceTransform(FloatImagePointerType dt){
+            m_movingBackgroundDistanceTransformInterpolator=FloatImageInterpolatorType::New();
+            m_movingBackgroundDistanceTransformInterpolator->SetInputImage(dt);
+            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+            filter->SetInput(dt);
+            filter->Update();
+            sigma2=filter->GetSigma();
+            cout<<"distance transform background segmentation sigma :"<<sigma2<<endl;
         }
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
 
@@ -134,7 +153,7 @@ namespace itk{
         }
 #endif
         //edge from registration to segmentation
-        virtual double getBackwardPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
+        inline virtual  double getBackwardPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
             ContinuousIndexType idx2(fixedIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
@@ -153,25 +172,43 @@ namespace itk{
                     }
                 }
             }
-            deformedAtlasSegmentation=floor(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)+0.5);
-            distanceToDeformedSegmentation= m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-            //std::cout<<deformedAtlasSegmentation<<std::endl;
-            result=0;
+            deformedAtlasSegmentation=(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+     
+#if 0
+            if (deformedAtlasSegmentation!=segmentationLabel)
+                result=1;
+            else
+                result=0;
+#else
+            result=0.0;
+           
             if (deformedAtlasSegmentation>0){
-                if (deformedAtlasSegmentation!=segmentationLabel){
-                    result=1;//*fabs(distanceToDeformedSegmentation);
-                    //result=fabs(distanceToDeformedSegmentation);
+#if 0
+                if (segmentationLabel==2 && deformedAtlasSegmentation==1){
+                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/sigma2;
+                }else if (segmentationLabel && deformedAtlasSegmentation==2){
+                    distanceToDeformedSegmentation= m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/sigma1;
+
                 }
+                else 
+#endif
+                if (deformedAtlasSegmentation!=segmentationLabel){
+                    result=1;
+                }
+
             }else{
                 if (segmentationLabel==2){
-                    result=fabs(distanceToDeformedSegmentation);
+                    distanceToDeformedSegmentation= m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/sigma1;
                 }else if (segmentationLabel){
-                    result=1;//+fabs(distanceToDeformedSegmentation);
-                    //result=fabs(distanceToDeformedSegmentation);
+                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/sigma2;
+
                 }
             }
-           
-            //cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<displacement<<" "<<segmentationLabel<<" "<<deformedAtlasSegmentation<<" "<<idx2<<" "<<result<<endl;
+#endif
             return result;
         }
     };//class

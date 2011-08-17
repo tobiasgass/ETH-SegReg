@@ -201,7 +201,8 @@ namespace itk{
             //asm volatile("" ::: "memory");
             LabelImagePointerType deformation;
             ImagePointerType segmentation;
-            pairwiseSegmentationRegistrationPot->SetDistanceTransform(getDistanceTransform(movingSegmentationImage));
+            pairwiseSegmentationRegistrationPot->SetDistanceTransform(getDistanceTransform(movingSegmentationImage,2));
+            pairwiseSegmentationRegistrationPot->SetBackgroundDistanceTransform(getDistanceTransform(movingSegmentationImage,1));
             typedef typename itk::CastImageFilter<FloatImageType,ImageType> CasterType;
             typename CasterType::Pointer caster=CasterType::New();
           
@@ -215,13 +216,13 @@ namespace itk{
                 ImageUtils<ImageType>::writeImage("dt.nii",(output));
             }
             
-            
+            bool downSampleImages=false;
             for (int l=0;l<m_config.nLevels;++l){
 
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config.scale);
                 int exponent=m_config.nLevels-l;
-                if (D==3)
+                if (D==3 && downSampleImages)
                     exponent--;
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
@@ -236,7 +237,7 @@ namespace itk{
                 //roughly compute downscaling
                 scale=1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
 
-                if (D==3){
+                if (D==3&& downSampleImages){
                     scale=scaling;
                     scaling=0.5;
                 }
@@ -719,7 +720,8 @@ namespace itk{
             }
             return (ConstImagePointerType)newImage;
         }
-        FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage){
+        
+        FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage, int value){
 #if 0
             typedef ChamferDistanceTransform<ImageType, FloatImageType> CDT;
             CDT cdt;
@@ -732,12 +734,12 @@ namespace itk{
             ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
             ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-            int value=2;//nSegmentations;
-            if (D==2) value=std::numeric_limits<PixelType>::max()-1;
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                imageIt2.Set(imageIt.Get()==value);
+                float val=imageIt.Get();
+                imageIt2.Set(val==value);
+                
             }
-            distanceTransform->SetInput(segmentationImage);
+            distanceTransform->SetInput(newImage);
             distanceTransform->SquaredDistanceOff ();
             distanceTransform->UseImageSpacingOn();
             distanceTransform->Update();
