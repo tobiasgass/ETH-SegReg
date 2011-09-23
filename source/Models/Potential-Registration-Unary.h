@@ -214,9 +214,10 @@ namespace itk{
                 smm -= ( sm * sm / count );
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
-                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
-                
-
+                    //result=(1-1.0*sfm/sqrt(smm*sff))/2;
+                    result=((1+1.0*sfm/sqrt(smm*sff))/2);
+                    result=result>0?result:0.00000001;
+                    result=-log(result);
                 }
                 else {
                     if (sfm>0) result=0;

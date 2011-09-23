@@ -11,6 +11,7 @@
 #include "itkObjectFactory.h"
 #include <utility>
 #include <itkStatisticsImageFilter.h>
+
 namespace itk{
 
 
@@ -39,7 +40,7 @@ namespace itk{
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
-        double m_gradientSigma;
+        double m_gradientSigma, m_Sigma;
         double m_gradientScaling;
     public:
         /** Method for creation through the object factory. */
@@ -65,7 +66,12 @@ namespace itk{
             filter->Update();
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
-            std::cout<<"Gradient std deviation: "<<m_gradientSigma<<std::endl;
+            std::cout<<"Gradient variance: "<<m_gradientSigma<<std::endl;
+            filter->SetInput(this->m_fixedImage);
+            filter->Update();
+            this->m_Sigma=filter->GetSigma();
+            this->m_Sigma*=this->m_Sigma;
+            
         }
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
@@ -75,7 +81,6 @@ namespace itk{
             int tissue=-500;
             int bone=300;
             if (segmentationLabel>0) {
-                //segmentationProb = exp(imageIntensity+500);//(imageIntensity < -500 ) ? 1 : 0;
                 if (imageIntensity < tissue)
                     segmentationProb = fabs(tissue-imageIntensity);
                 else if (imageIntensity <bone)
@@ -89,9 +94,7 @@ namespace itk{
                     segmentationProb = 0.69;
                 else
                     segmentationProb = 0;
-                //segmentationProb = exp(imageIntensity-300);// ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
             }
-            //        std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             return segmentationProb;
         }
 
@@ -100,8 +103,14 @@ namespace itk{
             int s2=this->m_sheetnessImage->GetPixel(idx2);
             double edgeWeight=fabs(s1-s2);
             edgeWeight*=edgeWeight;
+
+            int i1=this->m_fixedImage->GetPixel(idx1);
+            int i2=this->m_fixedImage->GetPixel(idx2);
+            double intensityDiff=(i1-i2)*(i1-i2);
             //edgeWeight=(s1 < s2) ? 1.0 : exp( - 20* (edgeWeight/this->m_gradientSigma) );
-            edgeWeight= exp( - 20 * (edgeWeight/this->m_gradientSigma) );
+            //edgeWeight= exp( - 0.5 * 0.5*(edgeWeight/this->m_gradientSigma) +intensityDiff/this->m_Sigma);
+            edgeWeight= 0.5 * 0.5*(edgeWeight/this->m_gradientSigma +intensityDiff/this->m_Sigma);
+            //edgeWeight= 1;//0.5 * intensityDiff/this->m_Sigma;
             return edgeWeight;
         }
     };//class
@@ -343,6 +352,73 @@ namespace itk{
             if (this->m_deformationPrior)
                 priorPotential=(segmentationLabel!=this->m_deformationPrior->GetPixel(fixedIndex));
             return origPotential+m_alpha*priorPotential;
+        }
+    };
+
+    template<class TImage, class TClassifier>
+    class UnaryPotentialSegmentationClassifier: public UnaryPotentialSegmentation<TImage> {
+    public:
+        //itk declarations
+        typedef UnaryPotentialSegmentationClassifier            Self;
+        typedef UnaryPotentialSegmentation<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TClassifier ClassifierType;
+        typedef typename ClassifierType::Pointer ClassifierPointerType;
+    protected:
+        ConstImagePointerType m_deformationPrior;
+        double m_alpha;
+        ClassifierPointerType m_classifier;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialSegmentationClassifier, Object);
+          
+        void SetClassifier( ClassifierPointerType  c){
+            m_classifier=c;
+        }
+        
+        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
+            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+            int s= this->m_sheetnessImage->GetPixel(fixedIndex);
+
+            //prob of inverse segmentation label
+            //double prob=m_classifier->px_l(imageIntensity,s,(segmentationLabel));
+           
+            //cout<<imageIntensity<<" "<<s<<" "<<segmentationLabel<<" "<<prob<<" "<< -log(prob) <<std::endl ;
+            //penalize only if prob <0.6
+#if 1
+#if 0
+            double prob=m_classifier->px_l(imageIntensity,s,!(segmentationLabel>0));
+            prob=prob>0.8?prob:0;
+            return prob;
+#else
+            //double prob=m_classifier->px_l(imageIntensity,(segmentationLabel>0));
+            double prob=m_classifier->px_l(imageIntensity,(segmentationLabel>0),s);
+                //            if (prob<=0) prob=0.00000000001;
+            //if (segmentationLabel && prob<0.5) prob=0.5;
+            return -log(prob);
+#endif
+#else
+            double result=0.0;
+            if (segmentationLabel){
+                if (imageIntensity<50 || s<100){
+                    result=1;//fabs(imageIntensity - 50);
+                }
+            }
+            else{
+                if (imageIntensity>120 ){
+                    result=1;//fabs(imageIntensity - 120);
+                }
+            }
+            return result;
+#endif
         }
     };
 }//namespace

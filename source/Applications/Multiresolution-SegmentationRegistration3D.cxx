@@ -24,12 +24,16 @@ int main(int argc, char ** argv)
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
 	//define types.
-	typedef float PixelType;
+	typedef unsigned char PixelType;
 	const unsigned int D=3;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
+    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
+    //typedef SegmentationClassifier<ImageType> ClassifierType;
+    typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    //    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration< LabelMapperType, ImageType > SegmentationRegistrationPairwisePotentialType;

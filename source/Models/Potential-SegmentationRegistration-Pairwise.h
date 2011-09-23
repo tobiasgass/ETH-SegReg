@@ -60,7 +60,7 @@ namespace itk{
         double m_asymm;
         FloatImagePointerType m_distanceTransform;
         double sigma1, sigma2;
-        
+        int m_nSegmentationLabels;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -73,6 +73,7 @@ namespace itk{
         }
         virtual void freeMemory(){
         }
+        void SetNumberOfSegmentationLabels(int n){m_nSegmentationLabels=n;}
         void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
         void SetMovingInterpolator(ImageInterpolatorPointerType movingImage){
@@ -172,7 +173,12 @@ namespace itk{
                     }
                 }
             }
-            deformedAtlasSegmentation=(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+            //deformedAtlasSegmentation=(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2))>0;
+            deformedAtlasSegmentation=int(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+            //            ContinuousIndexType idx3(fixedIndex2);
+
+            //cout<<m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx3)<<" "<<m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)<<" "<<(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0)<<" "<<int(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0)<<endl;
+
      
 #if 0
             if (deformedAtlasSegmentation!=segmentationLabel)
@@ -181,7 +187,7 @@ namespace itk{
                 result=0;
 #else
             result=0.0;
-           
+#endif           
             if (deformedAtlasSegmentation>0){
 #if 0
                 if (segmentationLabel==2 && deformedAtlasSegmentation==1){
@@ -194,21 +200,39 @@ namespace itk{
                 }
                 else 
 #endif
-                if (deformedAtlasSegmentation!=segmentationLabel){
-                    result=1;
+
+               if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
+                    //distanceToDeformedSegmentation= 1;
+                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation);///sigma1;
+
+                }else if (segmentationLabel == 0 && deformedAtlasSegmentation ){
+                    //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation);///sigma2;
+
+                }
+                
+
+               else if (deformedAtlasSegmentation!=segmentationLabel){
+                   result=fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))+fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
                 }
 
+
             }else{
-                if (segmentationLabel==2){
-                    distanceToDeformedSegmentation= m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/sigma1;
-                }else if (segmentationLabel){
+                if (segmentationLabel== m_nSegmentationLabels - 1){
+                    //distanceToDeformedSegmentation= 1;
+                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation);///sigma1;
+
+                }else if (segmentationLabel ){
+                    //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
                     distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/sigma2;
+                    result=fabs(distanceToDeformedSegmentation);///sigma2;
 
                 }
             }
-#endif
+
             return result;
         }
     };//class

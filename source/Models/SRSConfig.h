@@ -15,7 +15,7 @@
 #include "argstream.h"
 class SRSConfig{
 public:
-	std::string targetFilename,movingFilename,fixedGradientFilename, outputDeformedSegmentationFilename,movingSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename;
+	std::string targetFilename,movingFilename,fixedGradientFilename, outputDeformedSegmentationFilename,movingSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, movingGradientFilename;
 	std::string segmentationProbsFilename, pairWiseProbsFilename;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
@@ -35,6 +35,7 @@ public:
     double displacementRescalingFactor;
     double scale,asymmetry;
     int optIter;
+    bool downScale;
 private:
 	argstream * as;
 public:
@@ -58,6 +59,7 @@ public:
 		pairWiseProbsFilename="pairwise.bin";
         displacementRescalingFactor=0.5;
         scale=1;asymmetry=0;
+        downScale=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -70,6 +72,7 @@ public:
 		targetFilename=c.targetFilename;
 		movingFilename=c.movingFilename;
 		fixedGradientFilename=c.fixedGradientFilename;
+		movingGradientFilename=c.movingGradientFilename;
 		outputDeformedSegmentationFilename=c.outputDeformedSegmentationFilename;
 		movingSegmentationFilename=c.movingSegmentationFilename;
 		outputDeformedFilename=c.outputDeformedFilename;
@@ -96,6 +99,7 @@ public:
         displacementRescalingFactor=c.displacementRescalingFactor;
         scale=c.scale;asymmetry=c.asymmetry;
         optIter=c.optIter;
+        downScale=c.downScale;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -131,6 +135,7 @@ public:
 		(*as) >> parameter ("m", movingFilename, "moving image (file name)", false);
 		(*as) >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", false);
 		(*as) >> parameter ("g", fixedGradientFilename, "fixed gradient image (file name)", false);
+        (*as) >> parameter ("movingGradient", movingGradientFilename, "moving gradient image (file name)", false);
 
 		(*as) >> parameter ("o", outputDeformedFilename, "output image (file name)", false);
 		(*as) >> parameter ("S", outputDeformedSegmentationFilename, "output image (file name)", false);
@@ -163,6 +168,7 @@ public:
 		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
         (*as) >> parameter ("scale", scale,"scaling factor for registration potential", false);
         (*as) >> option ("verbose", verbose,"get verbose output");
+        (*as) >> option ("downScale", downScale,"downSample ALL images during the pyramid");
         (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=1)", false);
 
 		std::list<int> bla;

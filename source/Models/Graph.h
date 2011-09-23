@@ -314,14 +314,14 @@ namespace itk{
             //compute distance between center index and patch index
             double weight=1.0;
             //#ifdef MULTISEGREGNEIGHBORS
-#if 0
+#if 1
             IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             double dist=1;
             for (unsigned int d=0;d<m_dim;++d){
                 //            std::cout<<dist<<" "<<graphIndex[d]-imageIndex[d]<<" "<<std::endl;
                 dist*=1.0-fabs((1.0*graphIndex[d]-imageIndex[d])/(m_gridPixelSpacing[d]));
             }
-            if (dist<0.1) dist=0.1;
+            //       if (dist<0.1) dist=0.1;
             weight=dist;
 #endif
             //        if (true){ std::cout<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}

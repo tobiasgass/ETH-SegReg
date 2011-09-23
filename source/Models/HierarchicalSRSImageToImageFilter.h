@@ -54,6 +54,7 @@
 #include <google/heap-profiler.h>
 #include "ChamferDistanceTransform.h"
 #include "itkCastImageFilter.h"
+#include "Classifier.h"
 
 namespace itk{
     template<class TImage, 
@@ -146,15 +147,19 @@ namespace itk{
             SetNthInput(3,img);
         }
         virtual void Update(){
-
+            
+            
 
             //define input images
             const ConstImagePointerType targetImage = this->GetInput(0);
             const ConstImagePointerType movingImage = this->GetInput(1);
             ConstImagePointerType movingSegmentationImage;
+
             if (D==2){
                 //2d segmentations pngs [from matlab] may have screwed up intensities
-                movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
+                movingSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
+                ImageUtils<ImageType>::writeImage("test.png",movingSegmentationImage);
+
             }else{
                 movingSegmentationImage = (this->GetInput(2));
             }
@@ -184,14 +189,25 @@ namespace itk{
             SegmentationInterpolatorPointerType segmentationInterpolator=SegmentationInterpolatorType::New();
             ImageInterpolatorPointerType movingInterpolator=ImageInterpolatorType::New();
         
-        
+#if 1
+            ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
+            typedef typename UnarySegmentationPotentialType::ClassifierType ClassifierType;
+            typename ClassifierType::Pointer  classifier=  ClassifierType::New();
+            classifier->setNIntensities(256);
+            if (m_config.nSegmentations){
+                classifier->setData(movingImage,movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
+                //classifier->setData(movingImage,movingSegmentationImage);
+                classifier->train();
+                //classifier->evalImage(targetImage);
+                classifier->evalImage(targetImage,fixedGradientImage);
+            }
+            std::cout<<"returnedFromClassifier"<<std::endl;
+            unarySegmentationPot->SetClassifier(classifier);
+#endif
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
         
-            for (int i=0;i<LabelMapperType::nLabels;++i){
-                //cout<<i<<" "<<LabelMapperType::getLabel(i)<<" "<<LabelMapperType::getIndex(LabelMapperType::getLabel(i))<<endl;
-            }
-
-            int iterationCount=0;
+         
+            int iterationCount=0; 
 
             
             int level;
@@ -201,8 +217,10 @@ namespace itk{
             //asm volatile("" ::: "memory");
             LabelImagePointerType deformation;
             ImagePointerType segmentation;
-            pairwiseSegmentationRegistrationPot->SetDistanceTransform(getDistanceTransform(movingSegmentationImage,2));
-            pairwiseSegmentationRegistrationPot->SetBackgroundDistanceTransform(getDistanceTransform(movingSegmentationImage,1));
+            pairwiseSegmentationRegistrationPot->SetDistanceTransform(getDistanceTransform(movingSegmentationImage,m_config.nSegmentations-1));
+            pairwiseSegmentationRegistrationPot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
+            if (m_config.nSegmentations>2)
+                pairwiseSegmentationRegistrationPot->SetBackgroundDistanceTransform(getDistanceTransform(movingSegmentationImage,1));
             typedef typename itk::CastImageFilter<FloatImageType,ImageType> CasterType;
             typename CasterType::Pointer caster=CasterType::New();
           
@@ -216,13 +234,13 @@ namespace itk{
                 ImageUtils<ImageType>::writeImage("dt.nii",(output));
             }
             
-            bool downSampleImages=false;
+
             for (int l=0;l<m_config.nLevels;++l){
 
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config.scale);
                 int exponent=m_config.nLevels-l;
-                if (D==3 && downSampleImages)
+                if (m_config.downScale)
                     exponent--;
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
@@ -237,7 +255,7 @@ namespace itk{
                 //roughly compute downscaling
                 scale=1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
 
-                if (D==3&& downSampleImages){
+                if (m_config.downScale){
                     scale=scaling;
                     scaling=0.5;
                 }
@@ -274,6 +292,7 @@ namespace itk{
                 //                 std::cout<<ii.GetIndex()<<" "<<graph.getClosestGraphIndex(ii.GetIndex())<<std::endl;
                 //             }
                 movingInterpolator->SetInputImage(downSampledReference);
+
                 segmentationInterpolator->SetInputImage(downSampledReferenceSegmentation);
 
                 //setup registration potentials
@@ -342,7 +361,7 @@ namespace itk{
                     {
 #if 1
                         MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,//*exp(-(l)),///pow(mantisse,exponent-1) ,//*exp(-(m_config.nLevels-l-1)),
+                                                                     m_config.simWeight,
                                                                      m_config.pairwiseRegistrationWeight, 
                                                                      m_config.rfWeight,
                                                                      m_config.pairwiseSegmentationWeight,
@@ -692,15 +711,14 @@ namespace itk{
             deformed->Allocate();
             ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
 
-            //for png images we need to scale the output inteneisities so they are visible in standard png viewers
+
             for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
                 IndexType index=deformationIt.GetIndex();
                 typename ImageInterpolatorType::ContinuousIndexType idx(index);
                 LabelType displacement=deformationIt.Get();
                 idx+=(displacement);
                 if (interpolator->IsInsideBuffer(idx)){
-                    imageIt.Set(floor(interpolator->EvaluateAtContinuousIndex(idx)+0.5));
-
+                    imageIt.Set(int(interpolator->EvaluateAtContinuousIndex(idx)));
                 }else{
                     imageIt.Set(0);
                 }
@@ -714,6 +732,9 @@ namespace itk{
             ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
             double multiplier=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
+            if (!nSegmentations){
+                multiplier=std::numeric_limits<PixelType>::max();
+            }
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
                 //    cout<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
                 imageIt2.Set(imageIt.Get()*multiplier);
@@ -740,23 +761,25 @@ namespace itk{
                 
             }
             distanceTransform->SetInput(newImage);
-            distanceTransform->SquaredDistanceOff ();
+            distanceTransform->SquaredDistanceOn ();
             distanceTransform->UseImageSpacingOn();
             distanceTransform->Update();
             return distanceTransform->GetOutput();
 #endif
         }
 
-        ConstImagePointerType fixSegmentationImage(ConstImagePointerType segmentationImage){
+        ConstImagePointerType fixSegmentationImage(ConstImagePointerType segmentationImage, int nSegmentations){
             ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
             typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
             typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
             ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
+#if 0
             hash_map<int, int> map;
             int c=0;
             for (imageIt.GoToBegin();!imageIt.IsAtEnd();++imageIt){
                 int seg=floor(imageIt.Get()+0.5);
+                cout<<seg<<endl;
                 if (map.find(seg)==map.end()){
                     map[seg]=c;
                     ++c;
@@ -765,6 +788,13 @@ namespace itk{
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
                 imageIt2.Set(map[floor(imageIt.Get()+0.5)]);
             }
+#else
+            nSegmentations=nSegmentations>0?nSegmentations:2;
+            int divisor=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
+            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
+                imageIt2.Set(floor(1.0*imageIt.Get()/divisor+0.5));
+            }
+#endif
             return (ConstImagePointerType)newImage;
         }
     }; //class
