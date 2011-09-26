@@ -425,6 +425,39 @@ namespace itk{
                         double p_x2= 1.0*m_jointCounts[floor(i/10) + 26*floor(j/10)]/m_totalCount;
                         //cout<<floor(i/10)<<" "<<26*floor(j/10)<<" "<<floor(i/10) + 26*floor(j/10)<<" "<<m_jointCounts[floor(i/10) + 26*floor(j/10)]<<" "<<p_x2<<endl;
                         double p=conf(c,s) ;/// p_s  * p_x2 ; 
+
+#if 1
+                        int bone=(300+1000)*255.0/2000;
+                        int tissue=(-500+1000)*255.0/2000;
+                        double segmentationProb=1;
+                        if (s>0) {
+                            if (i < tissue)
+                                segmentationProb =fabs(i-tissue);
+                            else if (i < bone) 
+                                segmentationProb = 0.69; //log (0.5);
+                            else
+                                segmentationProb = 0.00000000001;
+                        }else{
+                            if ((i >  bone)  && j>128)
+                                segmentationProb = fabs(i-bone);
+                            else if (i >tissue)
+                                segmentationProb =0.69 ;
+                            else
+                                segmentationProb = 0.00000000001;
+                        }
+                        segmentationProb=exp(-segmentationProb);
+                        if (s){
+                            p=segmentationProb>p?segmentationProb:p;
+                        }else{
+                            p=segmentationProb<p?segmentationProb:p;
+                        }
+                            
+            
+
+#endif
+
+
+
                         this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p;
                         if (p<mins[0]) mins[0]=p;
                         if (p>maxs[0]) maxs[0]=p;
@@ -813,8 +846,8 @@ namespace itk{
             for (it.GoToBegin();!it.IsAtEnd(); ++it,++itGrad){
                 PixelType val=it.Get();
                 PixelType grad=itGrad.Get();
-                double prob0=px_l(val,grad,0);
-                double prob1=px_l(val,grad,1);
+                double prob0=px_l(val,0,grad);
+                double prob1=px_l(val,1,grad);
                 //                std::cout<<prob0<<" "<<prob1<<" "<<(PixelType)std::numeric_limits<PixelType>::max()*prob0<<std::endl;
                 result0->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob0);
                 result1->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob1);

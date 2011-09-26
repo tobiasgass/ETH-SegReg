@@ -110,6 +110,7 @@ namespace itk{
             //edgeWeight=(s1 < s2) ? 1.0 : exp( - 20* (edgeWeight/this->m_gradientSigma) );
             //edgeWeight= exp( - 0.5 * 0.5*(edgeWeight/this->m_gradientSigma) +intensityDiff/this->m_Sigma);
             edgeWeight= 0.5 * 0.5*(edgeWeight/this->m_gradientSigma +intensityDiff/this->m_Sigma);
+            //edgeWeight= 0.5 * (edgeWeight/this->m_gradientSigma);
             //edgeWeight= 1;//0.5 * intensityDiff/this->m_Sigma;
             return edgeWeight;
         }

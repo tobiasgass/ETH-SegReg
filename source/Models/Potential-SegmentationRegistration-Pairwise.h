@@ -204,18 +204,18 @@ namespace itk{
                if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
                     //distanceToDeformedSegmentation= 1;
                     distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation);///sigma1;
+                    result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//1;
 
                 }else if (segmentationLabel == 0 && deformedAtlasSegmentation ){
                     //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
                     distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation);///sigma2;
+                    result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
 
                 }
                 
 
                else if (deformedAtlasSegmentation!=segmentationLabel){
-                   result=fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))+fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
+                   result=fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1+sigma2)/2)+fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1+sigma2)/2);
                 }
 
 
@@ -223,12 +223,12 @@ namespace itk{
                 if (segmentationLabel== m_nSegmentationLabels - 1){
                     //distanceToDeformedSegmentation= 1;
                     distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation);///sigma1;
+                    result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//1;
 
                 }else if (segmentationLabel ){
                     //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
                     distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation);///sigma2;
+                    result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
 
                 }
             }
