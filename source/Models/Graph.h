@@ -22,6 +22,7 @@ namespace itk{
              class TUnaryRegistrationFunction, 
              class TPairwiseRegistrationFunction, 
              class TUnarySegmentationFunction, 
+      class TPairwiseSegmentationFunction,
              class TPairwiseSegmentationRegistrationFunction,
              class TLabelMapper>
     class GraphModel: public itk::Object{
@@ -50,6 +51,8 @@ namespace itk{
         typedef typename PairwiseRegistrationFunctionType::Pointer PairwiseRegistrationFunctionPointerType;
         typedef TUnarySegmentationFunction UnarySegmentationFunctionType;
         typedef typename UnarySegmentationFunctionType::Pointer UnarySegmentationFunctionPointerType;
+	typedef TPairwiseSegmentationFunction PairwiseSegmentationFunctionType;
+	typedef typename PairwiseSegmentationFunctionType::Pointer PairwiseSegmentationPointerType;
         typedef TPairwiseSegmentationRegistrationFunction PairwiseSegmentationRegistrationFunctionType;
         typedef typename PairwiseSegmentationRegistrationFunctionType::Pointer PairwiseSegmentationRegistrationFunctionPointerType;
     
@@ -83,7 +86,8 @@ namespace itk{
         //ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
         UnaryRegistrationFunctionPointerType m_unaryRegFunction;
         UnarySegmentationFunctionPointerType m_unarySegFunction;
-        PairwiseSegmentationRegistrationFunctionPointerType m_pairwiseSegRegFunction;
+	PairwiseSegmentationFunctionType m_pairwiseSegFunction;
+	PairwiseSegmentationRegistrationFunctionPointerType m_pairwiseSegRegFunction;
         PairwiseRegistrationFunctionPointerType m_pairwiseRegFunction;
   
         //PairwiseFunctionPointerType m_pairwiseFunction;
@@ -332,6 +336,12 @@ namespace itk{
         }
 
         
+	inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
+	  IndexType imageIndex1=getImageIndex(nodeIndex1);
+	  IndexType imageIndex2=getImageIndex(nodeIndex2);
+	  double result=m_pairwiseSegFunction->getPotential(nodeIndex1, nodeIndex2,label1, label2);
+	  return result;
+	}
         inline double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);
@@ -369,7 +379,6 @@ namespace itk{
             return neighbours;
         }
         std::vector<int>  getForwardSegRegNeighbours(int index){            
-
             IndexType imagePosition=getImageIndexFromCoarseGraphIndex(index);
             std::vector<int> neighbours;
             m_fixedNeighborhoodIterator.SetLocation(imagePosition);
