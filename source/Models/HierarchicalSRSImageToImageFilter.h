@@ -122,7 +122,7 @@ namespace itk{
                             UnaryRegistrationPotentialType,
                             PairwiseRegistrationPotentialType,
                             UnarySegmentationPotentialType,
-	                    PairwiseSegmentatonpotentialType,
+	                    PairwiseSegmentationpotentialType,
                             PairwiseSegmentationRegistrationPotentialType,
                             LabelMapperType> GraphModelType;
         typedef  typename itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
