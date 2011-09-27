@@ -61,6 +61,7 @@ namespace itk{
              class TLabelMapper,
              class TUnaryRegistrationPotential, 
              class TUnarySegmentationPotential,
+      class TPairwiseSegmentationPotential,
              class TPairwiseRegistrationPotential,
              class TPairwiseSegmentationRegistrationPotential>
     class HierarchicalSRSImageToImageFilter: public itk::ImageToImageFilter<TImage,TImage>{
@@ -103,11 +104,13 @@ namespace itk{
     
         typedef TUnaryRegistrationPotential UnaryRegistrationPotentialType;
         typedef TUnarySegmentationPotential UnarySegmentationPotentialType;
-        typedef TPairwiseRegistrationPotential PairwiseRegistrationPotentialType;
+	typedef TPairwiseSegmentationPotential PairwiseSegmentationPotentialType;
+	typedef TPairwiseRegistrationPotential PairwiseRegistrationPotentialType;
         typedef TPairwiseSegmentationRegistrationPotential PairwiseSegmentationRegistrationPotentialType; 
         typedef typename  UnaryRegistrationPotentialType::Pointer UnaryRegistrationPotentialPointerType;
         typedef typename  UnarySegmentationPotentialType::Pointer UnarySegmentationPotentialPointerType;
         typedef typename  UnaryRegistrationPotentialType::RadiusType RadiusType;
+	typedef typename  PairwiseSegmentationPotentialType::Pointer PairwiseSegmentationPointerType;
         typedef typename  PairwiseRegistrationPotentialType::Pointer PairwiseRegistrationPotentialPointerType;
         typedef typename  PairwiseSegmentationRegistrationPotentialType::Pointer PairwiseSegmentationRegistrationPotentialPointerType;
 
@@ -119,6 +122,7 @@ namespace itk{
                             UnaryRegistrationPotentialType,
                             PairwiseRegistrationPotentialType,
                             UnarySegmentationPotentialType,
+	                    PairwiseSegmentatonpotentialType,
                             PairwiseSegmentationRegistrationPotentialType,
                             LabelMapperType> GraphModelType;
         typedef  typename itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
@@ -182,6 +186,7 @@ namespace itk{
             //instantiate potentials
             UnaryRegistrationPotentialPointerType unaryRegistrationPot=UnaryRegistrationPotentialType::New();
             UnarySegmentationPotentialPointerType unarySegmentationPot=UnarySegmentationPotentialType::New();
+	    PairwiseSegmentationPotentialPointerType pairwiseSegmentationPort=PairwiseSegmentationPotentialType::New();
             PairwiseRegistrationPotentialPointerType pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
             PairwiseSegmentationRegistrationPotentialPointerType pairwiseSegmentationRegistrationPot=PairwiseSegmentationRegistrationPotentialType::New();
 
@@ -201,17 +206,16 @@ namespace itk{
                 //classifier->evalImage(targetImage);
                 classifier->evalImage(targetImage,fixedGradientImage);
 
-                typedef SmoothnessClassifierGradient<ImageType> SmoothClassifierType;
-                typename SmoothClassifierType::Pointer  smoothClassifier=  SmoothClassifierType::New();
-                smoothClassifier->setNIntensities(256);
-                smoothClassifier->setData(movingImage,movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
-                smoothClassifier->train();
-                unarySegmentationPot->SetSmoothnessClassifier(smoothClassifier);   
-                
-            }
+	    }
             std::cout<<"returnedFromClassifier"<<std::endl;
             unarySegmentationPot->SetClassifier(classifier);
-            
+            pairwiseSegmentationPot->SetFixedImage();
+	    pairwiseSegmentationPot->SetFixedGradient();
+	    pairwiseSegmentationPot->SetReferenceImage();
+	    pairwiseSegmentationPot->SetReferenceGradient();
+	    pairwiseSegmentationPot->SetReferenceSegmentation();
+	    pairwiseSegmentationPot->Init();
+	    
 #endif
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
         

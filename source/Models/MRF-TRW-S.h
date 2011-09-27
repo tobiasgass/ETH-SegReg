@@ -155,26 +155,19 @@ public:
             TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
             for (int d=0;d<nSegNodes;++d){   
                 TRWType::REAL Vseg[nSegLabels*nSegLabels];
-                //                TRWType::REAL Vseg2[nSegLabels*nSegLabels];
-                
                 //pure Segmentation
                 std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
                 int nNeighbours=neighbours.size();
                 for (int i=0;i<nNeighbours;++i){
-                    double lambda=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i]);   
-                    //std::cout<<graph->getSegmentationWeight(d,neighbours[i])<<" "<<m_pairwiseSegmentationWeight<<" "<<(double)m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i])<<std::endl;
-                    //double lambda2=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(neighbours[i],d);
+                
                     for (int l1=0;l1<nSegLabels;++l1){
                         for (int l2=0;l2<nSegLabels;++l2){
-                            Vseg[l1*nSegLabels+l2]=lambda*(l1!=l2);
-                            //  Vseg[l1*nSegLabels+l2+nSegLabels*nSegLabels]=lambda2*(l1!=l2);
-                            //      Vseg2[l1*nSegLabels+l2]=lambda2*(l1!=l2);
+			  double lambda=m_pairwiseSegmentationWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);   
+			  Vseg[l1*nSegLabels+l2]=lambda*(l1!=l2);
                         }
                     }
-                    //m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::POTTS,lambda));
-                    m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
-                    //m_optimizer.AddEdge(segNodes[neighbours[i]],segNodes[d], TRWType::EdgeData(TRWType::GENERAL,Vseg2));
-                    edgeCount++;
+		    m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
+		    edgeCount++;
                     
                 }
                 if (m_pairwiseSegmentationRegistrationWeight>0 && nRegLabels){
