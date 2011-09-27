@@ -188,19 +188,9 @@ namespace itk{
 #else
             result=0.0;
 #endif           
+#if 1
             if (deformedAtlasSegmentation>0){
-#if 0
-                if (segmentationLabel==2 && deformedAtlasSegmentation==1){
-                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/sigma2;
-                }else if (segmentationLabel && deformedAtlasSegmentation==2){
-                    distanceToDeformedSegmentation= m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/sigma1;
-
-                }
-                else 
-#endif
-
+                
                if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
                     //distanceToDeformedSegmentation= 1;
                     distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
@@ -232,6 +222,39 @@ namespace itk{
 
                 }
             }
+#else
+ if (deformedAtlasSegmentation>0){
+                
+               if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
+                    //distanceToDeformedSegmentation= 1;
+                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/((sigma1));//1;
+
+                }else if (segmentationLabel == 0 && deformedAtlasSegmentation ){
+                    //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/((sigma2));//2;
+
+                }
+               else if (deformedAtlasSegmentation!=segmentationLabel){
+                   result=max(fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1)),fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma2)));
+                }
+
+
+            }else{
+                if (segmentationLabel== m_nSegmentationLabels - 1){
+                    //distanceToDeformedSegmentation= 1;
+                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/((sigma1));//1;
+
+                }else if (segmentationLabel ){
+                    //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/((sigma2));//2;
+
+                }
+            }
+#endif
 
             return result;
         }

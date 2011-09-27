@@ -103,7 +103,7 @@ public:
 
 	}
     virtual std::vector<int> getLabels(){
-        GraphModelType* graph=this->m_graphModel;
+        //GraphModelType* graph=this->m_graphModel;
         std::vector<int> labels(nNodes);
         for (int i=0;i<nNodes;++i){
             labels[i]=optimizer->what_segment(i) == MRFType::SOURCE;

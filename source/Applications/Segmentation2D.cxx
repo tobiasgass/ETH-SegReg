@@ -22,9 +22,10 @@ int main(int argc, char ** argv)
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
 	//define types.
-	typedef unsigned char PixelType;
+	typedef float PixelType;
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
+    typedef Image<unsigned char,D> InputImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
     typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
@@ -35,8 +36,8 @@ int main(int argc, char ** argv)
 	//create filter
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(filterConfig);
-    filter->setFixedImage(ImageUtils<ImageType>::readImage(filterConfig.targetFilename));
-    filter->setFixedGradientImage(ImageUtils<ImageType>::readImage(filterConfig.fixedGradientFilename));
+    filter->setFixedImage(FilterUtils<InputImageType,ImageType>::cast(ImageUtils<InputImageType>::readImage(filterConfig.targetFilename)));
+    filter->setFixedGradientImage(FilterUtils<InputImageType,ImageType>::cast(ImageUtils<InputImageType>::readImage(filterConfig.fixedGradientFilename)));
 
 	clock_t start = clock();
 	//DO IT!

@@ -200,9 +200,18 @@ namespace itk{
                 classifier->train();
                 //classifier->evalImage(targetImage);
                 classifier->evalImage(targetImage,fixedGradientImage);
+
+                typedef SmoothnessClassifierGradient<ImageType> SmoothClassifierType;
+                typename SmoothClassifierType::Pointer  smoothClassifier=  SmoothClassifierType::New();
+                smoothClassifier->setNIntensities(256);
+                smoothClassifier->setData(movingImage,movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
+                smoothClassifier->train();
+                unarySegmentationPot->SetSmoothnessClassifier(smoothClassifier);   
+                
             }
             std::cout<<"returnedFromClassifier"<<std::endl;
             unarySegmentationPot->SetClassifier(classifier);
+            
 #endif
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
         

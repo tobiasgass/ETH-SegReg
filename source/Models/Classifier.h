@@ -426,7 +426,7 @@ namespace itk{
                         //cout<<floor(i/10)<<" "<<26*floor(j/10)<<" "<<floor(i/10) + 26*floor(j/10)<<" "<<m_jointCounts[floor(i/10) + 26*floor(j/10)]<<" "<<p_x2<<endl;
                         double p=conf(c,s) ;/// p_s  * p_x2 ; 
 
-#if 1
+#if 0
                         int bone=(300+1000)*255.0/2000;
                         int tissue=(-500+1000)*255.0/2000;
                         double segmentationProb=1;
@@ -787,7 +787,7 @@ namespace itk{
         itkNewMacro(Self);
 
         HandcraftedBoneSegmentationClassifierGradient(){
-            bone=(300+1000)*255.0/2000;
+            bone=(100+1000)*255.0/2000;
             tissue=(-500+1000)*255.0/2000;
         };
         virtual void setNIntensities(int n){
@@ -861,6 +861,244 @@ namespace itk{
             }
             
         }
+    };
+  
+
+
+    template<class ImageType>
+    class SmoothnessClassifierGradient: public SegmentationClassifier<ImageType> {
+    public:
+        typedef SmoothnessClassifierGradient            Self;
+        typedef SegmentationClassifier<ImageType> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::PixelType PixelType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
+        typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
+    protected:
+    
+        FileData m_TrainData;
+        Forest * m_Forest;
+        std::vector<double> m_weights;
+        std::vector<int> m_labelVector;
+        matrix<float> m_data;
+        matrix<float> m_conf;
+        int m_nData, m_totalCount;
+        std::vector<int> m_counts, m_intensCounts, m_jointCounts;
+        int m_nIntensities;
+        std::vector<float> m_probs;
+        double m_meanIntens, m_meanGrad,m_varianceIntens,m_varianceGrad,m_covariance;
+
+    public:
+        /** Standard part of every itk Object. */
+        itkTypeMacro(SmoothnessClassifierGradient, Object);
+        itkNewMacro(Self);
+
+        SmoothnessClassifierGradient(){
+            m_data=matrix<float>(1,3);
+            m_conf=matrix<float>(1,2);
+            m_labelVector=std::vector<int>(1);
+        };
+        virtual void setNIntensities(int n){
+            m_nIntensities=n;
+            m_probs= std::vector<float> (2*m_nIntensities*m_nIntensities,0);
+        }
+        virtual void freeMem(){
+            delete m_Forest;
+            m_data=matrix<float>(0,0);
+            m_conf=matrix<float>(0,0);
+        }
+        virtual void save(string filename){
+            m_Forest->save(filename);
+        }
+        virtual void load(string filename){
+            m_Forest->load(filename);
+        }
+
+        virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
+       
+            int maxTrain=3000000;
+            //maximal size
+            long int nData=1;
+            for (int d=0;d<ImageType::ImageDimension;++d)
+                nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
+            nData*=ImageType::ImageDimension;
+
+            maxTrain=maxTrain>nData?nData:maxTrain;
+            std::cout<<maxTrain<<" computed"<<std::endl;
+            int nFeatures=2;
+            matrix<float> data(maxTrain,nFeatures);
+            std::cout<<maxTrain<<" matrix allocated"<<std::endl;
+            std::vector<int> labelVector(maxTrain);
+            typedef typename itk::ImageRandomConstIteratorWithIndex< ImageType > IteratorType;
+            IteratorType ImageIterator(intensities, intensities->GetLargestPossibleRegion());
+            ImageIterator.SetNumberOfSamples(maxTrain);
+            int i=0;
+            ImageIterator.GoToBegin();
+            this->m_counts= std::vector<int>(2,0);
+            //this->m_intensCounts= std::vector<int>(this->m_nIntensities,0);
+            for (;!ImageIterator.IsAtEnd(),i<maxTrain ;
+                 ++ImageIterator)
+                {
+                    typename ImageType::IndexType idx=ImageIterator.GetIndex();
+                    for ( int d=0;d<ImageType::ImageDimension;++d){
+                        typename ImageType::OffsetType off;
+                        off.Fill(0);
+                        if ((int)idx[d]<(int)intensities->GetLargestPossibleRegion().GetSize()[d]-1){
+                            off[d]+=1;
+                            //    cout<<d<<" "<<i<<" "<<idx+off<<" "<<intensities->GetLargestPossibleRegion().GetSize()<<endl;
+                            int grad1=gradient->GetPixel(idx);
+                            int label1=labels->GetPixel(idx)>0;
+                            int intens1=mapIntensity(ImageIterator.Get());
+                            int grad2=gradient->GetPixel(idx+off);
+                            int label2=labels->GetPixel(idx+off)>0;
+                            int intens2=mapIntensity(intensities->GetPixel(idx+off));
+                            data(i,0)=fabs(intens1-intens2);
+                            data(i,1)=fabs(grad1-grad2);
+                            labelVector[i]=label1==label2;
+                            this->m_counts[label1==label2]++;
+                            i++;                
+                        }
+                    }
+                    
+                }
+            cout<<"finished adding data" <<endl;
+            m_totalCount=i;
+            data.resize(i,nFeatures);
+            std::vector<int> copy=labelVector;
+            labelVector.resize(i);
+
+            this->m_nData=i;
+            std::vector<double> weights(labelVector.size());
+            for (i=0;i<(int)labelVector.size();++i){
+                
+                weights[i]=1.0;
+             
+            }
+            this->m_weights=weights;
+            std::cout<<"done adding data. "<<std::endl;
+            this->m_TrainData.setData(data);
+            this->m_TrainData.setLabels(labelVector);
+        };
+
+        virtual void computeProbabilities(){
+            this->m_probs= std::vector<float> (2*this->m_nIntensities*this->m_nIntensities,0);
+            matrix<float> data(this->m_nIntensities*this->m_nIntensities,2);
+            std::vector<int> labelVector(this->m_nIntensities*this->m_nIntensities,0);
+            int c=0;
+            for (int i=0;i<this->m_nIntensities;++i){
+                for (int j=0;j<this->m_nIntensities;++j,++c){
+                    data(c,0)=i;
+                    data(c,1)=j;
+                    
+                    labelVector[c]=0;
+                }
+            }
+            std::cout<<"evaluating forest "<<std::endl;
+            this->m_Forest->eval(data,labelVector,false);
+            matrix<float> conf = this->m_Forest->getConfidences();
+            std::cout<<conf.size1()<<" "<<conf.size2()<<std::endl;
+            c=0;
+            for (int i=0;i<this->m_nIntensities;++i){
+                for (int j=0;j<this->m_nIntensities;++j,++c){
+                    for (int s=0;s<2;++s){
+                        // p(s) = relative frequency
+                        double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
+                        double p=conf(c,s) ;/// p_s  * p_x2 ; 
+                        p=p>=0?p:0.0000001;
+                        this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p;
+                    }
+                }
+            }
+
+        }
+        
+        inline virtual int mapIntensity(float intensity){
+            return intensity;
+        }
+        virtual double px_l(float intensityDiff,int label, int gradientDiff){
+            //            cout<<intensityDiff<<" "<<label<<" "<<gradientDiff<<endl;
+            return this->m_probs[(label>0)*this->m_nIntensities*this->m_nIntensities+intensityDiff*this->m_nIntensities+gradientDiff];
+        }
+        virtual void evalImage(ImageConstPointerType im, ImageConstPointerType gradient){
+            ImagePointerType result0=ImageUtils<ImageType>::createEmpty(im);
+            ImagePointerType result1=ImageUtils<ImageType>::createEmpty(im);
+            typename itk::ImageRegionConstIterator<ImageType> it(im,im->GetLargestPossibleRegion());
+            typename itk::ImageRegionConstIterator<ImageType> itGrad(gradient,gradient->GetLargestPossibleRegion());
+            PixelType multiplier=1;
+            if (ImageType::ImageDimension !=0 ){
+                multiplier=std::numeric_limits<PixelType>::max();
+            }
+            for (it.GoToBegin();!it.IsAtEnd(); ++it,++itGrad){
+                PixelType val=it.Get();
+                PixelType grad=itGrad.Get();
+                double prob0=px_l(val,0,grad);
+                double prob1=px_l(val,1,grad);
+                //                std::cout<<prob0<<" "<<prob1<<" "<<(PixelType)std::numeric_limits<PixelType>::max()*prob0<<std::endl;
+                result0->SetPixel(it.GetIndex(),(PixelType)(multiplier*prob0));
+                result1->SetPixel(it.GetIndex(),(PixelType)(multiplier*prob1));
+            }
+            if (ImageType::ImageDimension ==2 ){
+                ImageUtils<ImageType>::writeImage("p0-rfGradient.png",result0);
+                ImageUtils<ImageType>::writeImage("p1-rfGradient.png",result1);
+            }else{
+                ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0);
+                ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1);
+     
+            }
+            
+        }
+
+        virtual void loadProbs(string filename){
+
+        }
+        virtual void saveProbs(string filename){
+
+        }
+
+        virtual void train(){
+            std::cout<<"reading config"<<std::endl;
+            string confFile("/home/gasst/work/progs/rf/randomForest.conf");///home/gasst/work/progs/rf/src/randomForest.conf");
+            HyperParameters hp;
+            Config configFile;
+
+            configFile.readFile(confFile.c_str());
+
+            // DATA
+            hp.trainData = (const char*) configFile.lookup("Data.trainData");
+            hp.trainLabels = (const char*) configFile.lookup("Data.trainLabels");
+            hp.testData = (const char*) configFile.lookup("Data.testData");
+            hp.testLabels = (const char*) configFile.lookup("Data.testLabels");
+            hp.numLabeled = m_nData;//configFile.lookup("Data.numLabeled");
+            hp.numClasses = configFile.lookup("Data.numClasses");
+
+            // TREE
+            hp.maxTreeDepth = configFile.lookup("Tree.maxDepth");
+            hp.bagRatio = configFile.lookup("Tree.bagRatio");
+            hp.numRandomFeatures = configFile.lookup("Tree.numRandomFeatures");
+            hp.numProjFeatures = configFile.lookup("Tree.numProjFeatures");
+            hp.useRandProj = configFile.lookup("Tree.useRandProj");
+            hp.useGPU = configFile.lookup("Tree.useGPU");
+            hp.useSubSamplingWithReplacement = configFile.lookup("Tree.subSampleWR");
+            hp.verbose = configFile.lookup("Tree.verbose");
+            hp.useInfoGain = configFile.lookup("Tree.useInfoGain");
+
+
+            // FOREST
+            hp.numTrees = configFile.lookup("Forest.numTrees");
+            hp.useSoftVoting = configFile.lookup("Forest.useSoftVoting");
+            hp.saveForest = configFile.lookup("Forest.saveForest");
+
+            std::cout<<"creating forest"<<std::endl;
+            m_Forest= new Forest(hp);
+            std::cout<<"training forest"<<std::endl;
+            m_Forest->train(m_TrainData.getData(),m_TrainData.getLabels(),m_weights);
+            std::cout<<"done"<<std::endl;
+            computeProbabilities();
+        };
+
+
     };
   
 }//namespace

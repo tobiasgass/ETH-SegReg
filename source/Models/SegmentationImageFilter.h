@@ -168,8 +168,12 @@ public:
         segmentation=graph.getSegmentationImage(mrfSolver.getLabels());
         if (D==2){
             segmentation=fixSegmentationImage(segmentation);
+            typedef itk::Image<unsigned char,D> OutImageType;
+            ImageUtils<OutImageType>::writeImage(m_config.segmentationOutputFilename, FilterUtils<ImageType,OutImageType>::cast(segmentation));
+
+        }else{
+            ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename, segmentation);
         }
-		ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename, segmentation);
 
         	
 	}
@@ -181,7 +185,7 @@ public:
         ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
         hash_map<int, int> map;
         for (imageIt2.GoToBegin(),imageIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++imageIt2){
-            imageIt2.Set(imageIt.Get()*std::numeric_limits<PixelType>::max());
+            imageIt2.Set(imageIt.Get()*255);//std::numeric_limits<PixelType>::max());
         }
         return newImage;
     }

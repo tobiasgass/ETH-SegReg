@@ -27,7 +27,8 @@ int main(int argc, char ** argv)
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
+    //    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
 	typedef SegmentationImageFilter<ImageType,
         LabelMapperType,
         SegmentationUnaryPotentialType    > FilterType;

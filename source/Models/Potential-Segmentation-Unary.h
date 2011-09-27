@@ -107,9 +107,10 @@ namespace itk{
             int i1=this->m_fixedImage->GetPixel(idx1);
             int i2=this->m_fixedImage->GetPixel(idx2);
             double intensityDiff=(i1-i2)*(i1-i2);
-            //edgeWeight=(s1 < s2) ? 1.0 : exp( - 20* (edgeWeight/this->m_gradientSigma) );
+            edgeWeight=(s1 < s2) ? 1.0 : exp( - 40* (edgeWeight/this->m_gradientSigma) );
+            //edgeWeight=(s1 < s2) ? 1.0 : exp( - 0.05* edgeWeight );
             //edgeWeight= exp( - 0.5 * 0.5*(edgeWeight/this->m_gradientSigma) +intensityDiff/this->m_Sigma);
-            edgeWeight= 0.5 * 0.5*(edgeWeight/this->m_gradientSigma +intensityDiff/this->m_Sigma);
+            //edgeWeight= 0.5 * 0.5*(edgeWeight/this->m_gradientSigma +intensityDiff/this->m_Sigma);
             //edgeWeight= 0.5 * (edgeWeight/this->m_gradientSigma);
             //edgeWeight= 1;//0.5 * intensityDiff/this->m_Sigma;
             return edgeWeight;
@@ -301,14 +302,14 @@ namespace itk{
                 else if (imageIntensity < bone) 
                     segmentationProb = 0.69; //log (0.5);
                 else
-                    segmentationProb = 0;
+                    segmentationProb = 0.00000001;
             }else{
                 if ((imageIntensity >  bone)  && s>128)
                     segmentationProb = fabs(imageIntensity-bone);
                 else if (imageIntensity >tissue)
                     segmentationProb =0.69 ;
                 else
-                    segmentationProb = 0;
+                    segmentationProb = 0.00000001;
                 
                 //            if (segmentationLabel>0) {
                 //                segmentationProb = (imageIntensity < (-500+1000)*255.0/2000 ) ? 1 : 0;
@@ -316,6 +317,29 @@ namespace itk{
                 //                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000 ) && ( s > 128 ) ? 1 : 0;
             }
             return segmentationProb;
+        }
+
+        virtual double getWeight(IndexType idx1, IndexType idx2){
+            int s1=this->m_sheetnessImage->GetPixel(idx1);
+            int s2=this->m_sheetnessImage->GetPixel(idx2);
+            double edgeWeight=fabs(s1-s2);
+            //edgeWeight*=edgeWeight;
+
+            int i1=this->m_fixedImage->GetPixel(idx1);
+            int i2=this->m_fixedImage->GetPixel(idx2);
+            double intensityDiff=(i1-i2)*(i1-i2);
+            edgeWeight=(s1 < s2) ? 0.99999999 : exp( - 2*(edgeWeight) );
+            //edgeWeight=(s1 < s2) ? 1.0 : exp( - 0.05* edgeWeight );
+            //edgeWeight= exp( - 0.5 * 0.5*(edgeWeight/this->m_gradientSigma) +intensityDiff/this->m_Sigma);
+            //edgeWeight= 0.5 * 0.5*(edgeWeight/this->m_gradientSigma +intensityDiff/this->m_Sigma);
+            //edgeWeight= 0.5 * (edgeWeight/this->m_gradientSigma);
+            //edgeWeight= 1;//0.5 * intensityDiff/this->m_Sigma;
+#if 0
+            edgeWeight=1-edgeWeight;
+            if (edgeWeight<=0) edgeWeight=0.00001;
+            edgeWeight=-log(edgeWeight);
+#endif
+            return edgeWeight;
         }
     };
 
@@ -371,10 +395,13 @@ namespace itk{
 
         typedef TClassifier ClassifierType;
         typedef typename ClassifierType::Pointer ClassifierPointerType;
+
+        typedef SmoothnessClassifierGradient<ImageType> SmoothnessClassifierType;
     protected:
         ConstImagePointerType m_deformationPrior;
         double m_alpha;
         ClassifierPointerType m_classifier;
+        typename SmoothnessClassifierType::Pointer m_smoothingClassifier;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -384,6 +411,10 @@ namespace itk{
         void SetClassifier( ClassifierPointerType  c){
             m_classifier=c;
         }
+        void SetSmoothnessClassifier( typename SmoothnessClassifierType::Pointer smoothingClassifier){
+            m_smoothingClassifier=smoothingClassifier;
+        }
+        
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
             double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
@@ -421,6 +452,32 @@ namespace itk{
             return result;
 #endif
         }
+
+        virtual double getWeight(IndexType idx1, IndexType idx2){
+            int s1=this->m_sheetnessImage->GetPixel(idx1);
+            int s2=this->m_sheetnessImage->GetPixel(idx2);
+            double sheetnessDiff=fabs(s1-s2);
+            int i1=this->m_fixedImage->GetPixel(idx1);
+            int i2=this->m_fixedImage->GetPixel(idx2);
+            double intensityDiff=fabs(i1-i2);
+            double prob=m_smoothingClassifier->px_l(intensityDiff,0,sheetnessDiff);
+            //std::cout<<intensityDiff<<" "<<sheetnessDiff<<" "<<prob<<" "<<-log(prob)<<endl;
+            return -log(prob);
+#if 0
+            edgeWeight*=edgeWeight;
+
+            int i1=this->m_fixedImage->GetPixel(idx1);
+            int i2=this->m_fixedImage->GetPixel(idx2);
+            double intensityDiff=(i1-i2)*(i1-i2);
+            edgeWeight= exp( -  (edgeWeight/this->m_gradientSigma) );
+            //edgeWeight=(s1 < s2) ? 1.0 : exp( - 0.05* edgeWeight );
+            //edgeWeight= exp( - 0.5 * 0.5*(edgeWeight/this->m_gradientSigma) +intensityDiff/this->m_Sigma);
+            edgeWeight=1-edgeWeight;
+            if (edgeWeight<=0) edgeWeight=0.00001;
+            return -log(edgeWeight);
+#endif
+        }
+      
     };
 }//namespace
 #endif /* POTENTIALS_H_ */
