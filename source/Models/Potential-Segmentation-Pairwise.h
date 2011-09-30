@@ -151,20 +151,17 @@ namespace itk{
         virtual void SetReferenceImage(ConstImagePointerType im){
             m_referenceImage=im;
         }
+        ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
-            if (label1!=label2){
-                int s1=this->m_sheetnessImage->GetPixel(idx1);
-                int s2=this->m_sheetnessImage->GetPixel(idx2);
-                double sheetnessDiff=fabs(s1-s2);
-                int i1=this->m_fixedImage->GetPixel(idx1);
-                int i2=this->m_fixedImage->GetPixel(idx2);
-                double intensityDiff=fabs(i1-i2);
-                double prob=m_classifier->px_l(intensityDiff,0,sheetnessDiff);
-                //std::cout<<intensityDiff<<" "<<sheetnessDiff<<" "<<prob<<" "<<-log(prob)<<endl;
-                return -log(prob);
-            }else{
-                return 0;
-            }
+            int s1=this->m_sheetnessImage->GetPixel(idx1);
+            int s2=this->m_sheetnessImage->GetPixel(idx2);
+            double sheetnessDiff=fabs(s1-s2);
+            int i1=this->m_fixedImage->GetPixel(idx1);
+            int i2=this->m_fixedImage->GetPixel(idx2);
+            double intensityDiff=fabs(i1-i2);
+            double prob=m_classifier->px_l(intensityDiff,label1==label2,sheetnessDiff);
+            //std::cout<<intensityDiff<<" "<<sheetnessDiff<<" "<<prob<<" "<<-log(prob)<<endl;
+            return -log(prob);
         }
       
     };//class

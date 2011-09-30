@@ -22,7 +22,7 @@ namespace itk{
              class TUnaryRegistrationFunction, 
              class TPairwiseRegistrationFunction, 
              class TUnarySegmentationFunction, 
-      class TPairwiseSegmentationFunction,
+             class TPairwiseSegmentationFunction,
              class TPairwiseSegmentationRegistrationFunction,
              class TLabelMapper>
     class GraphModel: public itk::Object{
@@ -336,12 +336,12 @@ namespace itk{
         }
 
         
-	inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
-	  IndexType imageIndex1=getImageIndex(nodeIndex1);
-	  IndexType imageIndex2=getImageIndex(nodeIndex2);
-	  double result=m_pairwiseSegFunction->getPotential(imageIndex1,imageIndex2,label1, label2)/m_nSegEdges;
-	  return result;
-	}
+        inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
+            IndexType imageIndex1=getImageIndex(nodeIndex1);
+            IndexType imageIndex2=getImageIndex(nodeIndex2);
+            double result=m_pairwiseSegFunction->getPotential(imageIndex1,imageIndex2,label1, label2)/m_nSegEdges;
+            return result;
+        }
         inline double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);

@@ -215,7 +215,7 @@ namespace itk{
             pairwiseSegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
             pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
             pairwiseSegmentationPot->Init();
-	    
+            unarySegmentationPot->SetSmoothnessClassifier(pairwiseSegmentationPot->GetClassifier());
 #endif
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
         
@@ -252,7 +252,7 @@ namespace itk{
 
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config.scale);
-                int exponent=m_config.nLevels-l-1;
+                int exponent=m_config.nLevels-l;
                 if (m_config.downScale)
                     exponent--;
                 double reductionFactor=pow(mantisse,exponent);
@@ -529,7 +529,7 @@ namespace itk{
         LabelImagePointerType bSplineInterpolateLabelImage(LabelImagePointerType labelImg, ConstImagePointerType reference){
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
             LabelImagePointerType fullLabelImage;
-#if 0
+#if 1
             const unsigned int SplineOrder = 3;
             typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
             typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
