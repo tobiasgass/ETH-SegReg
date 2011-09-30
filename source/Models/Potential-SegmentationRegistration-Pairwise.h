@@ -223,7 +223,7 @@ namespace itk{
                 }
             }
 #else
- if (deformedAtlasSegmentation>0){
+            if (deformedAtlasSegmentation>0){
                 
                if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
                     //distanceToDeformedSegmentation= 1;

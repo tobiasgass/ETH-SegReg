@@ -426,7 +426,7 @@ namespace itk{
                         //cout<<floor(i/10)<<" "<<26*floor(j/10)<<" "<<floor(i/10) + 26*floor(j/10)<<" "<<m_jointCounts[floor(i/10) + 26*floor(j/10)]<<" "<<p_x2<<endl;
                         double p=conf(c,s) ;/// p_s  * p_x2 ; 
 
-#if 0
+#if 1
                         int bone=(300+1000)*255.0/2000;
                         int tissue=(-500+1000)*255.0/2000;
                         double segmentationProb=1;
@@ -938,11 +938,11 @@ namespace itk{
             ImageIterator.GoToBegin();
             this->m_counts= std::vector<int>(2,0);
             //this->m_intensCounts= std::vector<int>(this->m_nIntensities,0);
-            for (;!ImageIterator.IsAtEnd(),i<maxTrain ;
+            for (;!ImageIterator.IsAtEnd()&&i<maxTrain ;
                  ++ImageIterator)
                 {
                     typename ImageType::IndexType idx=ImageIterator.GetIndex();
-                    for ( int d=0;d<ImageType::ImageDimension;++d){
+                    for ( int d=0;d<ImageType::ImageDimension && i<maxTrain;++d){
                         typename ImageType::OffsetType off;
                         off.Fill(0);
                         if ((int)idx[d]<(int)intensities->GetLargestPossibleRegion().GetSize()[d]-1){
@@ -992,7 +992,7 @@ namespace itk{
                     data(c,0)=i;
                     data(c,1)=j;
                     
-                    labelVector[c]=0;
+                    labelVector[c]=i>0;
                 }
             }
             std::cout<<"evaluating forest "<<std::endl;
@@ -1006,7 +1006,8 @@ namespace itk{
                         // p(s) = relative frequency
                         double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
                         double p=conf(c,s) ;/// p_s  * p_x2 ; 
-                        p=p>=0?p:0.0000001;
+                        //std::cout<<p<<std::endl;
+                        p=p>0?p:0.0000001;
                         this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p;
                     }
                 }
@@ -1019,7 +1020,8 @@ namespace itk{
         }
         virtual double px_l(float intensityDiff,int label, int gradientDiff){
             //            cout<<intensityDiff<<" "<<label<<" "<<gradientDiff<<endl;
-            return this->m_probs[(label>0)*this->m_nIntensities*this->m_nIntensities+intensityDiff*this->m_nIntensities+gradientDiff];
+            double prob=this->m_probs[(label>0)*this->m_nIntensities*this->m_nIntensities+intensityDiff*this->m_nIntensities+gradientDiff];
+            return prob;
         }
         virtual void evalImage(ImageConstPointerType im, ImageConstPointerType gradient){
             ImagePointerType result0=ImageUtils<ImageType>::createEmpty(im);

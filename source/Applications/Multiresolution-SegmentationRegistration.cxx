@@ -11,7 +11,9 @@
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
+#include "Potential-Segmentation-Pairwise.h"
 #include "Potential-SegmentationRegistration-Pairwise.h"
+
 
 using namespace std;
 using namespace itk;
@@ -36,8 +38,12 @@ int main(int argc, char ** argv)
     //typedef SegmentationClassifier<ImageType> ClassifierType;
     typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     //typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+
+    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+
+    typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration< LabelMapperType, ImageType > SegmentationRegistrationPairwisePotentialType;
@@ -45,6 +51,7 @@ int main(int argc, char ** argv)
         LabelMapperType,
         RegistrationUnaryPotentialType,
         SegmentationUnaryPotentialType,
+        SegmentationPairwisePotentialType,
         RegistrationPairwisePotentialType,
         SegmentationRegistrationPairwisePotentialType>        FilterType;
     

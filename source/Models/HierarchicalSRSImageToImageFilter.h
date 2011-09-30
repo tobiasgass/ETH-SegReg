@@ -1,4 +1,4 @@
-/*less
+/*
  * HierarchicalSRSImageToImageFilter.h
  *
  *  Created on: Apr 12, 2011
@@ -61,7 +61,7 @@ namespace itk{
              class TLabelMapper,
              class TUnaryRegistrationPotential, 
              class TUnarySegmentationPotential,
-      class TPairwiseSegmentationPotential,
+             class TPairwiseSegmentationPotential,
              class TPairwiseRegistrationPotential,
              class TPairwiseSegmentationRegistrationPotential>
     class HierarchicalSRSImageToImageFilter: public itk::ImageToImageFilter<TImage,TImage>{
@@ -104,13 +104,13 @@ namespace itk{
     
         typedef TUnaryRegistrationPotential UnaryRegistrationPotentialType;
         typedef TUnarySegmentationPotential UnarySegmentationPotentialType;
-	typedef TPairwiseSegmentationPotential PairwiseSegmentationPotentialType;
-	typedef TPairwiseRegistrationPotential PairwiseRegistrationPotentialType;
+        typedef TPairwiseSegmentationPotential PairwiseSegmentationPotentialType;
+        typedef TPairwiseRegistrationPotential PairwiseRegistrationPotentialType;
         typedef TPairwiseSegmentationRegistrationPotential PairwiseSegmentationRegistrationPotentialType; 
         typedef typename  UnaryRegistrationPotentialType::Pointer UnaryRegistrationPotentialPointerType;
         typedef typename  UnarySegmentationPotentialType::Pointer UnarySegmentationPotentialPointerType;
         typedef typename  UnaryRegistrationPotentialType::RadiusType RadiusType;
-	typedef typename  PairwiseSegmentationPotentialType::Pointer PairwiseSegmentationPointerType;
+        typedef typename  PairwiseSegmentationPotentialType::Pointer PairwiseSegmentationPotentialPointerType;
         typedef typename  PairwiseRegistrationPotentialType::Pointer PairwiseRegistrationPotentialPointerType;
         typedef typename  PairwiseSegmentationRegistrationPotentialType::Pointer PairwiseSegmentationRegistrationPotentialPointerType;
 
@@ -122,7 +122,7 @@ namespace itk{
                             UnaryRegistrationPotentialType,
                             PairwiseRegistrationPotentialType,
                             UnarySegmentationPotentialType,
-	                    PairwiseSegmentationpotentialType,
+                            PairwiseSegmentationPotentialType,
                             PairwiseSegmentationRegistrationPotentialType,
                             LabelMapperType> GraphModelType;
         typedef  typename itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
@@ -186,7 +186,7 @@ namespace itk{
             //instantiate potentials
             UnaryRegistrationPotentialPointerType unaryRegistrationPot=UnaryRegistrationPotentialType::New();
             UnarySegmentationPotentialPointerType unarySegmentationPot=UnarySegmentationPotentialType::New();
-	    PairwiseSegmentationPotentialPointerType pairwiseSegmentationPort=PairwiseSegmentationPotentialType::New();
+            PairwiseSegmentationPotentialPointerType pairwiseSegmentationPot=PairwiseSegmentationPotentialType::New();
             PairwiseRegistrationPotentialPointerType pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
             PairwiseSegmentationRegistrationPotentialPointerType pairwiseSegmentationRegistrationPot=PairwiseSegmentationRegistrationPotentialType::New();
 
@@ -206,15 +206,15 @@ namespace itk{
                 //classifier->evalImage(targetImage);
                 classifier->evalImage(targetImage,fixedGradientImage);
 
-	    }
+            }
             std::cout<<"returnedFromClassifier"<<std::endl;
             unarySegmentationPot->SetClassifier(classifier);
-            pairwiseSegmentationPot->SetFixedImage();
-	    pairwiseSegmentationPot->SetFixedGradient();
-	    pairwiseSegmentationPot->SetReferenceImage();
-	    pairwiseSegmentationPot->SetReferenceGradient();
-	    pairwiseSegmentationPot->SetReferenceSegmentation();
-	    pairwiseSegmentationPot->Init();
+            pairwiseSegmentationPot->SetFixedImage(targetImage);
+            pairwiseSegmentationPot->SetFixedGradient((ConstImagePointerType)fixedGradientImage);
+            pairwiseSegmentationPot->SetReferenceImage(movingImage);
+            pairwiseSegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
+            pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
+            pairwiseSegmentationPot->Init();
 	    
 #endif
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
@@ -252,7 +252,7 @@ namespace itk{
 
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config.scale);
-                int exponent=m_config.nLevels-l;
+                int exponent=m_config.nLevels-l-1;
                 if (m_config.downScale)
                     exponent--;
                 double reductionFactor=pow(mantisse,exponent);
@@ -336,7 +336,7 @@ namespace itk{
                 graph.setPairwiseRegistrationFunction(pairwiseRegistrationPot);
                 graph.setUnarySegmentationFunction(unarySegmentationPot);
                 graph.setPairwiseSegmentationRegistrationFunction(pairwiseSegmentationRegistrationPot);
-          
+                graph.setPairwiseSegmentationFunction(pairwiseSegmentationPot);
             
                 //resample the deformation from last iteration to the current image resolution.
                 if (scale!=oldscale){
@@ -529,7 +529,7 @@ namespace itk{
         LabelImagePointerType bSplineInterpolateLabelImage(LabelImagePointerType labelImg, ConstImagePointerType reference){
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
             LabelImagePointerType fullLabelImage;
-#if 1
+#if 0
             const unsigned int SplineOrder = 3;
             typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
             typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;

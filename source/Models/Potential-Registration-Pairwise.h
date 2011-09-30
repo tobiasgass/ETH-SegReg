@@ -68,8 +68,8 @@ namespace itk{
 			LabelType oldl2=m_baseLabelMap->GetPixel((fixedIndex2));
 			double d1,d2;
 			int delta;
-			displacement1+=oldl1;
-			displacement2+=oldl2;
+			//displacement1+=oldl1;
+			//displacement2+=oldl2;
 
 			for (unsigned int d=0;d<D;++d){
 
