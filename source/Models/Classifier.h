@@ -181,7 +181,7 @@ namespace itk{
             for (int i=0;i<m_nIntensities;++i){
                 for (int s=0;s<2;++s){
 
-                    double p_x=1.0/sqrt(2*3.14*m_variance)*exp(-0.5*(i-m_mean)*(i-m_mean)/m_variance);
+                    //double p_x=1.0/sqrt(2*3.14*m_variance)*exp(-0.5*(i-m_mean)*(i-m_mean)/m_variance);
                     m_probs[s*m_nIntensities+i]=conf(i,s)>0?conf(i,s):0.0000001;// / p_S[s] ;//*p_x;
                     if ( m_probs[s*m_nIntensities+i] <min)
                         min=m_probs[s*m_nIntensities+i];
@@ -426,7 +426,7 @@ namespace itk{
                         //cout<<floor(i/10)<<" "<<26*floor(j/10)<<" "<<floor(i/10) + 26*floor(j/10)<<" "<<m_jointCounts[floor(i/10) + 26*floor(j/10)]<<" "<<p_x2<<endl;
                         double p=conf(c,s) ;/// p_s  * p_x2 ; 
 
-#if 1
+#if 0
                         int bone=(300+1000)*255.0/2000;
                         int tissue=(-500+1000)*255.0/2000;
                         double segmentationProb=1;

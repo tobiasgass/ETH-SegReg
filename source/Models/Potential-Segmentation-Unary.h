@@ -427,9 +427,9 @@ namespace itk{
             //penalize only if prob <0.6
 #if 1
 #if 0
-            double prob=m_classifier->px_l(imageIntensity,s,!(segmentationLabel>0));
-            prob=prob>0.8?prob:0;
-            return prob;
+            double prob=1-m_classifier->px_l(imageIntensity,s,!(segmentationLabel>0));
+            if (prob<=0) prob=0.00000000001;
+            return -log(prob);
 #else
             //double prob=m_classifier->px_l(imageIntensity,(segmentationLabel>0));
             double prob=m_classifier->px_l(imageIntensity,(segmentationLabel>0),s);

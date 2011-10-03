@@ -59,7 +59,7 @@ namespace itk{
         bool m_haveLabelMap;
         double m_asymm;
         FloatImagePointerType m_distanceTransform;
-        double sigma1, sigma2;
+        double sigma1, sigma2, mean1, mean2, m_threshold;
         int m_nSegmentationLabels;
     public:
         /** Method for creation through the object factory. */
@@ -70,6 +70,7 @@ namespace itk{
         PairwisePotentialSegmentationRegistration(){
             m_haveLabelMap=false;
             m_asymm=1;
+            m_threshold=9999999999.0;
         }
         virtual void freeMemory(){
         }
@@ -101,6 +102,7 @@ namespace itk{
             filter->SetInput(dt);
             filter->Update();
             sigma1=filter->GetSigma();
+            mean1=filter->GetMean();
             cout<<"distance transform main segmentation sigma :"<<sigma1<<endl;
 
         }
@@ -111,9 +113,12 @@ namespace itk{
             filter->SetInput(dt);
             filter->Update();
             sigma2=filter->GetSigma();
+            mean2=fabs(filter->GetMean());
             cout<<"distance transform background segmentation sigma :"<<sigma2<<endl;
         }
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
+        
+        void SetThreshold(double t){m_threshold=t;}
 
 #if 0        //edge from  segmentation to Registration
         virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
@@ -181,7 +186,7 @@ namespace itk{
 
      
 #if 0
-            if (deformedAtlasSegmentation!=segmentationLabel)
+mean1            if (deformedAtlasSegmentation!=segmentationLabel)
                 result=1;
             else
                 result=0;
@@ -212,13 +217,19 @@ namespace itk{
             }else{
                 if (segmentationLabel== m_nSegmentationLabels - 1){
                     //distanceToDeformedSegmentation= 1;
-                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//1;
+                    distanceToDeformedSegmentation=fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
+#if 1       
+                    if (distanceToDeformedSegmentation>m_threshold)
+                        result=99999999999;
+                    else
+#endif
+                        result=(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//1;
 
                 }else if (segmentationLabel ){
                     //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
+                    distanceToDeformedSegmentation= fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
+                    distanceToDeformedSegmentation=min(m_threshold,distanceToDeformedSegmentation);
+                    result=(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
 
                 }
             }

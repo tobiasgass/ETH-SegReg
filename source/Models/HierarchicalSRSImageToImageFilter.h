@@ -55,6 +55,7 @@
 #include "ChamferDistanceTransform.h"
 #include "itkCastImageFilter.h"
 #include "Classifier.h"
+#include "itkHausdorffDistanceImageFilter.h"
 
 namespace itk{
     template<class TImage, 
@@ -434,6 +435,23 @@ namespace itk{
                 
                     deformedImage=deformImage(downSampledReference,composedDeformation);
                     deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
+
+
+                    typedef itk::HausdorffDistanceImageFilter<ImageType, ImageType> HausdorffDistanceFilterType;
+                    typedef typename HausdorffDistanceFilterType::Pointer HDPointerType;
+                    HDPointerType hdFilter=HausdorffDistanceFilterType::New();
+                    ImagePointerType deformedForegroundSegmentation=FilterUtils<ImageType,ImageType>::binaryThresholding(deformedSegmentationImage,1.5,2.1);
+                    ImagePointerType foregroundSegmentation=FilterUtils<ImageType,ImageType>::binaryThresholding(segmentation,1.5,2.1);
+                    hdFilter->SetInput1(deformedForegroundSegmentation);
+                    hdFilter->SetInput2(foregroundSegmentation);
+                    hdFilter->Update();
+                    double mean=hdFilter->GetAverageHausdorffDistance();
+                    double maxAbsDistance=hdFilter->GetHausdorffDistance();
+                    cout<<"Distance statistics :"<<mean<<" "<<maxAbsDistance<<" "<<(mean+maxAbsDistance)/2<<endl;
+                    //pairwiseSegmentationRegistrationPot->SetThreshold((mean+maxAbsDistance)/2);
+                    pairwiseSegmentationRegistrationPot->SetThreshold((maxAbsDistance));
+                    
+
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config.displacementRescalingFactor;
                     if (m_config.verbose){

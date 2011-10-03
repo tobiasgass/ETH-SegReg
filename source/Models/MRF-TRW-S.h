@@ -163,13 +163,16 @@ public:
                     for (int l1=0;l1<nSegLabels;++l1){
                         for (int l2=0;l2<nSegLabels;++l2){
                             double lambda =(l1!=l2)*m_pairwiseSegmentationWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);
+#if 0
                             double lambda2=(l1!=l2)*m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i]);
 
                             if (lambda2!=lambda){
                                 cout<<l1<<" "<<l2<<" "<<lambda2<<" "<<lambda<<endl;
                             }
-
+#endif
                             Vseg[l1*nSegLabels+l2]=lambda;
+                            //std::cout<<                            Vseg[l1*nSegLabels+l2]<<endl;
+
                         }
                     }
                     m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));

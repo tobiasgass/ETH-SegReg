@@ -131,7 +131,7 @@ namespace itk{
             assert(this->m_referenceImage);
             m_classifier=ClassifierType::New();
             m_classifier->setNIntensities(256);
-            m_classifier->setData((ConstImagePointerType)m_referenceSegmentation,m_referenceImage,(ConstImagePointerType)m_referenceGradient);
+            m_classifier->setData( m_referenceImage,(ConstImagePointerType)m_referenceSegmentation,(ConstImagePointerType)m_referenceGradient);
             m_classifier->train();
         }
         virtual void Init(string filename){
