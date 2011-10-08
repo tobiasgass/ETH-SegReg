@@ -339,7 +339,7 @@ namespace itk{
         
     private:
         ConstImagePointerType m_segmentationPrior, m_atlasSegmentation;
-        double m_alpha;
+        double m_alpha,m_beta;
         NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
         SRSPotentialPointerType m_srsPotential;
         
@@ -364,7 +364,8 @@ namespace itk{
      
         void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
         void SetAlpha(double alpha){m_alpha=alpha;}
-       
+        void SetBeta(double beta){m_beta=beta;}
+        
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
             double result=0;
           
@@ -456,6 +457,8 @@ namespace itk{
                     if (sfm>0) result=0;
                     else result=1;
                 }
+                result=m_beta*result+this->m_alpha*segmentationPenalty/distanceSum;
+
             }
             //no correlation whatsoever
             else result=-log(0.5);

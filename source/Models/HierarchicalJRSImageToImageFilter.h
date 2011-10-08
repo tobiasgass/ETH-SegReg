@@ -374,14 +374,18 @@ namespace itk{
                 //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
                 cout<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
                 //setup registration potentials
-                m_unaryRegistrationPot->SetRadius(graph.getSpacing());
-                m_unaryRegistrationPot->SetFixedImage(downSampledTarget);
-                m_unaryRegistrationPot->SetMovingImage(downSampledReference);
-                m_unaryRegistrationPot->SetScale(scaling);
+                 unaryRegistrationPot->SetScale(scaling);
+                unaryRegistrationPot->SetRadius(graph.getSpacing());
+                unaryRegistrationPot->SetFixedImage(downSampledTarget);
+                unaryRegistrationPot->SetMovingImage(downSampledReference);
+                unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
+                unaryRegistrationPot->SetSegmentationPrior((ConstImagePointerType)segmentationPrior);
+                unaryRegistrationPot->SetBeta(m_config.simWeight);
+                unaryRegistrationPot->SetAlpha(alpha);
+              
+             
+                unaryRegistrationPot->Init();
 
-                m_unaryRegistrationPot->SetSegmentationPrior((ConstImagePointerType)segmentationPrior);
-                m_unaryRegistrationPot->SetAlpha(alpha);
-                m_unaryRegistrationPot->Init();
             
                 m_pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
                 //downSampledReferenceSegmentation=FilterUtils<ImageType>::NNResample((movingSegmentationImage),scaling);
@@ -419,7 +423,7 @@ namespace itk{
                     {
 
                         MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,//*exp(-i),
+                                                                     1,//*exp(-i),
                                                                      m_config.pairwiseRegistrationWeight, 
                                                                      0,
                                                                      0,
