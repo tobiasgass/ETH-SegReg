@@ -336,7 +336,7 @@ namespace itk{
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
     private:
         ConstImagePointerType m_segmentationPrior, m_atlasSegmentation;
-        double m_alpha;
+        double m_alpha,m_beta;
         NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
         
     public:
@@ -368,6 +368,7 @@ namespace itk{
             m_atlasSegmentationInterpolator->SetInputImage(m_atlasSegmentation);
         }
         void SetAlpha(double alpha){m_alpha=alpha;}
+        void SetBeta(double beta){m_beta=beta;}
         
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
             double result=0;
@@ -448,7 +449,7 @@ namespace itk{
                     if (sfm>0) result=0;
                     else result=1;
                 }
-                result=result+this->m_alpha*segmentationPenalty/distanceSum;
+                result=m_beta*result+this->m_alpha*segmentationPenalty/distanceSum;
             }
             //no correlation whatsoever
             else result=0.5;

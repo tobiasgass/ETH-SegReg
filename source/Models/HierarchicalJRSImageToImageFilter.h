@@ -295,6 +295,7 @@ namespace itk{
                 unaryRegistrationPot->SetMovingImage(downSampledReference);
                 unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
                 unaryRegistrationPot->SetSegmentationPrior((ConstImagePointerType)segmentationPrior);
+		unaryRegistrationPot->SetBeta(m_config.simWeight);
                 unaryRegistrationPot->SetAlpha(alpha);
               
              
@@ -335,7 +336,7 @@ namespace itk{
                     {
 
                         MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,//*exp(-i),
+                                                                     1,//*exp(-i),
                                                                      m_config.pairwiseRegistrationWeight, 
                                                                      0,
                                                                      0,
