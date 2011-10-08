@@ -20,6 +20,7 @@ using namespace std;
 namespace itk{
     template<class TImage, 
              class TUnarySegmentationFunction,
+             class TPairwiseSegmentationFunction,
              class TLabelMapper>
     class SegmentationGraphModel: public itk::Object{
     public:
@@ -42,7 +43,8 @@ namespace itk{
 
         typedef TUnarySegmentationFunction UnarySegmentationFunctionType;
         typedef typename UnarySegmentationFunctionType::Pointer UnarySegmentationFunctionPointerType;
-    
+         typedef TPairwiseSegmentationFunction PairwiseSegmentationFunctionType;
+        typedef typename PairwiseSegmentationFunctionType::Pointer PairwiseSegmentationFunctionPointerType;
         typedef int SegmentationLabelType;
         typedef typename itk::Image<SegmentationLabelType,ImageType::ImageDimension> SegmentationLabelImageType;
         typedef typename SegmentationLabelImageType::Pointer SegmentationLabelImagePointerType;
@@ -64,7 +66,8 @@ namespace itk{
         int m_nNodes,m_nVertices;
         int m_nEdges;
         UnarySegmentationFunctionPointerType m_unarySegFunction;
-  
+        PairwiseSegmentationFunctionPointerType m_pairwiseSegFunction;
+
         bool verbose;
         bool m_haveLabelMap;
         ConstImagePointerType m_fixedImage;
@@ -154,8 +157,10 @@ namespace itk{
                 std::cout<<imageIndex<<" " <<result<<std::endl;
             return result;
         };
-        double getPairwisePotential(int labelIndex1, int labelIndex2){
-            return 1.0*(labelIndex1!=labelIndex2);
+        double getPairwisePotential(int nodeIndex1, int nodeIndex2,int labelIndex1, int labelIndex2){
+            IndexType imageIndex1=getImageIndex(nodeIndex1);
+            IndexType imageIndex2=getImageIndex(nodeIndex2);
+            return (labelIndex1!=labelIndex2)*m_pairwiseSegFunction->getPotential(imageIndex1,imageIndex2,labelIndex1, labelIndex2);
         }
         double getWeight(int nodeIndex1, int nodeIndex2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
@@ -212,6 +217,9 @@ namespace itk{
         }
         void setUnarySegmentationFunction(UnarySegmentationFunctionPointerType func){
             m_unarySegFunction=func;
+        }
+        void setPairwiseSegmentationFunction(PairwiseSegmentationFunctionPointerType func){
+            m_pairwiseSegFunction=func;
         }
     
         typename ImageType::DirectionType getDirection(){return m_fixedImage->GetDirection();}

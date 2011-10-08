@@ -331,7 +331,7 @@ namespace itk{
             //        if (true){ std::cout<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
             RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
             registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
-            return weight*m_pairwiseSegRegFunction->getBackwardPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+            return weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
         }
 
@@ -506,6 +506,13 @@ namespace itk{
         typename ImageType::DirectionType getDirection(){return m_fixedImage->GetDirection();}
 
         void setDisplacementFactor(double fac){m_DisplacementScalingFactor=fac;}
+        double getMaxDisplacementFactor(){
+            double maxSpacing=-1;
+            for (unsigned int d=0;d<m_dim;++d){
+                if (m_labelSpacing[d]>maxSpacing) maxSpacing=m_labelSpacing[d];
+            }
+            return maxSpacing*m_DisplacementScalingFactor;
+        }
         SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
         SpacingType getSpacing(){return m_gridSpacing;}	
         SpacingType getPixelSpacing(){return m_gridPixelSpacing;}

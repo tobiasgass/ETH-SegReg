@@ -142,6 +142,7 @@ namespace itk{
             
             //m_classifier->LoadProbs(filename);
         }
+        virtual void SetClassifier(ClassifierPointerType c){ m_classifier=c;}
         virtual void SetReferenceSegmentation(ConstImagePointerType im){
             m_referenceSegmentation=im;
         }

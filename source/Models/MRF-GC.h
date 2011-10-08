@@ -79,8 +79,8 @@ public:
 			for (int i=0;i<nNeighbours;++i){
 				assert(neighbours[i]<nNodes);
                 //                std::cout<<" edge " << m_pairwiseWeight*graph->getWeight(d,neighbours[i])<<" "<< m_pairwiseWeight*graph->getWeight(neighbours[i],d) << std::endl;
-                double lambda1=m_pairwiseWeight*graph->getWeight(d,neighbours[i]);
-                double lambda2=m_pairwiseWeight*graph->getWeight(neighbours[i],d);
+                double lambda1=m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],0,1);
+                double lambda2=m_pairwiseWeight*graph->getPairwisePotential(neighbours[i],d,1,0);
 				optimizer -> add_edge(d,neighbours[i],lambda1,lambda2);
 			}
 		}

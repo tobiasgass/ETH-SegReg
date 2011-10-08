@@ -11,6 +11,7 @@
 #include "itkObjectFactory.h"
 #include <utility>
 #include <itkStatisticsImageFilter.h>
+#include "Potential-SegmentationRegistration-Pairwise.h"
 
 namespace itk{
 
@@ -184,62 +185,7 @@ namespace itk{
 
     };//class
 
-    template<class TImage>
-    class UnaryPotentialSegmentationWithRegistrationPrior: public UnaryPotentialSegmentation<TImage>{
-    public:
-        //itk declarations
-        typedef UnaryPotentialSegmentationWithRegistrationPrior            Self;
-        typedef  UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
-
-        typedef	TImage ImageType;
-        typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-
-        typedef typename ImageType::IndexType IndexType;
-    protected:
-        ConstImagePointerType m_deformationPrior;
-        double m_alpha;
-    public:
-        /** Method for creation through the object factory. */
-        itkNewMacro(Self);
-        /** Standard part of every itk Object. */
-        itkTypeMacro(UnaryPotentialSegmentation, Object);
-        void SetDeformationPrior(ConstImagePointerType deformedSegmentation){
-            this->m_deformationPrior=deformedSegmentation;
-        }
-          
-        void SetAlpha(double alpha){this->m_alpha=alpha;}
-        
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            int s= this->m_sheetnessImage->GetPixel(fixedIndex);
-            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
-            double segmentationProb=1;
-#if 0
-            if (segmentationLabel>=1) {
-                segmentationProb = (imageIntensity < 85 || imageIntensity>170  ) ? 1 : 0;
-            }
-            else{
-                segmentationProb =  (imageIntensity > 85 && imageIntensity<170  )  ? 1 : 0;
-            }
-#else
-            if (segmentationLabel>0) {
-                segmentationProb = (imageIntensity < -500 ) ? 1 : 0;
-            }else{
-                segmentationProb = ( imageIntensity > 300) && ( s > 0 ) ? 1 : 0;
-            }
-#endif
-            int deformedSegmentationPenalty=0;
-            if (this->m_deformationPrior)
-                deformedSegmentationPenalty=(segmentationLabel!=this->m_deformationPrior->GetPixel(fixedIndex));
-            //std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<" "<<this->m_alpha*deformedSegmentationPenalty<<std::endl;
-            return segmentationProb+this->m_alpha*deformedSegmentationPenalty;
-        }
-
-    };//class
-
-
+ 
 
     template<class TImage>
     class UnaryPotentialSegmentationProb: public UnaryPotentialSegmentation<TImage>{
@@ -343,43 +289,6 @@ namespace itk{
         }
     };
 
-    template<class TImage>
-    class UnaryPotentialSegmentationUnsignedBoneWithPrior: public UnaryPotentialSegmentationUnsignedBone<TImage> {
-    public:
-        //itk declarations
-        typedef UnaryPotentialSegmentationUnsignedBoneWithPrior            Self;
-        typedef UnaryPotentialSegmentationUnsignedBone<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
-        
-        typedef TImage ImageType;
-        typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-    protected:
-        ConstImagePointerType m_deformationPrior;
-        double m_alpha;
-    public:
-        /** Method for creation through the object factory. */
-        itkNewMacro(Self);
-        /** Standard part of every itk Object. */
-        itkTypeMacro(UnaryPotentialSegmentationUnsignedBoneWithPrior, Object);
-          
-
-        void SetDeformationPrior(ConstImagePointerType deformedSegmentation){
-            this->m_deformationPrior=deformedSegmentation;
-        }
-          
-        void SetAlpha(double alpha){this->m_alpha=alpha;}     
-          
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double origPotential=Superclass::getPotential(fixedIndex,segmentationLabel);
-            double priorPotential=0;
-            if (this->m_deformationPrior)
-                priorPotential=(segmentationLabel!=this->m_deformationPrior->GetPixel(fixedIndex));
-            return origPotential+m_alpha*priorPotential;
-        }
-    };
-
     template<class TImage, class TClassifier>
     class UnaryPotentialSegmentationClassifier: public UnaryPotentialSegmentation<TImage> {
     public:
@@ -395,13 +304,11 @@ namespace itk{
 
         typedef TClassifier ClassifierType;
         typedef typename ClassifierType::Pointer ClassifierPointerType;
-
-        typedef SmoothnessClassifierGradient<ImageType> SmoothnessClassifierType;
+        
     protected:
         ConstImagePointerType m_deformationPrior;
         double m_alpha;
         ClassifierPointerType m_classifier;
-        typename SmoothnessClassifierType::Pointer m_smoothingClassifier;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -411,10 +318,7 @@ namespace itk{
         void SetClassifier( ClassifierPointerType  c){
             m_classifier=c;
         }
-        void SetSmoothnessClassifier( typename SmoothnessClassifierType::Pointer smoothingClassifier){
-            m_smoothingClassifier=smoothingClassifier;
-        }
-        
+     
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
             double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
@@ -433,7 +337,7 @@ namespace itk{
 #else
             //double prob=m_classifier->px_l(imageIntensity,(segmentationLabel>0));
             double prob=m_classifier->px_l(imageIntensity,(segmentationLabel>0),s);
-                //            if (prob<=0) prob=0.00000000001;
+            //            if (prob<=0) prob=0.00000000001;
             //if (segmentationLabel && prob<0.5) prob=0.5;
             return -log(prob);
 #endif
@@ -454,30 +358,60 @@ namespace itk{
         }
 
         virtual double getWeight(IndexType idx1, IndexType idx2){
-            int s1=this->m_sheetnessImage->GetPixel(idx1);
-            int s2=this->m_sheetnessImage->GetPixel(idx2);
-            double sheetnessDiff=fabs(s1-s2);
-            int i1=this->m_fixedImage->GetPixel(idx1);
-            int i2=this->m_fixedImage->GetPixel(idx2);
-            double intensityDiff=fabs(i1-i2);
-            double prob=m_smoothingClassifier->px_l(intensityDiff,0,sheetnessDiff);
-            //std::cout<<intensityDiff<<" "<<sheetnessDiff<<" "<<prob<<" "<<-log(prob)<<endl;
-            return -log(prob);
-#if 0
-            edgeWeight*=edgeWeight;
-
-            int i1=this->m_fixedImage->GetPixel(idx1);
-            int i2=this->m_fixedImage->GetPixel(idx2);
-            double intensityDiff=(i1-i2)*(i1-i2);
-            edgeWeight= exp( -  (edgeWeight/this->m_gradientSigma) );
-            //edgeWeight=(s1 < s2) ? 1.0 : exp( - 0.05* edgeWeight );
-            //edgeWeight= exp( - 0.5 * 0.5*(edgeWeight/this->m_gradientSigma) +intensityDiff/this->m_Sigma);
-            edgeWeight=1-edgeWeight;
-            if (edgeWeight<=0) edgeWeight=0.00001;
-            return -log(edgeWeight);
-#endif
+            assert(false);
+            return -1;
         }
       
     };
+
+  
+
+    template<class TImage, class TClassifier>
+    class UnaryPotentialSegmentationClassifierWithPrior: 
+        public UnaryPotentialSegmentationClassifier<TImage,TClassifier>  
+    {
+    public:
+        //itk declarations
+        typedef UnaryPotentialSegmentationClassifierWithPrior            Self;
+        typedef UnaryPotentialSegmentationClassifier<TImage,TClassifier> UnarySuperclass;
+
+
+        
+        
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef TClassifier ClassifierType;
+        typedef typename ClassifierType::Pointer ClassifierPointerType;
+
+        typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
+        typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
+        
+    protected:
+        double m_alpha;
+        SRSPotentialPointerType m_srsPotential;
+        itk::Vector<float,ImageType::ImageDimension> zeroDisplacement;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialSegmentationClassifier, Object);
+
+        UnaryPotentialSegmentationClassifierWithPrior(){
+            zeroDisplacement.Fill(0.0);
+        }
+        void SetAlpha(double alpha){this->m_alpha=alpha;}     
+        void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
+        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
+            double origPotential=UnarySuperclass::getPotential(fixedIndex,segmentationLabel);
+            
+            double priorPotential=m_srsPotential->getPotential(fixedIndex,fixedIndex,zeroDisplacement,segmentationLabel);
+            return origPotential+m_alpha*priorPotential;
+        }
+    };
+
 }//namespace
 #endif /* POTENTIALS_H_ */

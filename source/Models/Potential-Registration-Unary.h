@@ -16,7 +16,7 @@
 #include "itkConstNeighborhoodIterator.h"
 #include <itkVectorLinearInterpolateImageFunction.h>
 #include <itkVectorResampleImageFilter.h>
-
+#include "Potential-SegmentationRegistration-Pairwise.h"
 namespace itk{
 
 
@@ -99,9 +99,9 @@ namespace itk{
         virtual void freeMemory(){
         }
         void SetScale(double s){
-            m_scale=s;
-            m_scaleITK.Fill(s); 
-            m_invertedScaleITK.Fill(1.0/s);
+            this->m_scale=s;
+            this->m_scaleITK.Fill(s); 
+            this->m_invertedScaleITK.Fill(1.0/s);
         }
         void SetRadius(SpacingType sp){
             for (int d=0;d<ImageType::ImageDimension;++d){
@@ -225,7 +225,7 @@ namespace itk{
                 }
             }
             //no correlation whatsoever
-            else result=0.5;
+            else result=-log(0.5);
             //result=result>0.5?0.5:result;
             return result;
         }
@@ -334,48 +334,46 @@ namespace itk{
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
+        typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
+        
     private:
         ConstImagePointerType m_segmentationPrior, m_atlasSegmentation;
         double m_alpha;
         NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
+        SRSPotentialPointerType m_srsPotential;
         
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
-        itkTypeMacro(RegistrationUnaryPotentialSAD, Object);
+        itkTypeMacro(UnaryPotentialRegistrationNCCWithSegmentationPrior, Object);
 
-        UnaryPotentialRegistrationNCCWithSegmentationPrior(){}
+      
         
         void SetSegmentationPrior(ConstImagePointerType prior){
             if (prior){
                 if (this->m_scale!=1.0){
-                    m_segmentationPrior=FilterUtils<ImageType>::LinearResample((prior),this->m_scale);
+                    m_segmentationPrior=FilterUtils<ImageType>::NNResample((prior),this->m_scale);
                 }else{
                     m_segmentationPrior=prior;  
             
-                }}
-        }
-        void SetAtlasSegmentation(ConstImagePointerType atlas){
-            if (this->m_scale!=1.0){
-                m_atlasSegmentation=FilterUtils<ImageType>::LinearResample((atlas),this->m_scale);
-            }else{
-                m_atlasSegmentation=atlas;
-            
+                }
             }
-          
-            m_atlasSegmentationInterpolator=NNInterpolatorType::New();
-            m_atlasSegmentationInterpolator->SetInputImage(m_atlasSegmentation);
         }
+     
+        void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
         void SetAlpha(double alpha){m_alpha=alpha;}
-        
+       
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
             double result=0;
-
+          
+            LabelType trueDisplacement=disp;
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 fixedIndex[d]*=this->m_scale;
             }
             LabelType baseDisp=this->m_baseLabelMap->GetPixel(fixedIndex);
+            //disp+=baseDisp;
             //std::cout<<baseDisp<<" "<<disp<<std::endl;
             baseDisp*=this->m_scale;
             disp*=this->m_scale;
@@ -393,8 +391,10 @@ namespace itk{
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+                    LabelType baseDisplacement=this->m_baseLabelMap->GetPixel(neighborIndex);
+                    LabelType finalDisplacement=disp+baseDisplacement*this->m_scale;
+                    
+                    idx2+=finalDisplacement;
 
                     //cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
@@ -422,18 +422,20 @@ namespace itk{
                     sf+=f;
                     sm+=m;
                     count+=1;
-                    double weight=1.0;
-                    //                    for (unsigned int d=0;d<D;++d){
-                    //    weight*=1.0-fabs((1.0*fixedIndex[d]-neighborIndex[d])/(this->m_radius[d]));
-                    // }
-                    weight=1.0;
-                    if (this->m_segmentationPrior && m_alpha>0){
-                        int deformedAtlasSegmentationLabel=(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0);
-                        int segmentationPriorLabel=(this->m_segmentationPrior->GetPixel(neighborIndex)>0);
-                        segmentationPenalty+=weight*(deformedAtlasSegmentationLabel!=segmentationPriorLabel);
-                        // cout<<this->m_segmentationPrior->GetLargestPossibleRegion().GetSize()<<" "<<neighborIndex<<" "<<fixedIndex<<" "<<idx2<<" "<<m_atlasSegmentation->GetLargestPossibleRegion().GetSize()<<" "<<deformedAtlasSegmentationLabel<<" "<<segmentationPriorLabel<<endl;
+                    if (this->m_segmentationPrior && this->m_alpha>0){
+                        double weight=1.0;
+                        IndexType trueIndex=neighborIndex;
+                        for (unsigned int d=0;d<D;++d){
+                            weight*=1.0-fabs((1.0*fixedIndex[d]-neighborIndex[d])/(this->m_radius[d]));
+                            trueIndex[d]/=this->m_scale;
+                        }
+                        int segmentationPriorLabel=(this->m_segmentationPrior->GetPixel(neighborIndex));
+                        //double penalty=weight*this->m_srsPotential->getPotential(neighborIndex,neighborIndex,disp,segmentationPriorLabel);
+                        double penalty=weight*this->m_srsPotential->getPotential(trueIndex,trueIndex,trueDisplacement+baseDisplacement,segmentationPriorLabel);
+                        segmentationPenalty+=penalty;
+                        //cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<" "<<segmentationPriorLabel<<" "<<penalty<<endl;
+                        distanceSum+=weight;
                     }
-                    distanceSum+=weight;
                 }
 
             }
@@ -442,19 +444,25 @@ namespace itk{
                 smm -= ( sm * sm / count );
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
-                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
+                    //result=(1-1.0*sfm/sqrt(smm*sff))/2;
+                    result=((1+1.0*sfm/sqrt(smm*sff))/2);
+                    result=result>0?result:0.00000001;
+                    result=-log(result);
+                    if (distanceSum){
+                        result=result+this->m_alpha*segmentationPenalty/distanceSum;
+                    }
                 }
                 else {
                     if (sfm>0) result=0;
                     else result=1;
                 }
-                result=result+this->m_alpha*segmentationPenalty/distanceSum;
             }
             //no correlation whatsoever
-            else result=0.5;
+            else result=-log(0.5);
             //result=result>0.5?0.5:result;
             return result;
         }
+
     };//class
     template<class TLabelMapper,class TImage>
     class UnaryPotentialRegistrationNCCWithBonePrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
@@ -586,8 +594,10 @@ namespace itk{
                         weight*=1.0-fabs((1.0*fixedIndex[d]-neighborIndex[d])/(this->m_radius[d]));
                     }
                     weight=1.0;
-                    segmentationPenalty+=weight*getSegmentationCost(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0,f, m_targetSheetness->GetPixel(neighborIndex));
-                    distanceSum+=weight;
+                    if (this->m_alpha){
+                        segmentationPenalty+=weight*getSegmentationCost(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0,f, m_targetSheetness->GetPixel(neighborIndex));
+                        distanceSum+=weight;
+                    }
                 }
 
             }
@@ -597,15 +607,19 @@ namespace itk{
                 smm -= ( sm * sm / count );
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
-                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
+                    //result=(1-1.0*sfm/sqrt(smm*sff))/2;
                     //result>thresh?thresh:result;
                     //result=-log((1.0*sfm/sqrt(smm*sff)+1)/2);
+                    result=((1+1.0*sfm/sqrt(smm*sff))/2);
+                    result=result>0?result:0.00000001;
+                    result=-log(result);
                 }
                 else {
                     if (sfm>0) result=0;
                     else result=1;
                 }
-                result=result+this->m_alpha*segmentationPenalty/distanceSum;
+                if (distanceSum)
+                    result=result+this->m_alpha*segmentationPenalty/distanceSum;
             }
             //no correlation whatsoever (-log(0.5))
             else result=0.693147;

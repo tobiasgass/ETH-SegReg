@@ -12,6 +12,8 @@
 #include "Potential-Registration-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-SegmentationRegistration-Pairwise.h"
+#include "Potential-Segmentation-Pairwise.h"
+#include "Classifier.h"
 
 using namespace std;
 using namespace itk;
@@ -29,13 +31,18 @@ int main(int argc, char ** argv)
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef UnaryPotentialSegmentationUnsignedBoneWithPrior< ImageType > SegmentationUnaryPotentialType;
+
+    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    typedef UnaryPotentialSegmentationClassifierWithPrior<ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
     typedef UnaryPotentialRegistrationNCCWithSegmentationPrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
   	typedef HierarchicalJRSImageToImageFilter<ImageType,
         LabelMapperType,
         RegistrationUnaryPotentialType,
         SegmentationUnaryPotentialType,
+        SegmentationPairwisePotentialType,
         RegistrationPairwisePotentialType >        FilterType;
     
 	//create filter
@@ -45,7 +52,7 @@ int main(int argc, char ** argv)
     filter->setMovingImage(ImageUtils<ImageType>::readImage(filterConfig.movingFilename));
     filter->setMovingSegmentation(ImageUtils<ImageType>::readImage(filterConfig.movingSegmentationFilename));
     filter->setFixedGradientImage(ImageUtils<ImageType>::readImage(filterConfig.fixedGradientFilename));
-
+    filter->setMovingGradientImage(ImageUtils<ImageType>::readImage(filterConfig.movingGradientFilename));
 	clock_t start = clock();
 	//DO IT!
 	filter->Update();

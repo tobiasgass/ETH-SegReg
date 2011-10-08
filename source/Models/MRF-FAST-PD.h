@@ -97,7 +97,7 @@ public:
 				for (int l1=0;l1<nLabels;++l1){
 					for (int l2=0;l2<nLabels;++l2){
 						//						std::cout<<pairIndex/2<<" "<<l1<< " "<<l2<<" "<<l1*nLabels+l2 + pairIndex/2*nLabels*nLabels<<std::endl;
-						pairwisePotentials[l1*nLabels+l2 + pairIndex/2*nLabels*nLabels]=m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
+						pairwisePotentials[l1*nLabels+l2 + pairIndex/2*nLabels*nLabels]=m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],l1,l2);
                     }
 				}
 			}

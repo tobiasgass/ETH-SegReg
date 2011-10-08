@@ -216,7 +216,7 @@ namespace itk{
             pairwiseSegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
             pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
             pairwiseSegmentationPot->Init();
-            unarySegmentationPot->SetSmoothnessClassifier(pairwiseSegmentationPot->GetClassifier());
+            
 #endif
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
         
@@ -231,24 +231,10 @@ namespace itk{
             //asm volatile("" ::: "memory");
             LabelImagePointerType deformation;
             ImagePointerType segmentation;
-            pairwiseSegmentationRegistrationPot->SetDistanceTransform(getDistanceTransform(movingSegmentationImage,m_config.nSegmentations-1));
             pairwiseSegmentationRegistrationPot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
-            if (m_config.nSegmentations>2)
-                pairwiseSegmentationRegistrationPot->SetBackgroundDistanceTransform(getDistanceTransform(movingSegmentationImage,1));
-            typedef typename itk::CastImageFilter<FloatImageType,ImageType> CasterType;
-            typename CasterType::Pointer caster=CasterType::New();
-          
-            caster->SetInput(pairwiseSegmentationRegistrationPot->GetDistanceTransform());
-            caster->Update();
-            ImagePointerType output=caster->GetOutput();
-            if (ImageType::ImageDimension==2){
-                ImageUtils<ImageType>::writeImage("dt.png",(output));    
-            }
-            if (ImageType::ImageDimension==3){
-                ImageUtils<ImageType>::writeImage("dt.nii",(output));
-            }
-            
+            pairwiseSegmentationRegistrationPot->SetReferenceSegmentation(movingSegmentationImage);
 
+          
             for (int l=0;l<m_config.nLevels;++l){
 
                 //compute scaling factor for downsampling the images in the registration potential
@@ -436,7 +422,7 @@ namespace itk{
                     deformedImage=deformImage(downSampledReference,composedDeformation);
                     deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
 
-
+#if 0
                     typedef itk::HausdorffDistanceImageFilter<ImageType, ImageType> HausdorffDistanceFilterType;
                     typedef typename HausdorffDistanceFilterType::Pointer HDPointerType;
                     HDPointerType hdFilter=HausdorffDistanceFilterType::New();
@@ -448,8 +434,11 @@ namespace itk{
                     double mean=hdFilter->GetAverageHausdorffDistance();
                     double maxAbsDistance=hdFilter->GetHausdorffDistance();
                     cout<<"Distance statistics :"<<mean<<" "<<maxAbsDistance<<" "<<(mean+maxAbsDistance)/2<<endl;
-                    //pairwiseSegmentationRegistrationPot->SetThreshold((mean+maxAbsDistance)/2);
-                    pairwiseSegmentationRegistrationPot->SetThreshold((maxAbsDistance));
+                    pairwiseSegmentationRegistrationPot->SetThreshold((mean+maxAbsDistance)/2);
+#endif
+      
+                    //pairwiseSegmentationRegistrationPot->SetThreshold(13);
+                    pairwiseSegmentationRegistrationPot->SetThreshold(max(10.0,10*graph.getMaxDisplacementFactor()));
                     
 
                     previousFullDeformation=composedDeformation;
@@ -506,13 +495,15 @@ namespace itk{
                 //            finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,1/scale);
                 finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,targetImage);
             }
+
+#if 0
             if (ImageType::ImageDimension==2){
                 ImageUtils<ImageType>::writeImage("dt-def.png",deformImage(output,finalDeformation));    
             }
             if (ImageType::ImageDimension==3){
                 ImageUtils<ImageType>::writeImage("dt-def.nii",deformImage(output,finalDeformation));
             }
-          
+#endif          
             
 
             ImagePointerType finalDeformedReference=deformImage(movingImage,finalDeformation);
@@ -773,31 +764,6 @@ namespace itk{
             return (ConstImagePointerType)newImage;
         }
         
-        FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage, int value){
-#if 0
-            typedef ChamferDistanceTransform<ImageType, FloatImageType> CDT;
-            CDT cdt;
-            return cdt.compute(segmentationImage, CDT::MANHATTEN, true);
-#else
-            typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;
-            typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
-            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
-            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
-            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
-            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                float val=imageIt.Get();
-                imageIt2.Set(val==value);
-                
-            }
-            distanceTransform->SetInput(newImage);
-            distanceTransform->SquaredDistanceOn ();
-            distanceTransform->UseImageSpacingOn();
-            distanceTransform->Update();
-            return distanceTransform->GetOutput();
-#endif
-        }
 
         ConstImagePointerType fixSegmentationImage(ConstImagePointerType segmentationImage, int nSegmentations){
             ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);

@@ -13,12 +13,12 @@
 #include "itkVector.h"
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
-
+#include "itkStatisticsImageFilter.h"
 namespace itk{
 
 
 
-    template<class TLabelMapper,class TImage>
+    template<class TImage>
     class PairwisePotentialSegmentationRegistration : public itk::Object{
     public:
         //itk declarations
@@ -32,8 +32,9 @@ namespace itk{
         typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
         typedef typename FloatImageType::Pointer FloatImagePointerType;
         
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename  itk::Vector<float,ImageType::ImageDimension>  LabelType;
+        typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
+        typedef typename LabelImageType::Pointer LabelImagePointerType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
@@ -45,7 +46,7 @@ namespace itk{
         typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
         typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        
         SizeType m_fixedSize,m_movingSize;
         typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
 
@@ -77,6 +78,7 @@ namespace itk{
         void SetNumberOfSegmentationLabels(int n){m_nSegmentationLabels=n;}
         void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
+        
         void SetMovingInterpolator(ImageInterpolatorPointerType movingImage){
             m_movingInterpolator=movingImage;
         }
@@ -86,6 +88,8 @@ namespace itk{
     	void SetMovingImage(ConstImagePointerType movingImage){
             m_movingImage=movingImage;
             m_movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
+            m_movingInterpolator=ImageInterpolatorType::New();
+            m_movingInterpolator->SetInput(m_movingImage,m_movingImage->GetLargestPossibleRegion());
         }
         void SetFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
@@ -118,6 +122,76 @@ namespace itk{
         }
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
         
+
+        void SetReferenceSegmentation(ConstImagePointerType segImage, double scale=1.0){
+            if (scale !=1.0 ){
+                segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
+            }
+            FloatImagePointerType dt1=getDistanceTransform(segImage, m_nSegmentationLabels - 1);
+            m_movingDistanceTransformInterpolator=FloatImageInterpolatorType::New();
+            m_movingDistanceTransformInterpolator->SetInputImage(dt1);
+            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+            filter->SetInput(dt1);
+            filter->Update();
+            sigma1=filter->GetSigma();
+            mean1=filter->GetMean();
+            
+            typedef typename itk::CastImageFilter<FloatImageType,ImageType> CasterType;
+            typename CasterType::Pointer caster=CasterType::New();
+            caster->SetInput(dt1);
+            caster->Update();
+            ImagePointerType output=caster->GetOutput();
+            if (ImageType::ImageDimension==2){
+                ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+            }
+            if (ImageType::ImageDimension==3){
+                ImageUtils<ImageType>::writeImage("dt1.nii",(output));
+            }
+            
+
+            if (m_nSegmentationLabels>2){
+                FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
+                m_movingBackgroundDistanceTransformInterpolator=FloatImageInterpolatorType::New();
+                m_movingBackgroundDistanceTransformInterpolator->SetInputImage(dt2);
+                filter->SetInput(dt2);
+                filter->Update();
+                sigma2=filter->GetSigma();
+                mean2=fabs(filter->GetMean());
+                caster->SetInput(dt2);
+                caster->Update();
+                ImagePointerType output=caster->GetOutput();
+                if (ImageType::ImageDimension==2){
+                    ImageUtils<ImageType>::writeImage("dt2.png",(output));    
+                }
+                if (ImageType::ImageDimension==3){
+                    ImageUtils<ImageType>::writeImage("dt2.nii",(output));
+                }
+            }
+
+            m_movingSegmentationInterpolator=SegmentationInterpolatorType::New();
+            //            m_movingSegmentationInterpolator->SetInputImage((ImagePointerType)(const_cast<ImageType* >(&(*segImage))),segImage->GetLargestPossibleRegion());
+            m_movingSegmentationInterpolator->SetInputImage(segImage);
+        }
+        FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage, int value){
+            typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;
+            typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
+            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
+            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
+            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
+            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
+            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
+                float val=imageIt.Get();
+                imageIt2.Set(val==value);
+                
+            }
+            distanceTransform->SetInput(newImage);
+            distanceTransform->SquaredDistanceOn ();
+            distanceTransform->UseImageSpacingOn();
+            distanceTransform->Update();
+            return distanceTransform->GetOutput();
+        }
+
         void SetThreshold(double t){m_threshold=t;}
 
 #if 0        //edge from  segmentation to Registration
@@ -126,17 +200,19 @@ namespace itk{
             ContinuousIndexType idx2(fixedIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
             idx2+= disp;
-            itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(fixedIndex2);
-            idx2+=baseDisp;
+            if (m_baseLabelMap){
+                itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(fixedIndex2);
+                idx2+=baseDisp;
+            }
             int deformedAtlasSegmentation=-1;
             double distanceToDeformedSegmentation;
-            if (!m_movingInterpolator->IsInsideBuffer(idx2)){
+            if (!m_movingSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
-                    if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
-                        idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+                    if (idx2[d]>=this->m_movingSegmentationInterpolator->GetEndContinuousIndex()[d]){
+                        idx2[d]=this->m_movingSegmentationInterpolator->GetEndContinuousIndex()[d]-0.5;
                     }
-                    else if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
-                        idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
+                    else if (idx2[d]<this->m_movingSegmentationInterpolator->GetStartContinuousIndex()[d]){
+                        idx2[d]=this->m_movingSegmentationInterpolator->GetStartContinuousIndex()[d]+0.5;
                     }
                 }
             }
@@ -153,67 +229,46 @@ namespace itk{
                 }
             }
           
-            //                result=1-(segmentationLabel==deformedAtlasSegmentation);
-            //            cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<displacement<<" "<<segmentationLabel<<" "<<deformedAtlasSegmentation<<" "<<idx2<<" "<<result<<endl;
             return result;
         }
 #endif
         //edge from registration to segmentation
-        inline virtual  double getBackwardPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
+        inline virtual  double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
             ContinuousIndexType idx2(fixedIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
             idx2+= disp;
-            itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(fixedIndex2);
-            idx2+=baseDisp;
+            if (m_baseLabelMap){
+                itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(fixedIndex2);
+                idx2+=baseDisp;
+            }
             int deformedAtlasSegmentation=-1;
             double distanceToDeformedSegmentation;
-            if (!m_movingInterpolator->IsInsideBuffer(idx2)){
+            if (!m_movingSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
-                    if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
-                        idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+                    if (idx2[d]>=this->m_movingSegmentationInterpolator->GetEndContinuousIndex()[d]){
+                        idx2[d]=this->m_movingSegmentationInterpolator->GetEndContinuousIndex()[d]-0.5;
                     }
-                    else if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
-                        idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
+                    else if (idx2[d]<this->m_movingSegmentationInterpolator->GetStartContinuousIndex()[d]){
+                        idx2[d]=this->m_movingSegmentationInterpolator->GetStartContinuousIndex()[d]+0.5;
                     }
                 }
             }
-            //deformedAtlasSegmentation=(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2))>0;
             deformedAtlasSegmentation=int(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
-            //            ContinuousIndexType idx3(fixedIndex2);
-
-            //cout<<m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx3)<<" "<<m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)<<" "<<(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0)<<" "<<int(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0)<<endl;
-
-     
-#if 0
-mean1            if (deformedAtlasSegmentation!=segmentationLabel)
-                result=1;
-            else
-                result=0;
-#else
-            result=0.0;
-#endif           
-#if 1
             if (deformedAtlasSegmentation>0){
-                
-               if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
-                    //distanceToDeformedSegmentation= 1;
+                if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
                     distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
                     result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//1;
-
+                    
                 }else if (segmentationLabel == 0 && deformedAtlasSegmentation ){
-                    //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
                     distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
                     result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
-
+                    
+                }
+                else if (deformedAtlasSegmentation!=segmentationLabel){
+                    result=fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1+sigma2)/2)+fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1+sigma2)/2);
                 }
                 
-
-               else if (deformedAtlasSegmentation!=segmentationLabel){
-                   result=fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1+sigma2)/2)+fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1+sigma2)/2);
-                }
-
-
             }else{
                 if (segmentationLabel== m_nSegmentationLabels - 1){
                     //distanceToDeformedSegmentation= 1;
@@ -224,52 +279,21 @@ mean1            if (deformedAtlasSegmentation!=segmentationLabel)
                     else
 #endif
                         result=(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//1;
-
                 }else if (segmentationLabel ){
-                    //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
                     distanceToDeformedSegmentation= fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
+#if 0
                     distanceToDeformedSegmentation=min(m_threshold,distanceToDeformedSegmentation);
+#endif
                     result=(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
 
                 }
             }
-#else
-            if (deformedAtlasSegmentation>0){
-                
-               if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
-                    //distanceToDeformedSegmentation= 1;
-                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/((sigma1));//1;
-
-                }else if (segmentationLabel == 0 && deformedAtlasSegmentation ){
-                    //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/((sigma2));//2;
-
-                }
-               else if (deformedAtlasSegmentation!=segmentationLabel){
-                   result=max(fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1)),fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma2)));
-                }
-
-
-            }else{
-                if (segmentationLabel== m_nSegmentationLabels - 1){
-                    //distanceToDeformedSegmentation= 1;
-                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/((sigma1));//1;
-
-                }else if (segmentationLabel ){
-                    //distanceToDeformedSegmentation= 1;//m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/((sigma2));//2;
-
-                }
-            }
-#endif
-
             return result;
         }
     };//class
+
+    
+
 
 }//namespace
 #endif /* POTENTIALS_H_ */
