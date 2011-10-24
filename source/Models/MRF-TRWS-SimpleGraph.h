@@ -86,13 +86,13 @@ public:
 			for (int i=0;i<nNeighbours;++i){
 				TRWType::REAL V[nLabels*nLabels];
 				TRWType::REAL V2[nLabels*nLabels];
-                double lambda=graph->getWeight(d,neighbours[i]);
-                double lambda2=graph->getWeight(neighbours[i],d);
+                double lambda=1;//graph->getWeight(d,neighbours[i]);
+                double lambda2=1;//graph->getWeight(neighbours[i],d);
 				for (int l1=0;l1<nLabels;++l1){
 					for (int l2=0;l2<nLabels;++l2){
-						V[l1+nLabels*l2]=lambda*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
+						V[l1+nLabels*l2]=lambda*m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],l1,l2);
                         //						V[l1+nLabels*l2+nLabels*nLabels]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
-                        V2[l1*nLabels+l2]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
+                        V2[l1*nLabels+l2]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(neighbours[i],d,l1,l2);
 					}
 				}
 #ifdef POTTS
@@ -206,7 +206,7 @@ public:
 			std::vector<int> neighbours= graph->getForwardNeighbours(d);
 			int nNeighbours=neighbours.size();
 			for (int i=0;i<nNeighbours;++i){
-                double l1=m_pairwiseWeight*graph->getWeight(d,i);
+                double l1=m_pairwiseWeight*graph->getPairwisePotential(d,i,1,0);
                 //double l2=m_pairwiseWeight*graph->getWeight(i,d);
                 TRWType::EdgeData edge(0,l1,l1,0);
                 //                TRWType::EdgeData edge2(0,l2,l2,0);

@@ -297,6 +297,7 @@ namespace itk{
             return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2)/m_nRegEdges;
         };
         double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
+            assert(false);
             IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             IndexType imageIndex=getImageIndex(nodeIndex2);
             //compute distance between center index and patch index

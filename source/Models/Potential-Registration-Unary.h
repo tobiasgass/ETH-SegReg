@@ -435,7 +435,7 @@ namespace itk{
                         double penalty=weight*this->m_srsPotential->getPotential(trueIndex,trueIndex,trueDisplacement+baseDisplacement,segmentationPriorLabel);
                         segmentationPenalty+=penalty;
                         //cout<<fixedIndex<<" "<<neighborIndex<<" "<<weight<<" "<<segmentationPriorLabel<<" "<<penalty<<endl;
-                        distanceSum+=weight;
+                        distanceSum+=1;//weight;
                     }
                 }
 
@@ -448,16 +448,17 @@ namespace itk{
                     //result=(1-1.0*sfm/sqrt(smm*sff))/2;
                     result=((1+1.0*sfm/sqrt(smm*sff))/2);
                     result=result>0?result:0.00000001;
-                    result=-log(result);
+                    result=m_beta*(-1.0)*log(result);
                     if (distanceSum){
-                        result=result+this->m_alpha*segmentationPenalty/distanceSum;
+                       result+=this->m_alpha*segmentationPenalty/distanceSum;
+                        
                     }
                 }
                 else {
                     if (sfm>0) result=0;
                     else result=1;
                 }
-                result=m_beta*result+this->m_alpha*segmentationPenalty/distanceSum;
+              
 
             }
             //no correlation whatsoever

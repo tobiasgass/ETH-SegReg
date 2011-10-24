@@ -6,13 +6,14 @@
 
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
-#include "Graph.h"
+#include "SubsamplingGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
-#include "Potential-SegmentationRegistration-Pairwise.h"
 #include "Potential-Segmentation-Pairwise.h"
+#include "Potential-SegmentationRegistration-Pairwise.h"
+
 
 using namespace std;
 using namespace itk;
@@ -26,35 +27,37 @@ int main(int argc, char ** argv)
 	filterConfig.parseParams(argc,argv);
 	//define types.
 	typedef unsigned char PixelType;
-	const unsigned int D=3;
+	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-
-    //unary seg
-    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    //    typedef UnaryPotentialSegmentationArtificial2< ImageType > SegmentationUnaryPotentialType;
     //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
+    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    //typedef SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifier<ImageType> ClassifierType;
     typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    
-    //pairwise seg
-//    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
+
+    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
 
-    //reg
+    //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationRegistration< ImageType > SegmentationRegistrationPairwisePotentialType;
-	typedef HierarchicalSRSImageToImageFilter<ImageType,
-        LabelMapperType,
+    typedef PairwisePotentialSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
+    
+	typedef SubsamplingGraph<
+        ImageType,
         RegistrationUnaryPotentialType,
+        RegistrationPairwisePotentialType,
         SegmentationUnaryPotentialType,
         SegmentationPairwisePotentialType,
-        RegistrationPairwisePotentialType,
-        SegmentationRegistrationPairwisePotentialType> FilterType;
-    
+        SegmentationRegistrationPairwisePotentialType,
+        LabelMapperType>        GraphType;
+    typedef HierarchicalSRSImageToImageFilter<GraphType> FilterType;
 	//create filter
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(filterConfig);

@@ -14,6 +14,8 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
 #include "itkStatisticsImageFilter.h"
+#include "itkThresholdImageFilter.h"
+
 namespace itk{
 
 
@@ -135,10 +137,21 @@ namespace itk{
             filter->Update();
             sigma1=filter->GetSigma();
             mean1=filter->GetMean();
-            
-            typedef typename itk::CastImageFilter<FloatImageType,ImageType> CasterType;
+            m_distanceTransform=dt1;
+
+        
+            typedef itk::ThresholdImageFilter <FloatImageType>
+                ThresholdImageFilterType;
+            typename ThresholdImageFilterType::Pointer thresholdFilter
+                = ThresholdImageFilterType::New();
+            thresholdFilter->SetInput(dt1);
+            thresholdFilter->ThresholdOutside(0, 1000);
+            thresholdFilter->SetOutsideValue(1000);
+            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
             typename CasterType::Pointer caster=CasterType::New();
-            caster->SetInput(dt1);
+            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+            caster->SetInput(thresholdFilter->GetOutput());
             caster->Update();
             ImagePointerType output=caster->GetOutput();
             if (ImageType::ImageDimension==2){
@@ -153,7 +166,8 @@ namespace itk{
                 FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
                 m_movingBackgroundDistanceTransformInterpolator=FloatImageInterpolatorType::New();
                 m_movingBackgroundDistanceTransformInterpolator->SetInputImage(dt2);
-                filter->SetInput(dt2);
+                thresholdFilter->SetInput(dt2);
+                filter->SetInput(thresholdFilter->GetOutput());
                 filter->Update();
                 sigma2=filter->GetSigma();
                 mean2=fabs(filter->GetMean());
@@ -185,13 +199,36 @@ namespace itk{
                 imageIt2.Set(val==value);
                 
             }
+            //distanceTransform->InsideIsPositiveOn();
             distanceTransform->SetInput(newImage);
             distanceTransform->SquaredDistanceOn ();
             distanceTransform->UseImageSpacingOn();
             distanceTransform->Update();
-            return distanceTransform->GetOutput();
-        }
+            typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
 
+            FloatImagePointerType positiveDM=distanceTransform->GetOutput();
+            FloatImageIterator imageIt3(positiveDM,positiveDM->GetLargestPossibleRegion());        
+            for (imageIt3.GoToBegin();!imageIt3.IsAtEnd();++imageIt3){
+                imageIt3.Set(fabs(imageIt3.Get()));
+            }
+            return  positiveDM;
+        }
+        ImagePointerType getFGDT(){
+            typedef itk::ThresholdImageFilter <FloatImageType>
+                ThresholdImageFilterType;
+            typename ThresholdImageFilterType::Pointer thresholdFilter
+                = ThresholdImageFilterType::New();
+            thresholdFilter->SetInput( m_distanceTransform);
+            thresholdFilter->ThresholdOutside(0, 1000);
+            thresholdFilter->SetOutsideValue(1000);
+            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+            typename CasterType::Pointer caster=CasterType::New();
+            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+            caster->SetInput(thresholdFilter->GetOutput());
+            caster->Update();
+            return caster->GetOutput();
+        }
         void SetThreshold(double t){m_threshold=t;}
 
 #if 0        //edge from  segmentation to Registration

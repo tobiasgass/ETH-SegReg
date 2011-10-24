@@ -889,16 +889,17 @@ namespace itk{
         int m_nIntensities;
         std::vector<float> m_probs;
         double m_meanIntens, m_meanGrad,m_varianceIntens,m_varianceGrad,m_covariance;
-
+        double m_weight;
     public:
         /** Standard part of every itk Object. */
         itkTypeMacro(SmoothnessClassifierGradient, Object);
         itkNewMacro(Self);
-
+        
         SmoothnessClassifierGradient(){
             m_data=matrix<float>(1,3);
             m_conf=matrix<float>(1,2);
             m_labelVector=std::vector<int>(1);
+            m_weight=1.0;
         };
         virtual void setNIntensities(int n){
             m_nIntensities=n;
@@ -915,6 +916,7 @@ namespace itk{
         virtual void load(string filename){
             m_Forest->load(filename);
         }
+        virtual void SetWeight(double w){ m_weight=w;}
 
         virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
        
@@ -956,8 +958,8 @@ namespace itk{
                             int intens2=mapIntensity(intensities->GetPixel(idx+off));
                             data(i,0)=fabs(intens1-intens2);
                             data(i,1)=fabs(grad1-grad2);
-                            labelVector[i]=label1==label2;
-                            this->m_counts[label1==label2]++;
+                            labelVector[i]=label1!=label2;
+                            this->m_counts[label1!=label2]++;
                             i++;                
                         }
                     }
@@ -1018,8 +1020,10 @@ namespace itk{
         inline virtual int mapIntensity(float intensity){
             return intensity;
         }
-        virtual double px_l(float intensityDiff,int label, int gradientDiff){
+        virtual double px_l(float intensityDiff,int label, int gradientDiff, int label2=-1){
             //            cout<<intensityDiff<<" "<<label<<" "<<gradientDiff<<endl;
+            intensityDiff=fabs(intensityDiff);
+            gradientDiff=fabs(gradientDiff);
             double prob=this->m_probs[(label>0)*this->m_nIntensities*this->m_nIntensities+intensityDiff*this->m_nIntensities+gradientDiff];
             return prob;
         }
@@ -1098,6 +1102,65 @@ namespace itk{
             m_Forest->train(m_TrainData.getData(),m_TrainData.getLabels(),m_weights);
             std::cout<<"done"<<std::endl;
             computeProbabilities();
+        };
+
+
+    };
+      template<class ImageType>
+    class SmoothnessClassifierGradientContrast: public SmoothnessClassifierGradient<ImageType> {
+    public:
+        typedef SmoothnessClassifierGradientContrast            Self;
+        typedef SmoothnessClassifierGradient<ImageType> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::PixelType PixelType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
+        typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
+   
+
+    public:
+        /** Standard part of every itk Object. */
+        itkTypeMacro(SmoothnessClassifierGradientContrast, Object);
+        itkNewMacro(Self);
+
+     
+        virtual void freeMem(){
+           
+        }
+      
+        virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
+        };
+
+        virtual void computeProbabilities(){
+       
+        }
+        
+        inline virtual int mapIntensity(float intensity){
+            return intensity;
+        }
+        virtual double px_l(float intensityDiff,int label, int gradientDiff){
+            //            cout<<intensityDiff<<" "<<label<<" "<<gradientDiff<<endl;
+            //double prob=this->m_probs[(label>0)*this->m_nIntensities*this->m_nIntensities+intensityDiff*this->m_nIntensities+gradientDiff];
+            intensityDiff=fabs(intensityDiff);
+            gradientDiff=fabs(gradientDiff);
+            double prob;
+            if (gradientDiff<0){
+                //cout<<gradientDiff<<endl;
+                prob=0;
+            }else{
+                //intensityDiff*=intensityDiff;
+                gradientDiff=fabs(gradientDiff*gradientDiff);
+                prob=1-exp(-this->m_weight*0.00001*gradientDiff);
+                //cout<<gradientDiff<<" "<<prob<<endl;
+            }
+            return prob;
+        }
+     
+     
+
+        virtual void train(){
+          
         };
 
 

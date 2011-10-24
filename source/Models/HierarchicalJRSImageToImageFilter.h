@@ -374,17 +374,18 @@ namespace itk{
                 //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
                 cout<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
                 //setup registration potentials
-                 unaryRegistrationPot->SetScale(scaling);
-                unaryRegistrationPot->SetRadius(graph.getSpacing());
-                unaryRegistrationPot->SetFixedImage(downSampledTarget);
-                unaryRegistrationPot->SetMovingImage(downSampledReference);
-                unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
-                unaryRegistrationPot->SetSegmentationPrior((ConstImagePointerType)segmentationPrior);
-                unaryRegistrationPot->SetBeta(m_config.simWeight);
-                unaryRegistrationPot->SetAlpha(alpha);
+                m_unaryRegistrationPot->SetScale(scaling);
+                m_unaryRegistrationPot->SetRadius(graph.getSpacing());
+                m_unaryRegistrationPot->SetFixedImage(downSampledTarget);
+                m_unaryRegistrationPot->SetMovingImage(downSampledReference);
+                //m_unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
+                m_unaryRegistrationPot->SetSegmentationPrior((ConstImagePointerType)segmentationPrior);
+                m_unaryRegistrationPot->SetAlpha(alpha);
+                m_unaryRegistrationPot->SetBeta(alpha == 0 ? 1: m_config.simWeight);
+
               
              
-                unaryRegistrationPot->Init();
+                m_unaryRegistrationPot->Init();
 
             
                 m_pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
@@ -456,7 +457,7 @@ namespace itk{
                     deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config.displacementRescalingFactor;
-                    m_SRSPotential->SetThreshold(10000000);//max(10.0,10.0*graph.getMaxDisplacementFactor()));     
+                    m_SRSPotential->SetThreshold(max(10.0,10.0*graph.getMaxDisplacementFactor()));     
 
                     if (false && m_config.verbose){
                         std::string suff;

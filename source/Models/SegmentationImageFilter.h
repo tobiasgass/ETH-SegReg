@@ -56,7 +56,8 @@
 namespace itk{
 template<class TImage, 
          class TLabelMapper,
-         class TUnarySegmentationPotential>
+         class TUnarySegmentationPotential,
+         class TPairwiseSegmentationPotential>
 class SegmentationImageFilter: public itk::ImageToImageFilter<TImage,TImage>{
 public:
     typedef SegmentationImageFilter Self;
@@ -90,41 +91,70 @@ public:
     typedef VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
     typedef typename  LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
     typedef itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
+    
+    typedef TPairwiseSegmentationPotential PairwiseSegmentationPotentialType;
+    typedef typename  PairwiseSegmentationPotentialType::Pointer PairwiseSegmentationPotentialPointerType;
 
     typedef TUnarySegmentationPotential UnarySegmentationPotentialType;
     typedef typename  UnarySegmentationPotentialType::Pointer UnarySegmentationPotentialPointerType;
     typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
     typedef typename  SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
-
+    typedef typename PairwiseSegmentationPotentialType::ClassifierType PairwiseClassifierType;
+    typedef typename PairwiseClassifierType::Pointer PairwiseClassifierPointerType;
+    
+    typedef typename UnarySegmentationPotentialType::ClassifierType UnaryClassifierType;
+    typedef typename UnaryClassifierType::Pointer UnaryClassifierPointerType;
+    
     //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
     typedef  SegmentationGraphModel<ImageType, 
                                     UnarySegmentationPotentialType,
+                                    PairwiseSegmentationPotentialType,
                                     LabelMapperType> GraphModelType;
 private:
 	SRSConfig m_config;
     
 public:
 	SegmentationImageFilter(){
-        this->SetNumberOfRequiredInputs(2);
+        this->SetNumberOfRequiredInputs(5);
     }
     
     void setConfig(SRSConfig c){
 		m_config=c;
 	}
 
-    void setFixedImage(ImagePointerType img){
-        SetNthInput(0,img);
-    }
-    void setFixedGradientImage(ImagePointerType img){
-        SetNthInput(1,img);
-    }
+
+   void setFixedImage(ImagePointerType img){
+            SetNthInput(0,img);
+        }
+        void setMovingImage(ImagePointerType img){
+            SetNthInput(1,img);
+        }
+        void setMovingSegmentation(ImagePointerType img){
+            SetNthInput(2,img);
+        }
+        void setFixedGradientImage(ImagePointerType img){
+            SetNthInput(3,img);
+        }
+        void setMovingGradientImage(ImagePointerType img){
+            SetNthInput(4,img);
+        }
+
 	virtual void Update(){
 
 
 		//define input images
 		const ConstImagePointerType targetImage = this->GetInput(0);
-        const ConstImagePointerType fixedGradientImage = this->GetInput(1);
-    
+        const ConstImagePointerType fixedGradientImage = this->GetInput(3);
+        const ConstImagePointerType movingImage = this->GetInput(1);
+        ConstImagePointerType movingGradient = this->GetInput(4);
+        ConstImagePointerType movingSegmentationImage;
+        if (D==2){
+            //2d segmentations pngs [from matlab] may have screwed up intensities
+            movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
+        }else{
+            movingSegmentationImage = (this->GetInput(2));
+        }
+            
         //results
         ImagePointerType segmentationImage;
         
@@ -132,6 +162,7 @@ public:
         //instantiate potentials
 
 		UnarySegmentationPotentialPointerType unarySegmentationPot=UnarySegmentationPotentialType::New();
+        PairwiseSegmentationPotentialPointerType m_pairwiseSegmentationPot=PairwiseSegmentationPotentialType::New();;
 
         //instantiate interpolators
         SegmentationInterpolatorPointerType segmentationInterpolator=SegmentationInterpolatorType::New();
@@ -147,15 +178,38 @@ public:
         GraphModelType graph;
         graph.setFixedImage(targetImage);
         graph.initGraph(1);
+
+        PairwiseClassifierPointerType m_smoothnessClassifier;
+        ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
+        m_smoothnessClassifier=PairwiseClassifierType::New();
+        m_smoothnessClassifier->setNIntensities(256);
+        m_smoothnessClassifier->setData(movingImage,(ConstImagePointerType)movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
+        m_smoothnessClassifier->train();
+        m_smoothnessClassifier->SetWeight(m_config.pairwiseContrastWeight);
+        m_pairwiseSegmentationPot->SetClassifier(m_smoothnessClassifier);
+        m_pairwiseSegmentationPot->SetFixedImage(targetImage);
+        m_pairwiseSegmentationPot->SetFixedGradient(fixedGradientImage);
+        if (ImageType::ImageDimension==2){
+              m_pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
+          }
+      
+        UnaryClassifierPointerType m_segmentationClassifier;
+        m_segmentationClassifier=UnaryClassifierType::New();
+        m_segmentationClassifier->setNIntensities(256);
+        m_segmentationClassifier->setData(movingImage,(ConstImagePointerType)movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
+        m_segmentationClassifier->train();
+        unarySegmentationPot->SetClassifier(m_segmentationClassifier);
         //setup segmentation potentials
         unarySegmentationPot->SetFixedImage(targetImage);
         unarySegmentationPot->SetGradientImage(fixedGradientImage);
         //register images and potentials
         graph.setUnarySegmentationFunction(unarySegmentationPot);
+        graph.setPairwiseSegmentationFunction(m_pairwiseSegmentationPot);
+        
         //	ok what now: create graph! solve graph! save result!Z
 		
-        //typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
-        typedef GC_MRFSolver<GraphModelType> MRFSolverType;
+        typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
+        //typedef GC_MRFSolver<GraphModelType> MRFSolverType;
         //typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
         //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
                 
@@ -167,9 +221,9 @@ public:
         std::cout<<" ]"<<std::endl;
         segmentation=graph.getSegmentationImage(mrfSolver.getLabels());
         if (D==2){
-            segmentation=fixSegmentationImage(segmentation);
+            //segmentation=fixSegmentationImage((ConstImagePointerType)segmentation);
             typedef itk::Image<unsigned char,D> OutImageType;
-            ImageUtils<OutImageType>::writeImage(m_config.segmentationOutputFilename, FilterUtils<ImageType,OutImageType>::cast(segmentation));
+            ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename, (makePngFromLabelImage(ConstImagePointerType(segmentation),m_config.nSegmentations)));
 
         }else{
             ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename, segmentation);
@@ -177,7 +231,20 @@ public:
 
         	
 	}
-    ImagePointerType fixSegmentationImage(ImagePointerType segmentationImage){
+    ConstImagePointerType makePngFromLabelImage(ConstImagePointerType segmentationImage, int nSegmentations){
+            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
+            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
+            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
+            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
+            double multiplier=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
+            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
+                //    cout<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
+                imageIt2.Set(imageIt.Get()*multiplier);
+            }
+            return (ConstImagePointerType)newImage;
+        }
+    ImagePointerType fixSegmentationImage(ConstImagePointerType segmentationImage){
         ImagePointerType newImage=ImageUtils<ImageType>::createEmpty((ConstImagePointerType)segmentationImage);
         typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
         typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;

@@ -58,17 +58,13 @@
 #include "itkHausdorffDistanceImageFilter.h"
 
 namespace itk{
-    template<class TImage, 
-             class TLabelMapper,
-             class TUnaryRegistrationPotential, 
-             class TUnarySegmentationPotential,
-             class TPairwiseSegmentationPotential,
-             class TPairwiseRegistrationPotential,
-             class TPairwiseSegmentationRegistrationPotential>
-    class HierarchicalSRSImageToImageFilter: public itk::ImageToImageFilter<TImage,TImage>{
+    template<class TGraph>
+    class HierarchicalSRSImageToImageFilter: public itk::ImageToImageFilter<typename TGraph::ImageType,typename TGraph::ImageType>{
     public:
+        typedef  TGraph GraphModelType;
+        typedef typename TGraph::ImageType ImageType;
         typedef HierarchicalSRSImageToImageFilter Self;
-        typedef ImageToImageFilter< TImage, TImage > Superclass;
+        typedef ImageToImageFilter<ImageType,ImageType > Superclass;
         typedef SmartPointer< Self >        Pointer;
     
         /** Method for creation through the object factory. */
@@ -76,7 +72,7 @@ namespace itk{
         /** Run-time type information (and related methods). */
         itkTypeMacro(HierarchicalSRSImageToImageFilter, ImageToImageFilter);
     
-        typedef TImage ImageType;
+      
         static const int D=ImageType::ImageDimension;
         typedef typename  ImageType::PixelType PixelType;
         typedef typename  ImageType::Pointer ImagePointerType;
@@ -93,8 +89,8 @@ namespace itk{
         typedef typename  ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
 
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename TLabelMapper::LabelType LabelType;
+        typedef typename GraphModelType::LabelMapperType LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
         typedef typename LabelMapperType::LabelImageType LabelImageType;
         typedef typename LabelImageType::Pointer LabelImagePointerType;
         typedef itk::ImageRegionIterator< LabelImageType>       LabelIteratorType;
@@ -103,11 +99,11 @@ namespace itk{
         typedef itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
  
     
-        typedef TUnaryRegistrationPotential UnaryRegistrationPotentialType;
-        typedef TUnarySegmentationPotential UnarySegmentationPotentialType;
-        typedef TPairwiseSegmentationPotential PairwiseSegmentationPotentialType;
-        typedef TPairwiseRegistrationPotential PairwiseRegistrationPotentialType;
-        typedef TPairwiseSegmentationRegistrationPotential PairwiseSegmentationRegistrationPotentialType; 
+        typedef  typename GraphModelType::UnaryRegistrationPotentialType UnaryRegistrationPotentialType;
+        typedef  typename GraphModelType::UnarySegmentationPotentialType UnarySegmentationPotentialType;
+        typedef  typename  GraphModelType::PairwiseSegmentationPotentialType PairwiseSegmentationPotentialType;
+        typedef typename  GraphModelType::PairwiseRegistrationPotentialType PairwiseRegistrationPotentialType;
+        typedef typename  GraphModelType::PairwiseSegmentationRegistrationPotentialType PairwiseSegmentationRegistrationPotentialType; 
         typedef typename  UnaryRegistrationPotentialType::Pointer UnaryRegistrationPotentialPointerType;
         typedef typename  UnarySegmentationPotentialType::Pointer UnarySegmentationPotentialPointerType;
         typedef typename  UnaryRegistrationPotentialType::RadiusType RadiusType;
@@ -119,13 +115,7 @@ namespace itk{
         typedef typename  SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
 
         //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
-        typedef  GraphModel<ImageType, 
-                            UnaryRegistrationPotentialType,
-                            PairwiseRegistrationPotentialType,
-                            UnarySegmentationPotentialType,
-                            PairwiseSegmentationPotentialType,
-                            PairwiseSegmentationRegistrationPotentialType,
-                            LabelMapperType> GraphModelType;
+    
         typedef  typename itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
     private:
         SRSConfig m_config;
@@ -216,6 +206,9 @@ namespace itk{
             pairwiseSegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
             pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
             pairwiseSegmentationPot->Init();
+            if (ImageType::ImageDimension==2){
+                pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
+            }
             
 #endif
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
@@ -496,12 +489,12 @@ namespace itk{
                 finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,targetImage);
             }
 
-#if 0
+#if 1
             if (ImageType::ImageDimension==2){
-                ImageUtils<ImageType>::writeImage("dt-def.png",deformImage(output,finalDeformation));    
+                ImageUtils<ImageType>::writeImage("dt-def.png",deformImage(pairwiseSegmentationRegistrationPot->getFGDT(),finalDeformation));    
             }
             if (ImageType::ImageDimension==3){
-                ImageUtils<ImageType>::writeImage("dt-def.nii",deformImage(output,finalDeformation));
+                ImageUtils<ImageType>::writeImage("dt-def.nii",deformImage(pairwiseSegmentationRegistrationPot->getFGDT(),finalDeformation));
             }
 #endif          
             

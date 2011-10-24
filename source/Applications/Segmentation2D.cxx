@@ -9,6 +9,8 @@
 #include "SegmentationGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Segmentation-Unary.h"
+#include "Potential-Segmentation-Pairwise.h"
+#include "Classifier.h"
 
 
 using namespace std;
@@ -22,22 +24,32 @@ int main(int argc, char ** argv)
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
 	//define types.
-	typedef float PixelType;
+	typedef unsigned char PixelType;
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
     typedef Image<unsigned char,D> InputImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
+    //    typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
+    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
+    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+
+    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
 	typedef SegmentationImageFilter<ImageType,
         LabelMapperType,
-        SegmentationUnaryPotentialType    > FilterType;
+        SegmentationUnaryPotentialType,
+        SegmentationPairwisePotentialType> FilterType;
     
 	//create filter
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(filterConfig);
-    filter->setFixedImage(FilterUtils<InputImageType,ImageType>::cast(ImageUtils<InputImageType>::readImage(filterConfig.targetFilename)));
-    filter->setFixedGradientImage(FilterUtils<InputImageType,ImageType>::cast(ImageUtils<InputImageType>::readImage(filterConfig.fixedGradientFilename)));
+    filter->setFixedImage(ImageUtils<ImageType>::readImage(filterConfig.targetFilename));
+    filter->setMovingImage(ImageUtils<ImageType>::readImage(filterConfig.movingFilename));
+    filter->setMovingSegmentation(ImageUtils<ImageType>::readImage(filterConfig.movingSegmentationFilename));
+    filter->setFixedGradientImage(ImageUtils<ImageType>::readImage(filterConfig.fixedGradientFilename));
 
 	clock_t start = clock();
 	//DO IT!

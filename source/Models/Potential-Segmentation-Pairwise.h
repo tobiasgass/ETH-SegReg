@@ -152,15 +152,63 @@ namespace itk{
         virtual void SetReferenceImage(ConstImagePointerType im){
             m_referenceImage=im;
         }
+        virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){
+            assert(ImageType::ImageDimension==2);
+            typedef typename itk::ImageRegionConstIterator< ImageType > IteratorType;
+            typedef itk::Image<float, ImageType::ImageDimension> FloatImageType;
+            typedef typename FloatImageType::Pointer FloatImagePointerType;
+            typedef typename itk::ImageRegionIterator< FloatImageType > NewIteratorType;
+            IteratorType iterator(im, im->GetLargestPossibleRegion());
+            IteratorType iterator2(grad, grad->GetLargestPossibleRegion());
+            FloatImagePointerType horiz=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
+            FloatImagePointerType vert=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
+            NewIteratorType horIt(horiz, im->GetLargestPossibleRegion());
+            NewIteratorType verIt(vert, im->GetLargestPossibleRegion());
+            horIt.GoToBegin();
+            verIt.GoToBegin();
+            typedef typename ImageType::OffsetType OffsetType;
+            for (iterator.GoToBegin(),iterator2.GoToBegin();!iterator.IsAtEnd();++iterator,++iterator2,++horIt,++verIt){
+                IndexType idx1=iterator.GetIndex();
+              
+                OffsetType off;
+                off.Fill(0);
+                if (idx1[0]<im->GetLargestPossibleRegion().GetSize()[0]-1){
+                        off[0]+=1;
+                        IndexType idx2=idx1+off;
+                        horIt.Set(getPotential(idx1,idx2,0,1));
+                        verIt.Set(getPotential(idx1,idx2,0,0));
+                }
+                off.Fill(0);
+                if (idx1[1]<im->GetLargestPossibleRegion().GetSize()[1]-1){
+                        off[1]+=1;
+                        IndexType idx2=idx1+off;
+
+                        //cout<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
+                }
+            }
+            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+            //typedef itk::CastImageFilter<ImageType,ImageType> CasterType;
+            typename CasterType::Pointer caster=CasterType::New();
+            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+            caster->SetInput(horiz);
+            caster->Update();
+            ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
+            caster->SetInput(vert);
+            caster->Update();
+            ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
+        }
         ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
+            //if (label1==label2) return 0;
             int s1=this->m_sheetnessImage->GetPixel(idx1);
             int s2=this->m_sheetnessImage->GetPixel(idx2);
-            double sheetnessDiff=fabs(s1-s2);
+            double sheetnessDiff=(s1-s2);
             int i1=this->m_fixedImage->GetPixel(idx1);
             int i2=this->m_fixedImage->GetPixel(idx2);
-            double intensityDiff=fabs(i1-i2);
-            double prob=m_classifier->px_l(intensityDiff,label1==label2,sheetnessDiff);
+            double intensityDiff=(i1-i2);
+            double prob=m_classifier->px_l(intensityDiff,label1!=label2,sheetnessDiff);
+            if (prob<=0.001) prob=0.001;
             //std::cout<<intensityDiff<<" "<<sheetnessDiff<<" "<<prob<<" "<<-log(prob)<<endl;
             return -log(prob);
         }

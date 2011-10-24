@@ -34,8 +34,11 @@ int main(int argc, char ** argv)
 
     typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
     typedef UnaryPotentialSegmentationClassifierWithPrior<ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+
+    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+
     typedef UnaryPotentialRegistrationNCCWithSegmentationPrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
   	typedef HierarchicalJRSImageToImageFilter<ImageType,
