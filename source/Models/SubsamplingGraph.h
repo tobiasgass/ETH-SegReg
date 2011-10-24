@@ -103,6 +103,7 @@ namespace itk{
                 std::vector<double> originalRegistrationCosts(this->m_nDisplacementLabels);
                 for (int l=0;l<this->m_nDisplacementLabels;++l){
                     originalRegistrationCosts[l]=Superclass::getUnaryRegistrationPotential(r,l);
+                    std::cout<<r<<" "<<" "<< originalRegistrationCosts[l]<<endl;
                 }
                 
                 // now compute novel mapping and costs and store in m_nodeMappingInfo
