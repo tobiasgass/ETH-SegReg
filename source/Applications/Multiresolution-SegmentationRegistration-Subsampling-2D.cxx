@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
     
-	typedef SubsamplingGraph<
+	typedef SubsamplingGraphModel<
         ImageType,
         RegistrationUnaryPotentialType,
         RegistrationPairwisePotentialType,
@@ -57,6 +57,7 @@ int main(int argc, char ** argv)
         SegmentationPairwisePotentialType,
         SegmentationRegistrationPairwisePotentialType,
         LabelMapperType>        GraphType;
+    
     typedef HierarchicalSRSImageToImageFilter<GraphType> FilterType;
 	//create filter
     FilterType::Pointer filter=FilterType::New();

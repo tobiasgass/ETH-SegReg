@@ -99,11 +99,11 @@ namespace itk{
         typedef itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
  
     
-        typedef  typename GraphModelType::UnaryRegistrationPotentialType UnaryRegistrationPotentialType;
-        typedef  typename GraphModelType::UnarySegmentationPotentialType UnarySegmentationPotentialType;
-        typedef  typename  GraphModelType::PairwiseSegmentationPotentialType PairwiseSegmentationPotentialType;
-        typedef typename  GraphModelType::PairwiseRegistrationPotentialType PairwiseRegistrationPotentialType;
-        typedef typename  GraphModelType::PairwiseSegmentationRegistrationPotentialType PairwiseSegmentationRegistrationPotentialType; 
+        typedef  typename GraphModelType::UnaryRegistrationFunctionType UnaryRegistrationPotentialType;
+        typedef  typename GraphModelType::UnarySegmentationFunctionType UnarySegmentationPotentialType;
+        typedef  typename  GraphModelType::PairwiseSegmentationFunctionType PairwiseSegmentationPotentialType;
+        typedef typename  GraphModelType::PairwiseRegistrationFunctionType PairwiseRegistrationPotentialType;
+        typedef typename  GraphModelType::PairwiseSegmentationRegistrationFunctionType PairwiseSegmentationRegistrationPotentialType; 
         typedef typename  UnaryRegistrationPotentialType::Pointer UnaryRegistrationPotentialPointerType;
         typedef typename  UnarySegmentationPotentialType::Pointer UnarySegmentationPotentialPointerType;
         typedef typename  UnaryRegistrationPotentialType::RadiusType RadiusType;

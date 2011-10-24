@@ -272,14 +272,14 @@ namespace itk{
             }
             return position;
         }
-        double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
+        virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndexFromCoarseGraphIndex(nodeIndex);
             RegistrationLabelType l=LabelMapperType::getLabel(labelIndex);
             l=LabelMapperType::scaleDisplacement(l,getDisplacementFactor());
             double result=m_unaryRegFunction->getPotential(imageIndex,l);
             return result/m_nRegistrationNodes;
         }
-        double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
+        virtual double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndex(nodeIndex);
             //Segmentation:labelIndex==segmentationlabel
             double result=m_unarySegFunction->getPotential(imageIndex,labelIndex)/m_nSegmentationNodes;
@@ -287,7 +287,7 @@ namespace itk{
                 std::cout<<imageIndex<<" " <<result<<std::endl;
             return result;
         };
-        double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
+        virtual double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
             IndexType graphIndex1=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             RegistrationLabelType l1=LabelMapperType::getLabel(labelIndex1);
             l1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());
@@ -296,7 +296,7 @@ namespace itk{
             l2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());
             return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2)/m_nRegEdges;
         };
-        double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
+         virtual double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
             assert(false);
             IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             IndexType imageIndex=getImageIndex(nodeIndex2);
@@ -313,7 +313,7 @@ namespace itk{
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
         }
         //#define MULTISEGREGNEIGHBORS
-        inline double getPairwiseRegSegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
+        virtual inline double getPairwiseRegSegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
     
             IndexType imageIndex=getImageIndex(nodeIndex2);
             //compute distance between center index and patch index
@@ -337,13 +337,13 @@ namespace itk{
         }
 
         
-        inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
+        virtual inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);
             double result=m_pairwiseSegFunction->getPotential(imageIndex1,imageIndex2,label1, label2)/m_nSegEdges;
             return result;
         }
-        inline double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
+        virtual inline double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);
             double result=m_unarySegFunction->getWeight(imageIndex1,imageIndex2)/m_nSegEdges;
