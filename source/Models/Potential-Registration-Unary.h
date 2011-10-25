@@ -156,7 +156,7 @@ namespace itk{
 
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
             double result=0;
-
+            //            cout<<fixedIndex<<" "<<disp<<endl;
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 fixedIndex[d]*=m_scale;
             }

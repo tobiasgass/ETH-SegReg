@@ -30,7 +30,8 @@ int main(int argc, char ** argv)
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
-    typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    //typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    typedef DenseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
     //    typedef UnaryPotentialSegmentationArtificial2< ImageType > SegmentationUnaryPotentialType;
     //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
     typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;

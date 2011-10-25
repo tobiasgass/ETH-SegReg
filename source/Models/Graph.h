@@ -114,6 +114,7 @@ namespace itk{
         void setFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
         }
+        
         void initGraph(int nGraphNodesPerEdge){
             assert(m_fixedImage);
 
@@ -185,7 +186,8 @@ namespace itk{
        
             if (verbose) std::cout<<" finished graph init" <<std::endl;
         }
-
+        //can be used to initialize stuff right before potentials are called
+        virtual void Init(){};
         virtual void setSpacing(int divisor){
             assert(m_fixedImage);
             unsigned int minSpacing=999999;
@@ -433,7 +435,7 @@ namespace itk{
             return neighbours;
         }
     
-        RegistrationLabelImagePointerType getDeformationImage(std::vector<int>  labels){
+        virtual RegistrationLabelImagePointerType getDeformationImage(std::vector<int>  labels){
             RegistrationLabelImagePointerType result=RegistrationLabelImageType::New();
             typename RegistrationLabelImageType::RegionType region;
             region.SetSize(m_gridSize);
@@ -524,7 +526,7 @@ namespace itk{
         int nSegNodes(){
             return m_nSegmentationNodes;
         }
-        int nRegLabels(){
+        virtual int nRegLabels(){
             return LabelMapperType::nDisplacements;
         }
         int nSegLabels(){

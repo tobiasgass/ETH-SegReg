@@ -278,7 +278,7 @@ namespace itk{
                 GraphModelType graph;
                 graph.setFixedImage(downSampledTarget);
                 graph.setDisplacementFactor(labelScalingFactor);
-
+                graph.initGraph(level);
 
                 //             typename itk::ImageRegionConstIteratorWithIndex<ImageType> ii(downSampledTarget, downSampledTarget->GetLargestPossibleRegion());
                 //             for (ii.GoToBegin();!ii.IsAtEnd();++ii){
@@ -319,7 +319,7 @@ namespace itk{
                 graph.setUnarySegmentationFunction(unarySegmentationPot);
                 graph.setPairwiseSegmentationRegistrationFunction(pairwiseSegmentationRegistrationPot);
                 graph.setPairwiseSegmentationFunction(pairwiseSegmentationPot);
-                graph.initGraph(level);
+
                 //resample the deformation from last iteration to the current image resolution.
                 if (scale!=oldscale){
                     previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, downSampledTarget);
@@ -342,7 +342,7 @@ namespace itk{
                     // displacementfactor decreases with iterations
 #if 1
                     graph.setDisplacementFactor(labelScalingFactor);
-
+                    
                     //register deformation from previous iteration
                     unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                     pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);

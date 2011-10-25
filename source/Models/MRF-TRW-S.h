@@ -75,7 +75,7 @@ public:
 
         if (verbose) std::cout<<std::endl<<"starting graph init"<<std::endl;
         GraphModelType* graph=this->m_GraphModel;
-    
+        graph->Init();
 		nNodes=graph->nNodes();
         nEdges=graph->nEdges();
         nRegNodes=graph->nRegNodes();

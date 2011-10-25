@@ -30,7 +30,8 @@ int main(int argc, char ** argv)
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
-    typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    typedef DenseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    //typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
     //    typedef UnaryPotentialSegmentationArtificial2< ImageType > SegmentationUnaryPotentialType;
     //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
     typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
@@ -39,8 +40,8 @@ int main(int argc, char ** argv)
     typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     //typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
 
-    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
 
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -48,13 +49,16 @@ int main(int argc, char ** argv)
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
-	typedef HierarchicalSRSImageToImageFilter<ImageType,
-        LabelMapperType,
+    typedef GraphModel<
+        ImageType,
         RegistrationUnaryPotentialType,
+        RegistrationPairwisePotentialType,
         SegmentationUnaryPotentialType,
         SegmentationPairwisePotentialType,
-        RegistrationPairwisePotentialType,
-        SegmentationRegistrationPairwisePotentialType>        FilterType;
+        SegmentationRegistrationPairwisePotentialType,
+        LabelMapperType>        GraphType;
+    
+	typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;
     
 	//create filter
     FilterType::Pointer filter=FilterType::New();
