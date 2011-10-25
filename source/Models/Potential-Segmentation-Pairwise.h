@@ -193,10 +193,10 @@ namespace itk{
             caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
             caster->SetInput(horiz);
             caster->Update();
-            ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
+            //ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
             caster->SetInput(vert);
             caster->Update();
-            ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
+            //ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
         }
         ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
