@@ -143,20 +143,23 @@ namespace itk{
         }
         virtual void Update(){
             
-            
+            bool segment=1;//m_config.pairwiseSegmentationWeight>0 ||  m_config.rfWeight>0 || m_config.pairwiseSegmentationWeight>0;
+            bool regist= 1;//m_config.pairwiseRegistrationWeight>0||  m_config.simWeight>0|| m_config.pairwiseSegmentationWeight>0;
 
             //define input images
             const ConstImagePointerType targetImage = this->GetInput(0);
             const ConstImagePointerType movingImage = this->GetInput(1);
             ConstImagePointerType movingSegmentationImage;
+            
+            if (segment){
+                if (D==2){
+                    //2d segmentations pngs [from matlab] may have screwed up intensities
+                    movingSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
+                    ImageUtils<ImageType>::writeImage("test.png",movingSegmentationImage);
 
-            if (D==2){
-                //2d segmentations pngs [from matlab] may have screwed up intensities
-                movingSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
-                ImageUtils<ImageType>::writeImage("test.png",movingSegmentationImage);
-
-            }else{
-                movingSegmentationImage = (this->GetInput(2));
+                }else{
+                    movingSegmentationImage = (this->GetInput(2));
+                }
             }
             const ConstImagePointerType fixedGradientImage = this->GetInput(3);
 
@@ -164,16 +167,17 @@ namespace itk{
             ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
             LabelImagePointerType fullDeformation,previousFullDeformation;
         
-            //allocate memory
-            previousFullDeformation=LabelImageType::New();
-            previousFullDeformation->SetRegions(targetImage->GetLargestPossibleRegion());
-            previousFullDeformation->SetOrigin(targetImage->GetOrigin());
-            previousFullDeformation->SetSpacing(targetImage->GetSpacing());
-            previousFullDeformation->SetDirection(targetImage->GetDirection());
-            previousFullDeformation->Allocate();
-            Vector<float, D> tmpVox(0.0);
-            previousFullDeformation->FillBuffer(tmpVox);
-        
+            if (regist){
+                //allocate memory
+                previousFullDeformation=LabelImageType::New();
+                previousFullDeformation->SetRegions(targetImage->GetLargestPossibleRegion());
+                previousFullDeformation->SetOrigin(targetImage->GetOrigin());
+                previousFullDeformation->SetSpacing(targetImage->GetSpacing());
+                previousFullDeformation->SetDirection(targetImage->GetDirection());
+                previousFullDeformation->Allocate();
+                Vector<float, D> tmpVox(0.0);
+                previousFullDeformation->FillBuffer(tmpVox);
+            }
             //instantiate potentials
             UnaryRegistrationPotentialPointerType unaryRegistrationPot=UnaryRegistrationPotentialType::New();
             UnarySegmentationPotentialPointerType unarySegmentationPot=UnarySegmentationPotentialType::New();
@@ -184,33 +188,32 @@ namespace itk{
             //instantiate interpolators
             SegmentationInterpolatorPointerType segmentationInterpolator=SegmentationInterpolatorType::New();
             ImageInterpolatorPointerType movingInterpolator=ImageInterpolatorType::New();
-        
-#if 1
-            ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
-            typedef typename UnarySegmentationPotentialType::ClassifierType ClassifierType;
-            typename ClassifierType::Pointer  classifier=  ClassifierType::New();
-            classifier->setNIntensities(256);
-            if (m_config.nSegmentations){
-                classifier->setData(movingImage,movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
-                //classifier->setData(movingImage,movingSegmentationImage);
-                classifier->train();
-                //classifier->evalImage(targetImage);
-                classifier->evalImage(targetImage,fixedGradientImage);
 
+            if (segment){
+                ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
+                typedef typename UnarySegmentationPotentialType::ClassifierType ClassifierType;
+                typename ClassifierType::Pointer  classifier=  ClassifierType::New();
+                classifier->setNIntensities(256);
+                if (m_config.nSegmentations){
+                    classifier->setData(movingImage,movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
+                    //classifier->setData(movingImage,movingSegmentationImage);
+                    classifier->train();
+                    //classifier->evalImage(targetImage);
+                    classifier->evalImage(targetImage,fixedGradientImage);
+
+                }
+                std::cout<<"returnedFromClassifier"<<std::endl;
+                unarySegmentationPot->SetClassifier(classifier);
+                pairwiseSegmentationPot->SetFixedImage(targetImage);
+                pairwiseSegmentationPot->SetFixedGradient((ConstImagePointerType)fixedGradientImage);
+                pairwiseSegmentationPot->SetReferenceImage(movingImage);
+                pairwiseSegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
+                pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
+                pairwiseSegmentationPot->Init();
+                if (ImageType::ImageDimension==2){
+                    pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
+                }
             }
-            std::cout<<"returnedFromClassifier"<<std::endl;
-            unarySegmentationPot->SetClassifier(classifier);
-            pairwiseSegmentationPot->SetFixedImage(targetImage);
-            pairwiseSegmentationPot->SetFixedGradient((ConstImagePointerType)fixedGradientImage);
-            pairwiseSegmentationPot->SetReferenceImage(movingImage);
-            pairwiseSegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
-            pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
-            pairwiseSegmentationPot->Init();
-            if (ImageType::ImageDimension==2){
-                pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
-            }
-            
-#endif
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
         
          
@@ -224,8 +227,10 @@ namespace itk{
             //asm volatile("" ::: "memory");
             LabelImagePointerType deformation;
             ImagePointerType segmentation;
-            pairwiseSegmentationRegistrationPot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
-            pairwiseSegmentationRegistrationPot->SetReferenceSegmentation(movingSegmentationImage);
+            if (segment){
+                pairwiseSegmentationRegistrationPot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
+                pairwiseSegmentationRegistrationPot->SetReferenceSegmentation(movingSegmentationImage);
+            }
 
           
             for (int l=0;l<m_config.nLevels;++l){
@@ -276,6 +281,7 @@ namespace itk{
                 //init graph
                 std::cout<<"init graph"<<std::endl;
                 GraphModelType graph;
+                graph.setConfig(m_config);
                 graph.setFixedImage(downSampledTarget);
                 graph.setDisplacementFactor(labelScalingFactor);
                 graph.initGraph(level);
@@ -285,33 +291,39 @@ namespace itk{
                 //                 std::cout<<ii.GetIndex()<<" "<<graph.getClosestGraphIndex(ii.GetIndex())<<std::endl;
                 //             }
                 movingInterpolator->SetInputImage(downSampledReference);
+                
+                if (segment && regist)
+                    segmentationInterpolator->SetInputImage(downSampledReferenceSegmentation);
 
-                segmentationInterpolator->SetInputImage(downSampledReferenceSegmentation);
-
-                //setup registration potentials
-                unaryRegistrationPot->SetRadius(graph.getSpacing());
-                unaryRegistrationPot->SetFixedImage(downSampledTarget);
-                unaryRegistrationPot->SetMovingImage(downSampledReference);
-                unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                if (regist){
+                    //setup registration potentials
+                    unaryRegistrationPot->SetRadius(graph.getSpacing());
+                    unaryRegistrationPot->SetFixedImage(downSampledTarget);
+                    unaryRegistrationPot->SetMovingImage(downSampledReference);
+                    unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                                     
-                //unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
-                //unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);
+                    //unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
+                    //unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);
                
-                unaryRegistrationPot->SetScale(scaling);
-                unaryRegistrationPot->Init();
+                    unaryRegistrationPot->SetScale(scaling);
+                    unaryRegistrationPot->Init();
             
-                pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
+                    pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
+                }
 
-                //setup segmentation potentials
-                unarySegmentationPot->SetFixedImage(downSampledTarget);
-                unarySegmentationPot->SetGradientImage(downSampledTargetSheetness);
-                unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
-                //setup segreg potentials
-                pairwiseSegmentationRegistrationPot->SetMovingSegmentationInterpolator(segmentationInterpolator);
-                pairwiseSegmentationRegistrationPot->SetMovingInterpolator(movingInterpolator);
-                pairwiseSegmentationRegistrationPot->SetFixedImage(downSampledTarget);
-                pairwiseSegmentationRegistrationPot->SetAsymmetryWeight(m_config.asymmetry);
-
+                if (segment){
+                    //setup segmentation potentials
+                    unarySegmentationPot->SetFixedImage(downSampledTarget);
+                    unarySegmentationPot->SetGradientImage(downSampledTargetSheetness);
+                    unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
+                }
+                if (segment && regist){
+                    //setup segreg potentials
+                    pairwiseSegmentationRegistrationPot->SetMovingSegmentationInterpolator(segmentationInterpolator);
+                    pairwiseSegmentationRegistrationPot->SetMovingInterpolator(movingInterpolator);
+                    pairwiseSegmentationRegistrationPot->SetFixedImage(downSampledTarget);
+                    pairwiseSegmentationRegistrationPot->SetAsymmetryWeight(m_config.asymmetry);
+                }
 
                 //register images and potentials
                 graph.setUnaryRegistrationFunction(unaryRegistrationPot);
@@ -344,9 +356,13 @@ namespace itk{
                     graph.setDisplacementFactor(labelScalingFactor);
                     
                     //register deformation from previous iteration
-                    unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
-                    pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
-                    pairwiseSegmentationRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                    if (regist){
+                        unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        if (segment){
+                            pairwiseSegmentationRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        }
+                    }
 #endif
                     //	ok what now: create graph! solve graph! save result!Z
                     double linearIncreasingWeight=1.0/(m_config.nLevels-l);
@@ -454,12 +470,12 @@ namespace itk{
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
                         if (ImageType::ImageDimension==2){
-                            ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
-                            ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedSegmentationImage,LabelMapperType::nSegmentations));
+                            if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
+                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedSegmentationImage,LabelMapperType::nSegmentations));
                         }
                         if (ImageType::ImageDimension==3){
-                            ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
-                            ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedSegmentationImage);
+                            if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
+                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedSegmentationImage);
                         }
                         //deformation
                         if (m_config.defFilename!=""){

@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <iostream>
+
 #include "argstream.h"
 
 #include "SRSConfig.h"
@@ -12,11 +13,10 @@
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-Segmentation-Pairwise.h"
 #include "Potential-SegmentationRegistration-Pairwise.h"
-#include "MRF-TRW-S.h"
+
 
 using namespace std;
 using namespace itk;
-
 
 int main(int argc, char ** argv)
 {
@@ -30,18 +30,16 @@ int main(int argc, char ** argv)
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
-    typedef DenseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    //typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
     //    typedef UnaryPotentialSegmentationArtificial2< ImageType > SegmentationUnaryPotentialType;
-    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
-    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    typedef SegmentationClassifierGradient<ImageType> ClassifierType;
+    //typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifier<ImageType> ClassifierType;
     typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     //typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
 
-    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
 
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -49,16 +47,13 @@ int main(int argc, char ** argv)
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
-    typedef GraphModel<
-        ImageType,
+	typedef HierarchicalSRSImageToImageFilter<ImageType,
+        LabelMapperType,
         RegistrationUnaryPotentialType,
-        RegistrationPairwisePotentialType,
         SegmentationUnaryPotentialType,
         SegmentationPairwisePotentialType,
-        SegmentationRegistrationPairwisePotentialType,
-        LabelMapperType>        GraphType;
-    
-	typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;
+        RegistrationPairwisePotentialType,
+        SegmentationRegistrationPairwisePotentialType>        FilterType;
     
 	//create filter
     FilterType::Pointer filter=FilterType::New();
@@ -74,6 +69,5 @@ int main(int argc, char ** argv)
 	clock_t end = clock();
 	float t = (float) ((double)(end - start) / CLOCKS_PER_SEC);
 	std::cout<<"Finished computation after "<<t<<" seconds"<<std::endl;
-	std::cout<<"Interpolation: "<<tInterpolation<<" Optimization: "<<tOpt<<std::endl;
 	return 1;
 }

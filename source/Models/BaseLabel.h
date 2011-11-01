@@ -278,7 +278,7 @@ public:
 	static inline const LabelType getLabel(int index){
 		LabelType result;
         int divisor=pow(double(2*nDisplacementSamples+1),TImage::ImageDimension-1);
-		for (int d=0;d<TImage::ImageDimension;++d){
+		for (int d=TImage::ImageDimension-1;d>=0;--d){
 			result[d]=index/divisor-nDisplacementSamples;
 			index-=(result[d]+nDisplacementSamples)*divisor;
 			divisor/=2*nDisplacementSamples+1;
@@ -289,7 +289,7 @@ public:
 	static inline const int getIndex(const LabelType & label){
 		int index=0;
         int factor=1;
-		for (int d=TImage::ImageDimension-1;d>=0;--d){
+		for (int d=0;d<TImage::ImageDimension;++d){
 			index+=factor*(label[d]+nDisplacementSamples);
 			factor*=2*nDisplacementSamples+1;
 		}

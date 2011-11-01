@@ -37,6 +37,7 @@ public:
     int optIter;
     bool downScale;
     double pairwiseContrastWeight;
+    int nSubsamples;
 private:
 	argstream * as;
 public:
@@ -62,6 +63,7 @@ public:
         scale=1;asymmetry=0;
         downScale=false;
         pairwiseContrastWeight=1;
+        nSubsamples=1;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -103,6 +105,7 @@ public:
         optIter=c.optIter;
         downScale=c.downScale;
         pairwiseContrastWeight=c.pairwiseContrastWeight;
+        nSubsamples=c.nSubsamples;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -173,6 +176,7 @@ public:
         (*as) >> option ("verbose", verbose,"get verbose output");
         (*as) >> option ("downScale", downScale,"downSample ALL images during the pyramid");
         (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=1)", false);
+        (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
 		std::list<int> bla;
 //		(*as) >> values<int> (back_inserter(bla),"descr",nLevels);

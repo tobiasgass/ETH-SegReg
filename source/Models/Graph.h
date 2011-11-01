@@ -12,6 +12,7 @@
 #include <assert.h>
 #include "itkConstNeighborhoodIterator.h"
 #include <limits>
+#include "SRSConfig.h"
 using namespace std;
 /*
  * Isotropic Graph
@@ -95,7 +96,7 @@ namespace itk{
         bool m_haveLabelMap;
         ConstImagePointerType m_fixedImage;
         ConstImageNeighborhoodIteratorType m_fixedNeighborhoodIterator;
-
+        SRSConfig m_config;
     public:
 
         GraphModel(){
@@ -110,7 +111,9 @@ namespace itk{
         ~GraphModel(){
             //delete m_fixedNeighborhoodIterator;
         }
-
+        void setConfig(SRSConfig c){
+            m_config=c;
+        }
         void setFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
         }

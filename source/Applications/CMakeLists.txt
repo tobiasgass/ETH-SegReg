@@ -33,8 +33,8 @@ TARGET_LINK_LIBRARIES(SegReg-2D-subsampling maxflow ITKIO Utils TRWS FastPD SRSM
 
 
 
-#ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration3D.cxx )
-#TARGET_LINK_LIBRARIES(SegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so tcmalloc )
+ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration3D.cxx )
+TARGET_LINK_LIBRARIES(SegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so tcmalloc )
 
 #ADD_EXECUTABLE(AlternatingSegReg2D Alternating-JRS.cxx )
 #TARGET_LINK_LIBRARIES(AlternatingSegReg2D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.so tcmalloc )

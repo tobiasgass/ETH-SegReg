@@ -18,6 +18,8 @@
 #include "ordering.cpp"
 //#include "malloc.c"
 using namespace std;
+double tOpt=0;
+double tInterpolation=0;
 
 template<class TGraphModel>
 class TRWS_SRSMRFSolver {
@@ -207,7 +209,8 @@ public:
             }
         }
         clock_t finish = clock();
-        clock_t t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
+        double t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
+        tInterpolation+=t;
         if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
         nEdges=edgeCount;
 
@@ -225,8 +228,10 @@ public:
         options.m_printIter=1;
         options.verbose=verbose;
         options.m_eps=-1;
+        clock_t opt_start=clock();
         m_optimizer.Minimize_TRW_S(options, lowerBound, energy);
         clock_t finish = clock();
+        tOpt+=((double)(finish-opt_start)/CLOCKS_PER_SEC);
         float t = (float) ((double)(finish - m_start) / CLOCKS_PER_SEC);
         std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound ;//std::endl;
 

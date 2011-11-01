@@ -5,7 +5,7 @@
 #include "argstream.h"
 
 #include "SRSConfig.h"
-#include "HierarchicalSRSImageToImageFilter.h"
+#include "HierarchicalJRSImageToImageFilter.h"
 #include "Graph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
@@ -13,7 +13,7 @@
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-SegmentationRegistration-Pairwise.h"
 #include "Potential-Segmentation-Pairwise.h"
-#include "MRF-TRW-S.h"
+#include "Classifier.h"
 
 using namespace std;
 using namespace itk;
@@ -26,39 +26,25 @@ int main(int argc, char ** argv)
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
 	//define types.
-	typedef float PixelType;
-	const unsigned int D=3;
+	typedef unsigned char PixelType;
+	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
-    //typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef DenseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-
-    //unary seg
-    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
-    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
-    //typedef SegmentationClassifier<ImageType> ClassifierType;
-    typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    
-    //pairwise seg
-//    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    typedef SegmentationClassifierGradient<ImageType> ClassifierType;
+    //typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    typedef UnaryPotentialSegmentationClassifierWithPrior<ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-
-    //reg
-    typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef UnaryPotentialRegistrationNCCWithSegmentationPrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationRegistration< ImageType > SegmentationRegistrationPairwisePotentialType;
-  typedef GraphModel<
-        ImageType,
+  	typedef HierarchicalJRSImageToImageFilter<ImageType,
+        LabelMapperType,
         RegistrationUnaryPotentialType,
-        RegistrationPairwisePotentialType,
         SegmentationUnaryPotentialType,
         SegmentationPairwisePotentialType,
-        SegmentationRegistrationPairwisePotentialType,
-        LabelMapperType>        GraphType;
+        RegistrationPairwisePotentialType >        FilterType;
     
-	typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
 	//create filter
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(filterConfig);
@@ -66,13 +52,12 @@ int main(int argc, char ** argv)
     filter->setMovingImage(ImageUtils<ImageType>::readImage(filterConfig.movingFilename));
     filter->setMovingSegmentation(ImageUtils<ImageType>::readImage(filterConfig.movingSegmentationFilename));
     filter->setFixedGradientImage(ImageUtils<ImageType>::readImage(filterConfig.fixedGradientFilename));
-
+    filter->setMovingGradientImage(ImageUtils<ImageType>::readImage(filterConfig.movingGradientFilename));
 	clock_t start = clock();
 	//DO IT!
 	filter->Update();
 	clock_t end = clock();
 	float t = (float) ((double)(end - start) / CLOCKS_PER_SEC);
 	std::cout<<"Finished computation after "<<t<<" seconds"<<std::endl;
-	std::cout<<"Interpolation: "<<tInterpolation<<" Optimization: "<<tOpt<<std::endl;
 	return 1;
 }
