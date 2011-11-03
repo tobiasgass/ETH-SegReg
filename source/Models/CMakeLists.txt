@@ -15,6 +15,8 @@ SET(SRSMRFModels_SRC
   BaseLabel.h
   MRF-TRW-S.h
   Graph.h
+  SubsamplingGraph.h
+  FastRegistrationGraph.h
   SRSConfig.h
   HierarchicalSRSImageToImageFilter.h
   Potential-Registration-Pairwise.h

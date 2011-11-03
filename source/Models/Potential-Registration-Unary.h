@@ -17,6 +17,7 @@
 #include <itkVectorLinearInterpolateImageFunction.h>
 #include <itkVectorResampleImageFilter.h>
 #include "Potential-SegmentationRegistration-Pairwise.h"
+#include "itkTranslationTransform.h"
 namespace itk{
 
 
@@ -146,12 +147,25 @@ namespace itk{
       
     	void SetMovingImage(ConstImagePointerType movingImage){
             m_movingImage=movingImage;
+            if (m_scale!=1.0){
+                m_scaledMovingImage=FilterUtils<ImageType>::LinearResample((m_movingImage),m_scale);
+            }else{
+                m_scaledMovingImage=m_movingImage;
+            }
             m_movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
+            m_movingInterpolator=InterpolatorType::New();
+            m_movingInterpolator->SetInputImage(m_scaledMovingImage);
         }
         void SetFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
             m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
-           
+            if (m_scale!=1.0){
+                m_scaledFixedImage=FilterUtils<ImageType>::LinearResample((m_fixedImage),m_scale);
+            }else{
+                m_scaledFixedImage=m_fixedImage;
+            }
+            nIt=ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledFixedImage, this->m_scaledFixedImage->GetLargestPossibleRegion());
+
         }
 
         virtual double getPotential(IndexType fixedIndex, LabelType disp){
@@ -160,9 +174,9 @@ namespace itk{
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 fixedIndex[d]*=m_scale;
             }
-            LabelType baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
+            // LabelType baseDisp=m_baseLabelMap->GetPixel(fixedIndex);
             //std::cout<<baseDisp<<" "<<disp<<std::endl;
-            baseDisp*=m_scale;
+            //baseDisp*=m_scale;
             disp*=m_scale;
             //            std::cout<<fixedIndex<<"\t "<<disp<<"\t "<<std::endl;
             //          nIt->SetLocation(fixedIndex);
@@ -178,7 +192,7 @@ namespace itk{
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
 
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*m_scale;
+                    idx2+=disp;//+this->m_baseLabelMap->GetPixel(neighborIndex)*m_scale;
 
                     //cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
@@ -632,5 +646,132 @@ namespace itk{
         }
     };//class
 
+    template<class TLabelMapper,class TImage>
+    class FastUnaryPotentialRegistrationNCC: public UnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
+    public:
+        //itk declarations
+        typedef FastUnaryPotentialRegistrationNCC            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+
+        typedef typename LabelMapperType::LabelImageType LabelImageType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        
+        typedef itk::TranslationTransform<double,ImageType::ImageDimension> TranslationTransformType;
+        typedef typename TranslationTransformType::Pointer TranslationTransformPointerType;
+        typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleImageFilterType;
+
+    protected:
+        ImagePointerType m_shiftedMovingImage;
+        ImageNeighborhoodIteratorType m_movingNeighborhoodIterator;
+        LabelType m_currentDisp;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(FastRegistrationUnaryPotentialNCC, Object);
+
+        virtual void shiftMovingImage(LabelType displacement){
+            LabelType scaledLabel=displacement*this->m_scale;
+            typename TranslationTransformType::Pointer transform =
+                TranslationTransformType::New();
+            typename TranslationTransformType::OutputVectorType translation;
+            for (int d=0;d<ImageType::ImageDimension;++d){
+                //translation[d] =scaledLabel[d];
+                translation[d] =displacement[d];
+            }
+            transform->Translate(translation);
+            typename ResampleImageFilterType::Pointer resampleFilter = ResampleImageFilterType::New();
+            resampleFilter->SetTransform(transform.GetPointer());
+            resampleFilter->SetDefaultPixelValue(0);
+            //translate moving image
+            resampleFilter->SetOutputParametersFromImage(this->m_scaledMovingImage);
+            resampleFilter->SetInput(this->m_scaledMovingImage);
+            resampleFilter->Update();
+#if 0
+            if (this->m_scale!=1.0){
+                m_shiftedMovingImage=FilterUtils<ImageType>::LinearResample((ConstImagePointerType)(resampleFilter->GetOutput()),this->m_scale);
+            }else{
+                m_shiftedMovingImage=resampleFilter->GetOutput();
+            }
+#endif
+            
+            m_shiftedMovingImage=resampleFilter->GetOutput();
+            m_movingNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_radius,this->m_shiftedMovingImage, this-> m_shiftedMovingImage->GetLargestPossibleRegion());
+            m_currentDisp=scaledLabel;
+          
+        }
+        virtual double getLocalPotential(IndexType fixedIndex){
+            double result;
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                fixedIndex[d]*=this->m_scale;
+            }
+            this->nIt.SetLocation(fixedIndex);
+            m_movingNeighborhoodIterator.SetLocation(fixedIndex);
+
+            double count=0;
+            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double m=m_movingNeighborhoodIterator.GetPixel(i,inBounds);
+                if (inBounds){
+                    double f=this->nIt.GetPixel(i);
+#if 0
+                    IndexType neighborIndex=this->nIt.GetIndex(i);
+                    //this should be weighted somehow
+                    ContinuousIndexType idx2(neighborIndex);
+                    idx2+=m_currentDisp;//+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+                    if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+                        continue;
+                    }
+                    m=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
+
+#endif
+                  
+                    sff+=f*f;
+                    smm+=m*m;
+                    sfm+=f*m;
+                    sf+=f;
+                    sm+=m;
+                    count+=1;
+
+                }
+            }
+            if (count){
+                sff -= ( sf * sf / count );
+                smm -= ( sm * sm / count );
+                sfm -= ( sf * sm / count );
+                if (smm*sff>0){
+                    //result=(1-1.0*sfm/sqrt(smm*sff))/2;
+                    result=((1+1.0*sfm/sqrt(smm*sff))/2);
+                    result=result>0?result:0.00000001;
+                    result=-log(result);
+                }
+                else {
+                    if (sfm>0) result=0;
+                    else result=1;
+                }
+            }
+            //no correlation whatsoever
+            else result=-log(0.5);
+            //result=result>0.5?0.5:result;
+            return result;
+        }
+    };//FastUnaryPotentialRegistrationNCC
 }//namespace
 #endif /* POTENTIALS_H_ */

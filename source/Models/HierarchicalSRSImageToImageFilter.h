@@ -348,7 +348,9 @@ namespace itk{
                 std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
                 std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 #endif
-                typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
+                //typedef TRWS_SRSMRFSolverTruncQuadrat3D<GraphModelType> MRFSolverType;
                 for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
                     std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
                     // displacementfactor decreases with iterations
@@ -365,10 +367,10 @@ namespace itk{
                     }
 #endif
                     //	ok what now: create graph! solve graph! save result!Z
-                    double linearIncreasingWeight=1.0/(m_config.nLevels-l);
-                    double expIncreasingWeight=exp(-(m_config.nLevels-l-1));
-                    double linearDecreasingWeight=1-linearIncreasingWeight;
-                    double expDecreasingWeight=exp(-l);
+                    //double linearIncreasingWeight=1.0/(m_config.nLevels-l);
+                    //double expIncreasingWeight=exp(-(m_config.nLevels-l-1));
+                    //double linearDecreasingWeight=1-linearIncreasingWeight;
+                    //double expDecreasingWeight=exp(-l);
                     {
 #if 1
                         MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
@@ -432,7 +434,7 @@ namespace itk{
                 
                     deformedImage=deformImage(downSampledReference,composedDeformation);
                     deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
-
+                    
 #if 0
                     typedef itk::HausdorffDistanceImageFilter<ImageType, ImageType> HausdorffDistanceFilterType;
                     typedef typename HausdorffDistanceFilterType::Pointer HDPointerType;
@@ -488,8 +490,10 @@ namespace itk{
                             //
                         }
                     }
-
+                    
 #endif
+                    unaryRegistrationPot->SetMovingImage((ConstImagePointerType)deformedImage);
+
                 }
                 std::cout<<std::endl<<std::endl;
             }
@@ -532,7 +536,7 @@ namespace itk{
                 ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,finalDeformedReferenceSegmentation);
             }
 
-
+            std::cout<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ConstImagePointerType)finalDeformedReference,targetImage)<<endl;
             //deformation
             if (m_config.defFilename!=""){
                 //		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);

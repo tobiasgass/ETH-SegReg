@@ -264,6 +264,18 @@ public:
 
 		return true;
 	}
+    
+    static double sumAbsDist(ConstImagePointerType im1,ConstImagePointerType im2){
+        int c=0;
+        double result=0.0;
+        typedef itk::ImageRegionConstIterator<ImageType> IteratorType;
+        IteratorType it1(im1,im1->GetLargestPossibleRegion());
+        IteratorType it2(im2,im2->GetLargestPossibleRegion());
+        for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2,++c){
+            result+=fabs(it1.Get()-it2.Get());
+        }
+        return result/c;
+    }
 
 };
 #endif // IMAGE_UTILS

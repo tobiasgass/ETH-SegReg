@@ -105,9 +105,9 @@ namespace itk{
             double edgeWeight=fabs(s1-s2);
             edgeWeight*=edgeWeight;
 
-            int i1=this->m_fixedImage->GetPixel(idx1);
-            int i2=this->m_fixedImage->GetPixel(idx2);
-            double intensityDiff=(i1-i2)*(i1-i2);
+            //int i1=this->m_fixedImage->GetPixel(idx1);
+            //int i2=this->m_fixedImage->GetPixel(idx2);
+            //double intensityDiff=(i1-i2)*(i1-i2);
             edgeWeight=(s1 < s2) ? 1.0 : exp( - 40* (edgeWeight/this->m_gradientSigma) );
             //edgeWeight=(s1 < s2) ? 1.0 : exp( - 0.05* edgeWeight );
             //edgeWeight= exp( - 0.5 * 0.5*(edgeWeight/this->m_gradientSigma) +intensityDiff/this->m_Sigma);

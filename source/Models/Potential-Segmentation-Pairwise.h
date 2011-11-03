@@ -86,9 +86,9 @@ namespace itk{
                 int s2=this->m_sheetnessImage->GetPixel(idx2);
                 double edgeWeight=fabs(s1-s2);
                 edgeWeight*=edgeWeight;
-                int i1=this->m_fixedImage->GetPixel(idx1);
-                int i2=this->m_fixedImage->GetPixel(idx2);
-                double intensityDiff=(i1-i2)*(i1-i2);
+                //int i1=this->m_fixedImage->GetPixel(idx1);
+                //int i2=this->m_fixedImage->GetPixel(idx2);
+                //double intensityDiff=(i1-i2)*(i1-i2);
                 edgeWeight=(s1 < s2) ? 1.0 : exp( - 40* (edgeWeight/this->m_gradientSigma) );
                 return edgeWeight;
             }else{
@@ -172,14 +172,14 @@ namespace itk{
               
                 OffsetType off;
                 off.Fill(0);
-                if (idx1[0]<im->GetLargestPossibleRegion().GetSize()[0]-1){
+                if (idx1[0]<(int)im->GetLargestPossibleRegion().GetSize()[0]-1){
                         off[0]+=1;
                         IndexType idx2=idx1+off;
                         horIt.Set(getPotential(idx1,idx2,0,1));
                         verIt.Set(getPotential(idx1,idx2,0,0));
                 }
                 off.Fill(0);
-                if (idx1[1]<im->GetLargestPossibleRegion().GetSize()[1]-1){
+                if (idx1[1]<(int)im->GetLargestPossibleRegion().GetSize()[1]-1){
                         off[1]+=1;
                         IndexType idx2=idx1+off;
 

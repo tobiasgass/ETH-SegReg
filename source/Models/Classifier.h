@@ -402,27 +402,27 @@ namespace itk{
             matrix<float> conf = this->m_Forest->getConfidences();
             std::cout<<conf.size1()<<" "<<conf.size2()<<std::endl;
             c=0;
-            double min=9999;
-            double max=-1;
+            //double min=9999;
+            //double max=-1;
             std::vector<double> mins(2,99999);
             std::vector<double> maxs(2,-99999);
             std::cout<<m_varianceIntens<<" "<<m_varianceGrad<<" "<<m_covariance<<" "<<this->m_counts[0] <<" "<<  this->m_counts[1]<<endl;
             double det=m_varianceIntens*m_varianceGrad-m_covariance*m_covariance;
             std::cout<<det<<" "<<this->m_counts[0] +  this->m_counts[1]<<endl;
-            double norm=1.0/sqrt(2*3.14*det);
+            //double norm=1.0/sqrt(2*3.14*det);
             for (int i=0;i<this->m_nIntensities;++i){
                 for (int j=0;j<this->m_nIntensities;++j,++c){
                     for (int s=0;s<2;++s){
                         // p(s) = relative frequency
-                        double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
+                        //double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
                         //p(x) = multivariate gaussian
-                        double bar_intens=i-m_meanIntens;
-                        double bar_grad=j-m_meanGrad;
+                        //double bar_intens=i-m_meanIntens;
+                        //double bar_grad=j-m_meanGrad;
                         //-1/2(i-mu_i g-mu_g)^T E^-1 (i-mu_i g-mu_g)
-                        double mahalanobis=-1.0/(2*det) *(bar_intens*(bar_intens*m_varianceGrad-bar_grad*m_covariance) + bar_grad*(bar_grad*m_varianceIntens-bar_intens*m_covariance));
-                        double p_x=norm*exp(mahalanobis);
+                        //double mahalanobis=-1.0/(2*det) *(bar_intens*(bar_intens*m_varianceGrad-bar_grad*m_covariance) + bar_grad*(bar_grad*m_varianceIntens-bar_intens*m_covariance));
+                        //double p_x=norm*exp(mahalanobis);
                         
-                        double p_x2= 1.0*m_jointCounts[floor(i/10) + 26*floor(j/10)]/m_totalCount;
+                        //double p_x2= 1.0*m_jointCounts[floor(i/10) + 26*floor(j/10)]/m_totalCount;
                         //cout<<floor(i/10)<<" "<<26*floor(j/10)<<" "<<floor(i/10) + 26*floor(j/10)<<" "<<m_jointCounts[floor(i/10) + 26*floor(j/10)]<<" "<<p_x2<<endl;
                         double p=conf(c,s) ;/// p_s  * p_x2 ; 
 
@@ -1006,7 +1006,7 @@ namespace itk{
                 for (int j=0;j<this->m_nIntensities;++j,++c){
                     for (int s=0;s<2;++s){
                         // p(s) = relative frequency
-                        double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
+                        //double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
                         double p=conf(c,s) ;/// p_s  * p_x2 ; 
                         //std::cout<<p<<std::endl;
                         p=p>0?p:0.0000001;

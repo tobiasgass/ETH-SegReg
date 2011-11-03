@@ -7,6 +7,7 @@
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
 #include "Graph.h"
+#include "FastRegistrationGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
@@ -46,10 +47,12 @@ int main(int argc, char ** argv)
     typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
 
     //reg
+    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration< ImageType > SegmentationRegistrationPairwisePotentialType;
-  typedef GraphModel<
+    //typedef FastRegistrationGraphModel<
+        typedef GraphModel<
         ImageType,
         RegistrationUnaryPotentialType,
         RegistrationPairwisePotentialType,
@@ -73,6 +76,7 @@ int main(int argc, char ** argv)
 	clock_t end = clock();
 	float t = (float) ((double)(end - start) / CLOCKS_PER_SEC);
 	std::cout<<"Finished computation after "<<t<<" seconds"<<std::endl;
-	std::cout<<"Interpolation: "<<tInterpolation<<" Optimization: "<<tOpt<<std::endl;
+	std::cout<<"RegUnaries: "<<tUnary<<" Optimization: "<<tOpt<<std::endl;	
+    std::cout<<"RegPairwise: "<<tPairwise<<std::endl;
 	return 1;
 }
