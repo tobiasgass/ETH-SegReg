@@ -38,6 +38,7 @@ public:
     bool downScale;
     double pairwiseContrastWeight;
     int nSubsamples;
+    double alpha;
 private:
 	argstream * as;
 public:
@@ -64,6 +65,7 @@ public:
         downScale=false;
         pairwiseContrastWeight=1;
         nSubsamples=1;
+        alpha=0;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -106,6 +108,7 @@ public:
         downScale=c.downScale;
         pairwiseContrastWeight=c.pairwiseContrastWeight;
         nSubsamples=c.nSubsamples;
+        alpha=c.alpha;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -178,6 +181,7 @@ public:
         (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=1)", false);
         (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
+        (*as) >> parameter ("alpha",alpha ,"generic weight (0)", false);
 		std::list<int> bla;
 //		(*as) >> values<int> (back_inserter(bla),"descr",nLevels);
 		(*as) >> help();

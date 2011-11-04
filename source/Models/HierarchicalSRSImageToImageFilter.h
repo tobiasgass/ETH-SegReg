@@ -297,15 +297,16 @@ namespace itk{
 
                 if (regist){
                     //setup registration potentials
+                    unaryRegistrationPot->SetScale(scaling);
                     unaryRegistrationPot->SetRadius(graph.getSpacing());
                     unaryRegistrationPot->SetFixedImage(downSampledTarget);
                     unaryRegistrationPot->SetMovingImage(downSampledReference);
                     unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                                     
-                    //unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
-                    //unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);
+                    unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
+                    unaryRegistrationPot->SetAlpha(m_config.alpha);
+                    unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);
                
-                    unaryRegistrationPot->SetScale(scaling);
                     unaryRegistrationPot->Init();
             
                     pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
@@ -349,8 +350,7 @@ namespace itk{
                 std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 #endif
                 //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-                typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
-                //typedef TRWS_SRSMRFSolverTruncQuadrat3D<GraphModelType> MRFSolverType;
+              
                 for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
                     std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
                     // displacementfactor decreases with iterations
@@ -373,20 +373,38 @@ namespace itk{
                     //double expDecreasingWeight=exp(-l);
                     {
 #if 1
-                        MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
+                        if (ImageType::ImageDimension==2){
+                              typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
+                              MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
                                                                      m_config.simWeight,
                                                                      m_config.pairwiseRegistrationWeight, 
                                                                      m_config.rfWeight,
                                                                      m_config.pairwiseSegmentationWeight,
                                                                      m_config.segWeight,
                                                                      m_config.verbose);
-                        mrfSolver->createGraph();
-                        mrfSolver->optimize(m_config.optIter);
-                        std::cout<<" ]"<<std::endl;
-                        deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
-                        segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
-                        
-                        delete mrfSolver;
+                              mrfSolver->createGraph();
+                              mrfSolver->optimize(m_config.optIter);
+                              std::cout<<" ]"<<std::endl;
+                              deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
+                              segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
+                              
+                              delete mrfSolver;
+                        }else{
+                            typedef TRWS_SRSMRFSolverTruncQuadrat3D<GraphModelType> MRFSolverType;
+                              MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
+                                                                     m_config.simWeight,
+                                                                     m_config.pairwiseRegistrationWeight, 
+                                                                     m_config.rfWeight,
+                                                                     m_config.pairwiseSegmentationWeight,
+                                                                     m_config.segWeight,
+                                                                     m_config.verbose);
+                              mrfSolver->createGraph();
+                              mrfSolver->optimize(m_config.optIter);
+                              std::cout<<" ]"<<std::endl;
+                              deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
+                              segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
+                        }
+
 #else
                         //     HeapProfilerStart("segreg") ;
                         MRFSolverType  *mrfSolver= new MRFSolverType();
@@ -492,7 +510,8 @@ namespace itk{
                     }
                     
 #endif
-                    unaryRegistrationPot->SetMovingImage((ConstImagePointerType)deformedImage);
+                    
+                    //unaryRegistrationPot->SetMovingImage((ConstImagePointerType)deformedImage);
 
                 }
                 std::cout<<std::endl<<std::endl;

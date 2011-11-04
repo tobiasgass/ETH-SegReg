@@ -235,6 +235,7 @@ namespace itk{
                 //now calculate the fine image index from the coarse graph index
                 position[d]*=m_gridSpacing[d]/m_imageSpacing[d];
             }
+            assert(m_fixedImage->GetLargestPossibleRegion().IsInside(position));
             return position;
         }
         virtual IndexType getClosestGraphIndex(IndexType imageIndex){
@@ -275,6 +276,7 @@ namespace itk{
                 position[d]=idx/m_imageLevelDivisors[d];
                 idx-=position[d]*m_imageLevelDivisors[d];
             }
+            assert(m_fixedImage->GetLargestPossibleRegion().IsInside(position));
             return position;
         }
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
