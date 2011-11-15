@@ -26,7 +26,7 @@ using namespace std;
 /*
  * Isotropic Graph
  * Returns current/next position in a grid based on size and resolution
- */
+ */ 
 namespace itk{
     template<class TImage, 
              class TUnaryRegistrationFunction, 
