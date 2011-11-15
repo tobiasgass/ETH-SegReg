@@ -986,7 +986,7 @@ namespace itk{
                 result=result*(1+this->m_alpha*(1.0*totalCount-count)/(totalCount+1));//+this->m_alpha*(totalCount-count)/(totalCount+1);
             }
             //no correlation whatsoever (-log(0.5))
-            else result=0;//100;//-log(0.0000000000000000001);//0.693147;
+            else result=100;//100;//-log(0.0000000000000000001);//0.693147;
             //result=result>0.5?0.5:result;
             return result;
         }
