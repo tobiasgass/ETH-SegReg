@@ -248,7 +248,7 @@ namespace itk{
                 }
             }
             //no correlation whatsoever
-            else result=0;//-log(0.0000000000000000001);
+            else result=100;//-log(0.0000000000000000001);
             //result=result>0.5?0.5:result;
             return result;
         }
@@ -963,7 +963,7 @@ namespace itk{
                     //NCC*=1.0*count/totalCount;
                     //NCC*=1.0*totalCount/count;
 #if 1
-                    result=((1.0+1.0*NCC)/2)*1.0;
+                    result=((1.0+NCC)/2);
                     result=result>0?result:0.00000001;
                     result=-log(result);
 #else

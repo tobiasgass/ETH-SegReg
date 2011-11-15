@@ -725,7 +725,7 @@ namespace itk{
                 nodeInfo.push_back(info);
                 if (this->m_config.verbose) std::cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<label<<" "<<LabelMapperType::getLabel(ind)<<endl;
             }
-            while(nodeInfo.subsampledNodeCosts.size()<nNewSamples){
+            while(nodeInfo.size()<nNewSamples){
                 RegistrationLabelType label;
                 vnl_random rgen( 9667566 );  // the seed is provided to ensure repeatipility through experiments
 
