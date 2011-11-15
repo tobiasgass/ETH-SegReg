@@ -58,9 +58,9 @@ int main(int argc, char ** argv)
     //typedef PairwisePotentialRegistrationSigmoid< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
     //typedef FastRegistrationGraphModel<
-    typedef GraphModel<
+    //typedef GraphModel<
     // // //typedef ITKGraphModel<
-    //typedef SortedSubsamplingGraphModel<
+    typedef SortedSubsamplingGraphModel<
     //typedef SortedCumSumSubsamplingGraphModel<
     //typedef WeightedGraphModel<
          InternalImageType,
