@@ -866,7 +866,7 @@ namespace itk{
                     //cout<<" "<<originalRegistrationCosts[i].second<<"/"<<originalRegistrationCosts[i].first;
                     //cout<<n.subsampledNodeCosts[i]<<" "<< n.indexToSubsampledDisplacementMapping[i]<<endl;
                 }
-                // std::sort(n.begin(),n.end(),sort_index());
+                //std::sort(n.begin(),n.end(),sort_index());
 
                 //cout<<endl;
                 this->m_nodeMappingInfo.push_back(n);

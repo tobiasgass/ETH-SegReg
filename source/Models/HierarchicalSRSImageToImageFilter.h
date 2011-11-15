@@ -302,7 +302,7 @@ namespace itk{
                     unaryRegistrationPot->SetFixedImage(downSampledTarget);
                     unaryRegistrationPot->SetMovingImage(downSampledReference);
                     unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
-#if 0
+#if 1
                     unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
                     unaryRegistrationPot->SetAlpha(m_config.alpha);
                     unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);

@@ -190,7 +190,7 @@ namespace itk{
             //            std::cout<<fixedIndex<<"\t "<<disp<<"\t "<<std::endl;
             //          nIt->SetLocation(fixedIndex);
             nIt.SetLocation(fixedIndex);
-            double count=0;
+            double count=0, totalCount=0;
             double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
             for (unsigned int i=0;i<nIt.Size();++i){
                 bool inBounds;
@@ -205,19 +205,26 @@ namespace itk{
 
                     //cout<<fixedIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
+                    totalCount+=1.0;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
+#if 1
                         continue;
                         m=0;
                         
-#if 0
+#else
                         for (int d=0;d<ImageType::ImageDimension;++d){
-                            if (idx2[d]>=this->m_movingInterpolator->GetEndContinuousIndex()[d]){
-                                idx2[d]=this->m_movingInterpolator->GetEndContinuousIndex()[d]-0.5;
+                            double d1=idx2[d]-this->m_movingInterpolator->GetEndContinuousIndex()[d];
+                            if (d1>0){
+                                idx2[d]-=2*d1;
                             }
-                            else if (idx2[d]<this->m_movingInterpolator->GetStartContinuousIndex()[d]){
-                                idx2[d]=this->m_movingInterpolator->GetStartContinuousIndex()[d]+0.5;
+                            else {
+                                double d2=this->m_movingInterpolator->GetStartContinuousIndex()[d]-idx2[d];
+                                if (d2<0){                                    
+                                    idx2[d]-=2*d2;
+                                }
                             }
                         }
+                        m=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
 #endif
                     }else{
                         m=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
@@ -232,7 +239,9 @@ namespace itk{
                 }
 
             }
-            if (count){
+            if (1.0*count/totalCount<0.01)
+                result=100000000;//-log(0.0000000000000000001);{
+            else{
                 sff -= ( sf * sf / count );
                 smm -= ( sm * sm / count );
                 sfm -= ( sf * sm / count );
@@ -247,9 +256,6 @@ namespace itk{
                     else result=1;
                 }
             }
-            //no correlation whatsoever
-            else result=100;//-log(0.0000000000000000001);
-            //result=result>0.5?0.5:result;
             return result;
         }
         virtual double GetOverlapRatio(IndexType fixedIndex){
@@ -986,7 +992,7 @@ namespace itk{
                 result=result*(1+this->m_alpha*(1.0*totalCount-count)/(totalCount+1));//+this->m_alpha*(totalCount-count)/(totalCount+1);
             }
             //no correlation whatsoever (-log(0.5))
-            else result=100;//100;//-log(0.0000000000000000001);//0.693147;
+            else result=10000000;//100;//-log(0.0000000000000000001);//0.693147;
             //result=result>0.5?0.5:result;
             return result;
         }
