@@ -42,8 +42,7 @@ namespace itk{
                           TUnarySegmentationFunction, 
                           TPairwiseSegmentationFunction,
                           TPairwiseSegmentationRegistrationFunction,
-                          TLabelMapper>
-    {
+                          TLabelMapper>    {
     public:
         typedef SubsamplingGraphModel Self;
         typedef SmartPointer<Self>        Pointer;
@@ -214,124 +213,125 @@ namespace itk{
 			NodeInformationMapping nodeInfo;
 			// Find all requested labels
 			std::vector<int> localMinima, localCenterMinima;
-			for(int labelNum=0; labelNum<nNewSamples; labelNum++)
-                {
-                    // center of subsample grid (local minima)
-                    RegistrationLabelType locMin;
-                    //??? locMin = gridCosts.arg_min();
-                    // Why doesn't this work, old vnl version?  Do the long way below...
-                    double minVal = vnl_bignum("+Infinity");   int ind=-1;
-                    for(unsigned int ii = 0; ii<gridCosts.costs.size(); ii++)
-                        {
-                            if (gridCosts.costs[ii]<minVal &&
-                                localMinima.end()==std::find(localMinima.begin(), localMinima.end(), ii) )
-                                {
-                                    ind = ii;
-                                    minVal = gridCosts.costs[ii];
-                                }
-                        }
-                    if(ind==-1) break;   //no more local minima found (handle outside)
-                    localCenterMinima.push_back(ind);
-                    // find subGrid location & bracket it inside the grid
-                    if (Dimension==3) {
-                        div_t qr = div(ind, gridCosts.dim[0] * gridCosts.dim[1]);
-                        locMin[2] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
-                        ind = qr.rem;
+			for(int labelNum=0; labelNum<nNewSamples; labelNum++){
+                
+                // center of subsample grid (local minima)
+                RegistrationLabelType locMin;
+                //??? locMin = gridCosts.arg_min();
+                // Why doesn't this work, old vnl version?  Do the long way below...
+                double minVal = vnl_bignum("+Infinity");   int ind=-1;
+                for(unsigned int ii = 0; ii<gridCosts.costs.size(); ii++)
+                    {
+                        if (gridCosts.costs[ii]<minVal &&
+                            localMinima.end()==std::find(localMinima.begin(), localMinima.end(), ii) )
+                            {
+                                ind = ii;
+                                minVal = gridCosts.costs[ii];
+                            }
                     }
-                    div_t qr = div(ind, gridCosts.dim[0]);
-                    locMin[1] = std::max<int>(1, std::min<int>(gridCosts.dim[1]-2, qr.quot ) );
-                    locMin[0] = std::max<int>(1, std::min<int>(gridCosts.dim[0]-2, qr.rem ) );
-                    
-                    // Push this grid location AND its neighbours to a list (to omit as next labels)
-                    for(int kk = (Dimension==3 ? locMin[2]-1 : 0) ;
-					    kk < (Dimension==3 ? locMin[2]+2 : 1) ; kk++)
-                        for(int jj=locMin[1]-1; jj<locMin[1]+2; jj++)
-                            for(int ii=locMin[0]-1; ii<locMin[0]+2; ii++)
-                                localMinima.push_back(kk*gridCosts.dim[1]*gridCosts.dim[0] + jj*gridCosts.dim[0] + ii);
-
-                    // vector for subsample grid ( center + 8 neighbour costs )
-                    // copy the subsample grid (minus 1's are in order to get the corner of 3x3 window)
-                    std::vector<double> subGridCosts;
-                    for(int kk = (Dimension==3 ? locMin[2]-1 : 0) ;
-					    kk < (Dimension==3 ? locMin[2]+2 : 1) ; kk++)
-                        for(int jj=locMin[1]-1; jj<locMin[1]+2; jj++)
-                            for(int ii=locMin[0]-1; ii<locMin[0]+2; ii++)
-                                subGridCosts.push_back( gridCosts.costs[kk*gridCosts.dim[1]*gridCosts.dim[0] + jj*gridCosts.dim[0] + ii] );
-
-                    // compute pseudo-inverse solution
-                    vnl_matrix_fixed< double, 3*3*(Dimension==3?3:1), 1> subGridCostsMat;
-                    subGridCostsMat.copy_in( &subGridCosts[0] );  // no range checking!!
-                    vnl_matrix_fixed<double,4*Dimension-2,1> aMat = constA * subGridCostsMat;
-                    double *a = aMat.data_block();
-
-                    vnl_matrix_fixed<double,Dimension,Dimension> tempM;
-                    if(Dimension==2)
-                        {
-                            tempM.put(0, 0, 2*a[4] );
-                            tempM.put(1, 1, 2*a[5] );
-                            tempM.put(0, 1,   a[3] );
-                            tempM.put(1, 0,   a[3] );
-                        } else 
-                        { // Dimension == 3
-                            tempM.put(0, 0, 2*a[7] );
-                            tempM.put(1, 1, 2*a[8] );
-                            tempM.put(2, 2, 2*a[9] );
-                            tempM.put(0, 1,   a[4] );
-                            tempM.put(1, 0,   a[4] );
-                            tempM.put(0, 2,   a[5] );
-                            tempM.put(2, 0,   a[5] );
-                            tempM.put(1, 2,   a[6] );
-                            tempM.put(2, 1,   a[6] );
-                        }
-                    vnl_matrix_fixed<double,Dimension,1> dMat = vnl_matrix_inverse<double>( tempM ) * aMat.extract(Dimension,1,1,0);
-                    if(Dimension==2) dMat*=-1;  // why is this?  I don't know, just taking from Eq(15) in the TMI,2010 subsampling paper
-                    double d[Dimension];
-                    dMat.copy_out( d );
-
-                    // bracket the displacement inside the subGrid [-1,1]
-                    RegistrationLabelType label;
-                    double distanceToOriginal=0.0;
-                    for(int ii=0; ii<Dimension; ii++)
-                        {
-                            d[ii] = std::max<double>(-1.0, std::min<double>(1.0,d[ii]));
-                            label[ii] = d[ii] + locMin[ii] - (gridCosts.dim[ii]-1)/2;
-                            double tmp=label[ii]-locMin[ii];
-                            tmp*=tmp;
-                            distanceToOriginal+=tmp;
-                        }
-                    distanceToOriginal=sqrt(distanceToOriginal);
-                    double result;
-                    NodeInformation inf;
-                    if(Dimension==2){
-                        result= a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[0]*d[1] + a[4]*d[0]*d[0] + a[5]*d[1]*d[1] ;
-                    }
-                    else
-                        result=a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[2] + a[4]*d[0]*d[1] + a[5]*d[0]*d[2] + a[6]*d[1]*d[2] + a[7]*d[0]*d[0] + a[8]*d[1]*d[1] + a[9]*d[2]*d[2];
-
-                    if ((a[4]<0 || a[5]<0) || result<minVal){
-                        bool test= ((a[4]>0 || a[5]>0) && result<minVal);
-                        cout<<test << endl;
-                        inf.label=label;
-                        RegistrationLabelType l;
-                        l=LabelMapperType::scaleDisplacement(label,this->getDisplacementFactor());
-                        double trueValue=this->m_unaryRegFunction->getPotential(imageIndex,l)/this->m_nRegistrationNodes;
-                        //nodeInfo.subsampledNodeCosts.push_back( result );
-                        //nodeInfo.subsampledNodeCosts.push_back( trueValue );
-                        inf.costs=trueValue;
-                        
-                        //                        cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<distanceToOriginal<<" "<<result-minVal<<" "<<trueValue<<" "<<result-trueValue<<endl;
-                        //cout<<"COSTS "<<result<<" "<<minVal<<" "<<trueValue<<" "<<fabs(result-trueValue)<<endl;
-                    }else{
-                        inf.costs=( minVal );
-                        inf.label=( LabelMapperType::getLabel(ind) );
-                        inf.index=ind;
-                    }
-
-                    // Hack :) to remove this local minimum in order to get other possible labels :: Fix Later!
-                    // !!! Modifying pass by reference !!! assuming the cost grid will not be needed outside this function
-                    //				gridCosts.costs[ind] += minVal;
-                    nodeInfo.push_back(inf);
+                if(ind==-1) break;   //no more local minima found (handle outside)
+                localCenterMinima.push_back(ind);
+                // find subGrid location & bracket it inside the grid
+                if (Dimension==3) {
+                    div_t qr = div(ind, gridCosts.dim[0] * gridCosts.dim[1]);
+                    locMin[2] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
+                    ind = qr.rem;
                 }
+                div_t qr = div(ind, gridCosts.dim[0]);
+                locMin[1] = std::max<int>(1, std::min<int>(gridCosts.dim[1]-2, qr.quot ) );
+                locMin[0] = std::max<int>(1, std::min<int>(gridCosts.dim[0]-2, qr.rem ) );
+                    
+                // Push this grid location AND its neighbours to a list (to omit as next labels)
+                for(int kk = (Dimension==3 ? locMin[2]-1 : 0) ;
+                    kk < (Dimension==3 ? locMin[2]+2 : 1) ; kk++)
+                    for(int jj=locMin[1]-1; jj<locMin[1]+2; jj++)
+                        for(int ii=locMin[0]-1; ii<locMin[0]+2; ii++)
+                            localMinima.push_back(kk*gridCosts.dim[1]*gridCosts.dim[0] + jj*gridCosts.dim[0] + ii);
+
+                // vector for subsample grid ( center + 8 neighbour costs )
+                // copy the subsample grid (minus 1's are in order to get the corner of 3x3 window)
+                std::vector<double> subGridCosts;
+                for(int kk = (Dimension==3 ? locMin[2]-1 : 0) ;
+                    kk < (Dimension==3 ? locMin[2]+2 : 1) ; kk++)
+                    for(int jj=locMin[1]-1; jj<locMin[1]+2; jj++)
+                        for(int ii=locMin[0]-1; ii<locMin[0]+2; ii++)
+                            subGridCosts.push_back( gridCosts.costs[kk*gridCosts.dim[1]*gridCosts.dim[0] + jj*gridCosts.dim[0] + ii] );
+
+                // compute pseudo-inverse solution
+                vnl_matrix_fixed< double, 3*3*(Dimension==3?3:1), 1> subGridCostsMat;
+                subGridCostsMat.copy_in( &subGridCosts[0] );  // no range checking!!
+                vnl_matrix_fixed<double,4*Dimension-2,1> aMat = constA * subGridCostsMat;
+                double *a = aMat.data_block();
+
+                vnl_matrix_fixed<double,Dimension,Dimension> tempM;
+                if(Dimension==2)
+                    {
+                        tempM.put(0, 0, 2*a[4] );
+                        tempM.put(1, 1, 2*a[5] );
+                        tempM.put(0, 1,   a[3] );
+                        tempM.put(1, 0,   a[3] );
+                    } else 
+                    { // Dimension == 3
+                        tempM.put(0, 0, 2*a[7] );
+                        tempM.put(1, 1, 2*a[8] );
+                        tempM.put(2, 2, 2*a[9] );
+                        tempM.put(0, 1,   a[4] );
+                        tempM.put(1, 0,   a[4] );
+                        tempM.put(0, 2,   a[5] );
+                        tempM.put(2, 0,   a[5] );
+                        tempM.put(1, 2,   a[6] );
+                        tempM.put(2, 1,   a[6] );
+                    }
+                vnl_matrix_fixed<double,Dimension,1> dMat = vnl_matrix_inverse<double>( tempM ) * aMat.extract(Dimension,1,1,0);
+                if(Dimension==2) dMat*=-1;  // why is this?  I don't know, just taking from Eq(15) in the TMI,2010 subsampling paper
+                double d[Dimension];
+                dMat.copy_out( d );
+
+                // bracket the displacement inside the subGrid [-1,1]
+                RegistrationLabelType label;
+                double distanceToOriginal=0.0;
+                for(int ii=0; ii<Dimension; ii++)
+                    {
+                        d[ii] = std::max<double>(-1.0, std::min<double>(1.0,d[ii]));
+                        label[ii] = d[ii] + locMin[ii] - (gridCosts.dim[ii]-1)/2;
+                        double tmp=label[ii]-locMin[ii];
+                        tmp*=tmp;
+                        distanceToOriginal+=tmp;
+                    }
+                distanceToOriginal=sqrt(distanceToOriginal);
+                double result;
+                NodeInformation inf;
+                if(Dimension==2){
+                    result= a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[0]*d[1] + a[4]*d[0]*d[0] + a[5]*d[1]*d[1] ;
+                }
+                else
+                    result=a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[2] + a[4]*d[0]*d[1] + a[5]*d[0]*d[2] + a[6]*d[1]*d[2] + a[7]*d[0]*d[0] + a[8]*d[1]*d[1] + a[9]*d[2]*d[2];
+
+                if ((a[4]<0 || a[5]<0) || result<minVal){
+                    bool test= ((a[4]>0 || a[5]>0) && result<minVal);
+                    cout<<test << endl;
+                    inf.label=label;
+                    RegistrationLabelType l;
+                    l=LabelMapperType::scaleDisplacement(label,this->getDisplacementFactor());
+                    double trueValue=this->m_unaryRegFunction->getPotential(imageIndex,l)/this->m_nRegistrationNodes;
+                    //nodeInfo.subsampledNodeCosts.push_back( result );
+                    //nodeInfo.subsampledNodeCosts.push_back( trueValue );
+                    inf.costs=trueValue;
+                        
+                    //                        cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<distanceToOriginal<<" "<<result-minVal<<" "<<trueValue<<" "<<result-trueValue<<endl;
+                    //cout<<"COSTS "<<result<<" "<<minVal<<" "<<trueValue<<" "<<fabs(result-trueValue)<<endl;
+                }else{
+                    inf.costs=( minVal );
+                    inf.label=( LabelMapperType::getLabel(ind) );
+                    inf.index=ind;
+                }
+
+                // Hack :) to remove this local minimum in order to get other possible labels :: Fix Later!
+                // !!! Modifying pass by reference !!! assuming the cost grid will not be needed outside this function
+                //				gridCosts.costs[ind] += minVal;
+                nodeInfo.push_back(inf);
+            }
+            
 #if 1
             for(unsigned int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
                 if ( localCenterMinima.end()==std::find(localCenterMinima.begin(), localCenterMinima.end(), ii) ){
@@ -347,10 +347,10 @@ namespace itk{
                     NodeInformation inf;
                     inf.costs=(gridCosts.costs[ii]);
                     inf.label=label;
-
                     nodeInfo.push_back(inf);
                 }
             }
+            
             assert(nodeInfo.size()==nNewSamples);
 #endif
             while(nodeInfo.size()<(unsigned int)nNewSamples){
@@ -358,13 +358,15 @@ namespace itk{
                 inf.costs=(10000000);
                 inf.label=nodeInfo[0].label;
                 nodeInfo.push_back(inf);
-			} 
+            } 
             return nodeInfo;
-		}
+        }
+
+        
         virtual int nRegLabels(){
             return nRegistrationLabels;
         }
-
+        
  
       
         //this is now all interfacing stuff i needed to rewrite because of the optimizer, don't bother :)
@@ -450,8 +452,7 @@ namespace itk{
                                      TUnarySegmentationFunction, 
                                      TPairwiseSegmentationFunction,
                                      TPairwiseSegmentationRegistrationFunction,
-                                     TLabelMapper>
-    {
+                                     TLabelMapper>    {
     public:
         typedef SubsamplingGraphModel2 Self;
         typedef SmartPointer<Self>        Pointer;
@@ -611,7 +612,7 @@ namespace itk{
                         neighs.push_back( kk*gridCosts.dim[1]*gridCosts.dim[0] + jj*gridCosts.dim[0] + ii );
             // Find all requested labels
             cout<<nNewSamples<<endl;
-            for(int labelNum=0; labelNum<nNewSamples ; ++labelNum){
+            for(int labelNum=0; labelNum<1 ; ++labelNum){
                 bool boundary=false;
                 // center of subsample grid (local minima)
                 RegistrationLabelType locMin; int ind=-1;
@@ -646,7 +647,10 @@ namespace itk{
                 locMin[0] = std::max<int>(1, std::min<int>(gridCosts.dim[0]-2, qr.rem ) );
                 boundary=(boundary || qr.quot>gridCosts.dim[0]-2 || qr.quot<1);
                 newInd+=locMin[0];
-                    ind=tmpInd;
+                ind=tmpInd;
+                
+                //only use minimum if its not on the displacement grid border
+                if (true){
                     // Push this grid location AND its neighbours to a list (to omit as next labels)
                     for(int ii=0; ii<neighs.size(); ii++){
                         localMinima.push_back( newInd + neighs[ii] );
@@ -723,22 +727,25 @@ namespace itk{
                     actualInterpolatedNodes.push_back(ind);
                     nodeInfo.push_back(info);
                     if (this->m_config.verbose) std::cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<label<<" "<<LabelMapperType::getLabel(ind)<<endl;
-                    break;
-            }
+                } // boundary
+                break;
+            }//for loop
         
-            cout<<nodeInfo.size()<<endl;
+            //            cout<<nodeInfo.size()<<endl;
             for(unsigned int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
                 //if (localMinima.end()==std::find( localMinima.begin(),localMinima.end(), ii) ){
-                if (actualInterpolatedNodes.end()==std::find( actualInterpolatedNodes.begin(),actualInterpolatedNodes.end(), ii) ){
-                    RegistrationLabelType label;
+                if (true ){//|| !actualInterpolatedNodes.size() || actualInterpolatedNodes.end()==std::find( actualInterpolatedNodes.begin(),actualInterpolatedNodes.end(), ii) ){
+                    RegistrationLabelType label=LabelMapperType::getLabel(ii);
+#if 0
                     if (Dimension==3) {
-c                        div_t qr = div(ii, gridCosts.dim[0] * gridCosts.dim[1]);
+                        div_t qr = div(ii, gridCosts.dim[0] * gridCosts.dim[1]);
                         label[3] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
                         ii = qr.rem;
                     }
                     div_t qr = div(ii, gridCosts.dim[0]);
                     label[1] = qr.quot;
                     label[0] = qr.rem ;
+#endif
                     NodeInformation inf;
                     inf.costs=(gridCosts.costs[ii]);
                     inf.label=label;
@@ -748,25 +755,11 @@ c                        div_t qr = div(ii, gridCosts.dim[0] * gridCosts.dim[1])
             }
             cout<<nodeInfo.size()<<endl;
 
-            assert(nodeInfo.size()==nNewSamples);
-            while(nodeInfo.size()<nNewSamples){
-                RegistrationLabelType label;
-                vnl_random rgen( 9667566 );  // the seed is provided to ensure repeatipility through experiments
-
-                for(int ii=0; ii<Dimension; ii++)  label[ii] = rgen.lrand32(gridCosts.dim[ii]);
-                int ind = label[1]*gridCosts.dim[0] + label[0];
-                if(Dimension==3)   ind += label[2]*gridCosts.dim[1]*gridCosts.dim[0];
-              
-
-                for(int ii=0; ii<Dimension; ii++)  label[ii] -= (gridCosts.dim[ii]-1)/2;
-                NodeInformation info;
-                info.label=label;
-                info.costs=gridCosts.costs.at( ind ) ;
-                nodeInfo.push_back( info);
-            }
+       
             return nodeInfo;
         }
     };//ssgraph2
+
     template<class TImage, 
              class TUnaryRegistrationFunction, 
              class TPairwiseRegistrationFunction, 
