@@ -603,7 +603,7 @@ namespace itk{
             /*  Subsampling from regular discrete grid      */
             /*  Copyright  2011 (c) Orcun Goksel             */
             NodeInformationMapping nodeInfo;
-            std::vector<int> localMinima, neighs;
+            std::vector<int> localMinima, neighs, actualInterpolatedNodes;
             for(int kk = (Dimension==3 ? -1 : 0) ;
                 kk < (Dimension==3 ? 2 : 1) ; kk++)
                 for(int jj=-1; jj<2; jj++)
@@ -646,90 +646,93 @@ namespace itk{
                 locMin[0] = std::max<int>(1, std::min<int>(gridCosts.dim[0]-2, qr.rem ) );
                 boundary=(boundary || qr.quot>gridCosts.dim[0]-2 || qr.quot<1);
                 newInd+=locMin[0];
+                    ind=tmpInd;
+                    // Push this grid location AND its neighbours to a list (to omit as next labels)
+                    for(int ii=0; ii<neighs.size(); ii++){
+                        localMinima.push_back( newInd + neighs[ii] );
+                    }
+                    // vector for subsample grid ( center + 8 neighbour costs )
+                    // copy the subsample grid (minus 1's are in order to get the corner of 3x3 window)
+                    std::vector<double> subGridCosts;
+                    for(int ii=0; ii<neighs.size(); ii++)
+                        if(ISFITCENTER && !neighs[ii]) continue;
+                        else subGridCosts.push_back( gridCosts.costs[ newInd + neighs[ii] ] * ( (newInd+neighs[ii])==ind ?  SCALECENTER : 1) );
 
-                ind=tmpInd;
-                // Push this grid location AND its neighbours to a list (to omit as next labels)
-                for(int ii=0; ii<neighs.size(); ii++){
-                    localMinima.push_back( newInd + neighs[ii] );
-                }
-                // vector for subsample grid ( center + 8 neighbour costs )
-                // copy the subsample grid (minus 1's are in order to get the corner of 3x3 window)
-                std::vector<double> subGridCosts;
-                for(int ii=0; ii<neighs.size(); ii++)
-                    if(ISFITCENTER && !neighs[ii]) continue;
-                    else subGridCosts.push_back( gridCosts.costs[ newInd + neighs[ii] ] * ( (newInd+neighs[ii])==ind ?  SCALECENTER : 1) );
-
-                // compute pseudo-inverse solution
-                vnl_matrix_fixed< double, 3*3*(Dimension==3?3:1)-ISFITCENTER, 1> subGridCostsMat;
-                subGridCostsMat.copy_in( &subGridCosts[0] );  // no range checking!!
-                vnl_matrix_fixed<double,4*Dimension-2,1> aMat;
-                aMat.update( constA * subGridCostsMat, ISFITCENTER, 0 );
-                if(ISFITCENTER || CENTERFITHACK ) aMat.put(0, 0, minVal);
+                    // compute pseudo-inverse solution
+                    vnl_matrix_fixed< double, 3*3*(Dimension==3?3:1)-ISFITCENTER, 1> subGridCostsMat;
+                    subGridCostsMat.copy_in( &subGridCosts[0] );  // no range checking!!
+                    vnl_matrix_fixed<double,4*Dimension-2,1> aMat;
+                    aMat.update( constA * subGridCostsMat, ISFITCENTER, 0 );
+                    if(ISFITCENTER || CENTERFITHACK ) aMat.put(0, 0, minVal);
 				
-                double *a = aMat.data_block();
+                    double *a = aMat.data_block();
 
-                vnl_matrix_fixed<double,Dimension,Dimension> tempM;
-                if(Dimension==2)
-                    {
-                        tempM.put(0, 0, 2*a[4] );
-                        tempM.put(1, 1, 2*a[5] );
-                        tempM.put(0, 1,   a[3] );
-                        tempM.put(1, 0,   a[3] );
-                    } else { // Dimension == 3
-                    tempM.put(0, 0, 2*a[7] );
-                    tempM.put(1, 1, 2*a[8] );
-                    tempM.put(2, 2, 2*a[9] );
-                    tempM.put(0, 1,   a[4] );
-                    tempM.put(1, 0,   a[4] );
-                    tempM.put(0, 2,   a[5] );
-                    tempM.put(2, 0,   a[5] );
-                    tempM.put(1, 2,   a[6] );
-                    tempM.put(2, 1,   a[6] );
-                }
-                vnl_matrix_fixed<double,Dimension,1> dMat = vnl_matrix_inverse<double>( tempM ) * aMat.extract(Dimension,1,1,0);
-                if(Dimension==2) dMat*=-1;  // why is this?  I don't know, just taking from Eq(15) in the TMI,2010 subsampling paper
-                double d[Dimension];
-                dMat.copy_out( d );
-
-                // bracket the displacement inside the subGrid [-1,1]
-                RegistrationLabelType label;
-                for(int ii=0; ii<Dimension; ii++)
-                    {
-                        d[ii] = std::max<double>(-1.0, std::min<double>(1.0,d[ii]));
-                        label[ii] = d[ii] + locMin[ii] - (gridCosts.dim[ii]-1)/2;
+                    vnl_matrix_fixed<double,Dimension,Dimension> tempM;
+                    if(Dimension==2)
+                        {
+                            tempM.put(0, 0, 2*a[4] );
+                            tempM.put(1, 1, 2*a[5] );
+                            tempM.put(0, 1,   a[3] );
+                            tempM.put(1, 0,   a[3] );
+                        } else { // Dimension == 3
+                        tempM.put(0, 0, 2*a[7] );
+                        tempM.put(1, 1, 2*a[8] );
+                        tempM.put(2, 2, 2*a[9] );
+                        tempM.put(0, 1,   a[4] );
+                        tempM.put(1, 0,   a[4] );
+                        tempM.put(0, 2,   a[5] );
+                        tempM.put(2, 0,   a[5] );
+                        tempM.put(1, 2,   a[6] );
+                        tempM.put(2, 1,   a[6] );
                     }
+                    vnl_matrix_fixed<double,Dimension,1> dMat = vnl_matrix_inverse<double>( tempM ) * aMat.extract(Dimension,1,1,0);
+                    if(Dimension==2) dMat*=-1;  // why is this?  I don't know, just taking from Eq(15) in the TMI,2010 subsampling paper
+                    double d[Dimension];
+                    dMat.copy_out( d );
 
-                double result;
-
-                if(Dimension==2)
-                    result= a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[0]*d[1] + a[4]*d[0]*d[0] + a[5]*d[1]*d[1];
-                else
-                    result= a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[2] + a[4]*d[0]*d[1] + a[5]*d[0]*d[2] + a[6]*d[1]*d[2] + a[7]*d[0]*d[0] + a[8]*d[1]*d[1] + a[9]*d[2]*d[2] ;
-
-                bool concave=a[4]<0 || a[5]<0;
-                if (concave ||result>minVal)  {
-                    if (this->m_config.verbose){
-                        if (result>minVal) {
-                            cout<<"LARGE "<<result<<" "<<minVal<<" bound:"<<boundary<<" conc:"<<concave<<endl;
-                            cout<<"ERROR "<<fabs(result-minVal)<<endl;
+                    // bracket the displacement inside the subGrid [-1,1]
+                    RegistrationLabelType label;
+                    for(int ii=0; ii<Dimension; ii++)
+                        {
+                            d[ii] = std::max<double>(-1.0, std::min<double>(1.0,d[ii]));
+                            label[ii] = d[ii] + locMin[ii] - (gridCosts.dim[ii]-1)/2;
                         }
-                        else cout<<"not convex "<<a[4]<<" "<<a[5]<<" buond:"<<boundary<<endl;
-                    }
-                    result=minVal;
-                    label=LabelMapperType::getLabel(ind);
-                } //concavity check
-                NodeInformation info;
-                info.label=label;
-                info.costs=result;
 
-                nodeInfo.push_back(info);
-                if (this->m_config.verbose) std::cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<label<<" "<<LabelMapperType::getLabel(ind)<<endl;
+                    double result;
+
+                    if(Dimension==2)
+                        result= a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[0]*d[1] + a[4]*d[0]*d[0] + a[5]*d[1]*d[1];
+                    else
+                        result= a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[2] + a[4]*d[0]*d[1] + a[5]*d[0]*d[2] + a[6]*d[1]*d[2] + a[7]*d[0]*d[0] + a[8]*d[1]*d[1] + a[9]*d[2]*d[2] ;
+
+                    bool concave=a[4]<0 || a[5]<0;
+                    if (concave ||result>minVal)  {
+                        if (this->m_config.verbose){
+                            if (result>minVal) {
+                                cout<<"LARGE "<<result<<" "<<minVal<<" bound:"<<boundary<<" conc:"<<concave<<endl;
+                                cout<<"ERROR "<<fabs(result-minVal)<<endl;
+                            }
+                            else cout<<"not convex "<<a[4]<<" "<<a[5]<<" buond:"<<boundary<<endl;
+                        }
+                        result=minVal;
+                        label=LabelMapperType::getLabel(ind);
+                    } //concavity check
+                    NodeInformation info;
+                    info.label=label;
+                    info.costs=result;
+                    actualInterpolatedNodes.push_back(ind);
+                    nodeInfo.push_back(info);
+                    if (this->m_config.verbose) std::cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<label<<" "<<LabelMapperType::getLabel(ind)<<endl;
+                    break;
             }
+        
+            cout<<nodeInfo.size()<<endl;
             for(unsigned int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
-                if (localMinima.end()==std::find( localMinima.begin(),localMinima.end(), ii) ){
+                //if (localMinima.end()==std::find( localMinima.begin(),localMinima.end(), ii) ){
+                if (actualInterpolatedNodes.end()==std::find( actualInterpolatedNodes.begin(),actualInterpolatedNodes.end(), ii) ){
                     RegistrationLabelType label;
                     if (Dimension==3) {
-                        div_t qr = div(ii, gridCosts.dim[0] * gridCosts.dim[1]);
+c                        div_t qr = div(ii, gridCosts.dim[0] * gridCosts.dim[1]);
                         label[3] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
                         ii = qr.rem;
                     }
@@ -743,6 +746,8 @@ namespace itk{
                     nodeInfo.push_back(inf);
                 }
             }
+            cout<<nodeInfo.size()<<endl;
+
             assert(nodeInfo.size()==nNewSamples);
             while(nodeInfo.size()<nNewSamples){
                 RegistrationLabelType label;
@@ -872,21 +877,21 @@ namespace itk{
         }
     protected:
         struct sort_pred {
-        bool operator()(const NodeInformation& left, const NodeInformation & right)
-        {
-            return left.costs < right.costs;
-        }
+            bool operator()(const NodeInformation& left, const NodeInformation & right)
+            {
+                return left.costs < right.costs;
+            }
         };
      
         struct sort_index {
-              bool operator()(const NodeInformation& left, const NodeInformation & right)
-        {
-            return left.index < right.index;
-        }
+            bool operator()(const NodeInformation& left, const NodeInformation & right)
+            {
+                return left.index < right.index;
+            }
         };
         
     };//ssgraph2
- template<class TImage, 
+    template<class TImage, 
              class TUnaryRegistrationFunction, 
              class TPairwiseRegistrationFunction, 
              class TUnarySegmentationFunction, 
@@ -964,10 +969,10 @@ namespace itk{
         };
 
         struct sort_index {
-              bool operator()(const NodeInformation& left, const NodeInformation & right)
-        {
-            return left.index < right.index;
-        }
+            bool operator()(const NodeInformation& left, const NodeInformation & right)
+            {
+                return left.index < right.index;
+            }
         };
     public:
 
