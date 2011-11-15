@@ -154,13 +154,14 @@ namespace itk{
             caster->SetInput(thresholdFilter->GetOutput());
             caster->Update();
             ImagePointerType output=caster->GetOutput();
+            if (false){
             if (ImageType::ImageDimension==2){
                 ImageUtils<ImageType>::writeImage("dt1.png",(output));    
             }
             if (ImageType::ImageDimension==3){
                 ImageUtils<ImageType>::writeImage("dt1.nii",(output));
             }
-            
+            }
 
             if (m_nSegmentationLabels>2){
                 FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
@@ -174,12 +175,13 @@ namespace itk{
                 caster->SetInput(dt2);
                 caster->Update();
                 ImagePointerType output=caster->GetOutput();
+                if (false){
                 if (ImageType::ImageDimension==2){
                     ImageUtils<ImageType>::writeImage("dt2.png",(output));    
                 }
                 if (ImageType::ImageDimension==3){
                     ImageUtils<ImageType>::writeImage("dt2.nii",(output));
-                }
+                }}
             }
 
             m_movingSegmentationInterpolator=SegmentationInterpolatorType::New();

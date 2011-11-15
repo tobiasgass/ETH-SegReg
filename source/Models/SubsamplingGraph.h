@@ -13,6 +13,7 @@
 #include "itkConstNeighborhoodIterator.h"
 #include <limits>
 #include "Graph.h"
+#include "Graph-ITKStyle.h"
 #include <vnl/vnl_bignum.h>
 #include <vnl/vnl_random.h>
 
@@ -93,18 +94,18 @@ namespace itk{
     protected:
         //here we store the necessary information per node
         struct NodeInformation {
-            //mapping
-            std::vector<RegistrationLabelType> indexToSubsampledDisplacementMapping;
-            //costs
-            std::vector<double> subsampledNodeCosts;
+            RegistrationLabelType label;
+            int index;
+            double costs;
         };
+        typedef std::vector<NodeInformation> NodeInformationMapping;
         struct GridInformation {
             int dim[3];  // dimZ=0 (or undefined) for 2D
             std::vector<double> costs;
         };
         
         //information for all nodes
-        std::vector< NodeInformation > m_nodeMappingInfo;
+        std::vector< NodeInformationMapping > m_nodeMappingInfo;
         vnl_matrix_fixed< double, 4*Dimension-2, 3*3*(Dimension==3?3:1) > constA;  //template for Dimension=[2,3]
         //vnl_matrix_fixed< double, 6, 9 > constA;
         int gridSize;
@@ -181,7 +182,7 @@ namespace itk{
             int nNewSamples=this->m_config.nSubsamples;//(gridSize-2)*(gridSize-2);
             cout<<nNewSamples<<endl;
             nRegistrationLabels=nNewSamples;
-            m_nodeMappingInfo= std::vector< NodeInformation >(0);
+            m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
             //computing new subsampled labels and label costs
             for (int r=0;r<this->m_nRegistrationNodes;++r){
                 GridInformation originalRegistrationCosts;
@@ -206,11 +207,11 @@ namespace itk{
     
       
 	
-		virtual NodeInformation Subsample( GridInformation &gridCosts, int nNewSamples, IndexType imageIndex)
+		virtual NodeInformationMapping Subsample( GridInformation &gridCosts, int nNewSamples, IndexType imageIndex)
 		{
 			/*  Subsampling from regular discrete grid      */
 			/*  Copyright  2011 (c) Orcun Goksel             */
-			NodeInformation nodeInfo;
+			NodeInformationMapping nodeInfo;
 			// Find all requested labels
 			std::vector<int> localMinima, localCenterMinima;
 			for(int labelNum=0; labelNum<nNewSamples; labelNum++)
@@ -220,7 +221,7 @@ namespace itk{
                     //??? locMin = gridCosts.arg_min();
                     // Why doesn't this work, old vnl version?  Do the long way below...
                     double minVal = vnl_bignum("+Infinity");   int ind=-1;
-                    for(int ii = 0; ii<gridCosts.costs.size(); ii++)
+                    for(unsigned int ii = 0; ii<gridCosts.costs.size(); ii++)
                         {
                             if (gridCosts.costs[ii]<minVal &&
                                 localMinima.end()==std::find(localMinima.begin(), localMinima.end(), ii) )
@@ -300,7 +301,7 @@ namespace itk{
                         }
                     distanceToOriginal=sqrt(distanceToOriginal);
                     double result;
-                    
+                    NodeInformation inf;
                     if(Dimension==2){
                         result= a[0] + a[1]*d[0] + a[2]*d[1] + a[3]*d[0]*d[1] + a[4]*d[0]*d[0] + a[5]*d[1]*d[1] ;
                     }
@@ -310,26 +311,29 @@ namespace itk{
                     if ((a[4]<0 || a[5]<0) || result<minVal){
                         bool test= ((a[4]>0 || a[5]>0) && result<minVal);
                         cout<<test << endl;
-                        nodeInfo.indexToSubsampledDisplacementMapping.push_back( label );
+                        inf.label=label;
                         RegistrationLabelType l;
                         l=LabelMapperType::scaleDisplacement(label,this->getDisplacementFactor());
                         double trueValue=this->m_unaryRegFunction->getPotential(imageIndex,l)/this->m_nRegistrationNodes;
                         //nodeInfo.subsampledNodeCosts.push_back( result );
-                        nodeInfo.subsampledNodeCosts.push_back( trueValue );
-
+                        //nodeInfo.subsampledNodeCosts.push_back( trueValue );
+                        inf.costs=trueValue;
+                        
                         //                        cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<distanceToOriginal<<" "<<result-minVal<<" "<<trueValue<<" "<<result-trueValue<<endl;
                         //cout<<"COSTS "<<result<<" "<<minVal<<" "<<trueValue<<" "<<fabs(result-trueValue)<<endl;
                     }else{
-                        nodeInfo.subsampledNodeCosts.push_back( minVal );
-                        nodeInfo.indexToSubsampledDisplacementMapping.push_back( LabelMapperType::getLabel(ind) );
+                        inf.costs=( minVal );
+                        inf.label=( LabelMapperType::getLabel(ind) );
+                        inf.index=ind;
                     }
 
                     // Hack :) to remove this local minimum in order to get other possible labels :: Fix Later!
                     // !!! Modifying pass by reference !!! assuming the cost grid will not be needed outside this function
                     //				gridCosts.costs[ind] += minVal;
+                    nodeInfo.push_back(inf);
                 }
 #if 1
-            for(int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.subsampledNodeCosts.size()<nNewSamples; ii++){
+            for(unsigned int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
                 if ( localCenterMinima.end()==std::find(localCenterMinima.begin(), localCenterMinima.end(), ii) ){
                     RegistrationLabelType label;
                     if (Dimension==3) {
@@ -340,15 +344,20 @@ namespace itk{
                     div_t qr = div(ii, gridCosts.dim[0]);
                     label[1] = qr.quot;
                     label[0] = qr.rem ;
-                    nodeInfo.indexToSubsampledDisplacementMapping.push_back(label);
-                    nodeInfo.subsampledNodeCosts.push_back(gridCosts.costs[ii]);
+                    NodeInformation inf;
+                    inf.costs=(gridCosts.costs[ii]);
+                    inf.label=label;
+
+                    nodeInfo.push_back(inf);
                 }
             }
-            assert(nodeInfo.subsampledNodeCosts.size()==nNewSamples);
+            assert(nodeInfo.size()==nNewSamples);
 #endif
-            while(nodeInfo.subsampledNodeCosts.size()<nNewSamples){
-				nodeInfo.indexToSubsampledDisplacementMapping.push_back( nodeInfo.indexToSubsampledDisplacementMapping.front() );
-				nodeInfo.subsampledNodeCosts.push_back( 10000000 );
+            while(nodeInfo.size()<(unsigned int)nNewSamples){
+                NodeInformation inf;
+                inf.costs=(10000000);
+                inf.label=nodeInfo[0].label;
+                nodeInfo.push_back(inf);
 			} 
             return nodeInfo;
 		}
@@ -370,17 +379,18 @@ namespace itk{
             return result/this->m_nRegistrationNodes;
 #else
             //or take the actual interpolated values
-            result=m_nodeMappingInfo[nodeIndex].subsampledNodeCosts[labelIndex];
+            result=m_nodeMappingInfo[nodeIndex][labelIndex].costs;
+            //cout<<nodeIndex<<" "<<labelIndex<<" "<<m_nodeMappingInfo[nodeIndex][labelIndex].index<<"/"<<m_nodeMappingInfo[nodeIndex][labelIndex].costs<<"/"<<m_nodeMappingInfo[nodeIndex][labelIndex].label<<endl;
             return result;
 #endif
         }
      
         double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
             IndexType graphIndex1=this->getImageIndexFromCoarseGraphIndex(nodeIndex1);
-            RegistrationLabelType l1=m_nodeMappingInfo[nodeIndex1].indexToSubsampledDisplacementMapping[labelIndex1];
+            RegistrationLabelType l1=m_nodeMappingInfo[nodeIndex1][labelIndex1].label;
             l1=LabelMapperType::scaleDisplacement(l1,this->getDisplacementFactor());
             IndexType graphIndex2=this->getImageIndexFromCoarseGraphIndex(nodeIndex2);
-            RegistrationLabelType l2=m_nodeMappingInfo[nodeIndex2].indexToSubsampledDisplacementMapping[labelIndex2];
+            RegistrationLabelType l2=m_nodeMappingInfo[nodeIndex2][labelIndex2].label;
             l2=LabelMapperType::scaleDisplacement(l2,this->getDisplacementFactor());
             return this->m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2)/this->m_nRegEdges;
         };
@@ -397,7 +407,7 @@ namespace itk{
                 dist*=1.0-fabs((1.0*graphIndex[d]-imageIndex[d])/(this->m_gridPixelSpacing[d]));
             }
             weight=dist;
-            RegistrationLabelType registrationLabel=m_nodeMappingInfo[nodeIndex1].indexToSubsampledDisplacementMapping[labelIndex1];
+            RegistrationLabelType registrationLabel=m_nodeMappingInfo[nodeIndex1][labelIndex1].label;
             registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,this->getDisplacementFactor());
             return weight*this->m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/this->m_nSegRegEdges;
         }
@@ -416,8 +426,8 @@ namespace itk{
             unsigned int i=0;
             for (it.GoToBegin();!it.IsAtEnd();++it,++i){
                 assert(i<labels.size());
-                RegistrationLabelType l=m_nodeMappingInfo[i].indexToSubsampledDisplacementMapping[labels[i]];
-                std::cout<<"FINAL :"<<i<<" "<<labels[i]<<" "<<l<<" "<<m_nodeMappingInfo[i].subsampledNodeCosts[labels[i]]<<endl;
+                RegistrationLabelType l=m_nodeMappingInfo[i][labels[i]].label;
+                //std::cout<<"FINAL :"<<i<<" "<<labels[i]<<" "<<l<<" "<<m_nodeMappingInfo[i].subsampledNodeCosts[labels[i]]<<endl;
                 l=LabelMapperType::scaleDisplacement(l,this->getDisplacementFactor());
                 it.Set(l);
             }
@@ -489,6 +499,7 @@ namespace itk{
         typedef typename SegmentationLabelImageType::Pointer SegmentationLabelImagePointerType;
     
         static const int Dimension=ImageType::ImageDimension;
+        typedef typename Superclass::NodeInformationMapping NodeInformationMapping;
         typedef typename Superclass::NodeInformation NodeInformation;
         typedef typename Superclass::GridInformation GridInformation;
     protected:
@@ -565,7 +576,7 @@ namespace itk{
             int nNewSamples=this->m_config.nSubsamples;//(gridSize-2)*(gridSize-2);
             cout<<nNewSamples<<endl;
             this->nRegistrationLabels=nNewSamples;
-            this->m_nodeMappingInfo= std::vector< NodeInformation >(0);
+            this->m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
             //computing new subsampled labels and label costs
             for (int r=0;r<this->m_nRegistrationNodes;++r){
                 GridInformation originalRegistrationCosts;
@@ -587,11 +598,11 @@ namespace itk{
         }
 
 
-        virtual NodeInformation Subsample( GridInformation &gridCosts, int nNewSamples)
+        virtual NodeInformationMapping Subsample( GridInformation &gridCosts, int nNewSamples)
         {
             /*  Subsampling from regular discrete grid      */
             /*  Copyright  2011 (c) Orcun Goksel             */
-            NodeInformation nodeInfo;
+            NodeInformationMapping nodeInfo;
             std::vector<int> localMinima, neighs;
             for(int kk = (Dimension==3 ? -1 : 0) ;
                 kk < (Dimension==3 ? 2 : 1) ; kk++)
@@ -707,9 +718,11 @@ namespace itk{
                     result=minVal;
                     label=LabelMapperType::getLabel(ind);
                 } //concavity check
+                NodeInformation info;
+                info.label=label;
+                info.costs=result;
 
-                nodeInfo.indexToSubsampledDisplacementMapping.push_back( label );
-                nodeInfo.subsampledNodeCosts.push_back( result );
+                nodeInfo.push_back(info);
                 if (this->m_config.verbose) std::cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<label<<" "<<LabelMapperType::getLabel(ind)<<endl;
             }
             while(nodeInfo.subsampledNodeCosts.size()<nNewSamples){
@@ -719,11 +732,13 @@ namespace itk{
                 for(int ii=0; ii<Dimension; ii++)  label[ii] = rgen.lrand32(gridCosts.dim[ii]);
                 int ind = label[1]*gridCosts.dim[0] + label[0];
                 if(Dimension==3)   ind += label[2]*gridCosts.dim[1]*gridCosts.dim[0];
-                nodeInfo.subsampledNodeCosts.push_back( gridCosts.costs.at( ind ) );
+              
 
                 for(int ii=0; ii<Dimension; ii++)  label[ii] -= (gridCosts.dim[ii]-1)/2;
-                nodeInfo.indexToSubsampledDisplacementMapping.push_back( label );
-                cout<<label<<" "<< gridCosts.costs.at( ind ) << endl;
+                NodeInformation info;
+                info.label=label;
+                info.costs=gridCosts.costs.at( ind ) ;
+                nodeInfo.push_back( info);
             }
             return nodeInfo;
         }
@@ -791,6 +806,7 @@ namespace itk{
         typedef typename SegmentationLabelImageType::Pointer SegmentationLabelImagePointerType;
     
         static const int Dimension=ImageType::ImageDimension;
+        typedef typename Superclass::NodeInformationMapping NodeInformationMapping;
         typedef typename Superclass::NodeInformation NodeInformation;
         typedef typename Superclass::GridInformation GridInformation;
         
@@ -800,36 +816,227 @@ namespace itk{
             this->gridSize=LabelMapperType::nDisplacementSamples*2+1;
         
             int nNewSamples=this->m_config.nSubsamples;//(gridSize-2)*(gridSize-2);
+            if (nNewSamples<1) nNewSamples=LabelMapperType::nDisplacements;
+            else nNewSamples=min(nNewSamples,LabelMapperType::nDisplacements);
             cout<<nNewSamples<<endl;
             this->nRegistrationLabels=nNewSamples;
-            this->m_nodeMappingInfo= std::vector< NodeInformation >(0);
+            this->m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
             //computing new subsampled labels and label costs
             for (int r=0;r<this->m_nRegistrationNodes;++r){
-                std::vector<std::pair<double,int> > originalRegistrationCosts;
+                std::vector< NodeInformation > originalRegistrationCosts, copy;
                 IndexType imageIndex=this->getImageIndexFromCoarseGraphIndex(r);
+                //cout<< "BEFORE "<<r;
                 for (int l=0;l<this->m_nDisplacementLabels;++l){
                     double tmp=Superclass::Superclass::getUnaryRegistrationPotential(r,l);
-                    originalRegistrationCosts.push_back(make_pair(tmp,l));
+
+                    NodeInformation info;
+                    info.label=LabelMapperType::getLabel(l);
+                    info.costs=tmp;
+                    info.index=l;
+                    originalRegistrationCosts.push_back(info);
+                    //    cout<<" "<<l<<"/"<<tmp<<"/"<<info.label;
                 }
-                
+                //cout<<endl;
+                copy=originalRegistrationCosts;
                 std::sort(originalRegistrationCosts.begin(),originalRegistrationCosts.end(),sort_pred());
-                NodeInformation n;
+                NodeInformationMapping n;
                 for (int i=0;i<nNewSamples;++i){
-                    n.subsampledNodeCosts.push_back(originalRegistrationCosts[i].first);
-                    n.indexToSubsampledDisplacementMapping.push_back(LabelMapperType::getLabel(originalRegistrationCosts[i].second));
+                    n.push_back(originalRegistrationCosts[i]);
+                    //cout<<" "<<originalRegistrationCosts[i].second<<"/"<<originalRegistrationCosts[i].first;
                     //cout<<n.subsampledNodeCosts[i]<<" "<< n.indexToSubsampledDisplacementMapping[i]<<endl;
                 }
+                // std::sort(n.begin(),n.end(),sort_index());
+
+                //cout<<endl;
                 this->m_nodeMappingInfo.push_back(n);
             }
         }
     protected:
         struct sort_pred {
-        bool operator()(const std::pair<double,int>& left, const std::pair<double,int> & right)
+        bool operator()(const NodeInformation& left, const NodeInformation & right)
         {
-            return left.first < right.first;
+            return left.costs < right.costs;
         }
         };
-      
+     
+        struct sort_index {
+              bool operator()(const NodeInformation& left, const NodeInformation & right)
+        {
+            return left.index < right.index;
+        }
+        };
+        
+    };//ssgraph2
+ template<class TImage, 
+             class TUnaryRegistrationFunction, 
+             class TPairwiseRegistrationFunction, 
+             class TUnarySegmentationFunction, 
+             class TPairwiseSegmentationFunction,
+             class TPairwiseSegmentationRegistrationFunction,
+             class TLabelMapper>
+    class SortedCumSumSubsamplingGraphModel: 
+        public SubsamplingGraphModel<TImage,
+                                     TUnaryRegistrationFunction,
+                                     TPairwiseRegistrationFunction,
+                                     TUnarySegmentationFunction, 
+                                     TPairwiseSegmentationFunction,
+                                     TPairwiseSegmentationRegistrationFunction,
+                                     TLabelMapper>
+    {
+    public:
+        typedef SortedCumSumSubsamplingGraphModel Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef SubsamplingGraphModel<TImage,
+                                      TUnaryRegistrationFunction,
+                                      TPairwiseRegistrationFunction,
+                                      TUnarySegmentationFunction, 
+                                      TPairwiseSegmentationFunction,
+                                      TPairwiseSegmentationRegistrationFunction,
+                                      TLabelMapper> Superclass;
+        itkNewMacro(Self);
+
+        //    typedef  itk::ImageToimageFilter<TImage,TImage> Superclass;
+        typedef TImage ImageType;
+        typedef typename TImage::IndexType IndexType;
+        typedef typename TImage::PixelType PixelType;
+        typedef typename TImage::OffsetType OffsetType;
+        typedef typename TImage::PointType PointType;
+        typedef typename TImage::SizeType SizeType;
+        typedef typename TImage::SpacingType SpacingType;
+        typedef typename TImage::Pointer ImagePointerType;
+        typedef typename TImage::ConstPointer ConstImagePointerType;
+
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ConstImageNeighborhoodIteratorType;
+
+        typedef TUnaryRegistrationFunction UnaryRegistrationFunctionType;
+        typedef typename UnaryRegistrationFunctionType::Pointer UnaryRegistrationFunctionPointerType;
+        typedef TPairwiseRegistrationFunction PairwiseRegistrationFunctionType;
+        typedef typename PairwiseRegistrationFunctionType::Pointer PairwiseRegistrationFunctionPointerType;
+        typedef TUnarySegmentationFunction UnarySegmentationFunctionType;
+        typedef typename UnarySegmentationFunctionType::Pointer UnarySegmentationFunctionPointerType;
+        typedef TPairwiseSegmentationFunction PairwiseSegmentationFunctionType;
+        typedef typename PairwiseSegmentationFunctionType::Pointer PairwiseSegmentationFunctionPointerType;
+        typedef TPairwiseSegmentationRegistrationFunction PairwiseSegmentationRegistrationFunctionType;
+        typedef typename PairwiseSegmentationRegistrationFunctionType::Pointer PairwiseSegmentationRegistrationFunctionPointerType;
+    
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType RegistrationLabelType;
+        typedef typename itk::Image<RegistrationLabelType,ImageType::ImageDimension> RegistrationLabelImageType;
+        typedef typename RegistrationLabelImageType::Pointer RegistrationLabelImagePointerType;
+
+        typedef int SegmentationLabelType;
+        typedef typename itk::Image<SegmentationLabelType,ImageType::ImageDimension> SegmentationLabelImageType;
+        typedef typename SegmentationLabelImageType::Pointer SegmentationLabelImagePointerType;
+    
+        static const int Dimension=ImageType::ImageDimension;
+        typedef typename Superclass::NodeInformation NodeInformation;
+        typedef typename Superclass::NodeInformationMapping NodeInformationMapping;
+        typedef typename Superclass::GridInformation GridInformation;
+    protected:
+        struct LabelAndCosts{
+            RegistrationLabelType label;
+            int index;
+            double weightedCosts,pureCosts;
+            bool operator()(const LabelAndCosts& left, const LabelAndCosts & right)
+            {
+                return left.weightedCosts<right.weightedCosts;
+            }
+        };
+
+        struct sort_index {
+              bool operator()(const NodeInformation& left, const NodeInformation & right)
+        {
+            return left.index < right.index;
+        }
+        };
+    public:
+
+        void Init(){
+
+            double maxDist=0;
+            for (int d=0;d<ImageType::ImageDimension;++d){
+                double tmp=2*(LabelMapperType::nDisplacementSamples);
+                maxDist+=tmp*tmp;
+            }
+            this->gridSize=LabelMapperType::nDisplacementSamples*2+1;
+        
+            int nNewSamples=this->m_config.nSubsamples;//(gridSize-2)*(gridSize-2);
+            if (nNewSamples<1) nNewSamples=LabelMapperType::nDisplacements;
+            else nNewSamples=min(nNewSamples,LabelMapperType::nDisplacements);
+            cout<<nNewSamples<<endl;
+            this->nRegistrationLabels=nNewSamples;
+            this->m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
+            
+            //computing new subsampled labels and label costs
+            for (int r=0;r<this->m_nRegistrationNodes;++r){
+                std::vector<LabelAndCosts> originalRegistrationCosts, copy;
+                IndexType imageIndex=this->getImageIndexFromCoarseGraphIndex(r);
+                //cout<< "BEFORE";
+                for (int l=0;l<this->m_nDisplacementLabels;++l){
+                    double tmp=Superclass::Superclass::getUnaryRegistrationPotential(r,l);
+                    //cout<<" "<<l<<"/"<<tmp;
+                    LabelAndCosts store;
+                    store.label=LabelMapperType::getLabel(l);
+                    store.pureCosts=tmp;
+                    store.index=l;
+                    store.weightedCosts=tmp;
+                    originalRegistrationCosts.push_back(store);
+                }
+                copy=originalRegistrationCosts;
+                //cout<<endl<<"AFTER";
+                NodeInformationMapping n;
+                double maxCost=0, minCost, avgCost;
+                std::vector<int> counts(this->m_nDisplacementLabels,0);
+                for (int i=0;i<nNewSamples;++i){
+                    //sort remaining nNewSamples-i elements
+                    //std::partial_sort(originalRegistrationCosts.begin()+i,originalRegistrationCosts.begin()+nNewSamples,originalRegistrationCosts.end(),LabelAndCosts());
+                    std::sort(originalRegistrationCosts.begin(),originalRegistrationCosts.end(),LabelAndCosts());
+#if 0
+                    cout<<"BEGIN "<<i;
+                    for (int f=0;f<originalRegistrationCosts.size();++f){
+                        cout<<" "<<originalRegistrationCosts[f].index<<"/"<<originalRegistrationCosts[f].weightedCosts;
+                    }
+                    cout<<endl;
+#endif
+                    //store min element
+                    RegistrationLabelType label=(originalRegistrationCosts[i].label);
+                    NodeInformation info;
+                    info.label=label;
+                    info.costs=originalRegistrationCosts[i].pureCosts;
+                    info.index=originalRegistrationCosts[i].index;
+                    if ( counts[info.index] ) { cout<<" ERROR, duplicate in list! at " <<originalRegistrationCosts[i].index<<endl;}
+                    counts[info.index]++;
+                    n.push_back(info);
+
+                    //get max Cost
+                    if (!i) {maxCost=(originalRegistrationCosts.end()-1)->pureCosts;                    minCost=originalRegistrationCosts[0].pureCosts; avgCost=(minCost+maxCost)/2;}
+                    //add penalty to all remaining samples
+                    for (unsigned int j=i+1;j<originalRegistrationCosts.size();++j){
+                        //compute distance to last sample
+                        double dist=0;
+                        RegistrationLabelType l2=originalRegistrationCosts[j].label;
+                        for (int d=0;d<ImageType::ImageDimension;++d){
+                            dist+=(label[d]-l2[d])*(label[d]-l2[d]);
+                        }
+                        //                  if (dist>maxDist) {
+                        //cout<<" MAXDIST exceeded :"<<dist<<" "<<maxDist<<" "<<label<<" "<<l2<<" "<<this->getDisplacementFactor()<<endl;
+                        //}
+                        // penalty is bigger the smaller the distance is
+                        double penalty=1-(dist/maxDist);//exp(-dist);
+                        //penalty is scaled by maxCosts, so worst case penalty is maxCosts if distance=0
+                        penalty*=originalRegistrationCosts[j].pureCosts;//maxCost;
+                        originalRegistrationCosts[j].weightedCosts+=penalty;
+                        //cout<<i<<" "<<label<<" "<<l2<<" "<<j<<" "<<originalRegistrationCosts[j].pureCosts<<" "<<dist<<" "<<penalty<<" "<< originalRegistrationCosts[j].weightedCosts << endl;
+                    }
+
+                    
+                }
+                //std::sort(n.begin(),n.end(),sort_index());
+                this->m_nodeMappingInfo.push_back(n);
+            }
+        }
+  
     };//ssgraph2
 }//namespace
 

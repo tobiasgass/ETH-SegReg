@@ -302,14 +302,16 @@ namespace itk{
                     unaryRegistrationPot->SetFixedImage(downSampledTarget);
                     unaryRegistrationPot->SetMovingImage(downSampledReference);
                     unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
-                                    
+#if 1
                     unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
                     unaryRegistrationPot->SetAlpha(m_config.alpha);
                     unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);
-               
+#endif          
                     unaryRegistrationPot->Init();
             
                     pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
+                    pairwiseRegistrationPot->SetSpacing(graph.getPixelSpacing());
+                    
                 }
 
                 if (segment){
@@ -371,10 +373,15 @@ namespace itk{
                     //double expIncreasingWeight=exp(-(m_config.nLevels-l-1));
                     //double linearDecreasingWeight=1-linearIncreasingWeight;
                     //double expDecreasingWeight=exp(-l);
+                    //#define TRUNC
                     {
 #if 1
                         if (ImageType::ImageDimension==2){
+#ifdef TRUNC
                               typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
+#else
+                              typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+#endif
                               MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
                                                                      m_config.simWeight,
                                                                      m_config.pairwiseRegistrationWeight, 
@@ -389,9 +396,14 @@ namespace itk{
                               segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
                               
                               delete mrfSolver;
-                        }else{
+
+                       }else{
+#ifdef TRUNC
                             typedef TRWS_SRSMRFSolverTruncQuadrat3D<GraphModelType> MRFSolverType;
-                              MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
+#else
+                            typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+#endif
+                            MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
                                                                      m_config.simWeight,
                                                                      m_config.pairwiseRegistrationWeight, 
                                                                      m_config.rfWeight,

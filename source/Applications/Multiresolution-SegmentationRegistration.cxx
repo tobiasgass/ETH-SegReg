@@ -6,6 +6,9 @@
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
 #include "Graph.h"
+#include "Graph-ITKStyle.h"
+#include "WeightingGraph.h"
+#include "SubsamplingGraph.h"
 #include "FastRegistrationGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
@@ -49,12 +52,18 @@ int main(int argc, char ** argv)
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
+    //typedef PairwisePotentialRegistrationSigmoid< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
     //typedef FastRegistrationGraphModel<
-    typedef GraphModel<
-        InternalImageType,
+    // // typedef GraphModel<
+    // // //typedef ITKGraphModel<
+    //typedef SortedSubsamplingGraphModel<
+    //typedef SortedCumSumSubsamplingGraphModel<
+    //typedef WeightedGraphModel<
+         InternalImageType,
         RegistrationUnaryPotentialType,
         RegistrationPairwisePotentialType,
         SegmentationUnaryPotentialType,
@@ -72,11 +81,11 @@ int main(int argc, char ** argv)
     filter->setMovingSegmentation(FilterUtils<ImageType,InternalImageType>::cast(ImageUtils<ImageType>::readImage(filterConfig.movingSegmentationFilename)));
     filter->setFixedGradientImage(FilterUtils<ImageType,InternalImageType>::cast(ImageUtils<ImageType>::readImage(filterConfig.fixedGradientFilename)));
 
-	clock_t start = clock();
+	clock_t FULLstart = clock();
 	//DO IT!
 	filter->Update();
-	clock_t end = clock();
-	float t = (float) ((double)(end - start) / CLOCKS_PER_SEC);
+	clock_t FULLend = clock();
+	float t = (float) ((double)(FULLend - FULLstart) / CLOCKS_PER_SEC);
 	std::cout<<"Finished computation after "<<t<<" seconds"<<std::endl;
 	std::cout<<"RegUnaries: "<<tUnary<<" Optimization: "<<tOpt<<std::endl;	
     std::cout<<"RegPairwise: "<<tPairwise<<std::endl;
