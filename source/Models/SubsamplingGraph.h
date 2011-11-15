@@ -593,13 +593,13 @@ namespace itk{
                 
                 // now compute novel mapping and costs and store in m_nodeMappingInfo
                 //for the beginning it might be safe to leave m_nRegistrationLabels at its old value. otherwise we'd need to do some copying/overwritng to be safe
-                this->m_nodeMappingInfo.push_back(Subsample(originalRegistrationCosts,nNewSamples));
+                this->m_nodeMappingInfo.push_back(Subsample(originalRegistrationCosts,nNewSamples, imageIndex));
 
             }
         }
 
 
-        virtual NodeInformationMapping Subsample( GridInformation &gridCosts, int nNewSamples)
+        virtual NodeInformationMapping Subsample( GridInformation &gridCosts, int nNewSamples, IndexType imageIndex)
         {
             /*  Subsampling from regular discrete grid      */
             /*  Copyright  2011 (c) Orcun Goksel             */
@@ -723,6 +723,10 @@ namespace itk{
                     } //concavity check
                     NodeInformation info;
                     info.label=label;
+                    RegistrationLabelType l;
+                    l=LabelMapperType::scaleDisplacement(label,this->getDisplacementFactor());
+                    double trueValue=this->m_unaryRegFunction->getPotential(imageIndex,l)/this->m_nRegistrationNodes;
+                    //info.costs=trueValue;
                     info.costs=result;
                     actualInterpolatedNodes.push_back(ind);
                     nodeInfo.push_back(info);
@@ -734,7 +738,7 @@ namespace itk{
             //            cout<<nodeInfo.size()<<endl;
             for(unsigned int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
                 //if (localMinima.end()==std::find( localMinima.begin(),localMinima.end(), ii) ){
-                if (true ){//|| !actualInterpolatedNodes.size() || actualInterpolatedNodes.end()==std::find( actualInterpolatedNodes.begin(),actualInterpolatedNodes.end(), ii) ){
+                if ( !actualInterpolatedNodes.size() || actualInterpolatedNodes.end()==std::find( actualInterpolatedNodes.begin(),actualInterpolatedNodes.end(), ii) ){
                     RegistrationLabelType label=LabelMapperType::getLabel(ii);
 #if 0
                     if (Dimension==3) {
