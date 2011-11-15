@@ -238,7 +238,7 @@ namespace itk{
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
                     //result=(1-1.0*sfm/sqrt(smm*sff))/2;
-                    result=((1+1.0*sfm/sqrt(sfm*smm))/2);
+                    result=((1+1.0*sfm/sqrt(sff*smm))/2);
                     result=result>0?result:0.00000001;
                     result=-log(result);
                 }

@@ -725,6 +725,25 @@ namespace itk{
                 nodeInfo.push_back(info);
                 if (this->m_config.verbose) std::cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<label<<" "<<LabelMapperType::getLabel(ind)<<endl;
             }
+            for(unsigned int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
+                if (localMinima.end()==std::find( localMinima.begin(),localMinima.end(), ii) ){
+                    RegistrationLabelType label;
+                    if (Dimension==3) {
+                        div_t qr = div(ii, gridCosts.dim[0] * gridCosts.dim[1]);
+                        label[3] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
+                        ii = qr.rem;
+                    }
+                    div_t qr = div(ii, gridCosts.dim[0]);
+                    label[1] = qr.quot;
+                    label[0] = qr.rem ;
+                    NodeInformation inf;
+                    inf.costs=(gridCosts.costs[ii]);
+                    inf.label=label;
+                    
+                    nodeInfo.push_back(inf);
+                }
+            }
+            assert(nodeInfo.size()==nNewSamples);
             while(nodeInfo.size()<nNewSamples){
                 RegistrationLabelType label;
                 vnl_random rgen( 9667566 );  // the seed is provided to ensure repeatipility through experiments
