@@ -284,7 +284,7 @@ namespace itk{
             RegistrationLabelType l=LabelMapperType::getLabel(labelIndex);
             l=LabelMapperType::scaleDisplacement(l,getDisplacementFactor());
             double result=m_unaryRegFunction->getPotential(imageIndex,l);
-            return result;//m_nRegistrationNodes;
+            return result/m_nRegistrationNodes;
         }
         virtual double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndex(nodeIndex);
@@ -301,7 +301,7 @@ namespace itk{
             IndexType graphIndex2=getImageIndexFromCoarseGraphIndex(nodeIndex2);
             RegistrationLabelType l2=LabelMapperType::getLabel(labelIndex2);
             l2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());
-            return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2);//m_nRegEdges;
+            return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2)/m_nRegEdges;
         };
          virtual double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
             assert(false);

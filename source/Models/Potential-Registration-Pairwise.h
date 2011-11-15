@@ -78,7 +78,7 @@ namespace itk{
 				d2=displacement2[d];
 				delta=(fixedIndex2[d]-fixedIndex1[d]);
                 
-				double axisPositionDifference=1.0*(d2-d1);//(m_gridSpacing[d]);
+				double axisPositionDifference=1.0*(d2-d1)/(m_gridSpacing[d]);
 
 				result+=(axisPositionDifference)*(axisPositionDifference);
 			}
