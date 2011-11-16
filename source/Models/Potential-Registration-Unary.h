@@ -982,7 +982,7 @@ namespace itk{
                 else {
                     if (sfm>0) result=0;
                     else result=1;
-                    cout<<"AUTOCORRELATION ZERO "<<count<<endl;
+                    //cout<<"AUTOCORRELATION ZERO "<<count<<endl;
                 }
                 // cout<<fixedIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
                 if (distanceSum){
