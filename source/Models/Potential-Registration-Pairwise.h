@@ -36,12 +36,13 @@ namespace itk{
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
-        SizeType m_fixedSize,m_movingSize;
     protected:
+        SizeType m_fixedSize,m_movingSize;
         ConstImagePointerType m_fixedImage, m_movingImage;
         LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         SpacingType m_gridSpacing;
+        double m_maxDist;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -59,7 +60,13 @@ namespace itk{
             m_fixedImage=fixedImage;
             m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
         }
-        void SetSpacing(SpacingType  sp) {m_gridSpacing=sp;}
+        void SetSpacing(SpacingType  sp) {
+            m_gridSpacing=sp;
+            m_maxDist=0.0;
+            for (unsigned int d=0;d<D;++d){
+                m_maxDist+=sp[d]*sp[d];
+            }
+        }
         virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement1, LabelType displacement2){
             assert(m_haveLabelMap);
             double result=0;
@@ -69,17 +76,15 @@ namespace itk{
 			LabelType oldl2=m_baseLabelMap->GetPixel((fixedIndex2));
 			double d1,d2;
 			int delta;
-			displacement1+=oldl1;
-			displacement2+=oldl2;
+            //			displacement1+=oldl1;
+			//displacement2+=oldl2;
 
 			for (unsigned int d=0;d<D;++d){
 
 				d1=displacement1[d];
 				d2=displacement2[d];
 				delta=(fixedIndex2[d]-fixedIndex1[d]);
-                
 				double axisPositionDifference=1.0*(d2-d1)/(m_gridSpacing[d]);
-
 				result+=(axisPositionDifference)*(axisPositionDifference);
 			}
 
@@ -109,7 +114,6 @@ namespace itk{
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
-        SizeType m_fixedSize,m_movingSize;
   
         
     public:
@@ -145,6 +149,125 @@ namespace itk{
 			//			if (false){
             //cout<<displacement1-displacement2<<" "<<1.0/(1+exp(-result))<<endl;
             return 1.0/(1+exp(-result));
+        }
+    };//class
+
+    template<class TLabelMapper,class TImage>
+    class PairwisePotentialRegistrationACP : public PairwisePotentialRegistration<TLabelMapper,TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialRegistrationACP            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        static const unsigned int D=ImageType::ImageDimension;
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+  
+        
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(RegistrationPairwisePotentialSigmoid, Object);
+
+   
+        
+        virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement1, LabelType displacement2){
+            assert(this->m_haveLabelMap);
+            double leftCost=0, rightCost=0;
+            double controlPointDistance=0.0;
+            double delta;
+
+            //get neighboring axis, and make sure Index1<index2
+            IndexType rightNeighbor=fixedIndex2, leftNeighbor=fixedIndex1;
+            int neighbAxis=-1;
+            bool leftNeighb=false,rightNeighb=false;
+			for (unsigned int d=0;d<D;++d){
+                delta=(fixedIndex2[d]-fixedIndex1[d]);
+                if (delta<0) {
+                    //swap
+                    IndexType tmp=fixedIndex1;
+                    fixedIndex1=fixedIndex2;
+                    fixedIndex2=fixedIndex1;
+                    rightNeighbor=fixedIndex2;
+                    leftNeighbor=fixedIndex1;
+                }
+                if (delta!=0.0) {
+                    neighbAxis=d;
+                    rightNeighbor[d]+=this->m_gridSpacing[d]; 
+                    if (rightNeighbor[d]<this->m_fixedSize[d]){
+                        rightNeighb=true;
+                    }
+                    leftNeighbor[d]-=this->m_gridSpacing[d]; 
+                    if (leftNeighbor[d]>=0){
+                        leftNeighb=true;
+                    }
+                    
+                }
+                controlPointDistance+=delta*delta;
+            }
+
+            
+            if (! (rightNeighb || leftNeighb) ){
+                std::cout<<"ERROR, no pair has left or right neighbors. 2x2 grids dont work!"<<endl;
+                std::cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<this->m_gridSpacing<<" "<<this->m_fixedSize<<endl;
+            }
+
+            LabelType oldl1=this->m_baseLabelMap->GetPixel((fixedIndex1));
+			LabelType oldl2=this->m_baseLabelMap->GetPixel((fixedIndex2));
+            LabelType leftDisp, rightDisp;
+            if (rightNeighb){
+                rightDisp=this->m_baseLabelMap->GetPixel(rightNeighbor);
+            }
+            if (rightNeighb){
+                leftDisp=this->m_baseLabelMap->GetPixel(leftNeighbor);
+            }
+            itk::Vector<LabelType,D> neighborLabels;
+			double d1,d2,d0,d3;
+			displacement1+=oldl1;
+			displacement2+=oldl2;
+            #if 0
+            std::cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<leftNeighbor<<" "<<rightNeighbor<<endl;;
+            std::cout<<displacement1<<" "<<leftDisp<<" "<<displacement2<<" "<<rightDisp<<endl;;
+            #endif
+            for (unsigned int d=0;d<D;++d){
+				d1=displacement1[d];
+				d2=displacement2[d];
+                d3=rightDisp[d];
+                d0=leftDisp[d];
+                double tmpDist;
+                tmpDist=d2-d1;
+                if (rightNeighb){
+                    tmpDist+=d2-d3;
+                }
+                tmpDist*=tmpDist;
+                rightCost+=tmpDist;
+                tmpDist=d1-d2;
+                if (leftNeighb){
+                    tmpDist+=d1-d0;
+                }
+                tmpDist*=tmpDist;
+                leftCost+=tmpDist;
+
+            }
+            double normaliser=1.0/2;//(int(rightNeighb)+int(leftNeighb));
+			//			if (false){
+            //cout<<displacement1-displacement2<<" "<<1.0/(1+exp(-result))<<endl;
+            //double result=normaliser*(leftCost+rightCost)/controlPointDistance;
+            double result=normaliser*(rightNeighb*leftCost+leftNeighb*rightCost)/controlPointDistance;
+
+            return result;
         }
     };//class
 }//namespace

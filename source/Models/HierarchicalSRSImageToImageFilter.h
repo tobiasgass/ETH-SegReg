@@ -19,6 +19,7 @@
 #include "Graph.h"
 #include "BaseLabel.h"
 #include "MRF-TRW-S.h"
+#include "MRF-FAST-PD.h"
 
 #include <itkNearestNeighborInterpolateImageFunction.h>
 #include <itkLinearInterpolateImageFunction.h>
@@ -141,6 +142,11 @@ namespace itk{
         void setFixedGradientImage(ImagePointerType img){
             SetNthInput(3,img);
         }
+        LabelImagePointerType affineRegistration(ConstImagePointerType targetImage, ConstImagePointerType movingImage){
+            
+            
+
+        }
         virtual void Update(){
             
             bool segment=1;//m_config.pairwiseSegmentationWeight>0 ||  m_config.rfWeight>0 || m_config.pairwiseSegmentationWeight>0;
@@ -151,10 +157,16 @@ namespace itk{
             const ConstImagePointerType movingImage = this->GetInput(1);
             ConstImagePointerType movingSegmentationImage;
             
+            bool affine;
+            if (affine){
+
+
+            }
+
             if (segment){
                 if (D==2){
                     //2d segmentations pngs [from matlab] may have screwed up intensities
-                    movingSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
+                    movingSegmentationImage = fixSegmentationImage(this->GetInput(2),2);//m_config.nSegmentations);
                     ImageUtils<ImageType>::writeImage("test.png",movingSegmentationImage);
 
                 }else{
@@ -237,7 +249,7 @@ namespace itk{
 
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config.scale);
-                int exponent=m_config.nLevels-l;
+                int exponent=m_config.nLevels-l-1;
                 if (m_config.downScale)
                     exponent--;
                 double reductionFactor=pow(mantisse,exponent);
@@ -248,7 +260,7 @@ namespace itk{
 #if 1
                 level=m_config.levels[l];
                 double labelScalingFactor=1;
-                double sigma=1;
+                double sigma=10;
                 
                 //roughly compute downscaling
                 scale=1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
@@ -302,7 +314,7 @@ namespace itk{
                     unaryRegistrationPot->SetFixedImage(downSampledTarget);
                     unaryRegistrationPot->SetMovingImage(downSampledReference);
                     unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
-#if 1
+#if 0
                     unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
                     unaryRegistrationPot->SetAlpha(m_config.alpha);
                     unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);
@@ -381,10 +393,12 @@ namespace itk{
                               typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
 #else
                               typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                              //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 #endif
+
                               MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
                                                                      m_config.simWeight,
-                                                                     m_config.pairwiseRegistrationWeight, 
+                                                                           m_config.pairwiseRegistrationWeight * (l>0 || i>0 ) ,
                                                                      m_config.rfWeight,
                                                                      m_config.pairwiseSegmentationWeight,
                                                                      m_config.segWeight,

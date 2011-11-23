@@ -491,6 +491,8 @@ namespace itk{
 
         int nNodes(){return m_nNodes;}
         int nEdges(){return m_nEdges;}
+        int nRegEdges(){return m_nRegEdges;}
+        int nSegEdges(){return m_nSegEdges;}
 
         ImagePointerType getFixedImage(){
             return m_fixedImage;

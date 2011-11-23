@@ -8,7 +8,7 @@
 #ifndef FAST_PD_MRF_H_
 #define FAST_PD_MRF_H_
 #include "BaseMRF.h"
-#include "Fast_PD.h"
+#include "Fast_PD3.h"
 
 template<class TGraphModel>
 class NewFastPDMRFSolver {
@@ -24,19 +24,18 @@ protected:
 	Real * pairwisePotentials2;
 	bool verbose ;
 	std::vector<Real>  edgeWeights;
-	CV_Fast_PD * optimizer;
+	CV_Fast_PD3 * optimizer;
 	double m_pairwiseWeight,m_unaryWeight;
 	bool secondPairwise;
     GraphModelType * m_GraphModel;
     int m_nPairs, m_nLabels, m_nNodes;
 
 public:
-	NewFastPDMRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool verb=false)
-
+	NewFastPDMRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, double dummy=1.0, double dummy2=1.0, double dummy3=1.0, bool verb=false)
 	{
         m_unaryWeight=unaryWeight;
         m_pairwiseWeight=pairwiseWeight;
-		verbose=false;
+		verbose=verb;
         m_GraphModel=graphModel;
 		createGraph();
 	}
@@ -52,13 +51,12 @@ public:
 	virtual void createGraph(){
 		if (verbose) std::cout<<"starting graph init"<<std::endl;
 		GraphModelType* graph=m_GraphModel;
-        m_nNodes=graph->nNodes();
-        m_nLabels=graph->nLabels();
-        m_nPairs=graph->nEdges();
-#ifdef BACKWARD
-        //forward and backward edges
-        m_nPairs*=2;
-#endif
+        graph->Init();
+
+        m_nNodes=graph->nRegNodes();
+        m_nLabels=graph->nRegLabels();
+        m_nPairs=graph->nRegEdges();
+        
 		//		pairs is an array of the form [na nb nc nd...] where (na,nb),(nc,nd) are edges in the graph and na,... are indices of the nodes
 		if (verbose) std::cout<<"allocating "<<m_nPairs<<" pairs"<<std::endl;
 		pairs=std::vector<int>(m_nPairs*2);
@@ -82,48 +80,27 @@ public:
 		{
 			// get current indices both integer, in the grid plane and in the image plane
 			// get forward neighbors of current grid point, both grid index and image plane index
-			std::vector<int> neighbours=graph->getForwardNeighbours(d);
+			std::vector<int> neighbours=graph->getForwardRegistrationNeighbours(d);
 			int nNeighbours=neighbours.size();
 			//			std::cout<<d<<" "<<nNeighbours<<std::endl;
 			for (int i=0;i<nNeighbours;++i){
 				int pairIndex=runningIndex+i*2;
 				pairs[pairIndex]=d;
 				pairs[pairIndex+1]=neighbours[i];
-				edgeWeights[(pairIndex)/2]=graph->getWeight(d,neighbours[i]);
-
-              
-
-
-				for (int l1=0;l1<nLabels;++l1){
+				edgeWeights[(pairIndex)/2]=1;//graph->getWeight(d,neighbours[i]);
+ 				for (int l1=0;l1<nLabels;++l1){
 					for (int l2=0;l2<nLabels;++l2){
 						//						std::cout<<pairIndex/2<<" "<<l1<< " "<<l2<<" "<<l1*nLabels+l2 + pairIndex/2*nLabels*nLabels<<std::endl;
-						pairwisePotentials[l1*nLabels+l2 + pairIndex/2*nLabels*nLabels]=m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],l1,l2);
+						pairwisePotentials[l1*nLabels+l2 + pairIndex/2*nLabels*nLabels]
+                            =m_pairwiseWeight*graph->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);//graph->getPairwisePotential(d,neighbours[i],l1,l2);
                     }
 				}
 			}
             runningIndex+=nNeighbours*2;
-#ifdef BACKWARD
-            for (int i=0;i<nNeighbours;++i){
-				int pairIndex=runningIndex+i*2;
-				pairs[pairIndex]=d;
-				pairs[pairIndex+1]=neighbours[i];
-				edgeWeights[(pairIndex)/2]=graph->getWeight(neighbours[i],d);
 
-              
-
-
-				for (int l1=0;l1<nLabels;++l1){
-					for (int l2=0;l2<nLabels;++l2){
-						//						std::cout<<pairIndex/2<<" "<<l1<< " "<<l2<<" "<<l1*nLabels+l2 + pairIndex/2*nLabels*nLabels<<std::endl;
-						pairwisePotentials[l1*nLabels+l2 + pairIndex/2*nLabels*nLabels]=m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
-                    }
-				}
-			}
-			runningIndex+=nNeighbours*2;
-#endif
 			//set up unary costs at current position
 			for (int l1=0;l1<nLabels;++l1){
-				unaryPotentials[l1*this->m_nNodes+d]=m_unaryWeight*graph->getUnaryPotential(d,l1);
+				unaryPotentials[l1*this->m_nNodes+d]=m_unaryWeight*graph->getUnaryRegistrationPotential(d,l1);//graph->getUnaryPotential(d,l1);
 			}
 
 		}
@@ -133,13 +110,14 @@ public:
 
 		//create optimizer object
 		if (verbose) std::cout<<"initialising fastPD with "<<this->m_nNodes<<" nodes, "<< this->m_nLabels<<" labels, "<<this->m_nPairs<<" pairs"<<std::endl;
-        optimizer= new CV_Fast_PD(this->m_nNodes,this->m_nLabels,unaryPotentials,this->m_nPairs,&pairs[0],pairwisePotentials, 20,&edgeWeights[0]);
+        optimizer= new CV_Fast_PD3(this->m_nNodes,this->m_nLabels,unaryPotentials,this->m_nPairs,&pairs[0],pairwisePotentials, 20,&edgeWeights[0]);
         //		this->m_unaryPotentialFunction->freeMemory();
 	}
 	virtual void optimize(int optiter){
 		optimizer->run();
 	}
-    virtual std::vector<int> getLabels(){
+   
+    virtual std::vector<int> getDeformationLabels(){
         std::vector<int> labels(m_nNodes);
         for (int i=0;i<m_nNodes;++i){
             labels[i]=optimizer->_pinfo[i].label;
@@ -147,7 +125,10 @@ public:
         }
         return labels;
     }
-
+    virtual std::vector<int> getSegmentationLabels(){
+        std::vector<int> labels(this->m_GraphModel->nSegNodes(),0);
+        return labels;
+    }
 
 };
 #if 0

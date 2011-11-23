@@ -81,8 +81,8 @@ namespace itk{
             assert(m_fixedImage);
             assert(m_movingImage);
             if (m_scale!=1.0){
-                m_scaledFixedImage=FilterUtils<ImageType>::LinearResample((m_fixedImage),m_scale);
-                m_scaledMovingImage=FilterUtils<ImageType>::LinearResample((m_movingImage),m_scale);
+                m_scaledFixedImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_fixedImage,100),m_scale);
+                m_scaledMovingImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_movingImage,100),m_scale);
             }else{
                 m_scaledFixedImage=m_fixedImage;
                 m_scaledMovingImage=m_movingImage;
@@ -207,7 +207,7 @@ namespace itk{
                     double m;
                     totalCount+=1.0;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
-#if 1
+#if 0
                         continue;
                         m=0;
                         
@@ -239,8 +239,8 @@ namespace itk{
                 }
 
             }
-            if (1.0*count/totalCount<0.01)
-                result=100000000;//-log(0.0000000000000000001);{
+            if (1.0*count/totalCount<0.0001)
+                result=0;//100000000;//-log(0.0000000000000000001);{
             else{
                 sff -= ( sf * sf / count );
                 smm -= ( sm * sm / count );
@@ -357,7 +357,7 @@ namespace itk{
                     
                     double m;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
-                        continue;
+                        //continue;
                         m=0;
                     }else{
                         m=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
@@ -992,7 +992,7 @@ namespace itk{
                 result=result*(1+this->m_alpha*(1.0*totalCount-count)/(totalCount+1));//+this->m_alpha*(totalCount-count)/(totalCount+1);
             }
             //no correlation whatsoever (-log(0.5))
-            else result=10000000;//100;//-log(0.0000000000000000001);//0.693147;
+            else result=0;//10000000;//100;//-log(0.0000000000000000001);//0.693147;
             //result=result>0.5?0.5:result;
             return result;
         }

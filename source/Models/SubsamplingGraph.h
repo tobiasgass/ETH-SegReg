@@ -98,10 +98,7 @@ namespace itk{
             double costs;
         };
         typedef std::vector<NodeInformation> NodeInformationMapping;
-        struct GridInformation {
-            int dim[3];  // dimZ=0 (or undefined) for 2D
-            std::vector<double> costs;
-        };
+        int m_gridDim[3];  // dimZ=0 (or undefined) for 2D
         
         //information for all nodes
         std::vector< NodeInformationMapping > m_nodeMappingInfo;
@@ -113,7 +110,7 @@ namespace itk{
 
         virtual void Init(){
             gridSize=LabelMapperType::nDisplacementSamples*2+1;
-            double A2[9][6] = {0};    // constant matrix for 2D paraboloid fitting
+            double A2[9][6] = {{0}};    // constant matrix for 2D paraboloid fitting
             A2[0][0] = 1.0;	  A2[0][1] = -1.0;	  A2[0][2] = -1.0;	  A2[0][3] = 1.0;	  A2[0][4] = 1.0;	  A2[0][5] = 1.0;
             A2[1][0] = 1.0;	  A2[1][2] = -1.0;	  A2[1][5] = 1.0;
             A2[2][0] = 1.0;	  A2[2][1] = 1.0;	  A2[2][2] = -1.0;	  A2[2][3] = -1.0;	  A2[2][4] = 1.0;	  A2[2][5] = 1.0;
@@ -127,7 +124,7 @@ namespace itk{
             // syms x y z real;  f = inline([1,x,y,z,x*y,x*z,y*z,x*x,y*y,z*z],'x','y','z');
             // [x,y,z] = ndgrid(-1:1,-1:1,-1:1);  A=[];
             // for i=1:numel(x), A(i,:)=f(x(i),y(i),z(i)); end; A3=sym(A),  regexprep(ccode(A3),'\n','\t')
-            double A3[27][10] = {0};    // constant matrix for 2D paraboloid fitting
+            double A3[27][10] = {{0}};    // constant matrix for 2D paraboloid fitting
             A3[0][0] = 1.0;	  A3[0][1] = -1.0;	  A3[0][2] = -1.0;	  A3[0][3] = -1.0;	  A3[0][4] = 1.0;	  A3[0][5] = 1.0;	  A3[0][6] = 1.0;	  A3[0][7] = 1.0;	  A3[0][8] = 1.0;	  A3[0][9] = 1.0;
             A3[1][0] = 1.0;	  A3[1][2] = -1.0;	  A3[1][3] = -1.0;	  A3[1][6] = 1.0;	  A3[1][8] = 1.0;	  A3[1][9] = 1.0;
             A3[2][0] = 1.0;	  A3[2][1] = 1.0;	  A3[2][2] = -1.0;	  A3[2][3] = -1.0;	  A3[2][4] = -1.0;	  A3[2][5] = -1.0;	  A3[2][6] = 1.0;	  A3[2][7] = 1.0;	  A3[2][8] = 1.0;	  A3[2][9] = 1.0;
@@ -183,15 +180,19 @@ namespace itk{
             nRegistrationLabels=nNewSamples;
             m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
             //computing new subsampled labels and label costs
+            this->m_gridDim[0] = gridSize;   this->m_gridDim[1] = gridSize;   this->m_gridDim[2] = gridSize;
             for (int r=0;r<this->m_nRegistrationNodes;++r){
-                GridInformation originalRegistrationCosts;
-                originalRegistrationCosts.dim[0] = gridSize;   originalRegistrationCosts.dim[1] = gridSize;   originalRegistrationCosts.dim[2] = gridSize;
+                NodeInformationMapping originalRegistrationCosts;
                 IndexType imageIndex=this->getImageIndexFromCoarseGraphIndex(r);
                 for (int l=0;l<this->m_nDisplacementLabels;++l){
                     double tmp=Superclass::getUnaryRegistrationPotential(r,l);
                     RegistrationLabelType label=LabelMapperType::getLabel(l);
+                    NodeInformation nodeInfo;
+                    nodeInfo.costs=tmp;
+                    nodeInfo.index=l;
+                    nodeInfo.label=label;
                     if (l==1) assert(label[0]==-(gridSize-1)/2+1 &&label[1]==-(gridSize-1)/2);
-                    originalRegistrationCosts.costs.push_back(tmp);
+                    originalRegistrationCosts.push_back(nodeInfo);
                     //if (r==0) std::cout<<r<<" "<<l<<" "<<label<<" "<< tmp<<endl;
                 }
                 
@@ -206,7 +207,7 @@ namespace itk{
     
       
 	
-		virtual NodeInformationMapping Subsample( GridInformation &gridCosts, int nNewSamples, IndexType imageIndex)
+		virtual NodeInformationMapping Subsample( NodeInformationMapping &gridCosts, int nNewSamples, IndexType imageIndex)
 		{
 			/*  Subsampling from regular discrete grid      */
 			/*  Copyright  2011 (c) Orcun Goksel             */
@@ -220,33 +221,33 @@ namespace itk{
                 //??? locMin = gridCosts.arg_min();
                 // Why doesn't this work, old vnl version?  Do the long way below...
                 double minVal = vnl_bignum("+Infinity");   int ind=-1;
-                for(unsigned int ii = 0; ii<gridCosts.costs.size(); ii++)
+                for(unsigned int ii = 0; ii<gridCosts.size(); ii++)
                     {
-                        if (gridCosts.costs[ii]<minVal &&
+                        if (gridCosts[ii].costs<minVal &&
                             localMinima.end()==std::find(localMinima.begin(), localMinima.end(), ii) )
                             {
                                 ind = ii;
-                                minVal = gridCosts.costs[ii];
+                                minVal = gridCosts[ii].costs;
                             }
                     }
                 if(ind==-1) break;   //no more local minima found (handle outside)
                 localCenterMinima.push_back(ind);
                 // find subGrid location & bracket it inside the grid
                 if (Dimension==3) {
-                    div_t qr = div(ind, gridCosts.dim[0] * gridCosts.dim[1]);
-                    locMin[2] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
+                    div_t qr = div(ind, this->m_gridDim[0] * this->m_gridDim[1]);
+                    locMin[2] = std::max<int>(1, std::min<int>(this->m_gridDim[2]-2, qr.quot ) );
                     ind = qr.rem;
                 }
-                div_t qr = div(ind, gridCosts.dim[0]);
-                locMin[1] = std::max<int>(1, std::min<int>(gridCosts.dim[1]-2, qr.quot ) );
-                locMin[0] = std::max<int>(1, std::min<int>(gridCosts.dim[0]-2, qr.rem ) );
+                div_t qr = div(ind, this->m_gridDim[0]);
+                locMin[1] = std::max<int>(1, std::min<int>(this->m_gridDim[1]-2, qr.quot ) );
+                locMin[0] = std::max<int>(1, std::min<int>(this->m_gridDim[0]-2, qr.rem ) );
                     
                 // Push this grid location AND its neighbours to a list (to omit as next labels)
                 for(int kk = (Dimension==3 ? locMin[2]-1 : 0) ;
                     kk < (Dimension==3 ? locMin[2]+2 : 1) ; kk++)
                     for(int jj=locMin[1]-1; jj<locMin[1]+2; jj++)
                         for(int ii=locMin[0]-1; ii<locMin[0]+2; ii++)
-                            localMinima.push_back(kk*gridCosts.dim[1]*gridCosts.dim[0] + jj*gridCosts.dim[0] + ii);
+                            localMinima.push_back(kk*this->m_gridDim[1]*this->m_gridDim[0] + jj*this->m_gridDim[0] + ii);
 
                 // vector for subsample grid ( center + 8 neighbour costs )
                 // copy the subsample grid (minus 1's are in order to get the corner of 3x3 window)
@@ -255,7 +256,7 @@ namespace itk{
                     kk < (Dimension==3 ? locMin[2]+2 : 1) ; kk++)
                     for(int jj=locMin[1]-1; jj<locMin[1]+2; jj++)
                         for(int ii=locMin[0]-1; ii<locMin[0]+2; ii++)
-                            subGridCosts.push_back( gridCosts.costs[kk*gridCosts.dim[1]*gridCosts.dim[0] + jj*gridCosts.dim[0] + ii] );
+                            subGridCosts.push_back( gridCosts[kk*this->m_gridDim[1]*this->m_gridDim[0] + jj*this->m_gridDim[0] + ii].costs );
 
                 // compute pseudo-inverse solution
                 vnl_matrix_fixed< double, 3*3*(Dimension==3?3:1), 1> subGridCostsMat;
@@ -293,7 +294,7 @@ namespace itk{
                 for(int ii=0; ii<Dimension; ii++)
                     {
                         d[ii] = std::max<double>(-1.0, std::min<double>(1.0,d[ii]));
-                        label[ii] = d[ii] + locMin[ii] - (gridCosts.dim[ii]-1)/2;
+                        label[ii] = d[ii] + locMin[ii] - (this->m_gridDim[ii]-1)/2;
                         double tmp=label[ii]-locMin[ii];
                         tmp*=tmp;
                         distanceToOriginal+=tmp;
@@ -333,19 +334,19 @@ namespace itk{
             }
             
 #if 1
-            for(unsigned int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
+            for(unsigned int ii = 0; ii<gridCosts.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
                 if ( localCenterMinima.end()==std::find(localCenterMinima.begin(), localCenterMinima.end(), ii) ){
                     RegistrationLabelType label;
                     if (Dimension==3) {
-                        div_t qr = div(ii, gridCosts.dim[0] * gridCosts.dim[1]);
-                        label[3] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
+                        div_t qr = div(ii, this->m_gridDim[0] * this->m_gridDim[1]);
+                        label[3] = std::max<int>(1, std::min<int>(this->m_gridDim[2]-2, qr.quot ) );
                         ii = qr.rem;
                     }
-                    div_t qr = div(ii, gridCosts.dim[0]);
+                    div_t qr = div(ii, this->m_gridDim[0]);
                     label[1] = qr.quot;
                     label[0] = qr.rem ;
                     NodeInformation inf;
-                    inf.costs=(gridCosts.costs[ii]);
+                    inf.costs=(gridCosts[ii].costs);
                     inf.label=label;
                     nodeInfo.push_back(inf);
                 }
@@ -502,10 +503,22 @@ namespace itk{
         static const int Dimension=ImageType::ImageDimension;
         typedef typename Superclass::NodeInformationMapping NodeInformationMapping;
         typedef typename Superclass::NodeInformation NodeInformation;
-        typedef typename Superclass::GridInformation GridInformation;
+        
     protected:
         vnl_matrix_fixed< double, 4*Dimension-2-ISFITCENTER, 3*3*(Dimension==3?3:1)-ISFITCENTER > constA;  //template for Dimension=[2,3]
-         
+        struct sort_costs {
+            bool operator()(const NodeInformation& left, const NodeInformation & right)
+            {
+                return left.costs < right.costs;
+            }
+        };
+        
+        struct sort_index {
+            bool operator()(const NodeInformation& left, const NodeInformation & right)
+            {
+                return left.index < right.index;
+            }
+        }; 
     public:
 
         void Init(){
@@ -575,19 +588,23 @@ namespace itk{
             constA = vnl_matrix_inverse<double>( vnl_transpose(tempM) * tempM ) * vnl_transpose(tempM);
 	            
             int nNewSamples=this->m_config.nSubsamples;//(gridSize-2)*(gridSize-2);
-            cout<<nNewSamples<<endl;
             this->nRegistrationLabels=nNewSamples;
             this->m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
+            this->m_gridDim[0] = this->gridSize;   this->m_gridDim[1] = this->gridSize;   this->m_gridDim[2] = this->gridSize;
+
             //computing new subsampled labels and label costs
             for (int r=0;r<this->m_nRegistrationNodes;++r){
-                GridInformation originalRegistrationCosts;
-                originalRegistrationCosts.dim[0] = this->gridSize;   originalRegistrationCosts.dim[1] = this->gridSize;   originalRegistrationCosts.dim[2] = this->gridSize;
+                NodeInformationMapping originalRegistrationCosts;
                 IndexType imageIndex=this->getImageIndexFromCoarseGraphIndex(r);
                 for (int l=0;l<this->m_nDisplacementLabels;++l){
                     double tmp=Superclass::Superclass::getUnaryRegistrationPotential(r,l);
                     RegistrationLabelType label=LabelMapperType::getLabel(l);
                     if (l==1) assert(label[0]==-(this->gridSize-1)/2+1 &&label[1]==-(this->gridSize-1)/2);
-                    originalRegistrationCosts.costs.push_back(tmp);
+                    NodeInformation nodeInfo;
+                    nodeInfo.costs=tmp;
+                    nodeInfo.index=l;
+                    nodeInfo.label=label;
+                    originalRegistrationCosts.push_back(nodeInfo);
                     //if (r==0) std::cout<<r<<" "<<l<<" "<<label<<" "<< tmp<<endl;
                 }
                 
@@ -599,7 +616,7 @@ namespace itk{
         }
 
 
-        virtual NodeInformationMapping Subsample( GridInformation &gridCosts, int nNewSamples, IndexType imageIndex)
+        virtual NodeInformationMapping Subsample( NodeInformationMapping &gridCosts, int nNewSamples, IndexType imageIndex)
         {
             /*  Subsampling from regular discrete grid      */
             /*  Copyright  2011 (c) Orcun Goksel             */
@@ -609,23 +626,22 @@ namespace itk{
                 kk < (Dimension==3 ? 2 : 1) ; kk++)
                 for(int jj=-1; jj<2; jj++)
                     for(int ii=-1; ii<2; ii++)
-                        neighs.push_back( kk*gridCosts.dim[1]*gridCosts.dim[0] + jj*gridCosts.dim[0] + ii );
+                        neighs.push_back( kk*this->m_gridDim[1]*this->m_gridDim[0] + jj*this->m_gridDim[0] + ii );
             // Find all requested labels
-            cout<<nNewSamples<<endl;
             for(int labelNum=0; labelNum<1 ; ++labelNum){
                 bool boundary=false;
                 // center of subsample grid (local minima)
                 RegistrationLabelType locMin; int ind=-1;
                 double minVal = 1E7;
                 if (labelNum==0) {
-                    ind = std::distance(gridCosts.costs.begin(), std::min_element(gridCosts.costs.begin(), gridCosts.costs.end()));
-                    minVal = gridCosts.costs[ind];
+                    ind = std::distance(gridCosts.begin(), std::min_element(gridCosts.begin(), gridCosts.end(), sort_costs()));
+                    minVal = gridCosts[ind].costs;
                 }
-                else for(int ii = 0; ii<gridCosts.costs.size(); ii++)	{
-                        if (gridCosts.costs[ii]<minVal &&
+                else for(unsigned int ii = 0; ii<gridCosts.size(); ii++)	{
+                        if (gridCosts[ii].costs<minVal &&
                             localMinima.end()==std::find(localMinima.begin(), localMinima.end(), ii) )	{
                             ind = ii;
-                            minVal = gridCosts.costs[ii];
+                            minVal = gridCosts[ii].costs;
                         }
                     }
                 if(ind==-1) break;   //no more local minima found (handle outside)
@@ -634,33 +650,33 @@ namespace itk{
                 int newInd=0;
                 // find subGrid location & bracket it inside the grid
                 if (Dimension==3) {
-                    div_t qr = div(ind, gridCosts.dim[0] * gridCosts.dim[1]);
-                    locMin[2] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
-                    boundary=(boundary || qr.quot>gridCosts.dim[2]-2 || qr.quot<1);
+                    div_t qr = div(ind, this->m_gridDim[0] * this->m_gridDim[1]);
+                    locMin[2] = std::max<int>(1, std::min<int>(this->m_gridDim[2]-2, qr.quot ) );
+                    boundary=(boundary || qr.quot>this->m_gridDim[2]-2 || qr.quot<1);
                     ind = qr.rem;
-                    newInd+=locMin[2]*gridCosts.dim[0] * gridCosts.dim[1];
+                    newInd+=locMin[2]*this->m_gridDim[0] * this->m_gridDim[1];
                 }
-                div_t qr = div(ind, gridCosts.dim[0]);
-                locMin[1] = std::max<int>(1, std::min<int>(gridCosts.dim[1]-2, qr.quot ) );
-                boundary=(boundary || qr.quot>gridCosts.dim[1]-2 || qr.quot<1);
-                newInd+=locMin[1]*gridCosts.dim[0];
-                locMin[0] = std::max<int>(1, std::min<int>(gridCosts.dim[0]-2, qr.rem ) );
-                boundary=(boundary || qr.quot>gridCosts.dim[0]-2 || qr.quot<1);
+                div_t qr = div(ind, this->m_gridDim[0]);
+                locMin[1] = std::max<int>(1, std::min<int>(this->m_gridDim[1]-2, qr.quot ) );
+                boundary=(boundary || qr.quot>this->m_gridDim[1]-2 || qr.quot<1);
+                newInd+=locMin[1]*this->m_gridDim[0];
+                locMin[0] = std::max<int>(1, std::min<int>(this->m_gridDim[0]-2, qr.rem ) );
+                boundary=(boundary || qr.quot>this->m_gridDim[0]-2 || qr.quot<1);
                 newInd+=locMin[0];
                 ind=tmpInd;
                 
                 //only use minimum if its not on the displacement grid border
                 if (true){
                     // Push this grid location AND its neighbours to a list (to omit as next labels)
-                    for(int ii=0; ii<neighs.size(); ii++){
+                    for(unsigned int ii=0; ii<neighs.size(); ii++){
                         localMinima.push_back( newInd + neighs[ii] );
                     }
                     // vector for subsample grid ( center + 8 neighbour costs )
                     // copy the subsample grid (minus 1's are in order to get the corner of 3x3 window)
                     std::vector<double> subGridCosts;
-                    for(int ii=0; ii<neighs.size(); ii++)
+                    for(unsigned int ii=0; ii<neighs.size(); ii++)
                         if(ISFITCENTER && !neighs[ii]) continue;
-                        else subGridCosts.push_back( gridCosts.costs[ newInd + neighs[ii] ] * ( (newInd+neighs[ii])==ind ?  SCALECENTER : 1) );
+                        else subGridCosts.push_back( gridCosts[ newInd + neighs[ii] ].costs * ( (newInd+neighs[ii])==ind ?  SCALECENTER : 1) );
 
                     // compute pseudo-inverse solution
                     vnl_matrix_fixed< double, 3*3*(Dimension==3?3:1)-ISFITCENTER, 1> subGridCostsMat;
@@ -699,7 +715,7 @@ namespace itk{
                     for(int ii=0; ii<Dimension; ii++)
                         {
                             d[ii] = std::max<double>(-1.0, std::min<double>(1.0,d[ii]));
-                            label[ii] = d[ii] + locMin[ii] - (gridCosts.dim[ii]-1)/2;
+                            label[ii] = d[ii] + locMin[ii] - (this->m_gridDim[ii]-1)/2;
                         }
 
                     double result;
@@ -713,10 +729,10 @@ namespace itk{
                     if (concave ||result>minVal)  {
                         if (this->m_config.verbose){
                             if (result>minVal) {
-                                cout<<"LARGE "<<result<<" "<<minVal<<" bound:"<<boundary<<" conc:"<<concave<<endl;
-                                cout<<"ERROR "<<fabs(result-minVal)<<endl;
+                                //cout<<"LARGE "<<result<<" "<<minVal<<" bound:"<<boundary<<" conc:"<<concave<<endl;
+                                //cout<<"ERROR "<<fabs(result-minVal)<<endl;
                             }
-                            else cout<<"not convex "<<a[4]<<" "<<a[5]<<" buond:"<<boundary<<endl;
+                            //else cout<<"not convex "<<a[4]<<" "<<a[5]<<" buond:"<<boundary<<endl;
                         }
                         result=minVal;
                         label=LabelMapperType::getLabel(ind);
@@ -725,7 +741,7 @@ namespace itk{
                     info.label=label;
                     RegistrationLabelType l;
                     l=LabelMapperType::scaleDisplacement(label,this->getDisplacementFactor());
-                    double trueValue=this->m_unaryRegFunction->getPotential(imageIndex,l)/this->m_nRegistrationNodes;
+                    //double trueValue=this->m_unaryRegFunction->getPotential(imageIndex,l)/this->m_nRegistrationNodes;
                     //info.costs=trueValue;
                     info.costs=result;
                     actualInterpolatedNodes.push_back(ind);
@@ -736,28 +752,28 @@ namespace itk{
             }//for loop
         
             //            cout<<nodeInfo.size()<<endl;
-            for(unsigned int ii = 0; ii<gridCosts.costs.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
+            for(unsigned int ii = 0; ii<gridCosts.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
                 //if (localMinima.end()==std::find( localMinima.begin(),localMinima.end(), ii) ){
                 if ( !actualInterpolatedNodes.size() || actualInterpolatedNodes.end()==std::find( actualInterpolatedNodes.begin(),actualInterpolatedNodes.end(), ii) ){
                     RegistrationLabelType label=LabelMapperType::getLabel(ii);
 #if 0
                     if (Dimension==3) {
-                        div_t qr = div(ii, gridCosts.dim[0] * gridCosts.dim[1]);
-                        label[3] = std::max<int>(1, std::min<int>(gridCosts.dim[2]-2, qr.quot ) );
+                        div_t qr = div(ii, this->m_gridDim[0] * this->m_gridDim[1]);
+                        label[3] = std::max<int>(1, std::min<int>(this->m_gridDim[2]-2, qr.quot ) );
                         ii = qr.rem;
                     }
-                    div_t qr = div(ii, gridCosts.dim[0]);
+                    div_t qr = div(ii, this->m_gridDim[0]);
                     label[1] = qr.quot;
                     label[0] = qr.rem ;
 #endif
                     NodeInformation inf;
-                    inf.costs=(gridCosts.costs[ii]);
+                    inf.costs=(gridCosts[ii].costs);
                     inf.label=label;
                     
                     nodeInfo.push_back(inf);
                 }
             }
-            cout<<nodeInfo.size()<<endl;
+            //cout<<nodeInfo.size()<<endl;
 
        
             return nodeInfo;
@@ -829,7 +845,7 @@ namespace itk{
         static const int Dimension=ImageType::ImageDimension;
         typedef typename Superclass::NodeInformationMapping NodeInformationMapping;
         typedef typename Superclass::NodeInformation NodeInformation;
-        typedef typename Superclass::GridInformation GridInformation;
+        
         
     public:
 

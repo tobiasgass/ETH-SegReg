@@ -17,6 +17,7 @@
 #include <vector>
 #include <google/heap-profiler.h>
 #include "ordering.cpp"
+#include <limits.h>
 //#include "malloc.c"
 using namespace std;
 double tOpt=0;
@@ -421,7 +422,7 @@ public:
                     for (int i=0;i<nNeighbours;++i){
                         //std::cout<<d<<" "<<regNodes[d]<<" "<<i<<" "<<neighbours[i]<<std::endl;
                         // edges[edgeCount]=
-                        m_optimizer.AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(m_pairwiseRegistrationWeight,m_pairwiseRegistrationWeight,5));
+                        m_optimizer.AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(m_pairwiseRegistrationWeight,m_pairwiseRegistrationWeight,std::numeric_limits<double>::max()));//1000000*(m_pairwiseRegistrationWeight)));
                         edgeCount++;
                     }
                 
@@ -434,68 +435,7 @@ public:
             tPairwise+=t;
             
         }
-        if ( (m_pairwiseSegmentationRegistrationWeight || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight) && nSegLabels){
-            m_segmented=true;
-            //SegUnaries
-            TRWType::REAL D2[nSegLabels];
-            for (int d=0;d<nSegNodes;++d){
-                for (int l1=0;l1<nSegLabels;++l1)
-                    {
-                        D2[l1]=m_unarySegmentationWeight*graph->getUnarySegmentationPotential(d,l1);
-                        //  std::cout<<d<<" "<< D2[l1] <<std::endl;
-                    }
-                segNodes[d] = 
-                    m_optimizer.AddNode(TRWType::LocalSize(), TRWType::NodeData(D2));
-                
-                //  std::cout<<" reg and segreg pairwise pots" <<std::endl;
-       
-            }
-            
-            TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
-            for (int d=0;d<nSegNodes;++d){   
-                TRWType::REAL Vseg[nSegLabels*nSegLabels];
-                //pure Segmentation
-                std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
-                int nNeighbours=neighbours.size();
-                for (int i=0;i<nNeighbours;++i){
-                
-                    for (int l1=0;l1<nSegLabels;++l1){
-                        for (int l2=0;l2<nSegLabels;++l2){
-                            double lambda =m_pairwiseSegmentationWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);
-#if 0
-                            double lambda2=m_pairwiseSegmentationWeight*graph->getSegmentationWeight(d,neighbours[i]);
-
-                            if (lambda2!=lambda){
-                                cout<<l1<<" "<<l2<<" "<<lambda2<<" "<<lambda<<endl;
-                            }
-#endif
-                            Vseg[l1*nSegLabels+l2]=lambda;
-                            //std::cout<<l1<<" "<<l2<<" "<<                            Vseg[l1*nSegLabels+l2]<<endl;
-
-                        }
-                    }
-                    //m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
-                    edgeCount++;
-                    
-                }
-                if (m_pairwiseSegmentationRegistrationWeight>0 && nRegLabels){
-                    std::vector<int> segRegNeighbors=graph->getSegRegNeighbors(d);
-                    nNeighbours=segRegNeighbors.size();
-                    for (int i=0;i<nNeighbours;++i){
-                        
-                        for (int l1=0;l1<nRegLabels;++l1){
-                            for (int l2=0;l2<nSegLabels;++l2){
-                                //forward
-                                VsrsBack[l1+l2*nRegLabels]=m_pairwiseSegmentationRegistrationWeight*graph->getPairwiseRegSegPotential(segRegNeighbors[i],d,l1,l2);
-                            }
-                        }
-                        //m_optimizer.AddEdge(regNodes[segRegNeighbors[i]], segNodes[d]             , TRWType::EdgeData(TRWType::GENERAL,VsrsBack));
-                        edgeCount++;
-                    }
-                }
-                
-            }
-        }
+    
         clock_t finish = clock();
         double t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
         if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;

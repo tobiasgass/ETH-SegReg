@@ -155,12 +155,12 @@ namespace itk{
             caster->Update();
             ImagePointerType output=caster->GetOutput();
             if (false){
-            if (ImageType::ImageDimension==2){
-                ImageUtils<ImageType>::writeImage("dt1.png",(output));    
-            }
-            if (ImageType::ImageDimension==3){
-                ImageUtils<ImageType>::writeImage("dt1.nii",(output));
-            }
+                if (ImageType::ImageDimension==2){
+                    ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+                }
+                if (ImageType::ImageDimension==3){
+                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));
+                }
             }
 
             if (m_nSegmentationLabels>2){
@@ -176,12 +176,12 @@ namespace itk{
                 caster->Update();
                 ImagePointerType output=caster->GetOutput();
                 if (false){
-                if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("dt2.png",(output));    
-                }
-                if (ImageType::ImageDimension==3){
-                    ImageUtils<ImageType>::writeImage("dt2.nii",(output));
-                }}
+                    if (ImageType::ImageDimension==2){
+                        ImageUtils<ImageType>::writeImage("dt2.png",(output));    
+                    }
+                    if (ImageType::ImageDimension==3){
+                        ImageUtils<ImageType>::writeImage("dt2.nii",(output));
+                    }}
             }
 
             m_movingSegmentationInterpolator=SegmentationInterpolatorType::New();
@@ -331,8 +331,157 @@ namespace itk{
         }
     };//class
 
+    template<class TImage>
+    class PairwisePotentialBoneSegmentationRegistration :public PairwisePotentialSegmentationRegistration<TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialBoneSegmentationRegistration            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        
+        typedef typename  itk::Vector<float,ImageType::ImageDimension>  LabelType;
+        typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
+        typedef typename LabelImageType::Pointer LabelImagePointerType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
+        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
+
+        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
+        typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
+        
+        SizeType m_fixedSize,m_movingSize;
+        typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
+ 
+    public:
+        itkNewMacro(Self);
+
+        void SetReferenceSegmentation(ConstImagePointerType segImage, double scale=1.0){
+            if (scale !=1.0 ){
+                segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
+            }
+            FloatImagePointerType dt1=getDistanceTransform(segImage, 1);
+            this->m_movingDistanceTransformInterpolator=FloatImageInterpolatorType::New();
+            this->m_movingDistanceTransformInterpolator->SetInputImage(dt1);
+            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+            filter->SetInput(dt1);
+            filter->Update();
+            this->sigma1=filter->GetSigma();
+            this->mean1=filter->GetMean();
+            this->m_distanceTransform=dt1;
+
+        
+            typedef itk::ThresholdImageFilter <FloatImageType>
+                ThresholdImageFilterType;
+            typename ThresholdImageFilterType::Pointer thresholdFilter
+                = ThresholdImageFilterType::New();
+            thresholdFilter->SetInput(dt1);
+            thresholdFilter->ThresholdOutside(0, 1000);
+            thresholdFilter->SetOutsideValue(1000);
+            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+            typename CasterType::Pointer caster=CasterType::New();
+            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+            caster->SetInput(thresholdFilter->GetOutput());
+            caster->Update();
+            ImagePointerType output=caster->GetOutput();
+            if (false){
+                if (ImageType::ImageDimension==2){
+                    ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+                }
+                if (ImageType::ImageDimension==3){
+                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));
+                }
+            }
+        }
+
+        inline virtual  double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
+            double result=0;
+            ContinuousIndexType idx2(fixedIndex2);
+            itk::Vector<float,ImageType::ImageDimension> disp=displacement;
+            idx2+= disp;
+            if (this->m_baseLabelMap){
+                itk::Vector<float,ImageType::ImageDimension> baseDisp=this->m_baseLabelMap->GetPixel(fixedIndex2);
+                idx2+=baseDisp;
+            }
+            int deformedAtlasSegmentation=-1;
+            double distanceToDeformedSegmentation;
+            if (!this->m_movingSegmentationInterpolator->IsInsideBuffer(idx2)){
+                //outside of moving image.
+                return segmentationLabel;
+            }
+            deformedAtlasSegmentation=int(this->m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+            if (deformedAtlasSegmentation>0){
+                if (segmentationLabel== 0){
+                    //atlas 
+                    distanceToDeformedSegmentation=this->m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/((this->sigma1));//1;
+                    
+                }else if (segmentationLabel ==this->m_nSegmentationLabels - 1 ){
+                    //agreement
+                    result=0;
+                    
+                }
+                else if (segmentationLabel){
+                    //never label different structure
+                    int bone=(300+1000)*255.0/2000;
+                    int tissue=(-500+1000)*255.0/2000;
+                    double movingIntens=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
+                    if (movingIntens>bone){
+                        result=10000000;
+                    }
+                    else if (movingIntens>tissue){
+                        result=-log(0.5);
+                    }else{
+                        result=0;
+                    }
+                    
+                }
+                
+            }else{
+                //atlas is not segmented...
+                if (segmentationLabel== this->m_nSegmentationLabels - 1){
+                    //if we want to label foreground, cost is proportional to distance to atlas foreground
+                    distanceToDeformedSegmentation=fabs(this->m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
+#if 1       
+                    if (distanceToDeformedSegmentation>this->m_threshold)
+                        result=99999999999;
+                    else
+#endif
+                        result=(distanceToDeformedSegmentation)/((this->sigma1));//1;
+                }else if (segmentationLabel ){
+                    //now we've got a non-target segmentation label and what we do with it will be decided based on the intensities of atlas and image
+                    //double targetIntens=this->m_fixedImage->GetPixel(fixedIndex1);
+                    double movingIntens=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
+                    
+                    int bone=(300+1000)*255.0/2000;
+                    int tissue=(-500+1000)*255.0/2000;
+                    
+                    if ( movingIntens>bone){
+                        //agreement between intensities, so labelling is probable
+                        result=0;
+                    }else if(movingIntens<tissue){
+                        //target is bone, but moving isn't, so we have some costs
+                        result=10000000000;
+                    }else if(movingIntens>tissue){
+                        //target is bone, but moving is pretty much unsure, low costs
+                        result=-log(0.5);
+                    }
+                }
+            }
+            return result;
+        }
+    };//class
     
-
-
 }//namespace
 #endif /* POTENTIALS_H_ */
