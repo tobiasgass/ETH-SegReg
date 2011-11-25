@@ -113,7 +113,7 @@ public:
             //RegUnaries
             clock_t startUnary = clock();
             m_registered=true;
-            TRWType::REAL D1[nRegLabels];
+            std::vector<TRWType::REAL> D1(nRegLabels,0.0);
             for (int d=0;d<nRegNodes;++d){
                 for (int l1=0;l1<nRegLabels;++l1)
                     {
@@ -126,7 +126,7 @@ public:
                     m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
                 // Pairwise potentials
             }
-            TRWType::REAL Vreg[nRegLabels*nRegLabels];
+            std::vector<TRWType::REAL> Vreg(nRegLabels*nRegLabels,0.0);
             for (int l1=0;l1<nRegLabels;++l1){
                 for (int l2=0;l2<nRegLabels;++l2){
                     Vreg[l1*nRegLabels+l2]=0;
@@ -173,7 +173,7 @@ public:
             m_segmented=true;
             //SegUnaries
             clock_t startUnary = clock();
-            TRWType::REAL D2[nSegLabels];
+            std::vector<TRWType::REAL> D2(nSegLabels,0.0);
             for (int d=0;d<nSegNodes;++d){
                 for (int l1=0;l1<nSegLabels;++l1)
                     {
@@ -191,10 +191,10 @@ public:
             if (verbose) cout<<"Segmentation Unaries took "<<t<<" seconds."<<endl;
             if (verbose) cout<<"Approximate size of seg unaries: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*sizeof(double)<<" mb."<<endl;
 
-            TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
+            std::vector<TRWType::REAL> VsrsBack(nRegLabels*nSegLabels,0.0);
             int nSegEdges=0;
             for (int d=0;d<nSegNodes;++d){   
-                TRWType::REAL Vseg[nSegLabels*nSegLabels];
+                std::vector<TRWType::REAL> Vseg(nSegLabels*nSegLabels,0.0);
                 //pure Segmentation
                 std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
                 int nNeighbours=neighbours.size();
