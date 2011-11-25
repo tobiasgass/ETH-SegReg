@@ -117,7 +117,10 @@ public:
             for (int d=0;d<nRegNodes;++d){
                 for (int l1=0;l1<nRegLabels;++l1)
                     {
-                        D1[l1]=m_unaryRegistrationWeight*graph->getUnaryRegistrationPotential(d,l1);
+                        if (m_unaryRegistrationWeight>0)
+                            D1[l1]=m_unaryRegistrationWeight*graph->getUnaryRegistrationPotential(d,l1);
+                        else
+                            D1[l1]=0;
                     }
                 regNodes[d] = 
                     m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
@@ -130,7 +133,9 @@ public:
                 }
             }
             clock_t endUnary = clock();
-
+            double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
+            if (verbose) cout<<"Registration Unaries took "<<t<<" seconds."<<endl;
+            tUnary+=t;
             for (int d=0;d<nRegNodes;++d){
             
                 {//pure Registration
@@ -141,7 +146,11 @@ public:
 
                         for (int l1=0;l1<nRegLabels;++l1){
                             for (int l2=0;l2<nRegLabels;++l2){
-                                Vreg[l1*nRegLabels+l2]=m_pairwiseRegistrationWeight*graph->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+                                if (m_pairwiseRegistrationWeight>0)
+                                    Vreg[l1*nRegLabels+l2]=m_pairwiseRegistrationWeight*graph->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+                                else{
+                                    Vreg[l1*nRegLabels+l2]=0;
+                                }
                             }
                         }
                     
@@ -154,14 +163,16 @@ public:
                 }
             }
             clock_t endPairwise = clock();
-            double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
-            tUnary+=t;
+         
             t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
+            if (verbose) cout<<"Registration pairwise took "<<t<<" seconds."<<endl;
+
             tPairwise+=t;
         }
         if ( (m_pairwiseSegmentationRegistrationWeight || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight) && nSegLabels){
             m_segmented=true;
             //SegUnaries
+            clock_t startUnary = clock();
             TRWType::REAL D2[nSegLabels];
             for (int d=0;d<nSegNodes;++d){
                 for (int l1=0;l1<nSegLabels;++l1)
@@ -175,15 +186,20 @@ public:
                 //  std::cout<<" reg and segreg pairwise pots" <<std::endl;
        
             }
-            
+            clock_t endUnary = clock();
+            double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
+            if (verbose) cout<<"Segmentation Unaries took "<<t<<" seconds."<<endl;
+            if (verbose) cout<<"Approximate size of seg unaries: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*sizeof(double)<<" mb."<<endl;
+
             TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
+            int nSegEdges=0;
             for (int d=0;d<nSegNodes;++d){   
                 TRWType::REAL Vseg[nSegLabels*nSegLabels];
                 //pure Segmentation
                 std::vector<int> neighbours= graph->getForwardSegmentationNeighbours(d);
                 int nNeighbours=neighbours.size();
                 for (int i=0;i<nNeighbours;++i){
-                
+                    nSegEdges++;
                     for (int l1=0;l1<nSegLabels;++l1){
                         for (int l2=0;l2<nSegLabels;++l2){
                             double lambda =m_pairwiseSegmentationWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);
@@ -220,6 +236,12 @@ public:
                 }
                 
             }
+            clock_t endPairwise = clock();
+            t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
+            if (verbose) cout<<"Segmentation + SRS pairwise took "<<t<<" seconds."<<endl;
+            if (verbose) cout<<"Approximate size of seg pairwise: "<<1.0/(1024*1024)*nSegEdges*nSegLabels*nSegLabels*sizeof(double)<<" mb."<<endl;
+            if (verbose) cout<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*nRegLabels*sizeof(double)<<" mb."<<endl;
+            
         }
         clock_t finish = clock();
         double t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
@@ -407,7 +429,10 @@ public:
             for (int d=0;d<nRegNodes;++d){
                 for (int l1=0;l1<nRegLabels;++l1)
                     {
-                        D1[l1]=m_unaryRegistrationWeight*graph->getUnaryRegistrationPotential(d,l1);
+                        if (m_unaryRegistrationWeight>0)
+                            D1[l1]=m_unaryRegistrationWeight*graph->getUnaryRegistrationPotential(d,l1);
+                        else
+                            D1[l1]=0;
                     }
                 regNodes[d] = 
                     m_optimizer.AddNode(TRWType::LocalSize(), TRWType::NodeData(D1));

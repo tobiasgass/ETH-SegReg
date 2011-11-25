@@ -1145,6 +1145,7 @@ namespace itk{
                 return intensity;
             }
             virtual double px_l(float intensityDiff,int label, int gradientDiff){
+              
                 //            cout<<intensityDiff<<" "<<label<<" "<<gradientDiff<<endl;
                 //double prob=this->m_probs[(label>0)*this->m_nIntensities*this->m_nIntensities+intensityDiff*this->m_nIntensities+gradientDiff];
                 intensityDiff=fabs(intensityDiff);
@@ -1156,8 +1157,11 @@ namespace itk{
                 }else{
                     //intensityDiff*=intensityDiff;
                     gradientDiff=fabs(gradientDiff*gradientDiff);
-                    prob=1-exp(-this->m_weight*0.00001*gradientDiff);
+                    prob=exp(-this->m_weight*0.0000005*gradientDiff);
                     //cout<<gradientDiff<<" "<<prob<<endl;
+                }
+                if (label){
+                    prob=1-prob;
                 }
                 return prob;
             }

@@ -207,7 +207,7 @@ namespace itk{
                     double m;
                     totalCount+=1.0;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
-#if 0
+#if 1
                         continue;
                         m=0;
                         
@@ -239,6 +239,7 @@ namespace itk{
                 }
 
             }
+          
             if (1.0*count/totalCount<0.0001)
                 result=0;//100000000;//-log(0.0000000000000000001);{
             else{
@@ -248,7 +249,7 @@ namespace itk{
                 if (smm*sff>0){
                     //result=(1-1.0*sfm/sqrt(smm*sff))/2;
                     result=((1+1.0*sfm/sqrt(sff*smm))/2);
-                    result=result>0?result:0.00000001;
+                    result=result>0.00000001?result:0.00000001;
                     result=-log(result);
                 }
                 else {

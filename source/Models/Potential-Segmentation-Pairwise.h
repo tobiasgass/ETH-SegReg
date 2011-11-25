@@ -208,8 +208,8 @@ namespace itk{
             int i2=this->m_fixedImage->GetPixel(idx2);
             double intensityDiff=(i1-i2);
             double prob=m_classifier->px_l(intensityDiff,label1!=label2,sheetnessDiff);
-            if (prob<=0.001) prob=0.001;
-            //std::cout<<intensityDiff<<" "<<sheetnessDiff<<" "<<prob<<" "<<-log(prob)<<endl;
+            if (prob<=0.000000001) prob=0.00000000001;
+            //std::cout<<"Pairwise: "<<(label1!=label2)<<" "<<sheetnessDiff<<" "<<prob<<" "<<-log(prob)<<endl;
             return -log(prob);
         }
       

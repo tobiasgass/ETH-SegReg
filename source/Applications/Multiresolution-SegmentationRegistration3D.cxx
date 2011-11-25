@@ -16,6 +16,7 @@
 #include "Potential-SegmentationRegistration-Pairwise.h"
 #include "Potential-Segmentation-Pairwise.h"
 #include "MRF-TRW-S.h"
+#include <malloc.h>
 
 using namespace std;
 using namespace itk;
@@ -25,7 +26,6 @@ int main(int argc, char ** argv)
     cout<<CLOCKS_PER_SEC<<endl;
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
 	//define types.
@@ -33,8 +33,8 @@ int main(int argc, char ** argv)
 	const unsigned int D=3;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
-    //typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef DenseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+    //typedef DenseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
 
     //unary seg
     typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
@@ -50,14 +50,15 @@ int main(int argc, char ** argv)
 
     //reg
     //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationRegistration< ImageType > SegmentationRegistrationPairwisePotentialType;
-    //typedef FastRegistrationGraphModel<
-    typedef SortedSubsamplingGraphModel<
-        //typedef GraphModel<
+    //typedef PairwisePotentialSegmentationRegistration< ImageType > SegmentationRegistrationPairwisePotentialType;
+    typedef PairwisePotentialBoneSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
+//typedef FastRegistrationGraphModel<
+//    typedef SortedSubsamplingGraphModel<
+    typedef GraphModel<
         ImageType,
         RegistrationUnaryPotentialType,
         RegistrationPairwisePotentialType,

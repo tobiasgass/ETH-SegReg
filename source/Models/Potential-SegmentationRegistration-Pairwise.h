@@ -438,7 +438,7 @@ namespace itk{
                     int tissue=(-500+1000)*255.0/2000;
                     double movingIntens=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
                     if (movingIntens>bone){
-                        result=10000000;
+                        result=100;
                     }
                     else if (movingIntens>tissue){
                         result=-log(0.5);
@@ -455,7 +455,7 @@ namespace itk{
                     distanceToDeformedSegmentation=fabs(this->m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
 #if 1       
                     if (distanceToDeformedSegmentation>this->m_threshold)
-                        result=99999999999;
+                        result=1000;
                     else
 #endif
                         result=(distanceToDeformedSegmentation)/((this->sigma1));//1;
@@ -469,10 +469,10 @@ namespace itk{
                     
                     if ( movingIntens>bone){
                         //agreement between intensities, so labelling is probable
-                        result=0;
+                        result=-log(0.7);
                     }else if(movingIntens<tissue){
                         //target is bone, but moving isn't, so we have some costs
-                        result=10000000000;
+                        result=100;
                     }else if(movingIntens>tissue){
                         //target is bone, but moving is pretty much unsure, low costs
                         result=-log(0.5);
