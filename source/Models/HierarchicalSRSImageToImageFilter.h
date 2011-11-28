@@ -211,7 +211,7 @@ namespace itk{
                     //classifier->setData(movingImage,movingSegmentationImage);
                     classifier->train();
                     //classifier->evalImage(targetImage);
-                    classifier->evalImage(targetImage,fixedGradientImage);
+                    //classifier->evalImage(targetImage,fixedGradientImage);
 
                 }
                 std::cout<<"returnedFromClassifier"<<std::endl;
@@ -223,7 +223,7 @@ namespace itk{
                 pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
                 pairwiseSegmentationPot->Init();
                 if (ImageType::ImageDimension==2){
-                    pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
+                    //pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
                 }
             }
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
@@ -429,6 +429,8 @@ namespace itk{
                               std::cout<<" ]"<<std::endl;
                               deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
                               segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
+                              delete mrfSolver;
+
                         }
 
 #else
