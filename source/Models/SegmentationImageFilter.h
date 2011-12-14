@@ -185,7 +185,7 @@ public:
         m_smoothnessClassifier->setNIntensities(256);
         m_smoothnessClassifier->setData(movingImage,(ConstImagePointerType)movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
         m_smoothnessClassifier->train();
-        m_smoothnessClassifier->SetWeight(m_config.pairwiseContrastWeight);
+        //m_smoothnessClassifier->SetWeight(m_config.pairwiseContrastWeight);
         m_pairwiseSegmentationPot->SetClassifier(m_smoothnessClassifier);
         m_pairwiseSegmentationPot->SetFixedImage(targetImage);
         m_pairwiseSegmentationPot->SetFixedGradient(fixedGradientImage);
@@ -208,8 +208,8 @@ public:
         
         //	ok what now: create graph! solve graph! save result!Z
 		
-        typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
-        //typedef GC_MRFSolver<GraphModelType> MRFSolverType;
+        // typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
+        typedef GC_MRFSolver<GraphModelType> MRFSolverType;
         //typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
         //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
                 

@@ -91,7 +91,8 @@ namespace itk{
             m_movingImage=movingImage;
             m_movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
             m_movingInterpolator=ImageInterpolatorType::New();
-            m_movingInterpolator->SetInput(m_movingImage,m_movingImage->GetLargestPossibleRegion());
+            m_movingInterpolator->SetInputImage(m_movingImage);//,m_movingImage->GetLargestPossibleRegion());
+            cout<<"movingSize "<<m_movingSize<<endl;
         }
         void SetFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
@@ -129,7 +130,36 @@ namespace itk{
             if (scale !=1.0 ){
                 segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
             }
+            //get distance transform to foreground label
             FloatImagePointerType dt1=getDistanceTransform(segImage, m_nSegmentationLabels - 1);
+            
+         
+                //save image for debugging
+                typedef itk::ThresholdImageFilter <FloatImageType>
+                    ThresholdImageFilterType;
+                typename ThresholdImageFilterType::Pointer thresholdFilter
+                    = ThresholdImageFilterType::New();
+                thresholdFilter->SetInput(dt1);
+                thresholdFilter->ThresholdOutside(0, 1000);
+                thresholdFilter->SetOutsideValue(1000);
+                typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+                typename CasterType::Pointer caster=CasterType::New();
+                caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+                caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+                
+                caster->SetInput(thresholdFilter->GetOutput());
+                caster->Update();
+                ImagePointerType output=caster->GetOutput();
+                if (true){    
+                if (ImageType::ImageDimension==2){
+                    ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+                }
+                if (ImageType::ImageDimension==3){
+                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));
+                }
+            }
+            
+            //feed DT into interpolator
             m_movingDistanceTransformInterpolator=FloatImageInterpolatorType::New();
             m_movingDistanceTransformInterpolator->SetInputImage(dt1);
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
@@ -140,28 +170,7 @@ namespace itk{
             m_distanceTransform=dt1;
 
         
-            typedef itk::ThresholdImageFilter <FloatImageType>
-                ThresholdImageFilterType;
-            typename ThresholdImageFilterType::Pointer thresholdFilter
-                = ThresholdImageFilterType::New();
-            thresholdFilter->SetInput(dt1);
-            thresholdFilter->ThresholdOutside(0, 1000);
-            thresholdFilter->SetOutsideValue(1000);
-            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
-            typename CasterType::Pointer caster=CasterType::New();
-            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
-            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
-            caster->SetInput(thresholdFilter->GetOutput());
-            caster->Update();
-            ImagePointerType output=caster->GetOutput();
-            if (false){
-                if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("dt1.png",(output));    
-                }
-                if (ImageType::ImageDimension==3){
-                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));
-                }
-            }
+      
 
             if (m_nSegmentationLabels>2){
                 FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
@@ -360,7 +369,6 @@ namespace itk{
         typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
         typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
         
-        SizeType m_fixedSize,m_movingSize;
         typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
  
     public:
@@ -417,10 +425,21 @@ namespace itk{
             int deformedAtlasSegmentation=-1;
             double distanceToDeformedSegmentation;
             if (!this->m_movingSegmentationInterpolator->IsInsideBuffer(idx2)){
-                //outside of moving image.
-                return segmentationLabel;
-            }
+                for (int d=0;d<ImageType::ImageDimension;++d){
+                    if (idx2[d]>=this->m_movingSegmentationInterpolator->GetEndContinuousIndex()[d]){
+                        idx2[d]=this->m_movingSegmentationInterpolator->GetEndContinuousIndex()[d]-0.5;
+                    }
+                    else if (idx2[d]<this->m_movingSegmentationInterpolator->GetStartContinuousIndex()[d]){
+                        idx2[d]=this->m_movingSegmentationInterpolator->GetStartContinuousIndex()[d]+0.5;
+                    }
+                }
+            } 
             deformedAtlasSegmentation=int(this->m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+            int bone=(300+1000)*255.0/2000;
+            int tissue=(-500+1000)*255.0/2000;
+            double movingIntens=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
+            bool p_bone_SA=movingIntens>bone;
+         
             if (deformedAtlasSegmentation>0){
                 if (segmentationLabel== 0){
                     //atlas 
@@ -434,18 +453,9 @@ namespace itk{
                 }
                 else if (segmentationLabel){
                     //never label different structure
-                    int bone=(300+1000)*255.0/2000;
-                    int tissue=(-500+1000)*255.0/2000;
-                    double movingIntens=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
-                    if (movingIntens>bone){
-                        result=100;
+                    if(p_bone_SA){
+                        result=99999999999;
                     }
-                    else if (movingIntens>tissue){
-                        result=-log(0.5);
-                    }else{
-                        result=0;
-                    }
-                    
                 }
                 
             }else{
@@ -454,28 +464,19 @@ namespace itk{
                     //if we want to label foreground, cost is proportional to distance to atlas foreground
                     distanceToDeformedSegmentation=fabs(this->m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
 #if 1       
-                    if (distanceToDeformedSegmentation>this->m_threshold)
+                    if (distanceToDeformedSegmentation>this->m_threshold){
                         result=1000;
+                    }
                     else
 #endif
-                        result=(distanceToDeformedSegmentation)/((this->sigma1));//1;
+                        {
+                            result=(distanceToDeformedSegmentation)/((this->sigma1));//1;
+                        }
                 }else if (segmentationLabel ){
                     //now we've got a non-target segmentation label and what we do with it will be decided based on the intensities of atlas and image
                     //double targetIntens=this->m_fixedImage->GetPixel(fixedIndex1);
-                    double movingIntens=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
-                    
-                    int bone=(300+1000)*255.0/2000;
-                    int tissue=(-500+1000)*255.0/2000;
-                    
-                    if ( movingIntens>bone){
-                        //agreement between intensities, so labelling is probable
-                        result=-log(0.7);
-                    }else if(movingIntens<tissue){
-                        //target is bone, but moving isn't, so we have some costs
-                        result=100;
-                    }else if(movingIntens>tissue){
-                        //target is bone, but moving is pretty much unsure, low costs
-                        result=-log(0.5);
+                    if(!p_bone_SA){
+                        result=99999999999;
                     }
                 }
             }

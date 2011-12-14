@@ -9,6 +9,8 @@
 #include "SegmentationGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Segmentation-Unary.h"
+#include "Classifier.h"
+#include "Potential-Segmentation-Pairwise.h"
 
 
 using namespace std;
@@ -26,13 +28,23 @@ int main(int argc, char ** argv)
 	const unsigned int D=3;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
-    typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    //    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
-	typedef SegmentationImageFilter<ImageType,
-        LabelMapperType,
-        SegmentationUnaryPotentialType    > FilterType;
+      typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
+     //unary seg
+    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
+    //typedef SegmentationClassifier<ImageType> ClassifierType;
+    typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     
+    //pairwise seg
+//    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
+    typedef SmoothnessClassifierSignedGradient<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+
+   typedef SegmentationImageFilter<ImageType,
+        LabelMapperType,
+        SegmentationUnaryPotentialType,
+        SegmentationPairwisePotentialType> FilterType;
 	//create filter
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(filterConfig);

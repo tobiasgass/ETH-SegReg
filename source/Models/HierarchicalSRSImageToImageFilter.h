@@ -150,12 +150,14 @@ namespace itk{
         virtual void Update(){
             
             bool segment=1;//m_config.pairwiseSegmentationWeight>0 ||  m_config.rfWeight>0 || m_config.pairwiseSegmentationWeight>0;
-            bool regist= 1;//m_config.pairwiseRegistrationWeight>0||  m_config.simWeight>0|| m_config.pairwiseSegmentationWeight>0;
+            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.simWeight>0|| m_config.pairwiseSegmentationWeight>0;
 
             //define input images
-            const ConstImagePointerType targetImage = this->GetInput(0);
-            const ConstImagePointerType movingImage = this->GetInput(1);
+            ConstImagePointerType targetImage = this->GetInput(0);
+            ConstImagePointerType movingImage = this->GetInput(1);
             ConstImagePointerType movingSegmentationImage;
+            
+            
             
             bool affine;
             if (affine){
@@ -166,15 +168,18 @@ namespace itk{
             if (segment){
                 if (D==2){
                     //2d segmentations pngs [from matlab] may have screwed up intensities
-                    movingSegmentationImage = fixSegmentationImage(this->GetInput(2),2);//m_config.nSegmentations);
+                    movingSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
                     ImageUtils<ImageType>::writeImage("test.png",movingSegmentationImage);
 
                 }else{
                     movingSegmentationImage = (this->GetInput(2));
                 }
             }
-            const ConstImagePointerType fixedGradientImage = this->GetInput(3);
+            ConstImagePointerType fixedGradientImage = this->GetInput(3);
 
+            movingImage=FilterUtils<ImageType>::LinearResample(movingImage,targetImage);
+            movingSegmentationImage=FilterUtils<ImageType>::NNResample(movingSegmentationImage,targetImage);
+            
             //results
             ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
             LabelImagePointerType fullDeformation,previousFullDeformation;
@@ -203,15 +208,22 @@ namespace itk{
 
             if (segment){
                 ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
+                movingGradientImage=FilterUtils<ImageType>::LinearResample((ConstImagePointerType)movingGradientImage,targetImage);
+
                 typedef typename UnarySegmentationPotentialType::ClassifierType ClassifierType;
                 typename ClassifierType::Pointer  classifier=  ClassifierType::New();
                 classifier->setNIntensities(256);
                 if (m_config.nSegmentations){
                     classifier->setData(movingImage,movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
                     //classifier->setData(movingImage,movingSegmentationImage);
+#if 1
                     classifier->train();
+                    classifier->saveProbs(m_config.pairWiseProbsFilename);
+#else
+                    classifier->loadProbs(m_config.pairWiseProbsFilename);
+#endif
                     //classifier->evalImage(targetImage);
-                    //classifier->evalImage(targetImage,fixedGradientImage);
+                    classifier->evalImage(targetImage,fixedGradientImage);
 
                 }
                 std::cout<<"returnedFromClassifier"<<std::endl;
@@ -223,7 +235,7 @@ namespace itk{
                 pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
                 pairwiseSegmentationPot->Init();
                 if (ImageType::ImageDimension==2){
-                    //pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
+                    pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
                 }
             }
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
@@ -249,7 +261,7 @@ namespace itk{
 
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config.scale);
-                int exponent=m_config.nLevels-l-1;
+                int exponent=m_config.nLevels-l;
                 if (m_config.downScale)
                     exponent--;
                 double reductionFactor=pow(mantisse,exponent);
@@ -335,7 +347,8 @@ namespace itk{
                 if (segment && regist){
                     //setup segreg potentials
                     pairwiseSegmentationRegistrationPot->SetMovingSegmentationInterpolator(segmentationInterpolator);
-                    pairwiseSegmentationRegistrationPot->SetMovingInterpolator(movingInterpolator);
+                    //pairwiseSegmentationRegistrationPot->SetMovingInterpolator(movingInterpolator);
+                    pairwiseSegmentationRegistrationPot->SetMovingImage(downSampledReference);
                     pairwiseSegmentationRegistrationPot->SetFixedImage(downSampledTarget);
                     pairwiseSegmentationRegistrationPot->SetAsymmetryWeight(m_config.asymmetry);
                 }
@@ -424,12 +437,12 @@ namespace itk{
                                                                      m_config.pairwiseSegmentationWeight,
                                                                      m_config.segWeight,
                                                                      m_config.verbose);
-                              mrfSolver->createGraph();
-                              mrfSolver->optimize(m_config.optIter);
-                              std::cout<<" ]"<<std::endl;
-                              deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
-                              segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
-                              delete mrfSolver;
+                            mrfSolver->createGraph();
+                            mrfSolver->optimize(m_config.optIter);
+                            std::cout<<" ]"<<std::endl;
+                            deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
+                            segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
+                            delete mrfSolver;
 
                         }
 

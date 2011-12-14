@@ -132,7 +132,12 @@ namespace itk{
             m_classifier=ClassifierType::New();
             m_classifier->setNIntensities(256);
             m_classifier->setData( m_referenceImage,(ConstImagePointerType)m_referenceSegmentation,(ConstImagePointerType)m_referenceGradient);
+#if 1
             m_classifier->train();
+            m_classifier->saveProbs("segmentationPairwise.probs");
+#else
+            //m_classifier->loadProbs("segmentationPairwise.probs");
+#endif
         }
         virtual void Init(string filename){
             assert(false);
@@ -176,13 +181,12 @@ namespace itk{
                         off[0]+=1;
                         IndexType idx2=idx1+off;
                         horIt.Set(getPotential(idx1,idx2,0,1));
-                        verIt.Set(getPotential(idx1,idx2,0,0));
                 }
                 off.Fill(0);
                 if (idx1[1]<(int)im->GetLargestPossibleRegion().GetSize()[1]-1){
                         off[1]+=1;
                         IndexType idx2=idx1+off;
-
+                        verIt.Set(getPotential(idx1,idx2,0,1));
                         //cout<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
                 }
             }
@@ -193,23 +197,34 @@ namespace itk{
             caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
             caster->SetInput(horiz);
             caster->Update();
-            //ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
+            ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
             caster->SetInput(vert);
             caster->Update();
-            //ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
+            ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
         }
         ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
             //if (label1==label2) return 0;
+#if 0
+            if (!label1 && label2){
+
+            }else{
+                IndexType tmp=idx1;idx1=idx2;idx2=tmp;
+                int tmpL=label1;label1=label2;label2=tmpL;
+            }
+#endif       
             int s1=this->m_sheetnessImage->GetPixel(idx1);
             int s2=this->m_sheetnessImage->GetPixel(idx2);
+            //       if (s1<s2) return 100;
             double sheetnessDiff=(s1-s2);
+            //if (s1>s2 && label1!=label2) return 100;
             int i1=this->m_fixedImage->GetPixel(idx1);
             int i2=this->m_fixedImage->GetPixel(idx2);
             double intensityDiff=(i1-i2);
-            double prob=m_classifier->px_l(intensityDiff,label1!=label2,sheetnessDiff);
+            //double prob=m_classifier->px_l(intensityDiff,label1!=label2,sheetnessDiff);
+            double prob=m_classifier->px_l(intensityDiff,label1,sheetnessDiff,label2);
             if (prob<=0.000000001) prob=0.00000000001;
-            //std::cout<<"Pairwise: "<<(label1!=label2)<<" "<<sheetnessDiff<<" "<<prob<<" "<<-log(prob)<<endl;
+            //std::cout<<"Pairwise: "<<(label1!=label2)<<" "<<sheetnessDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
             return -log(prob);
         }
       

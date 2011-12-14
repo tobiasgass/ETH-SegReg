@@ -198,6 +198,19 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
+   static OutputImagePointer LinearResample( ConstInputImagePointer input,  ConstInputImagePointer reference) {
+        LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
+        ResampleFilterPointerType resampler=ResampleFilterType::New();
+        resampler->SetInput(input);
+        resampler->SetInterpolator(interpol);
+    
+        resampler->SetOutputOrigin(reference->GetOrigin());
+		resampler->SetOutputSpacing ( reference->GetSpacing() );
+		resampler->SetOutputDirection ( reference->GetDirection() );
+		resampler->SetSize ( reference->GetLargestPossibleRegion().GetSize() );
+        resampler->Update();
+        return resampler->GetOutput();
+    }
     static OutputImagePointer NNResample( InputImagePointer input,  ConstInputImagePointer reference) {
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
