@@ -209,25 +209,15 @@ namespace itk{
             if (segment){
                 ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
                 movingGradientImage=FilterUtils<ImageType>::LinearResample((ConstImagePointerType)movingGradientImage,targetImage);
-
-                typedef typename UnarySegmentationPotentialType::ClassifierType ClassifierType;
-                typename ClassifierType::Pointer  classifier=  ClassifierType::New();
-                classifier->setNIntensities(256);
-                if (m_config.nSegmentations){
-                    classifier->setData(movingImage,movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
-                    //classifier->setData(movingImage,movingSegmentationImage);
-#if 1
-                    classifier->train();
-                    classifier->saveProbs(m_config.pairWiseProbsFilename);
-#else
-                    classifier->loadProbs(m_config.pairWiseProbsFilename);
-#endif
-                    //classifier->evalImage(targetImage);
-                    classifier->evalImage(targetImage,fixedGradientImage);
-
-                }
-                std::cout<<"returnedFromClassifier"<<std::endl;
-                unarySegmentationPot->SetClassifier(classifier);
+                unarySegmentationPot->SetFixedImage(targetImage);
+                unarySegmentationPot->SetFixedGradientImage((ConstImagePointerType)fixedGradientImage);
+                unarySegmentationPot->SetReferenceImage(movingImage);
+                unarySegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
+                unarySegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
+                unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
+                unarySegmentationPot->SetTissuePrior((ConstImagePointerType)ImageUtils<ImageType>::readImage(m_config.tissuePriorFilename));
+                unarySegmentationPot->Init();
+                
                 pairwiseSegmentationPot->SetFixedImage(targetImage);
                 pairwiseSegmentationPot->SetFixedGradient((ConstImagePointerType)fixedGradientImage);
                 pairwiseSegmentationPot->SetReferenceImage(movingImage);
@@ -341,7 +331,7 @@ namespace itk{
                 if (segment){
                     //setup segmentation potentials
                     unarySegmentationPot->SetFixedImage(downSampledTarget);
-                    unarySegmentationPot->SetGradientImage(downSampledTargetSheetness);
+                    unarySegmentationPot->SetFixedGradientImage(downSampledTargetSheetness);
                     unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
                 }
                 if (segment && regist){

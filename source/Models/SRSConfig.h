@@ -16,7 +16,7 @@
 class SRSConfig{
 public:
 	std::string targetFilename,movingFilename,fixedGradientFilename, outputDeformedSegmentationFilename,movingSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, movingGradientFilename;
-	std::string segmentationProbsFilename, pairWiseProbsFilename;
+	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
 	int displacementSampling;
@@ -145,6 +145,7 @@ public:
 		(*as) >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", false);
 		(*as) >> parameter ("g", fixedGradientFilename, "fixed gradient image (file name)", false);
         (*as) >> parameter ("movingGradient", movingGradientFilename, "moving gradient image (file name)", false);
+        (*as) >> parameter ("tissue", tissuePriorFilename, "tissue prior image (file name)", false);
 
 		(*as) >> parameter ("o", outputDeformedFilename, "output image (file name)", false);
 		(*as) >> parameter ("S", outputDeformedSegmentationFilename, "output image (file name)", false);

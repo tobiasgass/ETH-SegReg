@@ -30,14 +30,15 @@ int main(int argc, char ** argv)
     typedef Image<unsigned char,D> InputImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    //    typedef UnaryPotentialSegmentationUnsignedBone< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
     //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
-    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
-    typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    //typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+    //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
-    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
 	typedef SegmentationImageFilter<ImageType,
         LabelMapperType,
         SegmentationUnaryPotentialType,

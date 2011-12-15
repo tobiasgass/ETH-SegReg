@@ -37,7 +37,8 @@ namespace itk{
 
         typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
-        ConstImagePointerType m_fixedImage, m_sheetnessImage;
+        ConstImagePointerType m_fixedImage, m_sheetnessImage,m_referenceImage, m_referenceGradientImage;
+        ConstImagePointerType m_referenceSegmentation;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
@@ -52,6 +53,8 @@ namespace itk{
         UnaryPotentialSegmentation(){
             this->m_haveLabelMap=false;
         }
+        
+        virtual void Init(){}
         virtual void freeMemory(){
         }
         void SetGradientScaling(double s){m_gradientScaling=s;}
@@ -59,7 +62,7 @@ namespace itk{
             this->m_fixedImage=fixedImage;
             this->m_fixedSize=this->m_fixedImage->GetLargestPossibleRegion().GetSize();
         }
-        void SetGradientImage(ConstImagePointerType sheetnessImage){
+        void SetFixedGradientImage(ConstImagePointerType sheetnessImage){
             this->m_sheetnessImage=sheetnessImage;
             
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
@@ -74,7 +77,15 @@ namespace itk{
             this->m_Sigma*=this->m_Sigma;
             
         }
-        
+        virtual void SetReferenceSegmentation(ConstImagePointerType im){
+            m_referenceSegmentation=im;
+        }
+        virtual void SetReferenceGradient(ConstImagePointerType im){
+            m_referenceGradientImage=im;
+        }
+        virtual void SetReferenceImage(ConstImagePointerType im){
+            m_referenceImage=im;
+        }
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
             int s= this->m_sheetnessImage->GetPixel(fixedIndex);
             double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
@@ -315,10 +326,21 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationClassifier, Object);
           
-        void SetClassifier( ClassifierPointerType  c){
-            m_classifier=c;
+        virtual void Init(){
+            
+            m_classifier=  ClassifierType::New();
+            m_classifier->setNIntensities(256);
+            m_classifier->setData(this->m_referenceImage,this->m_referenceSegmentationImage,(ConstImagePointerType)this->m_referenceGradientImage);
+            //m_classiifier->setData(movingImage,movingSegmentationImage);
+#if 1
+            m_classifier->train();
+            m_classifier->saveProbs("test.probs");
+#else
+            m_classifier->loadProbs("test.probs");
+#endif
+            //m_classifier->evalImage(targetImage);
+            //m_classifier->evalImage(targetImage,fixedGradientImage);
         }
-     
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
             double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
@@ -411,7 +433,50 @@ namespace itk{
             double priorPotential=m_srsPotential->getPotential(fixedIndex,fixedIndex,zeroDisplacement,segmentationLabel);
             return origPotential+m_alpha*priorPotential;
         }
-    };
+    };//class
 
+
+    template<class TImage>
+    class UnaryPotentialSegmentationUnsignedBoneMarcel: public UnaryPotentialSegmentation<TImage> {
+    public:
+        //itk declarations
+        typedef UnaryPotentialSegmentationUnsignedBoneMarcel           Self;
+        typedef UnaryPotentialSegmentation<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename TImage::ConstPointer ConstImagePointerType;
+    private:
+        ConstImagePointerType m_tissuePrior;
+    public:
+        
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialSegmentationUnsignedBone, Object);
+        
+        void SetTissuePrior(ConstImagePointerType img){m_tissuePrior=img;}
+        
+        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
+            int s=this->m_sheetnessImage->GetPixel(fixedIndex);
+            int bone=(300+1000)*255.0/2000;
+            int tissue=(-500+1000)*255.0/2000;
+            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+            double totalCost=1;
+            
+            switch (segmentationLabel) {
+            case 0:
+                totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
+                break;
+            default  :
+                bool tissuePrior = (this->m_tissuePrior->GetPixel(fixedIndex))>0;
+                totalCost = (tissuePrior || imageIntensity < tissue) ? 1 : 0;
+                break;
+            }
+            return totalCost;
+        }
+    };//class
 }//namespace
 #endif /* POTENTIALS_H_ */

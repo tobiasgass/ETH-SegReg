@@ -99,11 +99,6 @@ public:
     typedef typename  UnarySegmentationPotentialType::Pointer UnarySegmentationPotentialPointerType;
     typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
     typedef typename  SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
-    typedef typename PairwiseSegmentationPotentialType::ClassifierType PairwiseClassifierType;
-    typedef typename PairwiseClassifierType::Pointer PairwiseClassifierPointerType;
-    
-    typedef typename UnarySegmentationPotentialType::ClassifierType UnaryClassifierType;
-    typedef typename UnaryClassifierType::Pointer UnaryClassifierPointerType;
     
     //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
     typedef  SegmentationGraphModel<ImageType, 
@@ -179,36 +174,35 @@ public:
         graph.setFixedImage(targetImage);
         graph.initGraph(1);
 
-        PairwiseClassifierPointerType m_smoothnessClassifier;
         ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
-        m_smoothnessClassifier=PairwiseClassifierType::New();
-        m_smoothnessClassifier->setNIntensities(256);
-        m_smoothnessClassifier->setData(movingImage,(ConstImagePointerType)movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
-        m_smoothnessClassifier->train();
-        //m_smoothnessClassifier->SetWeight(m_config.pairwiseContrastWeight);
-        m_pairwiseSegmentationPot->SetClassifier(m_smoothnessClassifier);
-        m_pairwiseSegmentationPot->SetFixedImage(targetImage);
-        m_pairwiseSegmentationPot->SetFixedGradient(fixedGradientImage);
-        if (ImageType::ImageDimension==2){
-              m_pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
-          }
-      
-        UnaryClassifierPointerType m_segmentationClassifier;
-        m_segmentationClassifier=UnaryClassifierType::New();
-        m_segmentationClassifier->setNIntensities(256);
-        m_segmentationClassifier->setData(movingImage,(ConstImagePointerType)movingSegmentationImage,(ConstImagePointerType)movingGradientImage);
-        m_segmentationClassifier->train();
-        unarySegmentationPot->SetClassifier(m_segmentationClassifier);
-        //setup segmentation potentials
+        movingGradientImage=FilterUtils<ImageType>::LinearResample((ConstImagePointerType)movingGradientImage,targetImage);
         unarySegmentationPot->SetFixedImage(targetImage);
-        unarySegmentationPot->SetGradientImage(fixedGradientImage);
+        unarySegmentationPot->SetFixedGradientImage((ConstImagePointerType)fixedGradientImage);
+        unarySegmentationPot->SetReferenceImage(movingImage);
+        unarySegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
+        unarySegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
+        unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
+        unarySegmentationPot->Init();
+        
+        m_pairwiseSegmentationPot->SetFixedImage(targetImage);
+        m_pairwiseSegmentationPot->SetFixedGradient((ConstImagePointerType)fixedGradientImage);
+        m_pairwiseSegmentationPot->SetReferenceImage(movingImage);
+        m_pairwiseSegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
+        m_pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
+        unarySegmentationPot->SetTissuePrior((ConstImagePointerType)ImageUtils<ImageType>::readImage(m_config.tissuePriorFilename));
+        m_pairwiseSegmentationPot->Init();
+        if (ImageType::ImageDimension==2){
+            m_pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
+        }
+        
+
         //register images and potentials
         graph.setUnarySegmentationFunction(unarySegmentationPot);
         graph.setPairwiseSegmentationFunction(m_pairwiseSegmentationPot);
         
         //	ok what now: create graph! solve graph! save result!Z
 		
-        // typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
+        //typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
         typedef GC_MRFSolver<GraphModelType> MRFSolverType;
         //typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
         //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;

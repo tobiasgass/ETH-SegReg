@@ -1,9 +1,9 @@
 /*
-   * Potentials.h
-   *
-   *  Created on: Nov 24, 2010
-   *      Author: gasst
-   */
+ * Potentials.h
+ *
+ *  Created on: Nov 24, 2010
+ *      Author: gasst
+ */
 
 #ifndef _SEGMENTATIONPAIRWISEPOTENTIALS_H_
 #define _SEGMENTATIONPAIRWISEPOTENTIALS_H_
@@ -13,8 +13,6 @@
 #include <itkStatisticsImageFilter.h>
 
 namespace itk{
-
-
 
     template<class TImage>
     class PairwisePotentialSegmentation: public itk::Object{
@@ -41,6 +39,8 @@ namespace itk{
         bool m_haveLabelMap;
         double m_gradientSigma, m_Sigma;
         double m_gradientScaling;
+        ConstImagePointerType m_referenceSegmentation, m_referenceGradient, m_referenceImage;
+
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -76,10 +76,16 @@ namespace itk{
         }
         void SetFixedGradient(ConstImagePointerType sheetnessImage){
             this->m_sheetnessImage=sheetnessImage;
-            
-            
         }
-        
+        virtual void SetReferenceSegmentation(ConstImagePointerType im){
+            m_referenceSegmentation=im;
+        }
+        virtual void SetReferenceGradient(ConstImagePointerType im){
+            m_referenceGradient=im;
+        }
+        virtual void SetReferenceImage(ConstImagePointerType im){
+            m_referenceImage=im;
+        }
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
             if (label1!=label2){  
                 int s1=this->m_sheetnessImage->GetPixel(idx1);
@@ -95,6 +101,8 @@ namespace itk{
                 return 0;
             }
         }
+        virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){}
+
     };//class
 
     template<class TImage, class TSmoothnessClassifier>
@@ -117,7 +125,6 @@ namespace itk{
         typedef typename ClassifierType::Pointer ClassifierPointerType;
     private:
         ClassifierPointerType m_classifier;
-        ConstImagePointerType m_referenceSegmentation, m_referenceGradient, m_referenceImage;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -131,7 +138,7 @@ namespace itk{
             assert(this->m_referenceImage);
             m_classifier=ClassifierType::New();
             m_classifier->setNIntensities(256);
-            m_classifier->setData( m_referenceImage,(ConstImagePointerType)m_referenceSegmentation,(ConstImagePointerType)m_referenceGradient);
+            this->m_classifier->setData( this->m_referenceImage,(ConstImagePointerType)this->m_referenceSegmentation,(ConstImagePointerType)this->m_referenceGradient);
 #if 1
             m_classifier->train();
             m_classifier->saveProbs("segmentationPairwise.probs");
@@ -148,15 +155,7 @@ namespace itk{
             //m_classifier->LoadProbs(filename);
         }
         virtual void SetClassifier(ClassifierPointerType c){ m_classifier=c;}
-        virtual void SetReferenceSegmentation(ConstImagePointerType im){
-            m_referenceSegmentation=im;
-        }
-        virtual void SetReferenceGradient(ConstImagePointerType im){
-            m_referenceGradient=im;
-        }
-        virtual void SetReferenceImage(ConstImagePointerType im){
-            m_referenceImage=im;
-        }
+      
         virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){
             assert(ImageType::ImageDimension==2);
             typedef typename itk::ImageRegionConstIterator< ImageType > IteratorType;
@@ -178,16 +177,16 @@ namespace itk{
                 OffsetType off;
                 off.Fill(0);
                 if (idx1[0]<(int)im->GetLargestPossibleRegion().GetSize()[0]-1){
-                        off[0]+=1;
-                        IndexType idx2=idx1+off;
-                        horIt.Set(getPotential(idx1,idx2,0,1));
+                    off[0]+=1;
+                    IndexType idx2=idx1+off;
+                    horIt.Set(getPotential(idx1,idx2,0,1));
                 }
                 off.Fill(0);
                 if (idx1[1]<(int)im->GetLargestPossibleRegion().GetSize()[1]-1){
-                        off[1]+=1;
-                        IndexType idx2=idx1+off;
-                        verIt.Set(getPotential(idx1,idx2,0,1));
-                        //cout<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
+                    off[1]+=1;
+                    IndexType idx2=idx1+off;
+                    verIt.Set(getPotential(idx1,idx2,0,1));
+                    //cout<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
                 }
             }
             typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
@@ -229,5 +228,54 @@ namespace itk{
         }
       
     };//class
+
+
+    template<class TImage>
+    class PairwisePotentialSegmentationMarcel: public PairwisePotentialSegmentation<TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialSegmentationMarcel            Self;
+        typedef PairwisePotentialSegmentation<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef typename ImageType::IndexType IndexType;
+  
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(PairwisePotentialSegmentationMarcel, Object);
+
+        virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
+            //equal labels don't have costs
+            if (label1==label2) return 0;
+            //always penalize secondary-to-primary label
+            double sheetnessCost;
+            if ( false && ((label1==2 &&label2 ) || (label2 == 2 && label1)) ) {
+                sheetnessCost=0;
+            }else{
+#if 1
+                if (!label1 && label2){
+                    
+                }else{
+                    IndexType tmp=idx1;idx1=idx2;idx2=tmp;
+                    int tmpL=label1;label1=label2;label2=tmpL;
+                }
+#endif       
+                double s1=1.0-this->m_sheetnessImage->GetPixel(idx1)/127;
+                double s2=1.0-this->m_sheetnessImage->GetPixel(idx2)/127;
+              
+                double sheetnessDiff=fabs(s1-s2);
+                sheetnessCost=(s1>s2)?1:exp(-5*sheetnessDiff);
+            }
+            return 1.0+1000.0*5*sheetnessCost;
+        }
+    };//class
+
 }//namespace
 #endif /* POTENTIALS_H_ */

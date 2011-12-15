@@ -205,14 +205,13 @@ public:
                             double lambda =m_pairwiseSegmentationWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);
                             Vseg[l1*nSegLabels+l2]=lambda;
                             //std::cout<<l1<<" "<<l2<<" "<<                            Vseg[l1*nSegLabels+l2]<<endl;
-
                         }
                     }
                     m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
                     edgeCount++;
                     
                 }
-                if (m_pairwiseSegmentationRegistrationWeight>0 && nRegLabels){
+                if (m_pairwiseSegmentationRegistrationWeight>0 && (nRegLabels>1)){
                     std::vector<int> segRegNeighbors=graph->getSegRegNeighbors(d);
                     nNeighbours=segRegNeighbors.size();
                     for (int i=0;i<nNeighbours;++i){
