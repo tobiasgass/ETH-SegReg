@@ -149,8 +149,8 @@ namespace itk{
         }
         virtual void Update(){
             
-            bool segment=1;//m_config.pairwiseSegmentationWeight>0 ||  m_config.rfWeight>0 || m_config.pairwiseSegmentationWeight>0;
-            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.simWeight>0|| m_config.pairwiseSegmentationWeight>0;
+            bool segment=1;//m_config.pairwiseSegmentationWeight>0 ||  m_config.rfWeight>0 || m_config.simWeight>0;
+            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.simWeight>0|| m_config.simWeight>0;
 
             //define input images
             ConstImagePointerType targetImage = this->GetInput(0);
@@ -191,6 +191,7 @@ namespace itk{
                 previousFullDeformation->SetOrigin(targetImage->GetOrigin());
                 previousFullDeformation->SetSpacing(targetImage->GetSpacing());
                 previousFullDeformation->SetDirection(targetImage->GetDirection());
+                if (m_config.verbose) cout<<"allocating full deformation" <<endl;
                 previousFullDeformation->Allocate();
                 Vector<float, D> tmpVox(0.0);
                 previousFullDeformation->FillBuffer(tmpVox);
@@ -241,7 +242,7 @@ namespace itk{
             //asm volatile("" ::: "memory");
             LabelImagePointerType deformation;
             ImagePointerType segmentation;
-            if (segment){
+            if (segment && regist){
                 pairwiseSegmentationRegistrationPot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
                 pairwiseSegmentationRegistrationPot->SetReferenceSegmentation(movingSegmentationImage);
             }
@@ -252,8 +253,9 @@ namespace itk{
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config.scale);
                 int exponent=m_config.nLevels-l;
-                if (m_config.downScale)
-                    exponent--;
+                if (m_config.downScale||ImageType::ImageDimension==2){
+                     exponent--;
+                }
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
                 //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
@@ -409,7 +411,9 @@ namespace itk{
                               mrfSolver->createGraph();
                               mrfSolver->optimize(m_config.optIter);
                               std::cout<<" ]"<<std::endl;
+                              if (regist){
                               deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
+                              }
                               segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
                               
                               delete mrfSolver;
@@ -450,23 +454,29 @@ namespace itk{
 
                     //initialise interpolator
                     //deformation
+                    LabelImagePointerType composedDeformation;
+
 #if 1
-                    fullDeformation=bSplineInterpolateLabelImage(deformation,downSampledTarget);
+                    if (regist){
+                        fullDeformation=bSplineInterpolateLabelImage(deformation,downSampledTarget);
+                    }
                     //fullDeformation=scaleLabelImage(fullDeformation,graph.getDisplacementFactor());
            
                     //apply deformation to moving image
                     ConstIteratorType fixedIt(downSampledTarget,downSampledTarget->GetLargestPossibleRegion());
+                    if (regist){
+
 #if 1
-	
+                  
                     typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
                     composer->SetInput(1,fullDeformation);
                     composer->SetInput(0,previousFullDeformation);
                     composer->Update();
-                    LabelImagePointerType composedDeformation=composer->GetOutput();
+                    composedDeformation=composer->GetOutput();
                     LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
 #else
                     //
-                    LabelImagePointerType composedDeformation=LabelImageType::New();
+                    composedDeformation=LabelImageType ::New();
                     composedDeformation->SetRegions(previousFullDeformation->GetLargestPossibleRegion());
                     composedDeformation->Allocate();
                     LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
@@ -483,6 +493,7 @@ namespace itk{
                 
                     deformedImage=deformImage(downSampledReference,composedDeformation);
                     deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
+                    }
                     
 #if 0
                     typedef itk::HausdorffDistanceImageFilter<ImageType, ImageType> HausdorffDistanceFilterType;
@@ -517,7 +528,7 @@ namespace itk{
                         deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<suff;
                         ostringstream deformedSegmentationFilename;
                         deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
-                        ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
+                        if (regist) ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
                         if (ImageType::ImageDimension==2){
@@ -529,6 +540,7 @@ namespace itk{
                             if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedSegmentationImage);
                         }
                         //deformation
+                        if (regist){
                         if (m_config.defFilename!=""){
                             ostringstream tmpDeformationFilename;
                             tmpDeformationFilename<<m_config.defFilename<<"-l"<<l<<"-i"<<i<<".mha";
@@ -537,6 +549,7 @@ namespace itk{
                             //					ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
 
                             //
+                        }
                         }
                     }
                     
@@ -604,7 +617,7 @@ namespace itk{
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
             LabelImagePointerType fullLabelImage;
 #if 1
-            const unsigned int SplineOrder = 3;
+            const unsigned int SplineOrder = 5;
             typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
             typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
             typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
@@ -630,17 +643,23 @@ namespace itk{
                     //bspline interpolation for the displacements
                     typename ResamplerType::Pointer upsampler = ResamplerType::New();
                     typename FunctionType::Pointer function = FunctionType::New();
+                    function->SetSplineOrder(SplineOrder);
                     upsampler->SetInput( paramsK );
                     upsampler->SetInterpolator( function );
                     upsampler->SetSize(reference->GetLargestPossibleRegion().GetSize() );
                     upsampler->SetOutputSpacing( reference->GetSpacing() );
                     upsampler->SetOutputOrigin( reference->GetOrigin());
                     upsampler->SetOutputDirection( reference->GetDirection());
+#if 1
+                    upsampler->Update();
+                    newImages[k]=upsampler->GetOutput();
+#else
                     typename DecompositionType::Pointer decomposition = DecompositionType::New();
                     decomposition->SetSplineOrder( SplineOrder );
                     decomposition->SetInput( upsampler->GetOutput() );
                     decomposition->Update();
                     newImages[k] = decomposition->GetOutput();
+#endif
                 
                 }
     

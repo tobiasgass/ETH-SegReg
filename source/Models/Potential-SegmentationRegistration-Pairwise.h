@@ -483,6 +483,87 @@ namespace itk{
             return result;
         }
     };//class
+     template<class TImage>
+    class PairwisePotentialSegmentationRegistrationBinary :public PairwisePotentialSegmentationRegistration<TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialSegmentationRegistrationBinary            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        
+        typedef typename  itk::Vector<float,ImageType::ImageDimension>  LabelType;
+        typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
+        typedef typename LabelImageType::Pointer LabelImagePointerType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
+        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
+
+        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
+        typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
+        
+        typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
+ 
+    public:
+        itkNewMacro(Self);
+
+        void SetReferenceSegmentation(ConstImagePointerType segImage, double scale=1.0){
+            if (scale !=1.0 ){
+                segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
+            }
+          
+        }
+
+        inline virtual  double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement, int segmentationLabel){
+            double result=0;
+            ContinuousIndexType idx2(fixedIndex2);
+            itk::Vector<float,ImageType::ImageDimension> disp=displacement;
+            idx2+= disp;
+            if (this->m_baseLabelMap){
+                itk::Vector<float,ImageType::ImageDimension> baseDisp=this->m_baseLabelMap->GetPixel(fixedIndex2);
+                idx2+=baseDisp;
+            }
+            int deformedAtlasSegmentation=-1;
+            if (!this->m_movingSegmentationInterpolator->IsInsideBuffer(idx2)){
+                for (int d=0;d<ImageType::ImageDimension;++d){
+                    if (idx2[d]>=this->m_movingSegmentationInterpolator->GetEndContinuousIndex()[d]){
+                        idx2[d]=this->m_movingSegmentationInterpolator->GetEndContinuousIndex()[d]-0.5;
+                    }
+                    else if (idx2[d]<this->m_movingSegmentationInterpolator->GetStartContinuousIndex()[d]){
+                        idx2[d]=this->m_movingSegmentationInterpolator->GetStartContinuousIndex()[d]+0.5;
+                    }
+                }
+            } 
+            deformedAtlasSegmentation=int(this->m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+         
+            if (deformedAtlasSegmentation>0){
+                if (segmentationLabel!=deformedAtlasSegmentation){
+                    result=1;
+                    if (segmentationLabel==this->m_nSegmentationLabels - 1)
+                        result=2;
+                }
+            }else{
+                //atlas is not segmented...
+                if (segmentationLabel== this->m_nSegmentationLabels - 1){
+                    //if we want to label foreground, cost is proportional to distance to atlas foreground
+                    result=2;
+                }else if (segmentationLabel ){
+                    result=1;
+                }
+            }
+            return 1000*result;
+        }
+    };//class
     
 }//namespace
 #endif /* POTENTIALS_H_ */

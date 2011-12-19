@@ -78,7 +78,7 @@ public:
 		//
 
         //#define POTTS
-#define BACKWARD
+        //#define BACKWARD
 		
 		for (int d=0;d<nNodes;++d){
 			std::vector<int> neighbours= graph->getForwardNeighbours(d);
@@ -92,8 +92,10 @@ public:
 					for (int l2=0;l2<nLabels;++l2){
 						V[l1+nLabels*l2]=lambda*m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],l1,l2);
                         //						V[l1+nLabels*l2+nLabels*nLabels]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
-                        V2[l1*nLabels+l2]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(neighbours[i],d,l1,l2);
-					}
+                        ///V2[l1*nLabels+l2]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(neighbours[i],d,l1,l2);
+                        //std::cout<<"PAIRWISE " <<d<<" "<<i<<" "<<l1<<" "<<l2<<" "<<                            V[l1+nLabels*l2]<<endl;
+
+                    }
 				}
 #ifdef POTTS
                 optimizer->AddEdge(nodes[neighbours[i]], nodes[d], TRWType::EdgeData(TRWType::POTTS,lambda2));

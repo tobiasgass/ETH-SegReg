@@ -192,7 +192,7 @@ public:
             if (verbose) cout<<"Approximate size of seg unaries: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*sizeof(double)<<" mb."<<endl;
 
             TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
-            int nSegEdges=0;
+            int nSegEdges=0,nSegRegEdges=0;
             for (int d=0;d<nSegNodes;++d){   
                 TRWType::REAL Vseg[nSegLabels*nSegLabels];
                 //pure Segmentation
@@ -203,8 +203,8 @@ public:
                     for (int l1=0;l1<nSegLabels;++l1){
                         for (int l2=0;l2<nSegLabels;++l2){
                             double lambda =m_pairwiseSegmentationWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);
-                            Vseg[l1*nSegLabels+l2]=lambda;
-                            //std::cout<<l1<<" "<<l2<<" "<<                            Vseg[l1*nSegLabels+l2]<<endl;
+                            Vseg[l1+nSegLabels*l2]=lambda;
+                            //std::cout<<"PAIRWISE " <<d<<" "<<i<<" "<<l1<<" "<<l2<<" "<<                            Vseg[l1+nSegLabels*l2]<<endl;
                         }
                     }
                     m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
@@ -224,6 +224,7 @@ public:
                         }
                         m_optimizer.AddEdge(regNodes[segRegNeighbors[i]], segNodes[d]             , TRWType::EdgeData(TRWType::GENERAL,VsrsBack));
                         edgeCount++;
+                        nSegRegEdges++;
                     }
                 }
                 
@@ -232,7 +233,7 @@ public:
             t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
             if (verbose) cout<<"Segmentation + SRS pairwise took "<<t<<" seconds."<<endl;
             if (verbose) cout<<"Approximate size of seg pairwise: "<<1.0/(1024*1024)*nSegEdges*nSegLabels*nSegLabels*sizeof(double)<<" mb."<<endl;
-            if (verbose) cout<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*nRegLabels*sizeof(double)<<" mb."<<endl;
+            if (verbose) cout<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegRegEdges*nSegLabels*nRegLabels*sizeof(double)<<" mb."<<endl;
             
         }
         clock_t finish = clock();

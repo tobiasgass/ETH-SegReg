@@ -29,7 +29,7 @@ int main(int argc, char ** argv)
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
 	//define types.
-	typedef float PixelType;
+	typedef unsigned char PixelType;
 	const unsigned int D=3;
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
@@ -58,6 +58,7 @@ int main(int argc, char ** argv)
     //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration< ImageType > SegmentationRegistrationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationRegistrationBinary< ImageType > SegmentationRegistrationPairwisePotentialType;
     //typedef PairwisePotentialBoneSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
 //typedef FastRegistrationGraphModel<
 //    typedef SortedSubsamplingGraphModel<

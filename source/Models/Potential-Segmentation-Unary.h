@@ -44,12 +44,18 @@ namespace itk{
         bool m_haveLabelMap;
         double m_gradientSigma, m_Sigma;
         double m_gradientScaling;
+        ConstImagePointerType m_tissuePrior;
     public:
+        
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentation, Object);
 
+   
+        
+        void SetTissuePrior(ConstImagePointerType img){m_tissuePrior=img;}
+   
         UnaryPotentialSegmentation(){
             this->m_haveLabelMap=false;
         }
@@ -330,7 +336,7 @@ namespace itk{
             
             m_classifier=  ClassifierType::New();
             m_classifier->setNIntensities(256);
-            m_classifier->setData(this->m_referenceImage,this->m_referenceSegmentationImage,(ConstImagePointerType)this->m_referenceGradientImage);
+            m_classifier->setData(this->m_referenceImage,this->m_referenceSegmentation,(ConstImagePointerType)this->m_referenceGradientImage);
             //m_classiifier->setData(movingImage,movingSegmentationImage);
 #if 1
             m_classifier->train();
@@ -344,6 +350,14 @@ namespace itk{
         
         virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
             double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+            
+            if (segmentationLabel){
+                bool tissuePrior = (this->m_tissuePrior->GetPixel(fixedIndex))>0;
+                if (tissuePrior)
+                    return 100;
+            }
+
+            
             int s= this->m_sheetnessImage->GetPixel(fixedIndex);
 
             //prob of inverse segmentation label

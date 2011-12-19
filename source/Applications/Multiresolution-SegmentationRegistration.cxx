@@ -45,9 +45,9 @@ int main(int argc, char ** argv)
     //typedef UnaryPotentialSegmentationClassifier< InternalImageType, ClassifierType > SegmentationUnaryPotentialType;
     typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
 
-    //typedef SmoothnessClassifierSignedGradient<ImageType> SegmentationSmoothnessClassifierType;
+    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierGradientContrast<InternalImageType> SegmentationSmoothnessClassifierType;
-    //    typedef PairwisePotentialSegmentationClassifier<InternalImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationClassifier<InternalImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
     typedef PairwisePotentialSegmentationMarcel<InternalImageType> SegmentationPairwisePotentialType;
     
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -61,6 +61,7 @@ int main(int argc, char ** argv)
     //typedef PairwisePotentialRegistrationSigmoid< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     //typedef PairwisePotentialBoneSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationRegistrationBinary<  ImageType > SegmentationRegistrationPairwisePotentialType;
     //typedef FastRegistrationGraphModel<
     typedef GraphModel<
     // // //typedef ITKGraphModel<

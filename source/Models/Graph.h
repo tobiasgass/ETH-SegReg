@@ -433,7 +433,13 @@ namespace itk{
                 }
             }
 #else
-            IndexType position=getClosestGraphIndex(getImageIndex(index));
+            IndexType idx=getImageIndex(index);
+            for (int d=0;d<m_dim;++d){
+                if (false && idx[d]%2)
+                    return neighbours;
+            }
+
+            IndexType position=getClosestGraphIndex(idx);
             neighbours.push_back(getGraphIntegerIndex(position));
 
 #endif

@@ -160,7 +160,7 @@ namespace itk{
         double getPairwisePotential(int nodeIndex1, int nodeIndex2,int labelIndex1, int labelIndex2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);
-            return (labelIndex1!=labelIndex2)*m_pairwiseSegFunction->getPotential(imageIndex1,imageIndex2,labelIndex1, labelIndex2);
+            return (labelIndex1!=labelIndex2)*m_pairwiseSegFunction->getPotential(imageIndex1,imageIndex2,labelIndex1, labelIndex2)/m_nEdges;
         }
         double getWeight(int nodeIndex1, int nodeIndex2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);

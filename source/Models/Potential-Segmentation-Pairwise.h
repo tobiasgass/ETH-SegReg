@@ -204,7 +204,7 @@ namespace itk{
         ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
             //if (label1==label2) return 0;
-#if 0
+#if 1
             if (!label1 && label2){
 
             }else{
@@ -216,7 +216,7 @@ namespace itk{
             int s2=this->m_sheetnessImage->GetPixel(idx2);
             //       if (s1<s2) return 100;
             double sheetnessDiff=(s1-s2);
-            //if (s1>s2 && label1!=label2) return 100;
+            if (s1<s2 && label1!=label2) return 100;
             int i1=this->m_fixedImage->GetPixel(idx1);
             int i2=this->m_fixedImage->GetPixel(idx2);
             double intensityDiff=(i1-i2);
@@ -224,7 +224,7 @@ namespace itk{
             double prob=m_classifier->px_l(intensityDiff,label1,sheetnessDiff,label2);
             if (prob<=0.000000001) prob=0.00000000001;
             //std::cout<<"Pairwise: "<<(label1!=label2)<<" "<<sheetnessDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
-            return -log(prob);
+            return 1+100*(-log(prob));
         }
       
     };//class
@@ -256,9 +256,14 @@ namespace itk{
             if (label1==label2) return 0;
             //always penalize secondary-to-primary label
             double sheetnessCost;
-            if ( false && ((label1==2 &&label2 ) || (label2 == 2 && label1)) ) {
-                sheetnessCost=0;
-            }else{
+            double factor=5.0;
+            if (  ((label1==2 &&label2 ) || (label2 == 2 && label1)) ) {
+                factor=2.0;
+            }else if (label1==1 || label2 ==1){
+                factor = 0;
+            }
+                
+            {
 #if 1
                 if (!label1 && label2){
                     
@@ -271,9 +276,9 @@ namespace itk{
                 double s2=1.0-this->m_sheetnessImage->GetPixel(idx2)/127;
               
                 double sheetnessDiff=fabs(s1-s2);
-                sheetnessCost=(s1>s2)?1:exp(-5*sheetnessDiff);
+                sheetnessCost=(s1<s2)?1:exp(-5*sheetnessDiff);
             }
-            return 1.0+1000.0*5*sheetnessCost;
+            return 1.0+1000.0*factor*sheetnessCost;
         }
     };//class
 
