@@ -203,7 +203,6 @@ public:
         ResampleFilterPointerType resampler=ResampleFilterType::New();
         resampler->SetInput(input);
         resampler->SetInterpolator(interpol);
-    
         resampler->SetOutputOrigin(reference->GetOrigin());
 		resampler->SetOutputSpacing ( reference->GetSpacing() );
 		resampler->SetOutputDirection ( reference->GetDirection() );

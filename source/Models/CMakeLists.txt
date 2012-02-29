@@ -1,15 +1,11 @@
 INCLUDE_DIRECTORIES(
-    /usr/local/include
     /usr/include/libxml2
-    /home/gasst/work/include
     ../External/RF
     ../External/fastPD
     ../Common
  )
 
-LINK_DIRECTORIES(
-    /home/gasst/work/lib
- )
+
 SET(SRSMRFModels_SRC
   Classifier.h
   BaseLabel.h
@@ -30,6 +26,6 @@ SET(SRSMRFModels_SRC
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )
 #TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters FastPD )
-TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKStatistics ITKBasicFilters FastPD tcmalloc)
+TARGET_LINK_LIBRARIES (SRSMRFModels RF  ${ITK_LIBRARIES} FastPD tcmalloc)
 #INSTALL(TARGETS SRSMRFModels)
 #TARGET_LINK_LIBRARIES(ITKAlgorithms ITKStatistics ITKNumerics)

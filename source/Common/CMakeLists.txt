@@ -1,5 +1,5 @@
-find_package(ITK REQUIRED)
-include(${ITK_USE_FILE})
+#find_package(ITK REQUIRED)
+#include(${ITK_USE_FILE})
 
 ADD_LIBRARY(Utils
   ImageUtils.cxx
@@ -8,5 +8,5 @@ ADD_LIBRARY(Utils
   itkDisplacementFieldCompositionFilter.h
   ChamferDistanceTransform.h
 )
-TARGET_LINK_LIBRARIES(Utils ITKCommon ITKIO )
+TARGET_LINK_LIBRARIES(Utils ${ITK_LIBRARIES}  )
 

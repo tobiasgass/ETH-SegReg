@@ -155,7 +155,7 @@ namespace itk{
             //m_classifier->LoadProbs(filename);
         }
         virtual void SetClassifier(ClassifierPointerType c){ m_classifier=c;}
-      
+#if 0      
         virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){
             assert(ImageType::ImageDimension==2);
             typedef typename itk::ImageRegionConstIterator< ImageType > IteratorType;
@@ -201,9 +201,10 @@ namespace itk{
             caster->Update();
             ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
         }
+#endif
         ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
-            //if (label1==label2) return 0;
+            if (label1==label2) return 0;
 #if 1
             if (!label1 && label2){
 
@@ -216,7 +217,7 @@ namespace itk{
             int s2=this->m_sheetnessImage->GetPixel(idx2);
             //       if (s1<s2) return 100;
             double sheetnessDiff=(s1-s2);
-            if (s1<s2 && label1!=label2) return 100;
+            //   if (s1<s2 && label1!=label2) return 100;
             int i1=this->m_fixedImage->GetPixel(idx1);
             int i2=this->m_fixedImage->GetPixel(idx2);
             double intensityDiff=(i1-i2);
@@ -224,7 +225,8 @@ namespace itk{
             double prob=m_classifier->px_l(intensityDiff,label1,sheetnessDiff,label2);
             if (prob<=0.000000001) prob=0.00000000001;
             //std::cout<<"Pairwise: "<<(label1!=label2)<<" "<<sheetnessDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
-            return 1+100*(-log(prob));
+            //return 1+100*(-log(prob));
+            return (-log(prob));
         }
       
     };//class
@@ -272,13 +274,41 @@ namespace itk{
                     int tmpL=label1;label1=label2;label2=tmpL;
                 }
 #endif       
-                double s1=1.0-this->m_sheetnessImage->GetPixel(idx1)/127;
-                double s2=1.0-this->m_sheetnessImage->GetPixel(idx2)/127;
+                double s1=1.0-1.0*this->m_sheetnessImage->GetPixel(idx1)/127;
+                double s2=1.0-1.0*this->m_sheetnessImage->GetPixel(idx2)/127;
               
                 double sheetnessDiff=fabs(s1-s2);
                 sheetnessCost=(s1<s2)?1:exp(-5*sheetnessDiff);
             }
-            return 1.0+1000.0*factor*sheetnessCost;
+            //return 1.0+1000.0*factor*sheetnessCost;
+            return sheetnessCost;
+        }
+    };//class
+  template<class TImage>
+    class PairwisePotentialSegmentationUniform: public PairwisePotentialSegmentation<TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialSegmentationUniform            Self;
+        typedef PairwisePotentialSegmentation<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef typename ImageType::IndexType IndexType;
+  
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(PairwisePotentialSegmentationUniform, Object);
+
+        virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
+            //equal labels don't have costs
+            if (label1==label2) return 0;
+            else return 1;
         }
     };//class
 

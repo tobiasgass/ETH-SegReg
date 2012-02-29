@@ -29,6 +29,7 @@ int main(int argc, char ** argv)
 	typedef unsigned char PixelType;
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
+    typedef Image<PixelType,D> InternalImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
     //    typedef UnaryPotentialSegmentationArtificial2< ImageType > SegmentationUnaryPotentialType;
@@ -47,13 +48,21 @@ int main(int argc, char ** argv)
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     typedef PairwisePotentialSegmentationRegistration<  ImageType > SegmentationRegistrationPairwisePotentialType;
-	typedef HierarchicalSRSImageToImageFilter<ImageType,
-        LabelMapperType,
+  typedef GraphModel<
+    // // //typedef ITKGraphModel<
+    //typedef SortedSubsamplingGraphModel<
+    //typedef SubsamplingGraphModel2<
+    //typedef SortedCumSumSubsamplingGraphModel<
+    //typedef WeightedGraphModel<
+         InternalImageType,
         RegistrationUnaryPotentialType,
+        RegistrationPairwisePotentialType,
         SegmentationUnaryPotentialType,
         SegmentationPairwisePotentialType,
-        RegistrationPairwisePotentialType,
-        SegmentationRegistrationPairwisePotentialType>        FilterType;
+        SegmentationRegistrationPairwisePotentialType,
+        LabelMapperType>        GraphType;
+    
+	typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;
     
 	//create filter
     FilterType::Pointer filter=FilterType::New();

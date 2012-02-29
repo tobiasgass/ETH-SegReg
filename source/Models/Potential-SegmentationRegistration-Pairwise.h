@@ -127,30 +127,28 @@ namespace itk{
         
 
         void SetReferenceSegmentation(ConstImagePointerType segImage, double scale=1.0){
-            if (scale !=1.0 ){
-                segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
-            }
+            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+            m_movingSegmentationInterpolator= SegmentationInterpolatorType::New();
+            m_movingSegmentationInterpolator->SetInputImage(segImage);
             //get distance transform to foreground label
             FloatImagePointerType dt1=getDistanceTransform(segImage, m_nSegmentationLabels - 1);
-            
-         
-                //save image for debugging
-                typedef itk::ThresholdImageFilter <FloatImageType>
-                    ThresholdImageFilterType;
-                typename ThresholdImageFilterType::Pointer thresholdFilter
-                    = ThresholdImageFilterType::New();
-                thresholdFilter->SetInput(dt1);
-                thresholdFilter->ThresholdOutside(0, 1000);
-                thresholdFilter->SetOutsideValue(1000);
-                typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
-                typename CasterType::Pointer caster=CasterType::New();
-                caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
-                caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+            //save image for debugging
+            typedef itk::ThresholdImageFilter <FloatImageType>
+                ThresholdImageFilterType;
+            typename ThresholdImageFilterType::Pointer thresholdFilter
+                = ThresholdImageFilterType::New();
+            thresholdFilter->SetInput(dt1);
+            thresholdFilter->ThresholdOutside(0, 1000);
+            thresholdFilter->SetOutsideValue(1000);
+            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+            typename CasterType::Pointer caster=CasterType::New();
+            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
                 
-                caster->SetInput(thresholdFilter->GetOutput());
-                caster->Update();
-                ImagePointerType output=caster->GetOutput();
-                if (true){    
+            caster->SetInput(thresholdFilter->GetOutput());
+            caster->Update();
+            ImagePointerType output=caster->GetOutput();
+            if (true){    
                 if (ImageType::ImageDimension==2){
                     ImageUtils<ImageType>::writeImage("dt1.png",(output));    
                 }
@@ -162,16 +160,11 @@ namespace itk{
             //feed DT into interpolator
             m_movingDistanceTransformInterpolator=FloatImageInterpolatorType::New();
             m_movingDistanceTransformInterpolator->SetInputImage(dt1);
-            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
             filter->SetInput(dt1);
             filter->Update();
             sigma1=filter->GetSigma();
             mean1=filter->GetMean();
             m_distanceTransform=dt1;
-
-        
-      
-
             if (m_nSegmentationLabels>2){
                 FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
                 m_movingBackgroundDistanceTransformInterpolator=FloatImageInterpolatorType::New();
@@ -333,7 +326,6 @@ namespace itk{
                     distanceToDeformedSegmentation=min(m_threshold,distanceToDeformedSegmentation);
 #endif
                     result=(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
-
                 }
             }
             return result;
@@ -439,17 +431,17 @@ namespace itk{
             int tissue=(-500+1000)*255.0/2000;
             double movingIntens=this->m_movingInterpolator->EvaluateAtContinuousIndex(idx2);
             bool p_bone_SA=movingIntens>bone;
-         
+            bool p_tiss_SA=movingIntens<tissue;
+            distanceToDeformedSegmentation=this->m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+
             if (deformedAtlasSegmentation>0){
                 if (segmentationLabel== 0){
                     //atlas 
-                    distanceToDeformedSegmentation=this->m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
                     result=fabs(distanceToDeformedSegmentation)/((this->sigma1));//1;
                     
                 }else if (segmentationLabel ==this->m_nSegmentationLabels - 1 ){
                     //agreement
                     result=0;
-                    
                 }
                 else if (segmentationLabel){
                     //never label different structure
@@ -470,20 +462,37 @@ namespace itk{
                     else
 #endif
                         {
-                            result=(distanceToDeformedSegmentation)/((this->sigma1));//1;
+                            result=(distanceToDeformedSegmentation)/1.0;//((this->sigma1));//1;
+                            
                         }
+                    if(p_bone_SA){
+                        //never ever label as foreground bone in case the atlas is not labeled as bone, but has bone-like intensities!!
+                        result=99999999999;
+                    }
                 }else if (segmentationLabel ){
                     //now we've got a non-target segmentation label and what we do with it will be decided based on the intensities of atlas and image
                     //double targetIntens=this->m_fixedImage->GetPixel(fixedIndex1);
-                    if(!p_bone_SA){
+                    if(false && p_tiss_SA){
+                        //if atlas is clearly not bone, don;t allow any bone label
                         result=99999999999;
+                    }else{
+                        //otherwise, alternative bone label gets more probably the further the point is away from the deformed GT segmentation?
+                        if (!distanceToDeformedSegmentation){
+                            //distance is even zero, dont allow label 1 at all
+                            result=99999999999;
+                        }else{
+                            result=1.0/(distanceToDeformedSegmentation);
+                            //cout<<result<<endl;
+                        }
                     }
                 }
+                //cout<<segmentationLabel<<" "<<result<<endl;
             }
+            //cout<<result<<endl;
             return result;
         }
     };//class
-     template<class TImage>
+    template<class TImage>
     class PairwisePotentialSegmentationRegistrationBinary :public PairwisePotentialSegmentationRegistration<TImage>{
     public:
         //itk declarations
@@ -564,6 +573,6 @@ namespace itk{
             return 1000*result;
         }
     };//class
-    
-}//namespace
+   
+    }//namespace
 #endif /* POTENTIALS_H_ */

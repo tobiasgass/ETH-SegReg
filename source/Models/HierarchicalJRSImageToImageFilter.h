@@ -120,11 +120,11 @@ namespace itk{
         typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename  SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
 
-        typedef typename PairwiseSegmentationPotentialType::ClassifierType PairwiseClassifierType;
-        typedef typename PairwiseClassifierType::Pointer PairwiseClassifierPointerType;
+        //typedef typename PairwiseSegmentationPotentialType::ClassifierType PairwiseClassifierType;
+        //typedef typename PairwiseClassifierType::Pointer PairwiseClassifierPointerType;
 
-        typedef typename UnarySegmentationPotentialType::ClassifierType UnaryClassifierType;
-        typedef typename UnaryClassifierType::Pointer UnaryClassifierPointerType;
+        //typedef typename UnarySegmentationPotentialType::ClassifierType UnaryClassifierType;
+        //typedef typename UnaryClassifierType::Pointer UnaryClassifierPointerType;
 
 
         
@@ -139,13 +139,14 @@ namespace itk{
         typedef  typename itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
     private:
         SRSConfig m_config;
-        PairwiseClassifierPointerType m_smoothnessClassifier;
-        UnaryClassifierPointerType m_segmentationClassifier;
+        //PairwiseClassifierPointerType m_smoothnessClassifier;
+        //UnaryClassifierPointerType m_segmentationClassifier;
         UnaryRegistrationPotentialPointerType m_unaryRegistrationPot;
         PairwiseRegistrationPotentialPointerType m_pairwiseRegistrationPot;
         UnarySegmentationPotentialPointerType m_unarySegmentationPot;
         PairwiseSegmentationPotentialPointerType m_pairwiseSegmentationPot;
         SRSPotentialPointerType m_SRSPotential;
+        ConstImagePointerType m_movingSegmentationImage;
     public:
         HierarchicalJRSImageToImageFilter(){
             this->SetNumberOfRequiredInputs(5);
@@ -172,18 +173,18 @@ namespace itk{
         }
 
         virtual void Init(){
-              //get input images
+            //get input images
             const ConstImagePointerType targetImage = this->GetInput(0);
             const ConstImagePointerType movingImage = this->GetInput(1);
             ConstImagePointerType movingGradient = this->GetInput(4);
-            ConstImagePointerType movingSegmentationImage;
+            
             if (D==2){
                 //2d segmentations pngs [from matlab] may have screwed up intensities
-                movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
+                m_movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
             }else{
-                movingSegmentationImage = (this->GetInput(2));
+                m_movingSegmentationImage = (this->GetInput(2));
             }
-            
+            ImageUtils<ImageType>::writeImage("test.nii",(ConstImagePointerType)m_movingSegmentationImage);
       
 
             //Setup Segmentation potentials
@@ -191,48 +192,39 @@ namespace itk{
             m_pairwiseSegmentationPot=PairwiseSegmentationPotentialType::New();
             
             m_unarySegmentationPot->SetFixedImage(targetImage);
-            m_unarySegmentationPot->SetGradientImage(this->GetInput(3));
+            m_unarySegmentationPot->SetFixedGradientImage(this->GetInput(3));
             m_pairwiseSegmentationPot->SetFixedImage(targetImage);
             m_pairwiseSegmentationPot->SetFixedGradient(this->GetInput(3));
             
 
             ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
-            m_smoothnessClassifier=PairwiseClassifierType::New();
-            m_smoothnessClassifier->setNIntensities(256);
-            m_smoothnessClassifier->setData(movingImage,(ConstImagePointerType)movingSegmentationImage,(ConstImagePointerType)movingGradient);
-            m_smoothnessClassifier->train();
-            m_pairwiseSegmentationPot->SetClassifier(m_smoothnessClassifier);
-            
-            m_segmentationClassifier=UnaryClassifierType::New();
-            m_segmentationClassifier->setNIntensities(256);
-            m_segmentationClassifier->setData(movingImage,(ConstImagePointerType)movingSegmentationImage,(ConstImagePointerType)movingGradient);
-            m_segmentationClassifier->train();
-            m_unarySegmentationPot->SetClassifier(m_segmentationClassifier);
+            m_pairwiseSegmentationPot->Init();
+            m_unarySegmentationPot->Init();
             //setup registration potentials
 
             m_unaryRegistrationPot=UnaryRegistrationPotentialType::New();
             m_pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
             m_SRSPotential=SRSPotentialType::New();
             m_SRSPotential->SetNumberOfSegmentationLabels(m_config.nSegmentations);
-            m_SRSPotential->SetReferenceSegmentation((ConstImagePointerType)movingSegmentationImage);
-            //m_SRSPotential->SetReferenceSegmentation(movingSegmentationImage);
+            m_SRSPotential->SetReferenceSegmentation((ConstImagePointerType)m_movingSegmentationImage);
+
             m_unaryRegistrationPot->SetSRSPotential(m_SRSPotential);
             m_unarySegmentationPot->SetSRSPotential(m_SRSPotential);
         }
         virtual void Update(){
             Init();
-            ImagePointerType previousSegmentation, oldSegmentation;
-            ImagePointerType previousDeformedReferenceSegmentation;
+            ConstImagePointerType previousSegmentation=m_movingSegmentationImage, oldSegmentation;
+            ConstImagePointerType previousDeformedReferenceSegmentation=m_movingSegmentationImage;
             bool converged=false;
-             int iter=0;
-              //save intermediate results
-                std::string suff;
-                if (ImageType::ImageDimension==2){
-                    suff=".png";
-                }
-                if (ImageType::ImageDimension==3){
-                    suff=".nii";
-                }
+            int iter=0;
+            //save intermediate results
+            std::string suff;
+            if (ImageType::ImageDimension==2){
+                suff=".png";
+            }
+            if (ImageType::ImageDimension==3){
+                suff=".nii";
+            }
             while (!converged){
 
                 //compute updates
@@ -240,10 +232,25 @@ namespace itk{
                 //   if (!iter) alpha=0;
 #if 0
                 previousSegmentation=segmentImage(previousDeformedReferenceSegmentation,iter==0?0:alpha);
+
                 previousDeformedReferenceSegmentation=registerImagesAndDeformSegmentation(previousSegmentation,alpha);
 #else
                 previousDeformedReferenceSegmentation=registerImagesAndDeformSegmentation(previousSegmentation,iter==0?0:alpha);
+                if (m_config.verbose){
+                    ostringstream deformedSegmentationFilename;
+                    deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-i"<<iter<<suff;
+                    
+                    if (D==3){
+                        ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),previousDeformedReferenceSegmentation);
+                        
+                    }else{
+                        ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)previousDeformedReferenceSegmentation ,m_config.nSegmentations));
+                        
+                    }
+                }
+                if (m_config.verbose)        std::cout<<"saved deformed atlas segmentation"<<std::endl;
                 previousSegmentation=segmentImage(previousDeformedReferenceSegmentation,alpha);
+                if (m_config.verbose)        std::cout<<"finished segmentation"<<std::endl;
 #endif
                 
               
@@ -271,7 +278,7 @@ namespace itk{
                 std::cout<<endl<<endl<<"----------------------------------------------"<<endl;
                 std::cout<<D<<" Iteration :"<<iter<<", dice (oldSeg vs. newSeg)="<<dice<<", dice (newSeg vs. newDefSeg)="<<dice2<< std::endl;                   
                 std::cout<<"----------------------------------------------"<<endl<<endl;; 
-                if (iter>=10 || (dice>0.99 && dice2>0.99) || dice>0.99999 ){
+                if (iter>=4 || (dice>0.99 && dice2>0.99) || dice>0.99999 ){
                     converged=true;
                 }
                 ++iter;
@@ -290,21 +297,15 @@ namespace itk{
         }
 
         
-        ImagePointerType registerImagesAndDeformSegmentation(ImagePointerType segmentationPrior, double alpha=0){
+        ImagePointerType registerImagesAndDeformSegmentation(ConstImagePointerType segmentationPrior, double alpha=0){
             ImagePointerType deformedSegmentation;
             
             //define input images
             const ConstImagePointerType targetImage = this->GetInput(0);
             
             const ConstImagePointerType movingImage = this->GetInput(1);
-            ConstImagePointerType movingSegmentationImage;
-            if (D==2){
-                //2d segmentations pngs [from matlab] may have screwed up intensities
-                movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
-            }else{
-                movingSegmentationImage = (this->GetInput(2));
-            }
-            m_SRSPotential->SetReferenceSegmentation(movingSegmentationImage);     
+           
+            m_SRSPotential->SetReferenceSegmentation(m_movingSegmentationImage);     
             //results
             ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
             LabelImagePointerType fullDeformation,previousFullDeformation;
@@ -353,7 +354,7 @@ namespace itk{
                 else{
                     downSampledTarget=targetImage;
                     downSampledReference=movingImage;
-                    downSampledReferenceSegmentation=movingSegmentationImage;
+                    downSampledReferenceSegmentation=m_movingSegmentationImage;
                 }
 
 
@@ -389,7 +390,7 @@ namespace itk{
 
             
                 m_pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
-                //downSampledReferenceSegmentation=FilterUtils<ImageType>::NNResample((movingSegmentationImage),scaling);
+                //downSampledReferenceSegmentation=FilterUtils<ImageType>::NNResample((m_movingSegmentationImage),scaling);
 
                 //register images and potentials
                 graph.setUnaryRegistrationFunction(m_unaryRegistrationPot);
@@ -498,12 +499,12 @@ namespace itk{
             
 
             //ImagePointerType finalDeformedReference=deformImage(movingImage,finalDeformation);
-            ImagePointerType finalDeformedReferenceSegmentation=deformSegmentationImage(movingSegmentationImage,finalDeformation);
+            ImagePointerType finalDeformedReferenceSegmentation=deformSegmentationImage(m_movingSegmentationImage,finalDeformation);
             return finalDeformedReferenceSegmentation;
         }
 
         //#define GC
-        ImagePointerType segmentImage(ImagePointerType deformedSegmentation, double alpha=0){
+        ImagePointerType segmentImage(ConstImagePointerType deformedSegmentation, double alpha=0){
             ImagePointerType segmentation;
 
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,0);
@@ -520,13 +521,7 @@ namespace itk{
             graph.setFixedImage(targetImage);
             //size of the graph doesn't matter
             graph.initGraph(3);
-            ConstImagePointerType movingSegmentationImage;
-            if (D==2){
-                //2d segmentations pngs [from matlab] may have screwed up intensities
-                movingSegmentationImage = fixSegmentationImage(this->GetInput(2));
-            }else{
-                movingSegmentationImage = (this->GetInput(2));
-            }
+         
 #if 1
             LabelImagePointerType previousFullDeformation=LabelImageType::New();
             previousFullDeformation->SetRegions(targetImage->GetLargestPossibleRegion());
@@ -559,20 +554,24 @@ namespace itk{
             typedef  GC_MRFSolver<SegGraphType> MRFSolverType;
             //typedef NewFastPDMRFSolver<SegGraphType> MRFSolverType;
             MRFSolverType * mrfSolver= new MRFSolverType(&graph,
-                                    m_config.rfWeight,
-                                    m_config.pairwiseSegmentationWeight, 
-                                    m_config.verbose);
+                                                         m_config.rfWeight,
+                                                         m_config.pairwiseSegmentationWeight, 
+                                                         m_config.verbose);
             
 #endif
             mrfSolver->createGraph();
             mrfSolver->optimize(m_config.optIter);
             std::cout<<" ]"<<std::endl;
+
 #ifndef GC
             segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
 #else
+
             segmentation=graph.getSegmentationImage(mrfSolver->getLabels());
 #endif
+            if (m_config.verbose)        std::cout<<"computed segmentation estimate"<<std::endl;
             delete mrfSolver;
+            if (m_config.verbose)        std::cout<<"deleted solver"<<std::endl;
             return segmentation;
         }
 
@@ -824,11 +823,11 @@ namespace itk{
             }
             return (ConstImagePointerType)newImage;
         }
-        double compareSegmentations(ImagePointerType seg1, ImagePointerType seg2, int nSegmentations){
+        double compareSegmentations(ConstImagePointerType seg1, ConstImagePointerType seg2, int nSegmentations){
             double DICE=0;
             if (seg1 &&seg2){
-                IteratorType labelIt(seg1,seg1->GetLargestPossibleRegion());
-                IteratorType newLabelIt(seg2,seg2->GetLargestPossibleRegion());
+                ConstIteratorType labelIt(seg1,seg1->GetLargestPossibleRegion());
+                ConstIteratorType newLabelIt(seg2,seg2->GetLargestPossibleRegion());
                 int tp=1,fp=0,fn=0,tn=0;
                 for (newLabelIt.GoToBegin(),labelIt.GoToBegin();!labelIt.IsAtEnd();++labelIt,++newLabelIt){
                     //get segmentation label from optimisation

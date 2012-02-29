@@ -122,13 +122,15 @@ namespace itk{
 	
 
             if (verbose) std::cout<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nEdges<<std::endl;
-                         
+            
+            std::cout<<std::flush;
         
-            typename ConstImageNeighborhoodIteratorType::RadiusType r;
-            for (int d=0;d<(int)m_dim;++d){
-                r[d]=(m_gridPixelSpacing[d]/2);
-            }
-            m_fixedNeighborhoodIterator=new ConstImageNeighborhoodIteratorType(r,m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
+        //     typename ConstImageNeighborhoodIteratorType::RadiusType r;
+        //     for (int d=0;d<(int)m_dim;++d){
+        //         r[d]=(m_gridPixelSpacing[d]/2);
+        //     }
+        //     m_fixedNeighborhoodIterator=new ConstImageNeighborhoodIteratorType(r,m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
+
             if (verbose) std::cout<<" finished graph init" <<std::endl;
         }
 
@@ -223,7 +225,7 @@ namespace itk{
         }
     
         typename ImageType::DirectionType getDirection(){return m_fixedImage->GetDirection();}
-
+       
         SpacingType getSpacing(){return m_gridSpacing;}	
         SpacingType getPixelSpacing(){return m_gridPixelSpacing;}
         PointType getOrigin(){return m_origin;}

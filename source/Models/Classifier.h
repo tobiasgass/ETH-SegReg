@@ -867,8 +867,197 @@ namespace itk{
         }
     };
   
+  template<class ImageType>
+    class HandcraftedBoneSegmentationClassifierMarcel: public SegmentationClassifierGradient<ImageType> {
+    public:
+        typedef HandcraftedBoneSegmentationClassifierMarcel            Self;
+        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::PixelType PixelType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
+        typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
+    protected:
+    
+    
+        int m_nIntensities;
+        int bone;
+        int tissue;
+    public:
+        /** Standard part of every itk Object. */
+        itkTypeMacro(HandcraftedBoneSegmentationClassifierMarcel, Object);
+        itkNewMacro(Self);
 
+        HandcraftedBoneSegmentationClassifierMarcel(){
+            bone=(100+1000)*255.0/2000;
+            tissue=(-500+1000)*255.0/2000;
+        };
+        virtual void setNIntensities(int n){
+            m_nIntensities=n;
+        }
+        virtual void freeMem(){
+                
+        }
+        virtual void save(string filename){
+        }
+        virtual void load(string filename){
+        }
 
+        virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
+   
+        };
+
+        virtual void computeProbabilities(){
+ 
+        }
+        
+        inline virtual int mapIntensity(float intensity){
+            return intensity;
+        }
+        virtual double px_l(float imageIntensity,int segmentationLabel, int s){
+            int bone=(300+1000)*255.0/2000;
+            int tissue=(-500+1000)*255.0/2000;
+            double segmentationProb=1;
+            if (segmentationLabel>0) {
+                if (imageIntensity < tissue)
+                    segmentationProb =fabs(imageIntensity-tissue);
+                else if (imageIntensity < bone) 
+                    segmentationProb = 0.69; //log (0.5);
+                else
+                    segmentationProb = 0.00000000001;
+            }else{
+                if ((imageIntensity >  bone)  && s>128)
+                    segmentationProb = fabs(imageIntensity-bone);
+                else if (imageIntensity >tissue)
+                    segmentationProb =0.69 ;
+                else
+                    segmentationProb = 0.00000000001;
+                
+            }
+            return exp(-segmentationProb);
+        }
+       
+        virtual void train(){
+        }
+
+        virtual void evalImage(ImageConstPointerType im, ImageConstPointerType gradient){
+            ImagePointerType result0=ImageUtils<ImageType>::createEmpty(im);
+            ImagePointerType result1=ImageUtils<ImageType>::createEmpty(im);
+            typename itk::ImageRegionConstIterator<ImageType> it(im,im->GetLargestPossibleRegion());
+            typename itk::ImageRegionConstIterator<ImageType> itGrad(gradient,gradient->GetLargestPossibleRegion());
+            for (it.GoToBegin();!it.IsAtEnd(); ++it,++itGrad){
+                PixelType val=it.Get();
+                PixelType grad=itGrad.Get();
+                double prob0=px_l(val,0,grad);
+                double prob1=px_l(val,1,grad);
+                //                std::cout<<prob0<<" "<<prob1<<" "<<(PixelType)std::numeric_limits<PixelType>::max()*prob0<<std::endl;
+                result0->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob0);
+                result1->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob1);
+            }
+            if (false){
+                if (ImageType::ImageDimension==2){
+                    ImageUtils<ImageType>::writeImage("p0-marcel.png",result0);
+                    ImageUtils<ImageType>::writeImage("p1-marcel.png",result1);
+                }else{
+                    ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
+                    ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
+                }
+            
+            }
+        }
+    };
+  
+
+      template<class ImageType>
+    class SegmentationClassifierProbabilityImage: public SegmentationClassifierGradient<ImageType> {
+    public:
+        typedef SegmentationClassifierProbabilityImage            Self;
+        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::PixelType PixelType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
+        typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
+    protected:
+    
+    
+        int m_nIntensities;
+      
+    public:
+        /** Standard part of every itk Object. */
+        itkTypeMacro(SegmentationClassifierProbabilityImage, Object);
+        itkNewMacro(Self);
+
+        SegmentationClassifierProbabilityImage(){
+          
+        };
+        virtual void setNIntensities(int n){
+            m_nIntensities=n;
+        }
+        virtual void freeMem(){
+                
+        }
+        virtual void save(string filename){
+        }
+        virtual void load(string filename){
+        }
+
+        virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
+   
+        };
+
+        virtual void computeProbabilities(){
+ 
+        }
+        
+        inline virtual int mapIntensity(float intensity){
+            return intensity;
+        }
+        virtual double px_l(float imageIntensity,int segmentationLabel, int s){
+           
+            double segmentationProb=imageIntensity;
+            if (ImageType::ImageDimension==2) segmentationProb/=m_nIntensities;
+            
+            if (segmentationLabel==0) {
+                segmentationProb=1-segmentationProb;
+            }
+            //segmentationProb=1.0/(1.0+exp(-30.0*(segmentationProb-0.5)));
+            //segmentationProb=tan(3*(segmentationProb-0.5));
+            return segmentationProb;
+        }
+       
+        virtual void train(){
+        }
+
+        virtual void evalImage(ImageConstPointerType im, ImageConstPointerType gradient){
+            ImagePointerType result0=ImageUtils<ImageType>::createEmpty(im);
+            ImagePointerType result1=ImageUtils<ImageType>::createEmpty(im);
+            typename itk::ImageRegionConstIterator<ImageType> it(im,im->GetLargestPossibleRegion());
+            typename itk::ImageRegionConstIterator<ImageType> itGrad(gradient,gradient->GetLargestPossibleRegion());
+            for (it.GoToBegin();!it.IsAtEnd(); ++it,++itGrad){
+                PixelType val=it.Get();
+                PixelType grad=itGrad.Get();
+                double prob0=px_l(val,0,grad);
+                double prob1=px_l(val,1,grad);
+                //                std::cout<<prob0<<" "<<prob1<<" "<<(PixelType)std::numeric_limits<PixelType>::max()*prob0<<std::endl;
+                result0->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob0);
+                result1->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob1);
+            }
+            if (false){
+                if (ImageType::ImageDimension==2){
+                    ImageUtils<ImageType>::writeImage("p0-marcel.png",result0);
+                    ImageUtils<ImageType>::writeImage("p1-marcel.png",result1);
+                }else{
+                    ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
+                    ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
+                }
+            
+            }
+        }
+    };
+  
         template<class ImageType>
         class SmoothnessClassifierGradient: public SegmentationClassifier<ImageType> {
         public:
@@ -1026,6 +1215,7 @@ namespace itk{
             }
             virtual double px_l(float intensityDiff,int label, int gradientDiff, int label2=-1){
                 //            cout<<intensityDiff<<" "<<label<<" "<<gradientDiff<<endl;
+                label=(label==label2);
                 intensityDiff=fabs(intensityDiff);
                 gradientDiff=fabs(gradientDiff);
                 double prob=this->m_probs[(label>0)*this->m_nIntensities*this->m_nIntensities+intensityDiff*this->m_nIntensities+gradientDiff];
@@ -1186,8 +1376,53 @@ namespace itk{
 
 
         };
-  
+     template<class ImageType>
+        class SmoothnessClassifierUniform: public SmoothnessClassifierGradient<ImageType> {
+        public:
+            typedef SmoothnessClassifierUniform            Self;
+            typedef SmoothnessClassifierGradient<ImageType> Superclass;
+            typedef SmartPointer<Self>        Pointer;
+            typedef SmartPointer<const Self>  ConstPointer;
+            typedef typename ImageType::Pointer ImagePointerType;
+            typedef typename ImageType::PixelType PixelType;
+            typedef typename ImageType::ConstPointer ImageConstPointerType;
+            typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
+   
 
+        public:
+            /** Standard part of every itk Object. */
+            itkTypeMacro(SmoothnessClassifierGradientContrast, Object);
+            itkNewMacro(Self);
+
+     
+            virtual void freeMem(){
+           
+            }
+      
+            virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
+            };
+
+            virtual void computeProbabilities(){
+       
+            }
+        
+            inline virtual int mapIntensity(float intensity){
+                return intensity;
+            }
+            virtual double px_l(float intensityDiff,int label, int gradientDiff, int label2=0){
+                label=label!=label2;
+                return label;
+            }
+     
+     
+
+            virtual void train(){
+          
+            };
+
+
+        };
+    
         template<class ImageType>
         class SmoothnessClassifierSignedGradient: public SegmentationClassifierGradient<ImageType> {
         public:

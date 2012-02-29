@@ -434,10 +434,11 @@ namespace itk{
             }
 #else
             IndexType idx=getImageIndex(index);
-            for (int d=0;d<m_dim;++d){
-                if (false && idx[d]%2)
-                    return neighbours;
-            }
+         
+            // for (int d=0;d<m_dim;++d){
+            //     if (false && idx[d]%2)
+            //         return neighbours;
+            // }
 
             IndexType position=getClosestGraphIndex(idx);
             neighbours.push_back(getGraphIntegerIndex(position));
@@ -466,6 +467,38 @@ namespace itk{
             assert(i==(labels.size()));
             return result;
         }
+        
+        //empty deformation image
+        virtual RegistrationLabelImagePointerType getDeformationImage(){
+            RegistrationLabelImagePointerType result=RegistrationLabelImageType::New();
+            typename RegistrationLabelImageType::RegionType region;
+            region.SetSize(m_gridSize);
+            result->SetRegions(region);
+            result->SetSpacing(m_gridSpacing);
+            result->SetDirection(m_fixedImage->GetDirection());
+            result->SetOrigin(m_origin);
+            result->Allocate();
+            typename itk::ImageRegionIterator<RegistrationLabelImageType> it(result,region);
+            unsigned int i=0;
+            for (it.GoToBegin();!it.IsAtEnd();++it,++i){
+                RegistrationLabelType l=LabelMapperType::getLabel(LabelMapperType::nDisplacements/2);
+                it.Set(l);
+            }
+            return result;
+        }
+          virtual ImagePointerType getParameterImage(){
+            ImagePointerType result=ImageType::New();
+            typename ImageType::RegionType region;
+            region.SetSize(m_gridSize);
+            result->SetRegions(region);
+            result->SetSpacing(m_gridSpacing);
+            result->SetDirection(m_fixedImage->GetDirection());
+            result->SetOrigin(m_origin);
+            result->Allocate();
+            return result;
+        }
+        
+
         ImagePointerType getSegmentationImage(std::vector<int> labels){
             ImagePointerType result=ImageType::New();
             result->SetRegions(m_fixedImage->GetLargestPossibleRegion());

@@ -33,15 +33,17 @@ int main(int argc, char ** argv)
       //typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifier<ImageType> ClassifierType;
+      typedef SegmentationClassifierProbabilityImage<ImageType> ClassifierType;
       //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
       typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
 
     //pairwise seg
 //    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     //typedef SmoothnessClassifierSignedGradient<ImageType> SegmentationSmoothnessClassifierType;
-    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    //typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
+      typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+      //typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+      typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
+      //typedef PairwisePotentialSegmentationUniform<ImageType> SegmentationPairwisePotentialType;
         
    typedef SegmentationImageFilter<ImageType,
         LabelMapperType,

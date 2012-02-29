@@ -4,10 +4,6 @@ INCLUDE_REGULAR_EXPRESSION("^.*$")
 
 find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
-LINK_DIRECTORIES(
-    /home/gasst/work/lib
-    /usr/lib
-)
 
 
 SUBDIRS(Common External Models Applications )

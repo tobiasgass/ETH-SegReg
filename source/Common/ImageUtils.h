@@ -13,6 +13,10 @@
 #include "itkGDCMImageIO.h"
 #include "itkNumericSeriesFileNames.h" 
 #include "itkImageRegion.h"
+#include "itkNearestNeighborInterpolateImageFunction.h"
+#include "itkLinearInterpolateImageFunction.h"
+#include "itkImageRegionIteratorWithIndex.h"
+#include "itkImageRegionConstIterator.h"
 
 template<class ImageType>
 class ImageUtils {
@@ -49,8 +53,10 @@ class ImageUtils {
 	typedef typename ImageType::RegionType RegionType;
 	typedef typename ImageType::OffsetType OffsetType;
 	typedef typename ImageType::SpacingType SpacingType;
-
-
+    static const unsigned int D=ImageType::ImageDimension;
+    typedef itk::Vector<float,D> FloatVectorType;
+    typedef itk::Image<FloatVectorType,D> FloatVectorImageType;
+    typedef typename FloatVectorImageType::Pointer FloatVectorImagePointerType;
 private:
 
 	static void ITKImageToVTKImage(ImagePointerType image) {
@@ -276,6 +282,70 @@ public:
         }
         return result/c;
     }
+    static ImagePointerType deformSegmentationImage(ConstImagePointerType segmentationImage, FloatVectorImagePointerType deformation){
+            //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
+            typedef  typename itk::ImageRegionIterator<FloatVectorImageType> LabelIterator;
+            typedef   typename itk::ImageRegionIterator<ImageType> ImageIterator;
+            LabelIterator deformationIt(deformation,deformation->GetLargestPossibleRegion());
+        
+            typedef typename  itk::NearestNeighborInterpolateImageFunction<ImageType, double> ImageInterpolatorType;
+            typename ImageInterpolatorType::Pointer interpolator=ImageInterpolatorType::New();
 
+            interpolator->SetInputImage(segmentationImage);
+            ImagePointerType deformed=ImageUtils<ImageType>::createEmpty(segmentationImage);
+            deformed->SetRegions(deformation->GetLargestPossibleRegion());
+            deformed->SetOrigin(deformation->GetOrigin());
+            deformed->SetSpacing(deformation->GetSpacing());
+            deformed->SetDirection(deformation->GetDirection());
+            deformed->Allocate();
+            ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
+            
+            for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
+                IndexType index=deformationIt.GetIndex();
+                typename ImageInterpolatorType::ContinuousIndexType idx(index);
+                FloatVectorType displacement=deformationIt.Get();
+                idx+=(displacement);
+                if (interpolator->IsInsideBuffer(idx)){
+                    imageIt.Set(int(interpolator->EvaluateAtContinuousIndex(idx)));
+                }else{
+                    imageIt.Set(0);
+                }
+            }
+            return deformed;
+        }
+    static     ImagePointerType deformImage(ConstImagePointerType image, FloatVectorImagePointerType deformation){
+            //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
+            typedef  typename itk::ImageRegionIterator<FloatVectorImageType> LabelIterator;
+            typedef  itk::ImageRegionIterator<ImageType> ImageIterator;
+            LabelIterator deformationIt(deformation,deformation->GetLargestPossibleRegion());
+
+            typedef typename itk::LinearInterpolateImageFunction<ImageType, double> ImageInterpolatorType;
+            typename ImageInterpolatorType::Pointer interpolator=ImageInterpolatorType::New();
+
+            interpolator->SetInputImage(image);
+            ImagePointerType deformed=ImageType::New();//ImageUtils<ImageType>::createEmpty(image);
+      
+            deformed->SetRegions(deformation->GetLargestPossibleRegion());
+            deformed->SetOrigin(deformation->GetOrigin());
+            deformed->SetSpacing(deformation->GetSpacing());
+            deformed->SetDirection(deformation->GetDirection());
+            deformed->Allocate();
+            ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
+            for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
+                IndexType index=deformationIt.GetIndex();
+                typename ImageInterpolatorType::ContinuousIndexType idx(index);
+                FloatVectorType displacement=deformationIt.Get();
+                idx+=(displacement);
+                if (interpolator->IsInsideBuffer(idx)){
+                    imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
+                    //deformed->SetPixel(imageIt.GetIndex(),interpolator->EvaluateAtContinuousIndex(idx));
+
+                }else{
+                    imageIt.Set(0);
+                    //                deformed->SetPixel(imageIt.GetIndex(),0);
+                }
+            }
+            return deformed;
+        }
 };
 #endif // IMAGE_UTILS

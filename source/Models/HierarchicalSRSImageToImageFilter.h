@@ -57,6 +57,9 @@
 #include "itkCastImageFilter.h"
 #include "Classifier.h"
 #include "itkHausdorffDistanceImageFilter.h"
+#include "itkBSplineDeformableTransform.h"
+#include <itkWarpImageFilter.h>
+
 
 namespace itk{
     template<class TGraph>
@@ -226,7 +229,7 @@ namespace itk{
                 pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
                 pairwiseSegmentationPot->Init();
                 if (ImageType::ImageDimension==2){
-                    pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
+                    //pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
                 }
             }
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
@@ -264,11 +267,11 @@ namespace itk{
 #if 1
                 level=m_config.levels[l];
                 double labelScalingFactor=1;
-                double sigma=10;
+                double sigma=1;
                 
                 //roughly compute downscaling
-                scale=1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
-
+                scale=1;//1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
+                
                 if (m_config.downScale){
                     scale=scaling;
                     scaling=0.5;
@@ -385,6 +388,8 @@ namespace itk{
                         }
                     }
 #endif
+                    //if (i>0 || l> 0) pairwiseSegmentationRegistrationPot->SetReferenceSegmentation((ConstImagePointerType)deformedSegmentationImage);
+
                     //	ok what now: create graph! solve graph! save result!Z
                     //double linearIncreasingWeight=1.0/(m_config.nLevels-l);
                     //double expIncreasingWeight=exp(-(m_config.nLevels-l-1));
@@ -491,8 +496,9 @@ namespace itk{
                     }
 #endif
                 
-                    deformedImage=deformImage(downSampledReference,composedDeformation);
+                    deformedImage=warpImage(downSampledReference,composedDeformation);
                     deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
+                    //deformedSegmentationImage=warpImage(downSampledReferenceSegmentation,composedDeformation);
                     }
                     
 #if 0
@@ -617,12 +623,12 @@ namespace itk{
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
             LabelImagePointerType fullLabelImage;
 #if 1
-            const unsigned int SplineOrder = 5;
+            const unsigned int SplineOrder = 3;
             typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
             typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
             typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
             typedef typename itk::BSplineDecompositionImageFilter<ParamImageType,ParamImageType>			DecompositionType;
-            typedef typename  itk::ImageRegionIterator<ParamImageType> Iterator;
+            typedef typename itk::ImageRegionIterator<ParamImageType> Iterator;
             std::vector<typename ParamImageType::Pointer> newImages(ImageType::ImageDimension);
             //interpolate deformation
             for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
@@ -799,6 +805,65 @@ namespace itk{
             }
             return deformed;
         }
+
+        ImagePointerType deformImageITK(ConstImagePointerType image, LabelImagePointerType deformation){
+            //does not work!!!
+            //itk bspline parameters seem to be very differently arranged compared to my own 
+            exit(1);
+
+            //cast labelimage into itk transform
+            typedef typename itk::BSplineDeformableTransform<double,ImageType::ImageDimension,3> TransformType;
+            typedef typename TransformType::CoefficientImageArray ParameterType;
+            ParameterType transformParameters;
+            typedef typename TransformType::ImagePointer ParamImagePointer;
+            typedef typename TransformType::ImageType ParamImageType;
+            typedef typename itk::ImageRegionIterator<ParamImageType> Iterator;
+            typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
+
+            for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
+                {
+                    ParamImagePointer paramsK=ParamImageType::New();
+                    paramsK->SetRegions(deformation->GetLargestPossibleRegion());
+                    paramsK->SetOrigin(deformation->GetOrigin());
+                    paramsK->SetSpacing(deformation->GetSpacing());
+                    paramsK->SetDirection(deformation->GetDirection());
+                    paramsK->Allocate();
+                    Iterator itCoarse( paramsK, paramsK->GetLargestPossibleRegion() );
+                    LabelIterator itOld(deformation,deformation->GetLargestPossibleRegion());
+                    for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
+                        itCoarse.Set((itOld.Get()[ ImageType::ImageDimension - k - 1 ]));
+                    }
+                    transformParameters[ k ]=paramsK;
+                }
+            //set parameters
+            typename TransformType::Pointer bSplineTransform=TransformType::New();
+            bSplineTransform->SetCoefficientImage(transformParameters);
+            //setup resampler
+            typedef typename itk::ResampleImageFilter<ImageType,ImageType> ResampleFilterType; 
+            typename ResampleFilterType::Pointer resampler = ResampleFilterType::New();
+            resampler->SetTransform(bSplineTransform);
+            resampler->SetInput(image);
+            resampler->SetDefaultPixelValue( 0 );
+            resampler->SetSize(    image->GetLargestPossibleRegion().GetSize() );
+            resampler->SetOutputOrigin(  image->GetOrigin() );
+            resampler->SetOutputSpacing( image->GetSpacing() );
+            resampler->SetOutputDirection( image->GetDirection() );
+            resampler->Update();
+            return resampler->GetOutput();
+        }
+        
+          ImagePointerType warpImage(ConstImagePointerType image, LabelImagePointerType deformation){
+              typedef typename itk::WarpImageFilter<ImageType,ImageType,LabelImageType>     WarperType;
+              typedef typename WarperType::Pointer     WarperPointer;
+              WarperPointer warper=WarperType::New();
+              warper->SetInput( image);
+              warper->SetDeformationField(deformation);
+              warper->SetOutputOrigin(  image->GetOrigin() );
+              warper->SetOutputSpacing( image->GetSpacing() );
+              warper->SetOutputDirection( image->GetDirection() );
+              warper->Update();
+              return warper->GetOutput();
+        }
         ImagePointerType deformSegmentationImage(ConstImagePointerType segmentationImage, LabelImagePointerType deformation){
             //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
@@ -816,7 +881,7 @@ namespace itk{
             deformed->SetDirection(deformation->GetDirection());
             deformed->Allocate();
             ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
-
+            
 
             for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
                 IndexType index=deformationIt.GetIndex();

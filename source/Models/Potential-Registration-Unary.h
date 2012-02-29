@@ -207,7 +207,7 @@ namespace itk{
                     double m;
                     totalCount+=1.0;
                     if (!this->m_movingInterpolator->IsInsideBuffer(idx2)){
-#if 1
+#if 0
                         continue;
                         m=0;
                         
@@ -695,6 +695,7 @@ namespace itk{
                         weight*=1.0-fabs((1.0*fixedIndex[d]-neighborIndex[d])/(this->m_scaledRadius[d]));
                     }
                     if (this->m_alpha){
+#if 0
                         if (f>=bone){
                             int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
                             if ( !seg){
@@ -707,6 +708,16 @@ namespace itk{
                             }
                         }
                         distanceSum+=weight;   
+#else
+                        bool movingTissue=m<tissue;
+                        bool movingBone=m>bone;
+                        bool fixedTissue=f<tissue;
+                        bool fixedBone=f>bone;
+                        
+                        distanceSum+=weight;
+                        segmentationPenalty+=weight*( (movingTissue==fixedBone) || (movingBone==fixedTissue));
+                        
+#endif
                     }
                 }
 
@@ -716,12 +727,16 @@ namespace itk{
                 smm -= ( sm * sm / count );
                 sfm -= ( sf * sm / count );
                 if (smm*sff>0){
-                    //result=(1-1.0*sfm/sqrt(smm*sff))/2;
-                    //result>thresh?thresh:result;
-                    //result=-log((1.0*sfm/sqrt(smm*sff)+1)/2);
+#if 0//log NCC
                     result=((1+1.0*sfm/sqrt(smm*sff))/2);
                     result=result>0?result:0.00000001;
                     result=-log(result);
+#else
+                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
+#endif                    
+      
+                    //result>thresh?thresh:result;
+                    //result=-log((1.0*sfm/sqrt(smm*sff)+1)/2);
                 }
                 else {
                     if (sfm>0) result=0;
@@ -729,7 +744,7 @@ namespace itk{
                 }
                 // cout<<fixedIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
                 if (distanceSum){
-                    result=result+this->m_alpha*segmentationPenalty/distanceSum;
+                    result=(1-this->m_alpha)*result+this->m_alpha*segmentationPenalty/distanceSum;
                 }
             }
             //no correlation whatsoever (-log(0.5))
