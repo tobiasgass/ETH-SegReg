@@ -10,6 +10,7 @@
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
+#include "Potential-Segmentation-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-SegmentationRegistration-Pairwise.h"
 
@@ -29,14 +30,18 @@ int main(int argc, char ** argv)
 	typedef Image<PixelType,D> ImageType;
 	typedef itk::Vector<float,D> BaseLabelType;
     typedef SparseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
-    typedef UnaryPotentialSegmentationWithRegistrationPrior< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationMarcelWithPrior< ImageType > SegmentationUnaryPotentialType;
     typedef UnaryPotentialRegistrationNCCWithSegmentationPrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
+    typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
   	typedef HierarchicalJRSImageToImageFilter<ImageType,
-        LabelMapperType,
-        RegistrationUnaryPotentialType,
-        SegmentationUnaryPotentialType,
-        RegistrationPairwisePotentialType >        FilterType;
+                                              LabelMapperType,
+                                              RegistrationUnaryPotentialType,
+                                              SegmentationUnaryPotentialType,
+                                              SegmentationPairwisePotentialType,
+                                              RegistrationPairwisePotentialType
+                                              >        FilterType;
+  
     
 	//create filter
     FilterType::Pointer filter=FilterType::New();

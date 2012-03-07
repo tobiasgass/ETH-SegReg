@@ -517,7 +517,8 @@ namespace itk{
 #endif
       
                     //pairwiseSegmentationRegistrationPot->SetThreshold(13);
-                    pairwiseSegmentationRegistrationPot->SetThreshold(max(10.0,10*graph.getMaxDisplacementFactor()));
+                    //pairwiseSegmentationRegistrationPot->SetThreshold(max(10.0,10*graph.getMaxDisplacementFactor()));
+                    pairwiseSegmentationRegistrationPot->SetThreshold(1000000);
                     
 
                     previousFullDeformation=composedDeformation;

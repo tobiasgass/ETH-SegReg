@@ -40,8 +40,7 @@ TARGET_LINK_LIBRARIES(SegReg2DClassifier maxflow ITKIO Utils TRWS FastPD SRSMRFM
 ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration3D.cxx )
 TARGET_LINK_LIBRARIES(SegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.a  )
 
-#ADD_EXECUTABLE(AlternatingSegReg2D Alternating-JRS.cxx )
-#TARGET_LINK_LIBRARIES(AlternatingSegReg2D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
+
 #ADD_EXECUTABLE(AlternatingSegReg2DBone Alternating-JRS2D-Bone.cxx )
 #TARGET_LINK_LIBRARIES(AlternatingSegReg2DBone maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
 #ADD_EXECUTABLE(AlternatingSegReg2DClassifier Alternating-JRS2D-Classifier.cxx )
@@ -51,6 +50,9 @@ TARGET_LINK_LIBRARIES(SegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITK
 
 ADD_EXECUTABLE(AlternatingSegReg3D Alternating-JRS3D.cxx )
 TARGET_LINK_LIBRARIES(AlternatingSegReg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
+ADD_EXECUTABLE(AlternatingSegReg2D Alternating-JRS.cxx )
+TARGET_LINK_LIBRARIES(AlternatingSegReg2D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
+
 
 #ADD_EXECUTABLE(Seg3D Segmentation3D.cxx )
 #TARGET_LINK_LIBRARIES(Seg3D maxflow ITKIO Utils TRWS FastPD SRSMRFModels  ITKBasicFilters RF ITKStatistics ITKNumerics ITKCommon xml2 /home/gasst/work/lib/libconfig++.a tcmalloc)

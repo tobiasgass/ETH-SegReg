@@ -39,6 +39,7 @@ public:
     double pairwiseContrastWeight;
     int nSubsamples;
     double alpha;
+    int imageLevels;
 private:
 	argstream * as;
 public:
@@ -66,6 +67,7 @@ public:
         pairwiseContrastWeight=1;
         nSubsamples=1;
         alpha=0;
+        imageLevels=-1;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -108,7 +110,8 @@ public:
         downScale=c.downScale;
         pairwiseContrastWeight=c.pairwiseContrastWeight;
         nSubsamples=c.nSubsamples;
-        alpha=c.alpha;
+        alpha=c.alpha;                          
+        imageLevels=c.imageLevels;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -159,7 +162,9 @@ public:
 		(*as) >> parameter ("wi", simWeight,"weight for intensity similarity", false);
 		(*as) >> parameter ("wr", rfWeight,"weight for segmentation posterior", false);
 		(*as) >> parameter ("ws", segWeight,"weight for segmentation similarity", false);
-		(*as) >> parameter ("nLevels", nLevels,"number of multiresolution pyramid levels", false);
+		(*as) >> parameter ("nLevels", nLevels,"number of grid multiresolution pyramid levels", false);
+		(*as) >> parameter ("nImageLevels", imageLevels,"number of image multiresolution  levels", false);
+
 		(*as) >> parameter ("startlevel", startTiling,"start tiling", false);
 		(*as) >> parameter ("iterationsPerLevel", iterationsPerLevel,"iterationsPerLevel", false);
 		(*as) >> parameter ("optIter", optIter,"max iterations of optimizer", false);

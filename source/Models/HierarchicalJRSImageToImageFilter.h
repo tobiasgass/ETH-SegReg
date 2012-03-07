@@ -235,20 +235,28 @@ namespace itk{
 
                 previousDeformedReferenceSegmentation=registerImagesAndDeformSegmentation(previousSegmentation,alpha);
 #else
-                previousDeformedReferenceSegmentation=registerImagesAndDeformSegmentation(previousSegmentation,iter==0?0:alpha);
-                if (m_config.verbose){
-                    ostringstream deformedSegmentationFilename;
-                    deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-i"<<iter<<suff;
+                if (m_config.tissuePriorFilename!=""){
+                    //load deformed segmentation from file
+                    previousDeformedReferenceSegmentation=ImageUtils<ImageType>::readImage(m_config.tissuePriorFilename);
+                    std::cout<<"WARNING: READ DEFORMED SEGMENTATION FROM "<<m_config.tissuePriorFilename<<" instead of computing the deformation"<<std::endl;
+                }else{
+                    //compute deformation
+                    previousDeformedReferenceSegmentation=registerImagesAndDeformSegmentation(previousSegmentation,iter==0?0:alpha);
+                    if (m_config.verbose){
+                        ostringstream deformedSegmentationFilename;
+                        deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-i"<<iter<<suff;
                     
-                    if (D==3){
-                        ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),previousDeformedReferenceSegmentation);
+                        if (D==3){
+                            ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),previousDeformedReferenceSegmentation);
                         
-                    }else{
-                        ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)previousDeformedReferenceSegmentation ,m_config.nSegmentations));
+                        }else{
+                            ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)previousDeformedReferenceSegmentation ,m_config.nSegmentations));
                         
+                        }
                     }
+                    if (m_config.verbose)        std::cout<<"saved deformed atlas segmentation"<<std::endl;
                 }
-                if (m_config.verbose)        std::cout<<"saved deformed atlas segmentation"<<std::endl;
+
                 previousSegmentation=segmentImage(previousDeformedReferenceSegmentation,alpha);
                 if (m_config.verbose)        std::cout<<"finished segmentation"<<std::endl;
 #endif
@@ -278,7 +286,7 @@ namespace itk{
                 std::cout<<endl<<endl<<"----------------------------------------------"<<endl;
                 std::cout<<D<<" Iteration :"<<iter<<", dice (oldSeg vs. newSeg)="<<dice<<", dice (newSeg vs. newDefSeg)="<<dice2<< std::endl;                   
                 std::cout<<"----------------------------------------------"<<endl<<endl;; 
-                if (iter>=4 || (dice>0.99 && dice2>0.99) || dice>0.99999 ){
+                if (iter>=0 || (dice>0.99 && dice2>0.99) || dice>0.99999 ){
                     converged=true;
                 }
                 ++iter;
@@ -286,7 +294,7 @@ namespace itk{
             }
             if (D==3){
                 ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename,previousSegmentation);
-                ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,previousDeformedReferenceSegmentation);
+                //ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,previousDeformedReferenceSegmentation);
                 
             }else{
                 ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename,makePngFromLabelImage((ConstImagePointerType)previousSegmentation, m_config.nSegmentations));
@@ -370,6 +378,9 @@ namespace itk{
    
                 double mantisse=(1/m_config.scale);
                 int exponent=m_config.nLevels-l;
+                if (m_config.imageLevels>0){
+                    exponent=max(0,m_config.imageLevels-l);
+                }
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
                 //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
@@ -458,7 +469,8 @@ namespace itk{
                     deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config.displacementRescalingFactor;
-                    m_SRSPotential->SetThreshold(max(10.0,10.0*graph.getMaxDisplacementFactor()));     
+                    //m_SRSPotential->SetThreshold(max(10.0,10.0*graph.getMaxDisplacementFactor()));     
+                    m_SRSPotential->SetThreshold(10000000);     
 
                     if (false && m_config.verbose){
                         std::string suff;
@@ -533,7 +545,8 @@ namespace itk{
             previousFullDeformation->FillBuffer(tmpVox);
             m_SRSPotential->SetBaseLabelMap(NULL);
             m_SRSPotential->SetReferenceSegmentation((ConstImagePointerType)deformedSegmentation);     
-            m_SRSPotential->SetThreshold(10);     
+            //m_SRSPotential->SetThreshold(10);     
+            m_SRSPotential->SetThreshold(1000000);     
 
 #endif
             m_unarySegmentationPot->SetAlpha(alpha);
