@@ -259,6 +259,9 @@ namespace itk{
                 if (m_config.downScale||ImageType::ImageDimension==2){
                      exponent--;
                 }
+                if (m_config.imageLevels>0){
+                    exponent=max(0,m_config.imageLevels-l);
+                }
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
                 //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
@@ -518,7 +521,8 @@ namespace itk{
       
                     //pairwiseSegmentationRegistrationPot->SetThreshold(13);
                     //pairwiseSegmentationRegistrationPot->SetThreshold(max(10.0,10*graph.getMaxDisplacementFactor()));
-                    pairwiseSegmentationRegistrationPot->SetThreshold(1000000);
+                    pairwiseSegmentationRegistrationPot->SetThreshold(max(1.0,graph.getMaxDisplacementFactor()));//*(m_config.iterationsPerLevel-i)));
+                    //pairwiseSegmentationRegistrationPot->SetThreshold(1000000);
                     
 
                     previousFullDeformation=composedDeformation;

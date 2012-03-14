@@ -62,7 +62,7 @@ namespace itk{
         bool m_haveLabelMap;
         double m_asymm;
         FloatImagePointerType m_distanceTransform;
-        double sigma1, sigma2, mean1, mean2, m_threshold;
+        double sigma1, sigma2, mean1, mean2, m_threshold,maxDist,minDist, mDistTarget,mDistSecondary;
         int m_nSegmentationLabels;
     public:
         /** Method for creation through the object factory. */
@@ -164,17 +164,25 @@ namespace itk{
             filter->Update();
             sigma1=filter->GetSigma();
             mean1=filter->GetMean();
+            maxDist=filter->GetMaximumOutput()->Get();
+            minDist=filter->GetMinimumOutput()->Get();
+          
+            mDistTarget=fabs(minDist);
+            cout<<"MINDIST: "<<mDistTarget<<endl;
             m_distanceTransform=dt1;
             if (m_nSegmentationLabels>2){
                 FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
                 m_movingBackgroundDistanceTransformInterpolator=FloatImageInterpolatorType::New();
                 m_movingBackgroundDistanceTransformInterpolator->SetInputImage(dt2);
                 thresholdFilter->SetInput(dt2);
-                filter->SetInput(thresholdFilter->GetOutput());
+                filter->SetInput(dt2);
                 filter->Update();
                 sigma2=filter->GetSigma();
                 mean2=fabs(filter->GetMean());
-                caster->SetInput(dt2);
+                double di=filter->GetMinimumOutput()->Get();
+                mDistSecondary=fabs(di);
+                cout<<"MINDIST: "<<mDistSecondary<<endl;
+                caster->SetInput(thresholdFilter->GetOutput());
                 caster->Update();
                 ImagePointerType output=caster->GetOutput();
                 if (false){
@@ -205,16 +213,18 @@ namespace itk{
             }
             //distanceTransform->InsideIsPositiveOn();
             distanceTransform->SetInput(newImage);
-            distanceTransform->SquaredDistanceOn ();
+            distanceTransform->SquaredDistanceOff ();
             distanceTransform->UseImageSpacingOn();
             distanceTransform->Update();
             typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
 
             FloatImagePointerType positiveDM=distanceTransform->GetOutput();
+#if 0
             FloatImageIterator imageIt3(positiveDM,positiveDM->GetLargestPossibleRegion());        
             for (imageIt3.GoToBegin();!imageIt3.IsAtEnd();++imageIt3){
                 imageIt3.Set(fabs(imageIt3.Get()));
             }
+#endif
             return  positiveDM;
         }
         ImagePointerType getFGDT(){
@@ -296,18 +306,58 @@ namespace itk{
                 }
             }
             deformedAtlasSegmentation=int(m_movingSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+#define THRESHOLDING
+            if (segmentationLabel==m_nSegmentationLabels - 1){
+                if (segmentationLabel!=deformedAtlasSegmentation){
+                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+#ifdef THRESHOLDING
+                    distanceToDeformedSegmentation=distanceToDeformedSegmentation>m_threshold?maxDist:distanceToDeformedSegmentation;
+#endif
+                    result=fabs(distanceToDeformedSegmentation)/mDistTarget;//((sigma1+sigma2)/2);//1;
+                }
+            }
+            else if (segmentationLabel){
+                if (segmentationLabel!=deformedAtlasSegmentation){
+                    distanceToDeformedSegmentation=m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/mDistSecondary;//((sigma1+sigma2)/2);//1;
+                }
+            }
+            else{
+                if (deformedAtlasSegmentation==m_nSegmentationLabels - 1){
+                    distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+#ifdef THRESHOLDING
+                    distanceToDeformedSegmentation=distanceToDeformedSegmentation>m_threshold?maxDist:distanceToDeformedSegmentation;
+#endif
+                    result=fabs(distanceToDeformedSegmentation)/mDistTarget;//((sigma1+sigma2)/2);//1;
+                }
+                else if(deformedAtlasSegmentation){
+                    distanceToDeformedSegmentation=m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
+                    result=fabs(distanceToDeformedSegmentation)/mDistSecondary;//((sigma1+sigma2)/2);//1;
+                }
+            }
+            result*=result;
+#if 0
             if (deformedAtlasSegmentation>0){
                 if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
+                    //trying to assign background label when atlas label is target anatomy
                     distanceToDeformedSegmentation=m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//1;
+                    result=fabs(distanceToDeformedSegmentation)/mDistTarget;//((sigma1+sigma2)/2);//1;
                     
                 }else if (segmentationLabel == 0 && deformedAtlasSegmentation ){
+                    //trying to assign background label when atlas label is secondary foreground
                     distanceToDeformedSegmentation= m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
+                    result=fabs(distanceToDeformedSegmentation)/mDistSecondary;//((sigma1+sigma2)/2);//2;
                     
                 }
-                else if (deformedAtlasSegmentation!=segmentationLabel){
-                    result=fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1+sigma2)/2)+fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/((sigma1+sigma2)/2);
+                else if (segmentationLabel==m_nSegmentationLabels - 1){
+                    //trying to assign target anatomy label which is different from atlas label
+                    distanceToDeformedSegmentation=fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/mDistTarget;//((sigma1+sigma2)/2);
+                    if (distanceToDeformedSegmentation>m_threshold)
+                        result=maxDist/((sigma1+sigma2)/2);
+                }
+                else if (segmentationLabel){
+                    //trying to assign secondary foreground label when atlas is foreground
+                    result=fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/mDistSecondary;//((sigma1+sigma2)/2);
                 }
                 
             }else{
@@ -316,18 +366,19 @@ namespace itk{
                     distanceToDeformedSegmentation=fabs(m_movingDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
 #if 1       
                     if (distanceToDeformedSegmentation>m_threshold)
-                        result=99999999999;
+                        result=maxDist/((sigma1+sigma2)/2);
                     else
 #endif
-                        result=(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//1;
+                        result=(distanceToDeformedSegmentation)/mDistTarget;//((sigma1+sigma2)/2);//1;
                 }else if (segmentationLabel ){
                     distanceToDeformedSegmentation= fabs(m_movingBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
 #if 0
                     distanceToDeformedSegmentation=min(m_threshold,distanceToDeformedSegmentation);
 #endif
-                    result=(distanceToDeformedSegmentation)/((sigma1+sigma2)/2);//2;
+                    result=(distanceToDeformedSegmentation)/mDistSecondary;//((sigma1+sigma2)/2);//2;
                 }
             }
+#endif
             return result;
         }
     };//class

@@ -47,8 +47,9 @@ int main(int argc, char ** argv)
 //    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    //typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
+    
+typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
 
     //reg
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;

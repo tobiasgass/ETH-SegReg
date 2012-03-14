@@ -203,8 +203,8 @@ public:
         //	ok what now: create graph! solve graph! save result!Z
 		
         //typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
-        //typedef GC_MRFSolver<GraphModelType> MRFSolverType;
-        typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
+        typedef GC_MRFSolver<GraphModelType> MRFSolverType;
+        //typedef TRWS_SimpleMRFSolver<GraphModelType> MRFSolverType;
         //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
                 
         MRFSolverType mrfSolver(&graph,
