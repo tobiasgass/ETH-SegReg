@@ -33,11 +33,11 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        SizeType m_fixedSize;
+        SizeType m_targetSize;
 
         typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
-        ConstImagePointerType m_fixedImage, m_sheetnessImage,m_referenceImage, m_referenceGradientImage;
+        ConstImagePointerType m_targetImage, m_sheetnessImage,m_referenceImage, m_referenceGradientImage;
         ConstImagePointerType m_referenceSegmentation;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
@@ -64,11 +64,11 @@ namespace itk{
         virtual void freeMemory(){
         }
         void SetGradientScaling(double s){m_gradientScaling=s;}
-        void SetFixedImage(ConstImagePointerType fixedImage){
-            this->m_fixedImage=fixedImage;
-            this->m_fixedSize=this->m_fixedImage->GetLargestPossibleRegion().GetSize();
+        void SetTargetImage(ConstImagePointerType targetImage){
+            this->m_targetImage=targetImage;
+            this->m_targetSize=this->m_targetImage->GetLargestPossibleRegion().GetSize();
         }
-        void SetFixedGradientImage(ConstImagePointerType sheetnessImage){
+        void SetTargetGradientImage(ConstImagePointerType sheetnessImage){
             this->m_sheetnessImage=sheetnessImage;
             
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
@@ -77,7 +77,7 @@ namespace itk{
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
             std::cout<<"Gradient variance: "<<m_gradientSigma<<std::endl;
-            filter->SetInput(this->m_fixedImage);
+            filter->SetInput(this->m_targetImage);
             filter->Update();
             this->m_Sigma=filter->GetSigma();
             this->m_Sigma*=this->m_Sigma;
@@ -92,9 +92,9 @@ namespace itk{
         virtual void SetReferenceImage(ConstImagePointerType im){
             m_referenceImage=im;
         }
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            int s= this->m_sheetnessImage->GetPixel(fixedIndex);
-            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            int s= this->m_sheetnessImage->GetPixel(targetIndex);
+            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
             double segmentationProb=1;
             int tissue=-500;
             int bone=300;
@@ -122,8 +122,8 @@ namespace itk{
             double edgeWeight=fabs(s1-s2);
             edgeWeight*=edgeWeight;
 
-            //int i1=this->m_fixedImage->GetPixel(idx1);
-            //int i2=this->m_fixedImage->GetPixel(idx2);
+            //int i1=this->m_targetImage->GetPixel(idx1);
+            //int i2=this->m_targetImage->GetPixel(idx2);
             //double intensityDiff=(i1-i2)*(i1-i2);
             edgeWeight=(s1 < s2) ? 1.0 : exp( - 40* (edgeWeight/this->m_gradientSigma) );
             //edgeWeight=(s1 < s2) ? 1.0 : exp( - 0.05* edgeWeight );
@@ -152,8 +152,8 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationArtificial, Object);
         
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
             double segmentationProb=1;
             switch (segmentationLabel) {
             case 1  :
@@ -165,7 +165,7 @@ namespace itk{
             default:
                 assert(false);
             }
-            //        std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
+            //        std::cout<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             return segmentationProb;
         }
 
@@ -187,8 +187,8 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationArtificial2, Object);
         
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
             double segmentationProb=1;
             if (segmentationLabel>=1) {
                 segmentationProb = (imageIntensity < 85 || imageIntensity>170  ) ? 1 : 0;
@@ -196,7 +196,7 @@ namespace itk{
             else{
                 segmentationProb =  (imageIntensity > 85 && imageIntensity<170  )  ? 1 : 0;
             }
-            //        std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
+            //        std::cout<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             return segmentationProb;
         }
 
@@ -220,15 +220,15 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationProb, Object);
         
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double imageIntensity=1.0*this->m_fixedImage->GetPixel(fixedIndex)/255;
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            double imageIntensity=1.0*this->m_targetImage->GetPixel(targetIndex)/255;
             double segmentationProb=1;
             if (segmentationLabel>0) {
                 segmentationProb = 1-imageIntensity;//(imageIntensity < 0.7 ) ? 1 : 0;
             }else{
                 segmentationProb = imageIntensity;//( imageIntensity > 0.4) ? 1 : 0;
             }
-            //   std::cout<<fixedIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
+            //   std::cout<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             
             return segmentationProb;
         }
@@ -253,11 +253,11 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationUnsignedBone, Object);
 
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            int s=this->m_sheetnessImage->GetPixel(fixedIndex);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            int s=this->m_sheetnessImage->GetPixel(targetIndex);
             int bone=(300+1000)*255.0/2000;
             int tissue=(-500+1000)*255.0/2000;
-            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
             double segmentationProb=1;
             if (segmentationLabel>0) {
                 if (imageIntensity < tissue)
@@ -288,8 +288,8 @@ namespace itk{
             double edgeWeight=fabs(s1-s2);
             //edgeWeight*=edgeWeight;
 
-            int i1=this->m_fixedImage->GetPixel(idx1);
-            int i2=this->m_fixedImage->GetPixel(idx2);
+            int i1=this->m_targetImage->GetPixel(idx1);
+            int i2=this->m_targetImage->GetPixel(idx2);
             double intensityDiff=(i1-i2)*(i1-i2);
             edgeWeight=(s1 < s2) ? 0.99999999 : exp( - 2*(edgeWeight) );
             //edgeWeight=(s1 < s2) ? 1.0 : exp( - 0.05* edgeWeight );
@@ -345,20 +345,20 @@ namespace itk{
             m_classifier->loadProbs("test.probs");
 #endif
             //m_classifier->evalImage(targetImage);
-            //m_classifier->evalImage(targetImage,fixedGradientImage);
+            //m_classifier->evalImage(targetImage,targetGradientImage);
         }
         
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
             
             if (false && segmentationLabel){
-                bool tissuePrior = (this->m_tissuePrior->GetPixel(fixedIndex))>0;
+                bool tissuePrior = (this->m_tissuePrior->GetPixel(targetIndex))>0;
                 if (tissuePrior)
                     return 100;
             }
 
             
-            int s= this->m_sheetnessImage->GetPixel(fixedIndex);
+            int s= this->m_sheetnessImage->GetPixel(targetIndex);
 
             //prob of inverse segmentation label
             //double prob=m_classifier->px_l(imageIntensity,s,(segmentationLabel));
@@ -443,10 +443,10 @@ namespace itk{
         }
         void SetAlpha(double alpha){this->m_alpha=alpha;}     
         void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double origPotential=UnarySuperclass::getPotential(fixedIndex,segmentationLabel);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            double origPotential=UnarySuperclass::getPotential(targetIndex,segmentationLabel);
             
-            double priorPotential=m_srsPotential->getPotential(fixedIndex,fixedIndex,zeroDisplacement,segmentationLabel);
+            double priorPotential=m_srsPotential->getPotential(targetIndex,targetIndex,zeroDisplacement,segmentationLabel);
             return origPotential+m_alpha*priorPotential;
         }
     };//class
@@ -482,23 +482,23 @@ namespace itk{
         void SetUseTissuePrior(bool b){
             m_useTissuePrior=b;
         }
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            int s=this->m_sheetnessImage->GetPixel(fixedIndex);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            int s=this->m_sheetnessImage->GetPixel(targetIndex);
             int bone=(300+1000)*255.0/2000;
             int tissue=(-500+1000)*255.0/2000;
-            double imageIntensity=this->m_fixedImage->GetPixel(fixedIndex);
+            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
             double totalCost=1;
             bool bonePrior=false,tissuePrior=false;
             //#define USEPRIOR
             if (m_useTissuePrior){
-                bonePrior = (this->m_tissuePrior->GetPixel(fixedIndex))>0.5;
-                tissuePrior = (this->m_tissuePrior->GetPixel(fixedIndex))<0.2;
+                bonePrior = (this->m_tissuePrior->GetPixel(targetIndex))>0.5;
+                tissuePrior = (this->m_tissuePrior->GetPixel(targetIndex))<0.2;
             }
 
             switch (segmentationLabel) {
             case 0:
 #ifdef USEPRIOR
-                //if (this->m_tissuePrior->GetPixel(fixedIndex)>0.8) return 100;
+                //if (this->m_tissuePrior->GetPixel(targetIndex)>0.8) return 100;
                 totalCost = ( ((  imageIntensity > bone) && ( s > 0 ) ) )? 1 : 0;
 #else
                 totalCost = ( imageIntensity > bone) && ( s > 127 ) ? 1 : 0;
@@ -507,7 +507,7 @@ namespace itk{
                 break;
             default  :
 #ifdef USEPRIOR
-                //if (this->m_tissuePrior->GetPixel(fixedIndex)<0.1) return 100;
+                //if (this->m_tissuePrior->GetPixel(targetIndex)<0.1) return 100;
                 totalCost = ( bonePrior || imageIntensity < tissue) ? 1 : 0;
 #else
                 totalCost = (imageIntensity < tissue) ? 1 : 0;
@@ -555,9 +555,9 @@ namespace itk{
         }
         void SetAlpha(double alpha){this->m_alpha=alpha;}     
         void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
-        virtual double getPotential(IndexType fixedIndex, int segmentationLabel){
-            double origPotential=UnarySuperclass::getPotential(fixedIndex,segmentationLabel);
-            double priorPotential=m_srsPotential->getPotential(fixedIndex,fixedIndex,zeroDisplacement,segmentationLabel);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            double origPotential=UnarySuperclass::getPotential(targetIndex,segmentationLabel);
+            double priorPotential=m_srsPotential->getPotential(targetIndex,targetIndex,zeroDisplacement,segmentationLabel);
             return origPotential+m_alpha*priorPotential;
         }
     };//class

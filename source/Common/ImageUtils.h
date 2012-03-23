@@ -94,9 +94,9 @@ public:
 		catch( itk::ExceptionObject & err )
 		{
 			std::cerr << "ExceptionObject caught !" << std::endl;
+            std::cerr << "Could not read image from "<<filename<<" "<<std::endl;
 			std::cerr << err << std::endl;
 		}
-		std::cout<<reader->GetOutput()->GetLargestPossibleRegion()<<std::endl;
 		return reader->GetOutput();
 	}
 

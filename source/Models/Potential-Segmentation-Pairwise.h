@@ -92,8 +92,8 @@ namespace itk{
                 int s2=this->m_sheetnessImage->GetPixel(idx2);
                 double edgeWeight=fabs(s1-s2);
                 edgeWeight*=edgeWeight;
-                //int i1=this->m_fixedImage->GetPixel(idx1);
-                //int i2=this->m_fixedImage->GetPixel(idx2);
+                //int i1=this->m_targetImage->GetPixel(idx1);
+                //int i2=this->m_targetImage->GetPixel(idx2);
                 //double intensityDiff=(i1-i2)*(i1-i2);
                 edgeWeight=(s1 < s2) ? 1.0 : exp( - 40* (edgeWeight/this->m_gradientSigma) );
                 return edgeWeight;
@@ -131,7 +131,7 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(PairwisePotentialSegmentationClassifier, Object);
         virtual void Init(){
-            assert(this->m_fixedImage);
+            assert(this->m_targetImage);
             assert(this->m_sheetnessImage);
             assert(this->m_referenceSegmentation);
             assert(this->m_referenceGradient);
@@ -148,7 +148,7 @@ namespace itk{
         }
         virtual void Init(string filename){
             assert(false);
-            assert(this->m_fixedImage);
+            assert(this->m_targetImage);
             assert(this->m_sheetnessImage);
             m_classifier=ClassifierType::New();
             
@@ -218,8 +218,8 @@ namespace itk{
             //       if (s1<s2) return 100;
             double sheetnessDiff=(s1-s2);
             //   if (s1<s2 && label1!=label2) return 100;
-            int i1=this->m_fixedImage->GetPixel(idx1);
-            int i2=this->m_fixedImage->GetPixel(idx2);
+            int i1=this->m_targetImage->GetPixel(idx1);
+            int i2=this->m_targetImage->GetPixel(idx2);
             double intensityDiff=(i1-i2);
             //double prob=m_classifier->px_l(intensityDiff,label1!=label2,sheetnessDiff);
             double prob=m_classifier->px_l(intensityDiff,label1,sheetnessDiff,label2);

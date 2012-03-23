@@ -37,8 +37,8 @@ namespace itk{
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
     protected:
-        SizeType m_fixedSize,m_movingSize;
-        ConstImagePointerType m_fixedImage, m_movingImage;
+        SizeType m_targetSize,m_atlasSize;
+        ConstImagePointerType m_targetImage, m_atlasImage;
         LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         SpacingType m_gridSpacing;
@@ -56,9 +56,9 @@ namespace itk{
         }
         void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-        void SetFixedImage(ConstImagePointerType fixedImage){
-            m_fixedImage=fixedImage;
-            m_fixedSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
+        void SetTargetImage(ConstImagePointerType targetImage){
+            m_targetImage=targetImage;
+            m_targetSize=m_targetImage->GetLargestPossibleRegion().GetSize();
         }
         void SetSpacing(SpacingType  sp) {
             m_gridSpacing=sp;
@@ -67,13 +67,13 @@ namespace itk{
                 m_maxDist+=sp[d]*sp[d];
             }
         }
-        virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement1, LabelType displacement2){
+        virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
             assert(m_haveLabelMap);
             double result=0;
             
 
-			LabelType oldl1=m_baseLabelMap->GetPixel((fixedIndex1));
-			LabelType oldl2=m_baseLabelMap->GetPixel((fixedIndex2));
+			LabelType oldl1=m_baseLabelMap->GetPixel((targetIndex1));
+			LabelType oldl2=m_baseLabelMap->GetPixel((targetIndex2));
 			double d1,d2;
 			int delta;
             //			displacement1+=oldl1;
@@ -83,7 +83,7 @@ namespace itk{
 
 				d1=displacement1[d];
 				d2=displacement2[d];
-				delta=(fixedIndex2[d]-fixedIndex1[d]);
+				delta=(targetIndex2[d]-targetIndex1[d]);
 				double axisPositionDifference=1.0*(d2-d1)/(m_gridSpacing[d]);
 				result+=(axisPositionDifference)*(axisPositionDifference);
 			}
@@ -124,13 +124,13 @@ namespace itk{
 
    
         
-        virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement1, LabelType displacement2){
+        virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
             assert(this->m_haveLabelMap);
             double result=0;
             
 
-			LabelType oldl1=this->m_baseLabelMap->GetPixel((fixedIndex1));
-			LabelType oldl2=this->m_baseLabelMap->GetPixel((fixedIndex2));
+			LabelType oldl1=this->m_baseLabelMap->GetPixel((targetIndex1));
+			LabelType oldl2=this->m_baseLabelMap->GetPixel((targetIndex2));
 			double d1,d2;
 			double delta;
 			displacement1+=oldl1;
@@ -139,7 +139,7 @@ namespace itk{
 
 				d1=displacement1[d];
 				d2=displacement2[d];
-				delta=(fixedIndex2[d]-fixedIndex1[d]);
+				delta=(targetIndex2[d]-targetIndex1[d]);
                 if (delta>0){
                     double axisPositionDifference=((1.0*fabs(d2-d1)-delta/3)/(delta/5));//(this->m_spacing[d]);
                     result+=(axisPositionDifference);
@@ -183,30 +183,30 @@ namespace itk{
 
    
         
-        virtual double getPotential(IndexType fixedIndex1, IndexType fixedIndex2,LabelType displacement1, LabelType displacement2){
+        virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
             assert(this->m_haveLabelMap);
             double leftCost=0, rightCost=0;
             double controlPointDistance=0.0;
             double delta;
 
             //get neighboring axis, and make sure Index1<index2
-            IndexType rightNeighbor=fixedIndex2, leftNeighbor=fixedIndex1;
+            IndexType rightNeighbor=targetIndex2, leftNeighbor=targetIndex1;
             int neighbAxis=-1;
             bool leftNeighb=false,rightNeighb=false;
 			for (unsigned int d=0;d<D;++d){
-                delta=(fixedIndex2[d]-fixedIndex1[d]);
+                delta=(targetIndex2[d]-targetIndex1[d]);
                 if (delta<0) {
                     //swap
-                    IndexType tmp=fixedIndex1;
-                    fixedIndex1=fixedIndex2;
-                    fixedIndex2=fixedIndex1;
-                    rightNeighbor=fixedIndex2;
-                    leftNeighbor=fixedIndex1;
+                    IndexType tmp=targetIndex1;
+                    targetIndex1=targetIndex2;
+                    targetIndex2=targetIndex1;
+                    rightNeighbor=targetIndex2;
+                    leftNeighbor=targetIndex1;
                 }
                 if (delta!=0.0) {
                     neighbAxis=d;
                     rightNeighbor[d]+=this->m_gridSpacing[d]; 
-                    if (rightNeighbor[d]<this->m_fixedSize[d]){
+                    if (rightNeighbor[d]<this->m_targetSize[d]){
                         rightNeighb=true;
                     }
                     leftNeighbor[d]-=this->m_gridSpacing[d]; 
@@ -221,11 +221,11 @@ namespace itk{
             
             if (! (rightNeighb || leftNeighb) ){
                 std::cout<<"ERROR, no pair has left or right neighbors. 2x2 grids dont work!"<<endl;
-                std::cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<this->m_gridSpacing<<" "<<this->m_fixedSize<<endl;
+                std::cout<<targetIndex1<<" "<<targetIndex2<<" "<<this->m_gridSpacing<<" "<<this->m_targetSize<<endl;
             }
 
-            LabelType oldl1=this->m_baseLabelMap->GetPixel((fixedIndex1));
-			LabelType oldl2=this->m_baseLabelMap->GetPixel((fixedIndex2));
+            LabelType oldl1=this->m_baseLabelMap->GetPixel((targetIndex1));
+			LabelType oldl2=this->m_baseLabelMap->GetPixel((targetIndex2));
             LabelType leftDisp, rightDisp;
             if (rightNeighb){
                 rightDisp=this->m_baseLabelMap->GetPixel(rightNeighbor);
@@ -238,7 +238,7 @@ namespace itk{
 			displacement1+=oldl1;
 			displacement2+=oldl2;
             #if 0
-            std::cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<leftNeighbor<<" "<<rightNeighbor<<endl;;
+            std::cout<<targetIndex1<<" "<<targetIndex2<<" "<<leftNeighbor<<" "<<rightNeighbor<<endl;;
             std::cout<<displacement1<<" "<<leftDisp<<" "<<displacement2<<" "<<rightDisp<<endl;;
             #endif
             for (unsigned int d=0;d<D;++d){

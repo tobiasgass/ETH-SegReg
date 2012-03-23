@@ -24,7 +24,7 @@ namespace itk{
              class TPairwiseRegistrationFunction, 
              class TUnarySegmentationFunction, 
              class TPairwiseSegmentationFunction,
-             class TPairwiseSegmentationRegistrationFunction,
+             class TPairwiseCoherenceFunction,
              class TLabelMapper>
     class GraphModel: public itk::Object{
     public:
@@ -54,8 +54,8 @@ namespace itk{
         typedef typename UnarySegmentationFunctionType::Pointer UnarySegmentationFunctionPointerType;
         typedef TPairwiseSegmentationFunction PairwiseSegmentationFunctionType;
         typedef typename PairwiseSegmentationFunctionType::Pointer PairwiseSegmentationFunctionPointerType;
-        typedef TPairwiseSegmentationRegistrationFunction PairwiseSegmentationRegistrationFunctionType;
-        typedef typename PairwiseSegmentationRegistrationFunctionType::Pointer PairwiseSegmentationRegistrationFunctionPointerType;
+        typedef TPairwiseCoherenceFunction PairwiseCoherenceFunctionType;
+        typedef typename PairwiseCoherenceFunctionType::Pointer PairwiseCoherenceFunctionPointerType;
     
         typedef TLabelMapper LabelMapperType;
         typedef typename LabelMapperType::LabelType RegistrationLabelType;
@@ -88,7 +88,7 @@ namespace itk{
         UnaryRegistrationFunctionPointerType m_unaryRegFunction;
         UnarySegmentationFunctionPointerType m_unarySegFunction;
         PairwiseSegmentationFunctionPointerType m_pairwiseSegFunction;
-        PairwiseSegmentationRegistrationFunctionPointerType m_pairwiseSegRegFunction;
+        PairwiseCoherenceFunctionPointerType m_pairwiseSegRegFunction;
         PairwiseRegistrationFunctionPointerType m_pairwiseRegFunction;
   
         //PairwiseFunctionPointerType m_pairwiseFunction;
@@ -545,7 +545,7 @@ namespace itk{
         void setPairwiseSegmentationFunction(PairwiseSegmentationFunctionPointerType func){
             m_pairwiseSegFunction=func;
         }
-        void setPairwiseSegmentationRegistrationFunction( PairwiseSegmentationRegistrationFunctionPointerType func){
+        void setPairwiseCoherenceFunction( PairwiseCoherenceFunctionPointerType func){
             m_pairwiseSegRegFunction=func;
         }
         void setPairwiseRegistrationFunction( PairwiseRegistrationFunctionPointerType func){

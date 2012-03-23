@@ -107,13 +107,13 @@ namespace itk{
         typedef  typename GraphModelType::UnarySegmentationFunctionType UnarySegmentationPotentialType;
         typedef  typename  GraphModelType::PairwiseSegmentationFunctionType PairwiseSegmentationPotentialType;
         typedef typename  GraphModelType::PairwiseRegistrationFunctionType PairwiseRegistrationPotentialType;
-        typedef typename  GraphModelType::PairwiseSegmentationRegistrationFunctionType PairwiseSegmentationRegistrationPotentialType; 
+        typedef typename  GraphModelType::PairwiseCoherenceFunctionType PairwiseCoherencePotentialType; 
         typedef typename  UnaryRegistrationPotentialType::Pointer UnaryRegistrationPotentialPointerType;
         typedef typename  UnarySegmentationPotentialType::Pointer UnarySegmentationPotentialPointerType;
         typedef typename  UnaryRegistrationPotentialType::RadiusType RadiusType;
         typedef typename  PairwiseSegmentationPotentialType::Pointer PairwiseSegmentationPotentialPointerType;
         typedef typename  PairwiseRegistrationPotentialType::Pointer PairwiseRegistrationPotentialPointerType;
-        typedef typename  PairwiseSegmentationRegistrationPotentialType::Pointer PairwiseSegmentationRegistrationPotentialPointerType;
+        typedef typename  PairwiseCoherencePotentialType::Pointer PairwiseCoherencePotentialPointerType;
 
         typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename  SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
@@ -126,26 +126,29 @@ namespace itk{
     
     public:
         HierarchicalSRSImageToImageFilter(){
-            this->SetNumberOfRequiredInputs(4);
+            this->SetNumberOfRequiredInputs(5);
         }
     
         void setConfig(SRSConfig c){
             m_config=c;
         }
 
-        void setFixedImage(ImagePointerType img){
+        void setTargetImage(ImagePointerType img){
             SetNthInput(0,img);
         }
-        void setMovingImage(ImagePointerType img){
+        void setAtlasImage(ImagePointerType img){
             SetNthInput(1,img);
         }
-        void setMovingSegmentation(ImagePointerType img){
+        void setAtlasSegmentation(ImagePointerType img){
             SetNthInput(2,img);
         }
-        void setFixedGradientImage(ImagePointerType img){
+        void setTargetGradientImage(ImagePointerType img){
             SetNthInput(3,img);
         }
-        LabelImagePointerType affineRegistration(ConstImagePointerType targetImage, ConstImagePointerType movingImage){
+        void setAtlasGradientImage(ImagePointerType img){
+            SetNthInput(4,img);
+        }
+        LabelImagePointerType affineRegistration(ConstImagePointerType targetImage, ConstImagePointerType atlasImage){
             
             
 
@@ -157,34 +160,26 @@ namespace itk{
 
             //define input images
             ConstImagePointerType targetImage = this->GetInput(0);
-            ConstImagePointerType movingImage = this->GetInput(1);
-            ConstImagePointerType movingSegmentationImage;
+            ConstImagePointerType atlasImage = this->GetInput(1);
+            ConstImagePointerType atlasSegmentationImage;
             
-            
-            
-            bool affine;
-            if (affine){
-
-
-            }
-
             if (segment){
                 if (D==2){
                     //2d segmentations pngs [from matlab] may have screwed up intensities
-                    movingSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
-                    ImageUtils<ImageType>::writeImage("test.png",movingSegmentationImage);
+                    atlasSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
+                    ImageUtils<ImageType>::writeImage("test.png",atlasSegmentationImage);
 
                 }else{
-                    movingSegmentationImage = (this->GetInput(2));
+                    atlasSegmentationImage = (this->GetInput(2));
                 }
             }
-            ConstImagePointerType fixedGradientImage = this->GetInput(3);
-
-            movingImage=FilterUtils<ImageType>::LinearResample(movingImage,targetImage);
-            movingSegmentationImage=FilterUtils<ImageType>::NNResample(movingSegmentationImage,targetImage);
+            ConstImagePointerType targetGradientImage = this->GetInput(3);
+            ImagePointerType atlasGradientImage=this->GetInput(4);
+            //atlasImage=FilterUtils<ImageType>::LinearResample(atlasImage,targetImage);
+            //atlasSegmentationImage=FilterUtils<ImageType>::NNResample(atlasSegmentationImage,targetImage);
             
             //results
-            ImagePointerType deformedImage,deformedSegmentationImage,segmentationImage;
+            ImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
             LabelImagePointerType fullDeformation,previousFullDeformation;
         
             if (regist){
@@ -204,32 +199,30 @@ namespace itk{
             UnarySegmentationPotentialPointerType unarySegmentationPot=UnarySegmentationPotentialType::New();
             PairwiseSegmentationPotentialPointerType pairwiseSegmentationPot=PairwiseSegmentationPotentialType::New();
             PairwiseRegistrationPotentialPointerType pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
-            PairwiseSegmentationRegistrationPotentialPointerType pairwiseSegmentationRegistrationPot=PairwiseSegmentationRegistrationPotentialType::New();
+            PairwiseCoherencePotentialPointerType pairwiseCoherencePot=PairwiseCoherencePotentialType::New();
 
             //instantiate interpolators
             SegmentationInterpolatorPointerType segmentationInterpolator=SegmentationInterpolatorType::New();
-            ImageInterpolatorPointerType movingInterpolator=ImageInterpolatorType::New();
+            ImageInterpolatorPointerType atlasInterpolator=ImageInterpolatorType::New();
 
             if (segment){
-                ImagePointerType movingGradientImage=ImageUtils<ImageType>::readImage(m_config.movingGradientFilename);
-                movingGradientImage=FilterUtils<ImageType>::LinearResample((ConstImagePointerType)movingGradientImage,targetImage);
-                unarySegmentationPot->SetFixedImage(targetImage);
-                unarySegmentationPot->SetFixedGradientImage((ConstImagePointerType)fixedGradientImage);
-                unarySegmentationPot->SetReferenceImage(movingImage);
-                unarySegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
-                unarySegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
+                unarySegmentationPot->SetTargetImage(targetImage);
+                unarySegmentationPot->SetTargetGradient((ConstImagePointerType)targetGradientImage);
+                unarySegmentationPot->SetAtlasImage(atlasImage);
+                unarySegmentationPot->SetAtlasGradient((ConstImagePointerType)atlasGradientImage);
+                unarySegmentationPot->SetAtlasSegmentation(atlasSegmentationImage);
                 unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
-                unarySegmentationPot->SetTissuePrior((ConstImagePointerType)ImageUtils<ImageType>::readImage(m_config.tissuePriorFilename));
+                //                unarySegmentationPot->SetTissuePrior((ConstImagePointerType)ImageUtils<ImageType>::readImage(m_config.tissuePriorFilename));
                 unarySegmentationPot->Init();
                 
-                pairwiseSegmentationPot->SetFixedImage(targetImage);
-                pairwiseSegmentationPot->SetFixedGradient((ConstImagePointerType)fixedGradientImage);
-                pairwiseSegmentationPot->SetReferenceImage(movingImage);
-                pairwiseSegmentationPot->SetReferenceGradient((ConstImagePointerType)movingGradientImage);
-                pairwiseSegmentationPot->SetReferenceSegmentation(movingSegmentationImage);
+                pairwiseSegmentationPot->SetTargetImage(targetImage);
+                pairwiseSegmentationPot->SetTargetGradient((ConstImagePointerType)targetGradientImage);
+                pairwiseSegmentationPot->SetAtlasImage(atlasImage);
+                pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)atlasGradientImage);
+                pairwiseSegmentationPot->SetAtlasSegmentation(atlasSegmentationImage);
                 pairwiseSegmentationPot->Init();
                 if (ImageType::ImageDimension==2){
-                    //pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)fixedGradientImage);
+                    //pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)targetGradientImage);
                 }
             }
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
@@ -246,8 +239,8 @@ namespace itk{
             LabelImagePointerType deformation;
             ImagePointerType segmentation;
             if (segment && regist){
-                pairwiseSegmentationRegistrationPot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
-                pairwiseSegmentationRegistrationPot->SetReferenceSegmentation(movingSegmentationImage);
+                pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
+                pairwiseCoherencePot->SetAtlasSegmentation(atlasSegmentationImage);
             }
 
           
@@ -275,92 +268,71 @@ namespace itk{
                 //roughly compute downscaling
                 scale=1;//1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
                 
-                if (m_config.downScale){
-                    scale=scaling;
-                    scaling=0.5;
-                }
+              
                 scale=scale<1.0?scale:1.0;
                 //full resolution at last level of pyramid enforced
                 //            if (l==(m_config.nLevels-1)) scale=1.0;
                 std::cout<<"scale :"<<scale<<std::endl;
                 //downsample images if wanted
-                ConstImagePointerType downSampledTarget,downSampledReference,downSampledReferenceSegmentation,downSampledTargetSheetness;
-                if (scale<1.0){
-                    downSampledTarget=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(targetImage,sigma),scale);
-                    downSampledReference=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(movingImage,sigma),scale);
-                    downSampledReferenceSegmentation=FilterUtils<ImageType>::NNResample((movingSegmentationImage),scale);
-                    downSampledTargetSheetness=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(fixedGradientImage,sigma),scale);
-                    //downSampledTargetSheetness=FilterUtils<ImageType>::NNResample((fixedGradientImage),scale);
-                }
-                else{
-                    downSampledTarget=targetImage;
-                    downSampledReference=movingImage;
-                    downSampledReferenceSegmentation=movingSegmentationImage;
-                    downSampledTargetSheetness=fixedGradientImage;
-                }
-                std::cout<<"Downsampled images to: "<<downSampledTarget->GetLargestPossibleRegion().GetSize()<<std::endl;
-
+              
                 //init graph
                 std::cout<<"init graph"<<std::endl;
                 GraphModelType graph;
                 graph.setConfig(m_config);
-                graph.setFixedImage(downSampledTarget);
+                graph.setTargetImage(targetImage);
                 graph.setDisplacementFactor(labelScalingFactor);
                 graph.initGraph(level);
 
-                //             typename itk::ImageRegionConstIteratorWithIndex<ImageType> ii(downSampledTarget, downSampledTarget->GetLargestPossibleRegion());
-                //             for (ii.GoToBegin();!ii.IsAtEnd();++ii){
-                //                 std::cout<<ii.GetIndex()<<" "<<graph.getClosestGraphIndex(ii.GetIndex())<<std::endl;
-                //             }
-                movingInterpolator->SetInputImage(downSampledReference);
+             }
+                atlasInterpolator->SetInputImage(downSampledAtlas);
                 
                 if (segment && regist)
-                    segmentationInterpolator->SetInputImage(downSampledReferenceSegmentation);
+                    segmentationInterpolator->SetInputImage(atlasSegmentationImage);
 
                 if (regist){
                     //setup registration potentials
                     unaryRegistrationPot->SetScale(scaling);
                     unaryRegistrationPot->SetRadius(graph.getSpacing());
-                    unaryRegistrationPot->SetFixedImage(downSampledTarget);
-                    unaryRegistrationPot->SetMovingImage(downSampledReference);
+                    unaryRegistrationPot->SetTargetImage(targetImage);
+                    unaryRegistrationPot->SetAtlasImage(atlasImage);
                     unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
 #if 0
-                    unaryRegistrationPot->SetAtlasSegmentation(downSampledReferenceSegmentation);
+                    unaryRegistrationPot->SetAtlasSegmentation(atlasSegmentationImage);
                     unaryRegistrationPot->SetAlpha(m_config.alpha);
-                    unaryRegistrationPot->SetTargetSheetness(downSampledTargetSheetness);
+                    unaryRegistrationPot->SetTargetGradient(targetImageGradient);
 #endif          
                     unaryRegistrationPot->Init();
             
-                    pairwiseRegistrationPot->SetFixedImage(downSampledTarget);
+                    pairwiseRegistrationPot->SetTargetImage(targetImage);
                     pairwiseRegistrationPot->SetSpacing(graph.getPixelSpacing());
                     
                 }
 
                 if (segment){
                     //setup segmentation potentials
-                    unarySegmentationPot->SetFixedImage(downSampledTarget);
-                    unarySegmentationPot->SetFixedGradientImage(downSampledTargetSheetness);
+                    unarySegmentationPot->SetTargetImage(targetImage);
+                    unarySegmentationPot->SetTargetGradientImage(targetImageGradient);
                     unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
                 }
                 if (segment && regist){
                     //setup segreg potentials
-                    pairwiseSegmentationRegistrationPot->SetMovingSegmentationInterpolator(segmentationInterpolator);
-                    //pairwiseSegmentationRegistrationPot->SetMovingInterpolator(movingInterpolator);
-                    pairwiseSegmentationRegistrationPot->SetMovingImage(downSampledReference);
-                    pairwiseSegmentationRegistrationPot->SetFixedImage(downSampledTarget);
-                    pairwiseSegmentationRegistrationPot->SetAsymmetryWeight(m_config.asymmetry);
+                    pairwiseCoherencePot->SetAtlasSegmentationInterpolator(segmentationInterpolator);
+                    //pairwiseCoherencePot->SetAtlasInterpolator(atlasInterpolator);
+                    pairwiseCoherencePot->SetAtlasImage(atlasImage);
+                    pairwiseCoherencePot->SetTargetImage(targetImage);
+                    pairwiseCoherencePot->SetAsymmetryWeight(m_config.asymmetry);
                 }
 
                 //register images and potentials
                 graph.setUnaryRegistrationFunction(unaryRegistrationPot);
                 graph.setPairwiseRegistrationFunction(pairwiseRegistrationPot);
                 graph.setUnarySegmentationFunction(unarySegmentationPot);
-                graph.setPairwiseSegmentationRegistrationFunction(pairwiseSegmentationRegistrationPot);
+                graph.setPairwiseCoherenceFunction(pairwiseCoherencePot);
                 graph.setPairwiseSegmentationFunction(pairwiseSegmentationPot);
 
                 //resample the deformation from last iteration to the current image resolution.
                 if (scale!=oldscale){
-                    previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, downSampledTarget);
+                    previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
                 }
                 //now scale it according to spacing difference between this and the previous iteration
                 SpacingType sp;
@@ -387,11 +359,11 @@ namespace itk{
                         unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                         pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                         if (segment){
-                            pairwiseSegmentationRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                            pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
                         }
                     }
 #endif
-                    //if (i>0 || l> 0) pairwiseSegmentationRegistrationPot->SetReferenceSegmentation((ConstImagePointerType)deformedSegmentationImage);
+                    //if (i>0 || l> 0) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
 
                     //	ok what now: create graph! solve graph! save result!Z
                     //double linearIncreasingWeight=1.0/(m_config.nLevels-l);
@@ -466,12 +438,12 @@ namespace itk{
 
 #if 1
                     if (regist){
-                        fullDeformation=bSplineInterpolateLabelImage(deformation,downSampledTarget);
+                        fullDeformation=bSplineInterpolateLabelImage(deformation,targetImage);
                     }
                     //fullDeformation=scaleLabelImage(fullDeformation,graph.getDisplacementFactor());
            
-                    //apply deformation to moving image
-                    ConstIteratorType fixedIt(downSampledTarget,downSampledTarget->GetLargestPossibleRegion());
+                    //apply deformation to atlas image
+                    ConstIteratorType targetIt(targetImage,targetImage->GetLargestPossibleRegion());
                     if (regist){
 
 #if 1
@@ -499,16 +471,16 @@ namespace itk{
                     }
 #endif
                 
-                    deformedImage=warpImage(downSampledReference,composedDeformation);
-                    deformedSegmentationImage=deformSegmentationImage(downSampledReferenceSegmentation,composedDeformation);
-                    //deformedSegmentationImage=warpImage(downSampledReferenceSegmentation,composedDeformation);
+                    deformedAtlasImage=warpImage(atlasImage,composedDeformation);
+                    deformedAtlasSegmentation=deformSegmentationImage(atlasSegmentationImage,composedDeformation);
+                    //deformedAtlasSegmentation=warpImage(atlasSegmentationImage,composedDeformation);
                     }
                     
 #if 0
                     typedef itk::HausdorffDistanceImageFilter<ImageType, ImageType> HausdorffDistanceFilterType;
                     typedef typename HausdorffDistanceFilterType::Pointer HDPointerType;
                     HDPointerType hdFilter=HausdorffDistanceFilterType::New();
-                    ImagePointerType deformedForegroundSegmentation=FilterUtils<ImageType,ImageType>::binaryThresholding(deformedSegmentationImage,1.5,2.1);
+                    ImagePointerType deformedForegroundSegmentation=FilterUtils<ImageType,ImageType>::binaryThresholding(deformedAtlasSegmentation,1.5,2.1);
                     ImagePointerType foregroundSegmentation=FilterUtils<ImageType,ImageType>::binaryThresholding(segmentation,1.5,2.1);
                     hdFilter->SetInput1(deformedForegroundSegmentation);
                     hdFilter->SetInput2(foregroundSegmentation);
@@ -516,13 +488,13 @@ namespace itk{
                     double mean=hdFilter->GetAverageHausdorffDistance();
                     double maxAbsDistance=hdFilter->GetHausdorffDistance();
                     cout<<"Distance statistics :"<<mean<<" "<<maxAbsDistance<<" "<<(mean+maxAbsDistance)/2<<endl;
-                    pairwiseSegmentationRegistrationPot->SetThreshold((mean+maxAbsDistance)/2);
+                    pairwiseCoherencePot->SetThreshold((mean+maxAbsDistance)/2);
 #endif
       
-                    //pairwiseSegmentationRegistrationPot->SetThreshold(13);
-                    //pairwiseSegmentationRegistrationPot->SetThreshold(max(10.0,10*graph.getMaxDisplacementFactor()));
-                    pairwiseSegmentationRegistrationPot->SetThreshold(max(1.0,graph.getMaxDisplacementFactor()));//*(m_config.iterationsPerLevel-i)));
-                    //pairwiseSegmentationRegistrationPot->SetThreshold(1000000);
+                    //pairwiseCoherencePot->SetThreshold(13);
+                    //pairwiseCoherencePot->SetThreshold(max(10.0,10*graph.getMaxDisplacementFactor()));
+                    pairwiseCoherencePot->SetThreshold(max(1.0,graph.getMaxDisplacementFactor()));//*(m_config.iterationsPerLevel-i)));
+                    //pairwiseCoherencePot->SetThreshold(1000000);
                     
 
                     previousFullDeformation=composedDeformation;
@@ -539,16 +511,16 @@ namespace itk{
                         deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<suff;
                         ostringstream deformedSegmentationFilename;
                         deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
-                        if (regist) ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
+                        if (regist) ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedAtlasImage);
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
                         if (ImageType::ImageDimension==2){
                             if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
-                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedSegmentationImage,LabelMapperType::nSegmentations));
+                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
                         }
                         if (ImageType::ImageDimension==3){
                             if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
-                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedSegmentationImage);
+                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
                         }
                         //deformation
                         if (regist){
@@ -566,7 +538,7 @@ namespace itk{
                     
 #endif
                     
-                    //unaryRegistrationPot->SetMovingImage((ConstImagePointerType)deformedImage);
+                    //unaryRegistrationPot->SetAtlasImage((ConstImagePointerType)deformedAtlasImage);
 
                 }
                 std::cout<<std::endl<<std::endl;
@@ -587,30 +559,30 @@ namespace itk{
 
 #if 1
             if (ImageType::ImageDimension==2){
-                ImageUtils<ImageType>::writeImage("dt-def.png",deformImage(pairwiseSegmentationRegistrationPot->getFGDT(),finalDeformation));    
+                ImageUtils<ImageType>::writeImage("dt-def.png",deformImage(pairwiseCoherencePot->getFGDT(),finalDeformation));    
             }
             if (ImageType::ImageDimension==3){
-                ImageUtils<ImageType>::writeImage("dt-def.nii",deformImage(pairwiseSegmentationRegistrationPot->getFGDT(),finalDeformation));
+                ImageUtils<ImageType>::writeImage("dt-def.nii",deformImage(pairwiseCoherencePot->getFGDT(),finalDeformation));
             }
 #endif          
             
 
-            ImagePointerType finalDeformedReference=deformImage(movingImage,finalDeformation);
-            ImagePointerType finalDeformedReferenceSegmentation=deformSegmentationImage(movingSegmentationImage,finalDeformation);
+            ImagePointerType finalDeformedAtlas=deformImage(atlasImage,finalDeformation);
+            ImagePointerType finalDeformedAtlasSegmentation=deformSegmentationImage(atlasSegmentationImage,finalDeformation);
 
       
       
-            ImageUtils<ImageType>::writeImage(m_config.outputDeformedFilename, finalDeformedReference);
+            ImageUtils<ImageType>::writeImage(m_config.outputDeformedFilename, finalDeformedAtlas);
             if (ImageType::ImageDimension==2){
                 ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename,makePngFromLabelImage((ConstImagePointerType)finalSegmentation,LabelMapperType::nSegmentations));
-                ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,makePngFromLabelImage((ConstImagePointerType)finalDeformedReferenceSegmentation,LabelMapperType::nSegmentations));
+                ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,makePngFromLabelImage((ConstImagePointerType)finalDeformedAtlasSegmentation,LabelMapperType::nSegmentations));
             }
             if (ImageType::ImageDimension==3){
                 ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename,finalSegmentation);
-                ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,finalDeformedReferenceSegmentation);
+                ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,finalDeformedAtlasSegmentation);
             }
 
-            std::cout<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ConstImagePointerType)finalDeformedReference,targetImage)<<endl;
+            std::cout<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ConstImagePointerType)finalDeformedAtlas,targetImage)<<endl;
             //deformation
             if (m_config.defFilename!=""){
                 //		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
@@ -624,7 +596,7 @@ namespace itk{
 
 	
         }
-        LabelImagePointerType bSplineInterpolateLabelImage(LabelImagePointerType labelImg, ConstImagePointerType reference){
+        LabelImagePointerType bSplineInterpolateLabelImage(LabelImagePointerType labelImg, ConstImagePointerType atlas){
             typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
             LabelImagePointerType fullLabelImage;
 #if 1
@@ -657,10 +629,10 @@ namespace itk{
                     function->SetSplineOrder(SplineOrder);
                     upsampler->SetInput( paramsK );
                     upsampler->SetInterpolator( function );
-                    upsampler->SetSize(reference->GetLargestPossibleRegion().GetSize() );
-                    upsampler->SetOutputSpacing( reference->GetSpacing() );
-                    upsampler->SetOutputOrigin( reference->GetOrigin());
-                    upsampler->SetOutputDirection( reference->GetDirection());
+                    upsampler->SetSize(atlas->GetLargestPossibleRegion().GetSize() );
+                    upsampler->SetOutputSpacing( atlas->GetSpacing() );
+                    upsampler->SetOutputOrigin( atlas->GetOrigin());
+                    upsampler->SetOutputDirection( atlas->GetDirection());
 #if 1
                     upsampler->Update();
                     newImages[k]=upsampler->GetOutput();
@@ -681,10 +653,10 @@ namespace itk{
                     iterators[k].GoToBegin();
                 }
             fullLabelImage=LabelImageType::New();
-            fullLabelImage->SetRegions(reference->GetLargestPossibleRegion());
-            fullLabelImage->SetOrigin(reference->GetOrigin());
-            fullLabelImage->SetSpacing(reference->GetSpacing());
-            fullLabelImage->SetDirection(reference->GetDirection());
+            fullLabelImage->SetRegions(atlas->GetLargestPossibleRegion());
+            fullLabelImage->SetOrigin(atlas->GetOrigin());
+            fullLabelImage->SetSpacing(atlas->GetSpacing());
+            fullLabelImage->SetDirection(atlas->GetDirection());
             fullLabelImage->Allocate();
             LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
             lIt.GoToBegin();
@@ -710,13 +682,13 @@ namespace itk{
             //initialise resampler
             
             typename LabelResampleFilterType::Pointer resampler = LabelResampleFilterType::New();
-            //resample deformation field to fixed image dimension
+            //resample deformation field to target image dimension
             resampler->SetInput( labelImg );
             resampler->SetInterpolator( labelInterpolator );
-            resampler->SetOutputOrigin(reference->GetOrigin());
-            resampler->SetOutputSpacing ( reference->GetSpacing() );
-            resampler->SetOutputDirection ( reference->GetDirection() );
-            resampler->SetSize ( reference->GetLargestPossibleRegion().GetSize() );
+            resampler->SetOutputOrigin(atlas->GetOrigin());
+            resampler->SetOutputSpacing ( atlas->GetSpacing() );
+            resampler->SetOutputDirection ( atlas->GetDirection() );
+            resampler->SetSize ( atlas->GetLargestPossibleRegion().GetSize() );
             resampler->Update();
             fullLabelImage=resampler->GetOutput();
 #if 0

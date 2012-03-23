@@ -15,16 +15,16 @@
 #include "argstream.h"
 class SRSConfig{
 public:
-	std::string targetFilename,movingFilename,fixedGradientFilename, outputDeformedSegmentationFilename,movingSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, movingGradientFilename;
-	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename;
+	std::string targetFilename,atlasFilename,targetGradientFilename, outputDeformedSegmentationFilename,atlasSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, atlasGradientFilename;
+	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename,affineBulkTransform,bulkTransformationFiled;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
 	int displacementSampling;
 	double unaryWeight;
 	int maxDisplacement;
-	double simWeight;
-	double rfWeight;
-	double segWeight;
+	double unaryRegistrationWeight;
+	double unarySegmentationWeight;
+	double pairwiseCoherenceWeight;
 	int nSegmentations;
 	bool verbose;
 	int * levels;
@@ -35,7 +35,7 @@ public:
     double displacementRescalingFactor;
     double scale,asymmetry;
     int optIter;
-    bool downScale;
+    int downScale;
     double pairwiseContrastWeight;
     int nSubsamples;
     double alpha;
@@ -50,9 +50,9 @@ public:
 		displacementSampling=-1;
 		unaryWeight=1;
 		maxDisplacement=10;
-		simWeight=1;
-		rfWeight=1;
-		segWeight=1;
+		unaryRegistrationWeight=1;
+		unarySegmentationWeight=1;
+		pairwiseCoherenceWeight=1;
 		nSegmentations=1;
 		verbose=false;
 		nLevels=3;
@@ -63,11 +63,13 @@ public:
 		pairWiseProbsFilename="pairwise.bin";
         displacementRescalingFactor=0.5;
         scale=1;asymmetry=0;
-        downScale=false;
+        downScale=1;
         pairwiseContrastWeight=1;
         nSubsamples=1;
         alpha=0;
         imageLevels=-1;
+        affineBulkTransform="";
+        bulkTransformationField="";
 	}
     ~SRSConfig(){
 		//delete as;
@@ -78,11 +80,11 @@ public:
 	}
 	void copyFrom(SRSConfig c){
 		targetFilename=c.targetFilename;
-		movingFilename=c.movingFilename;
-		fixedGradientFilename=c.fixedGradientFilename;
-		movingGradientFilename=c.movingGradientFilename;
+		atlasFilename=c.atlasFilename;
+		targetGradientFilename=c.targetGradientFilename;
+		atlasGradientFilename=c.atlasGradientFilename;
 		outputDeformedSegmentationFilename=c.outputDeformedSegmentationFilename;
-		movingSegmentationFilename=c.movingSegmentationFilename;
+		atlasSegmentationFilename=c.atlasSegmentationFilename;
 		outputDeformedFilename=c.outputDeformedFilename;
 		deformableFilename=c.deformableFilename;
 		defFilename=c.defFilename;
@@ -92,12 +94,13 @@ public:
 
 		pairwiseRegistrationWeight=c.pairwiseRegistrationWeight;
 		pairwiseSegmentationWeight=c.pairwiseSegmentationWeight;
+		unaryRegistrationWeight=c.unaryRegistrationWeight;
+		unarySegmentationWeight=c.unarySegmentationWeight;
+		pairwiseCoherenceWeight=c.pairwiseCoherenceWeight;
+
 		displacementSampling=c.displacementSampling;
 		unaryWeight=c.unaryWeight;
 		maxDisplacement=c.maxDisplacement;
-		simWeight=c.maxDisplacement;
-		rfWeight=c.rfWeight;
-		segWeight=c.rfWeight;
 		nSegmentations=c.nSegmentations;
 		verbose=c.nSegmentations;
 		levels=c.levels;
@@ -143,28 +146,31 @@ public:
 			copyFrom(fromFile);
 		}
 
+        //input filenames
+        //mandatory
 		(*as) >> parameter ("t", targetFilename, "target image (file name)", false);
-		(*as) >> parameter ("m", movingFilename, "moving image (file name)", false);
-		(*as) >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", false);
-		(*as) >> parameter ("g", fixedGradientFilename, "fixed gradient image (file name)", false);
-        (*as) >> parameter ("movingGradient", movingGradientFilename, "moving gradient image (file name)", false);
-        (*as) >> parameter ("tissue", tissuePriorFilename, "tissue prior image (file name)", false);
+		(*as) >> parameter ("a", atlasFilename, "atlas image (file name)", false);
+		(*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", false);
+        //optional
+		(*as) >> parameter ("gt", targetGradientFilename, "target gradient image (file name)", false);
+        (*as) >> parameter ("ga", atlasGradientFilename, "atlas gradient image (file name)", false);
+        (*as) >> parameter ("tissuePriorFilename", tissuePriorFilename, "tissue prior image (file name)", false);
+        (*as) >> parameter ("affineBulkTransform", affineBulkTransform, "affine bulk transfomr", false);
+        (*as) >> parameter ("bulkTransformationFiled", bulkTransformationField, "bulk transformation field", false);
 
-		(*as) >> parameter ("o", outputDeformedFilename, "output image (file name)", false);
-		(*as) >> parameter ("S", outputDeformedSegmentationFilename, "output image (file name)", false);
-		(*as) >> parameter ("O", segmentationOutputFilename, "output segmentation image (file name)", false);
-		(*as) >> parameter ("f", defFilename,"deformation field filename", false);
+		(*as) >> parameter ("ta", outputDeformedFilename, "output image (file name)", false);
+		(*as) >> parameter ("tsa", outputDeformedSegmentationFilename, "output image (file name)", false);
+		(*as) >> parameter ("st", segmentationOutputFilename, "output segmentation image (file name)", false);
+		(*as) >> parameter ("T", defFilename,"deformation field filename", false);
 		(*as) >> parameter ("rp", pairwiseRegistrationWeight,"weight for pairwise registration potentials", false);
 		(*as) >> parameter ("sp", pairwiseSegmentationWeight,"weight for pairwise segmentation potentials", false);
+		(*as) >> parameter ("cp", pairwiseCoherenceWeight,"weight for coherence potential", false);
+		(*as) >> parameter ("ru", unaryRegistrationWeight,"weight for registration unary", false);
+		(*as) >> parameter ("su", unarySegmentationWeight,"weight for segmentation unary", false);
 
-		(*as) >> parameter ("u", unaryWeight,"weight for unary potentials", false);
 		(*as) >> parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
-		(*as) >> parameter ("wi", simWeight,"weight for intensity similarity", false);
-		(*as) >> parameter ("wr", rfWeight,"weight for segmentation posterior", false);
-		(*as) >> parameter ("ws", segWeight,"weight for segmentation similarity", false);
 		(*as) >> parameter ("nLevels", nLevels,"number of grid multiresolution pyramid levels", false);
 		(*as) >> parameter ("nImageLevels", imageLevels,"number of image multiresolution  levels", false);
-
 		(*as) >> parameter ("startlevel", startTiling,"start tiling", false);
 		(*as) >> parameter ("iterationsPerLevel", iterationsPerLevel,"iterationsPerLevel", false);
 		(*as) >> parameter ("optIter", optIter,"max iterations of optimizer", false);
@@ -183,8 +189,10 @@ public:
 		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
         (*as) >> parameter ("scale", scale,"scaling factor for registration potential", false);
         (*as) >> option ("verbose", verbose,"get verbose output");
-        (*as) >> option ("downScale", downScale,"downSample ALL images during the pyramid");
-        (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=1)", false);
+        (*as) >> parameter ("downScale", downScale,"downSample ALL  images by an isotropic factor");
+        (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=2)", false);
+        (*as) >> option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");
+
         (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
         (*as) >> parameter ("alpha",alpha ,"generic weight (0)", false);
