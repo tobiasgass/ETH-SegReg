@@ -94,8 +94,8 @@ namespace itk{
         //PairwiseFunctionPointerType m_pairwiseFunction;
         bool verbose;
         bool m_haveLabelMap;
-        ConstImagePointerType m_fixedImage;
-        ConstImageNeighborhoodIteratorType m_fixedNeighborhoodIterator;
+        ConstImagePointerType m_targetImage;
+        ConstImageNeighborhoodIteratorType m_targetNeighborhoodIterator;
         SRSConfig m_config;
     public:
 
@@ -104,26 +104,26 @@ namespace itk{
             assert(m_dim<4);
             m_haveLabelMap=false;
             verbose=true;
-            m_fixedImage=NULL;
+            m_targetImage=NULL;
             m_nSegmentationLabels=LabelMapperType::nSegmentations;
             m_nDisplacementLabels=LabelMapperType::nDisplacements;
         };
         ~GraphModel(){
-            //delete m_fixedNeighborhoodIterator;
+            //delete m_targetNeighborhoodIterator;
         }
         void setConfig(SRSConfig c){
             m_config=c;
         }
-        void setFixedImage(ConstImagePointerType fixedImage){
-            m_fixedImage=fixedImage;
+        void setTargetImage(ConstImagePointerType targetImage){
+            m_targetImage=targetImage;
         }
         
         void initGraph(int nGraphNodesPerEdge){
-            assert(m_fixedImage);
+            assert(m_targetImage);
 
             //image size
-            m_imageSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
-            m_imageSpacing=m_fixedImage->GetSpacing();
+            m_imageSize=m_targetImage->GetLargestPossibleRegion().GetSize();
+            m_imageSpacing=m_targetImage->GetSpacing();
             std::cout<<"Full image resolution: "<<m_imageSize<<endl;
             m_nSegmentationNodes=1;
             m_nRegistrationNodes=1;
@@ -138,7 +138,7 @@ namespace itk{
                 if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_imageSize[d]/m_gridPixelSpacing[d]<<std::endl;
 
                 //origin is original origin
-                m_origin[d]=m_fixedImage->GetOrigin()[d];
+                m_origin[d]=m_targetImage->GetOrigin()[d];
                 //
                 m_gridSize[d]=m_imageSize[d]/m_gridPixelSpacing[d];
                 if (m_gridSpacing!=1.0)
@@ -177,7 +177,7 @@ namespace itk{
             for (int d=0;d<(int)m_dim;++d){
                 r[d]=(m_gridPixelSpacing[d]/(2*reductionFactor));
             }
-            m_fixedNeighborhoodIterator=ConstImageNeighborhoodIteratorType(r,m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
+            m_targetNeighborhoodIterator=ConstImageNeighborhoodIteratorType(r,m_targetImage,m_targetImage->GetLargestPossibleRegion());
             m_nSegRegEdges=m_nSegmentationNodes/pow(reductionFactor,m_dim);
             m_nEdges=m_nRegEdges+m_nSegEdges+m_nSegRegEdges;
             if (verbose) std::cout<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nRegEdges+m_nSegEdges+m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
@@ -192,7 +192,7 @@ namespace itk{
         //can be used to initialize stuff right before potentials are called
         virtual void Init(){};
         virtual void setSpacing(int divisor){
-            assert(m_fixedImage);
+            assert(m_targetImage);
             unsigned int minSpacing=999999;
             for (int d=0;d<ImageType::ImageDimension;++d){
                 if(m_imageSize[d]/(divisor-1) < minSpacing){
@@ -235,14 +235,14 @@ namespace itk{
                 //now calculate the fine image index from the coarse graph index
                 position[d]*=m_gridSpacing[d]/m_imageSpacing[d];
             }
-            assert(m_fixedImage->GetLargestPossibleRegion().IsInside(position));
+            assert(m_targetImage->GetLargestPossibleRegion().IsInside(position));
             return position;
         }
         virtual IndexType getClosestGraphIndex(IndexType imageIndex){
             IndexType position;
             for (unsigned int d=0;d<m_dim;++d){
                 position[d]=int(imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d]+0.5);
-                //position[d]<<std::fixed << std::setprecision(0) << imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d];
+                //position[d]<<std::target << std::setprecision(0) << imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d];
             }
             return position;
         }
@@ -250,7 +250,7 @@ namespace itk{
             IndexType position;
             for (unsigned int d=0;d<m_dim;++d){
                 position[d]=int(imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d]);
-                //position[d]<<std::fixed << std::setprecision(0) << imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d];
+                //position[d]<<std::target << std::setprecision(0) << imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d];
             }
             return position;
         }
@@ -276,7 +276,7 @@ namespace itk{
                 position[d]=idx/m_imageLevelDivisors[d];
                 idx-=position[d]*m_imageLevelDivisors[d];
             }
-            assert(m_fixedImage->GetLargestPossibleRegion().IsInside(position));
+            assert(m_targetImage->GetLargestPossibleRegion().IsInside(position));
             return position;
         }
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
@@ -389,10 +389,10 @@ namespace itk{
         std::vector<int>  getForwardSegRegNeighbours(int index){            
             IndexType imagePosition=getImageIndexFromCoarseGraphIndex(index);
             std::vector<int> neighbours;
-            m_fixedNeighborhoodIterator.SetLocation(imagePosition);
-            for (unsigned int i=0;i<m_fixedNeighborhoodIterator.Size();++i){
-                IndexType idx=m_fixedNeighborhoodIterator.GetIndex(i);
-                if (m_fixedImage->GetLargestPossibleRegion().IsInside(idx)){
+            m_targetNeighborhoodIterator.SetLocation(imagePosition);
+            for (unsigned int i=0;i<m_targetNeighborhoodIterator.Size();++i){
+                IndexType idx=m_targetNeighborhoodIterator.GetIndex(i);
+                if (m_targetImage->GetLargestPossibleRegion().IsInside(idx)){
                     neighbours.push_back(getImageIntegerIndex(idx));
                 }
             }
@@ -453,7 +453,7 @@ namespace itk{
             region.SetSize(m_gridSize);
             result->SetRegions(region);
             result->SetSpacing(m_gridSpacing);
-            result->SetDirection(m_fixedImage->GetDirection());
+            result->SetDirection(m_targetImage->GetDirection());
             result->SetOrigin(m_origin);
             result->Allocate();
             typename itk::ImageRegionIterator<RegistrationLabelImageType> it(result,region);
@@ -475,7 +475,7 @@ namespace itk{
             region.SetSize(m_gridSize);
             result->SetRegions(region);
             result->SetSpacing(m_gridSpacing);
-            result->SetDirection(m_fixedImage->GetDirection());
+            result->SetDirection(m_targetImage->GetDirection());
             result->SetOrigin(m_origin);
             result->Allocate();
             typename itk::ImageRegionIterator<RegistrationLabelImageType> it(result,region);
@@ -492,7 +492,7 @@ namespace itk{
             region.SetSize(m_gridSize);
             result->SetRegions(region);
             result->SetSpacing(m_gridSpacing);
-            result->SetDirection(m_fixedImage->GetDirection());
+            result->SetDirection(m_targetImage->GetDirection());
             result->SetOrigin(m_origin);
             result->Allocate();
             return result;
@@ -501,10 +501,10 @@ namespace itk{
 
         ImagePointerType getSegmentationImage(std::vector<int> labels){
             ImagePointerType result=ImageType::New();
-            result->SetRegions(m_fixedImage->GetLargestPossibleRegion());
-            result->SetSpacing(m_fixedImage->GetSpacing());
-            result->SetDirection(m_fixedImage->GetDirection());
-            result->SetOrigin(m_fixedImage->GetOrigin());
+            result->SetRegions(m_targetImage->GetLargestPossibleRegion());
+            result->SetSpacing(m_targetImage->GetSpacing());
+            result->SetDirection(m_targetImage->GetDirection());
+            result->SetOrigin(m_targetImage->GetOrigin());
             result->Allocate();
             //        cout<<result->GetLargestPossibleRegion()<<" "<<labels.size()<<" "<<m_nSegmentationLabels<<endl;
             typename itk::ImageRegionIterator<ImageType> it(result,result->GetLargestPossibleRegion());
@@ -533,8 +533,8 @@ namespace itk{
         int nRegEdges(){return m_nRegEdges;}
         int nSegEdges(){return m_nSegEdges;}
 
-        ImagePointerType getFixedImage(){
-            return m_fixedImage;
+        ImagePointerType getTargetImage(){
+            return m_targetImage;
         }
         void setUnaryRegistrationFunction(UnaryRegistrationFunctionPointerType unaryFunc){
             m_unaryRegFunction=unaryFunc;
@@ -552,7 +552,7 @@ namespace itk{
             m_pairwiseRegFunction=func;
         }
 
-        typename ImageType::DirectionType getDirection(){return m_fixedImage->GetDirection();}
+        typename ImageType::DirectionType getDirection(){return m_targetImage->GetDirection();}
 
         void setDisplacementFactor(double fac){m_DisplacementScalingFactor=fac;}
         double getMaxDisplacementFactor(){

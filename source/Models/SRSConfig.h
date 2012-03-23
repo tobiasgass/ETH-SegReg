@@ -16,7 +16,7 @@
 class SRSConfig{
 public:
 	std::string targetFilename,atlasFilename,targetGradientFilename, outputDeformedSegmentationFilename,atlasSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, atlasGradientFilename;
-	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename,affineBulkTransform,bulkTransformationFiled;
+	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename,affineBulkTransform,bulkTransformationField;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
 	int displacementSampling;
@@ -40,6 +40,7 @@ public:
     int nSubsamples;
     double alpha;
     int imageLevels;
+    bool computeMultilabelAtlasSegmentation;
 private:
 	argstream * as;
 public:
@@ -70,6 +71,7 @@ public:
         imageLevels=-1;
         affineBulkTransform="";
         bulkTransformationField="";
+        computeMultilabelAtlasSegmentation=false;
 	}
     ~SRSConfig(){
 		//delete as;

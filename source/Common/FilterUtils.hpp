@@ -450,6 +450,20 @@ public:
         return thresholder->GetOutput();
     }
 
+    static OutputImagePointer round(
+                                    InputImagePointer inputImage
+                                    ) {
+        OutputImagePointer outputImage=createEmpty(ConstInputImagePointer(inputImage));
+        itk::ImageRegionIterator<InputImage> it(
+                                                inputImage, inputImage->GetLargestPossibleRegion());
+        itk::ImageRegionIterator<InputImage> it2(
+                                                outputImage, outputImage->GetLargestPossibleRegion());
+        for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
+            double val=it.Get();
+            it2.Set(floor(val+0.5));
+        }
+        return outputImage;
+    }
 
 
 
@@ -588,11 +602,13 @@ public:
     }
 
 
+    static OutputImagePointer computeObjectness(InputImagePointer img){
+        return img;
+    }
 
+    static OutputImagePointer computeMultilabelSegmentation(InputImagePointer img){
+        return img;
+    }
 
-
-
-
-
-
+    
 };

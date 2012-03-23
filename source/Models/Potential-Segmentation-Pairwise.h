@@ -30,16 +30,16 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        SizeType m_fixedSize;
+        SizeType m_targetSize;
         typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
-        ConstImagePointerType m_fixedImage, m_sheetnessImage;
+        ConstImagePointerType m_targetImage, m_gradientImage;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         double m_gradientSigma, m_Sigma;
         double m_gradientScaling;
-        ConstImagePointerType m_referenceSegmentation, m_referenceGradient, m_referenceImage;
+        ConstImagePointerType m_atlasSegmentation, m_atlasGradient, m_atlasImage;
 
     public:
         /** Method for creation through the object factory. */
@@ -53,43 +53,43 @@ namespace itk{
         virtual void freeMemory(){
         }
         virtual void Init(){
-            assert(this->m_fixedImage);
-            assert(this->m_sheetnessImage);
+            assert(this->m_targetImage);
+            assert(this->m_gradientImage);
 	  
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
-            filter->SetInput(this->m_sheetnessImage);
+            filter->SetInput(this->m_gradientImage);
             filter->Update();
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
             std::cout<<"Gradient variance: "<<m_gradientSigma<<std::endl;
            
-            filter->SetInput(this->m_fixedImage);
+            filter->SetInput(this->m_targetImage);
             filter->Update();
             this->m_Sigma=filter->GetSigma();
             this->m_Sigma*=this->m_Sigma;	  
         }
         void SetGradientScaling(double s){m_gradientScaling=s;}
-        void SetFixedImage(ConstImagePointerType fixedImage){
-            this->m_fixedImage=fixedImage;
-            this->m_fixedSize=this->m_fixedImage->GetLargestPossibleRegion().GetSize();
+        void SetTargetImage(ConstImagePointerType targetImage){
+            this->m_targetImage=targetImage;
+            this->m_targetSize=this->m_targetImage->GetLargestPossibleRegion().GetSize();
 
         }
-        void SetFixedGradient(ConstImagePointerType sheetnessImage){
-            this->m_sheetnessImage=sheetnessImage;
+        void SetTargetGradient(ConstImagePointerType gradientImage){
+            this->m_gradientImage=gradientImage;
         }
-        virtual void SetReferenceSegmentation(ConstImagePointerType im){
-            m_referenceSegmentation=im;
+        virtual void SetAtlasSegmentation(ConstImagePointerType im){
+            m_atlasSegmentation=im;
         }
-        virtual void SetReferenceGradient(ConstImagePointerType im){
-            m_referenceGradient=im;
+        virtual void SetAtlasGradient(ConstImagePointerType im){
+            m_atlasGradient=im;
         }
-        virtual void SetReferenceImage(ConstImagePointerType im){
-            m_referenceImage=im;
+        virtual void SetAtlasImage(ConstImagePointerType im){
+            m_atlasImage=im;
         }
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
             if (label1!=label2){  
-                int s1=this->m_sheetnessImage->GetPixel(idx1);
-                int s2=this->m_sheetnessImage->GetPixel(idx2);
+                int s1=this->m_gradientImage->GetPixel(idx1);
+                int s2=this->m_gradientImage->GetPixel(idx2);
                 double edgeWeight=fabs(s1-s2);
                 edgeWeight*=edgeWeight;
                 //int i1=this->m_targetImage->GetPixel(idx1);
@@ -132,13 +132,13 @@ namespace itk{
         itkTypeMacro(PairwisePotentialSegmentationClassifier, Object);
         virtual void Init(){
             assert(this->m_targetImage);
-            assert(this->m_sheetnessImage);
-            assert(this->m_referenceSegmentation);
-            assert(this->m_referenceGradient);
-            assert(this->m_referenceImage);
+            assert(this->m_gradientImage);
+            assert(this->m_atlasSegmentation);
+            assert(this->m_atlasGradient);
+            assert(this->m_atlasImage);
             m_classifier=ClassifierType::New();
             m_classifier->setNIntensities(256);
-            this->m_classifier->setData( this->m_referenceImage,(ConstImagePointerType)this->m_referenceSegmentation,(ConstImagePointerType)this->m_referenceGradient);
+            this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
 #if 1
             m_classifier->train();
             m_classifier->saveProbs("segmentationPairwise.probs");
@@ -149,7 +149,7 @@ namespace itk{
         virtual void Init(string filename){
             assert(false);
             assert(this->m_targetImage);
-            assert(this->m_sheetnessImage);
+            assert(this->m_gradientImage);
             m_classifier=ClassifierType::New();
             
             //m_classifier->LoadProbs(filename);
@@ -213,18 +213,18 @@ namespace itk{
                 int tmpL=label1;label1=label2;label2=tmpL;
             }
 #endif       
-            int s1=this->m_sheetnessImage->GetPixel(idx1);
-            int s2=this->m_sheetnessImage->GetPixel(idx2);
+            int s1=this->m_gradientImage->GetPixel(idx1);
+            int s2=this->m_gradientImage->GetPixel(idx2);
             //       if (s1<s2) return 100;
-            double sheetnessDiff=(s1-s2);
+            double gradientDiff=(s1-s2);
             //   if (s1<s2 && label1!=label2) return 100;
             int i1=this->m_targetImage->GetPixel(idx1);
             int i2=this->m_targetImage->GetPixel(idx2);
             double intensityDiff=(i1-i2);
-            //double prob=m_classifier->px_l(intensityDiff,label1!=label2,sheetnessDiff);
-            double prob=m_classifier->px_l(intensityDiff,label1,sheetnessDiff,label2);
+            //double prob=m_classifier->px_l(intensityDiff,label1!=label2,gradientDiff);
+            double prob=m_classifier->px_l(intensityDiff,label1,gradientDiff,label2);
             if (prob<=0.000000001) prob=0.00000000001;
-            //std::cout<<"Pairwise: "<<(label1!=label2)<<" "<<sheetnessDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
+            //std::cout<<"Pairwise: "<<(label1!=label2)<<" "<<gradientDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
             //return 1+100*(-log(prob));
             return (-log(prob));
         }
@@ -257,7 +257,7 @@ namespace itk{
             //equal labels don't have costs
             if (label1==label2) return 0;
             //always penalize secondary-to-primary label
-            double sheetnessCost;
+            double gradientCost;
             double factor=5.0;
             if (  ((label1==2 &&label2 ) || (label2 == 2 && label1)) ) {
                 factor=2.0;
@@ -274,14 +274,14 @@ namespace itk{
                     int tmpL=label1;label1=label2;label2=tmpL;
                 }
 #endif       
-                double s1=1.0-1.0*this->m_sheetnessImage->GetPixel(idx1)/127;
-                double s2=1.0-1.0*this->m_sheetnessImage->GetPixel(idx2)/127;
+                double s1=1.0-1.0*this->m_gradientImage->GetPixel(idx1)/127;
+                double s2=1.0-1.0*this->m_gradientImage->GetPixel(idx2)/127;
               
-                double sheetnessDiff=fabs(s1-s2);
-                sheetnessCost=(s1<s2)?1:exp(-5*sheetnessDiff);
+                double gradientDiff=fabs(s1-s2);
+                gradientCost=(s1<s2)?1:exp(-5*gradientDiff);
             }
-            //return 1.0+1000.0*factor*sheetnessCost;
-            return sheetnessCost;
+            //return 1.0+1000.0*factor*gradientCost;
+            return gradientCost;
         }
     };//class
   template<class TImage>

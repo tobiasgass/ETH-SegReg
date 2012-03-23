@@ -5,8 +5,8 @@
  *      Author: gasst
  */
 
-#ifndef _SEGMENTATIONREGISTRATIONPAIRWISEPOTENTIAL_H_
-#define _SEGMENTATIONREGISTRATIONPAIRWISEPOTENTIAL_H_
+#ifndef _COHERENCEPAIRWISEPOTENTIAL_H_
+#define _COHERENCEPAIRWISEPOTENTIAL_H_
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include <utility>
@@ -126,7 +126,7 @@ namespace itk{
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
         
 
-        void SetReferenceSegmentation(ConstImagePointerType segImage, double scale=1.0){
+        void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
             m_atlasSegmentationInterpolator= SegmentationInterpolatorType::New();
             m_atlasSegmentationInterpolator->SetInputImage(segImage);
@@ -417,7 +417,7 @@ namespace itk{
     public:
         itkNewMacro(Self);
 
-        void SetReferenceSegmentation(ConstImagePointerType segImage, double scale=1.0){
+        void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             if (scale !=1.0 ){
                 segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
             }
@@ -577,7 +577,7 @@ namespace itk{
     public:
         itkNewMacro(Self);
 
-        void SetReferenceSegmentation(ConstImagePointerType segImage, double scale=1.0){
+        void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             if (scale !=1.0 ){
                 segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
             }

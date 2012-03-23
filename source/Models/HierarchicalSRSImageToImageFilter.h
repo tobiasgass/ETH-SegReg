@@ -123,10 +123,13 @@ namespace itk{
         typedef  typename itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
     private:
         SRSConfig m_config;
-    
+        LabelImagePointerType m_finalDeformation,m_bulkTransform;
+        bool m_useBulkTransform;
+        ImagePointerType m_finalSegmentation;
     public:
         HierarchicalSRSImageToImageFilter(){
             this->SetNumberOfRequiredInputs(5);
+            m_useBulkTransform=false;
         }
     
         void setConfig(SRSConfig c){
@@ -142,21 +145,29 @@ namespace itk{
         void setAtlasSegmentation(ImagePointerType img){
             SetNthInput(2,img);
         }
-        void setTargetGradientImage(ImagePointerType img){
+        void setTargetGradient(ImagePointerType img){
             SetNthInput(3,img);
         }
-        void setAtlasGradientImage(ImagePointerType img){
+        void setAtlasGradient(ImagePointerType img){
             SetNthInput(4,img);
         }
+        void setBulkTransform(LabelImagePointerType transf){
+            m_bulkTransform=transf;
+            m_useBulkTransform=true;
+        }
         LabelImagePointerType affineRegistration(ConstImagePointerType targetImage, ConstImagePointerType atlasImage){
-            
-            
+        }
 
+        LabelImagePointerType getFinalDeformation(){
+            return m_finalDeformation;
+        }
+        ImagePointerType getTargetSegmentationEstimate(){
+            return m_finalSegmentation;
         }
         virtual void Update(){
             
-            bool segment=1;//m_config.pairwiseSegmentationWeight>0 ||  m_config.rfWeight>0 || m_config.simWeight>0;
-            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.simWeight>0|| m_config.simWeight>0;
+            bool segment=1;//m_config.pairwiseSegmentationWeight>0 ||  m_config.unarySegmentationWeight>0 || m_config.unaryRegistrationWeight>0;
+            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.unaryRegistrationWeight>0|| m_config.unaryRegistrationWeight>0;
 
             //define input images
             ConstImagePointerType targetImage = this->GetInput(0);
@@ -174,25 +185,27 @@ namespace itk{
                 }
             }
             ConstImagePointerType targetGradientImage = this->GetInput(3);
-            ImagePointerType atlasGradientImage=this->GetInput(4);
-            //atlasImage=FilterUtils<ImageType>::LinearResample(atlasImage,targetImage);
-            //atlasSegmentationImage=FilterUtils<ImageType>::NNResample(atlasSegmentationImage,targetImage);
+            ConstImagePointerType atlasGradientImage=this->GetInput(4);
             
             //results
             ImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
             LabelImagePointerType fullDeformation,previousFullDeformation;
         
             if (regist){
-                //allocate memory
-                previousFullDeformation=LabelImageType::New();
-                previousFullDeformation->SetRegions(targetImage->GetLargestPossibleRegion());
-                previousFullDeformation->SetOrigin(targetImage->GetOrigin());
-                previousFullDeformation->SetSpacing(targetImage->GetSpacing());
-                previousFullDeformation->SetDirection(targetImage->GetDirection());
-                if (m_config.verbose) cout<<"allocating full deformation" <<endl;
-                previousFullDeformation->Allocate();
-                Vector<float, D> tmpVox(0.0);
-                previousFullDeformation->FillBuffer(tmpVox);
+                if (m_useBulkTransform){
+                    previousFullDeformation=m_bulkTransform;
+                }else{
+                    //allocate memory
+                    previousFullDeformation=LabelImageType::New();
+                    previousFullDeformation->SetRegions(targetImage->GetLargestPossibleRegion());
+                    previousFullDeformation->SetOrigin(targetImage->GetOrigin());
+                    previousFullDeformation->SetSpacing(targetImage->GetSpacing());
+                    previousFullDeformation->SetDirection(targetImage->GetDirection());
+                    if (m_config.verbose) cout<<"allocating full deformation" <<endl;
+                    previousFullDeformation->Allocate();
+                    Vector<float, D> tmpVox(0.0);
+                    previousFullDeformation->FillBuffer(tmpVox);
+                }
             }
             //instantiate potentials
             UnaryRegistrationPotentialPointerType unaryRegistrationPot=UnaryRegistrationPotentialType::New();
@@ -250,7 +263,7 @@ namespace itk{
                 double mantisse=(1/m_config.scale);
                 int exponent=m_config.nLevels-l;
                 if (m_config.downScale||ImageType::ImageDimension==2){
-                     exponent--;
+                    exponent--;
                 }
                 if (m_config.imageLevels>0){
                     exponent=max(0,m_config.imageLevels-l);
@@ -263,7 +276,6 @@ namespace itk{
 #if 1
                 level=m_config.levels[l];
                 double labelScalingFactor=1;
-                double sigma=1;
                 
                 //roughly compute downscaling
                 scale=1;//1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
@@ -283,8 +295,8 @@ namespace itk{
                 graph.setDisplacementFactor(labelScalingFactor);
                 graph.initGraph(level);
 
-             }
-                atlasInterpolator->SetInputImage(downSampledAtlas);
+            
+                atlasInterpolator->SetInputImage(atlasImage);
                 
                 if (segment && regist)
                     segmentationInterpolator->SetInputImage(atlasSegmentationImage);
@@ -311,7 +323,7 @@ namespace itk{
                 if (segment){
                     //setup segmentation potentials
                     unarySegmentationPot->SetTargetImage(targetImage);
-                    unarySegmentationPot->SetTargetGradientImage(targetImageGradient);
+                    unarySegmentationPot->SetTargetGradient(targetGradientImage);
                     unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
                 }
                 if (segment && regist){
@@ -375,42 +387,42 @@ namespace itk{
 #if 1
                         if (ImageType::ImageDimension==2){
 #ifdef TRUNC
-                              typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
+                            typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
 #else
-                              typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-                              //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+                            typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                            //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 #endif
 
-                              MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,
-                                                                           m_config.pairwiseRegistrationWeight * (l>0 || i>0 ) ,
-                                                                     m_config.rfWeight,
-                                                                     m_config.pairwiseSegmentationWeight,
-                                                                     m_config.segWeight,
-                                                                     m_config.verbose);
-                              mrfSolver->createGraph();
-                              mrfSolver->optimize(m_config.optIter);
-                              std::cout<<" ]"<<std::endl;
-                              if (regist){
-                              deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
-                              }
-                              segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
+                            MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
+                                                                         m_config.unaryRegistrationWeight,
+                                                                         m_config.pairwiseRegistrationWeight * (l>0 || i>0 ) ,
+                                                                         m_config.unarySegmentationWeight,
+                                                                         m_config.pairwiseSegmentationWeight,
+                                                                         m_config.pairwiseCoherenceWeight,
+                                                                         m_config.verbose);
+                            mrfSolver->createGraph();
+                            mrfSolver->optimize(m_config.optIter);
+                            std::cout<<" ]"<<std::endl;
+                            if (regist){
+                                deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
+                            }
+                            segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
                               
-                              delete mrfSolver;
+                            delete mrfSolver;
 
-                       }else{
+                        }else{
 #ifdef TRUNC
                             typedef TRWS_SRSMRFSolverTruncQuadrat3D<GraphModelType> MRFSolverType;
 #else
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
 #endif
                             MRFSolverType  *mrfSolver= new MRFSolverType(&graph,
-                                                                     m_config.simWeight,
-                                                                     m_config.pairwiseRegistrationWeight, 
-                                                                     m_config.rfWeight,
-                                                                     m_config.pairwiseSegmentationWeight,
-                                                                     m_config.segWeight,
-                                                                     m_config.verbose);
+                                                                         m_config.unaryRegistrationWeight,
+                                                                         m_config.pairwiseRegistrationWeight, 
+                                                                         m_config.unarySegmentationWeight,
+                                                                         m_config.pairwiseSegmentationWeight,
+                                                                         m_config.pairwiseCoherenceWeight,
+                                                                         m_config.verbose);
                             mrfSolver->createGraph();
                             mrfSolver->optimize(m_config.optIter);
                             std::cout<<" ]"<<std::endl;
@@ -448,48 +460,34 @@ namespace itk{
 
 #if 1
                   
-                    typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
-                    composer->SetInput(1,fullDeformation);
-                    composer->SetInput(0,previousFullDeformation);
-                    composer->Update();
-                    composedDeformation=composer->GetOutput();
-                    LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
+                        typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
+                        composer->SetInput(1,fullDeformation);
+                        composer->SetInput(0,previousFullDeformation);
+                        composer->Update();
+                        composedDeformation=composer->GetOutput();
+                        LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
 #else
-                    //
-                    composedDeformation=LabelImageType ::New();
-                    composedDeformation->SetRegions(previousFullDeformation->GetLargestPossibleRegion());
-                    composedDeformation->Allocate();
-                    LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
-                    LabelIteratorType label2It(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
-                    LabelIteratorType label3It(fullDeformation,fullDeformation->GetLargestPossibleRegion());
-                    for (label3It.GoToBegin(),label2It.GoToBegin(),labelIt.GoToBegin();!labelIt.IsAtEnd();++label2It,++labelIt,++label3It){
-                        LabelType label=label2It.Get()+label3It.Get();
-                        typename ImageInterpolatorType::ContinuousIndexType idx=labelIt.GetIndex();
-                        //typename LabelImageType::SizeType size=composedDeformation->GetLargestPossibleRegion().GetSize();
-                        idx+=LabelMapperType::getDisplacement(label);
-                        labelIt.Set(label);
-                    }
+                        //
+                        composedDeformation=LabelImageType ::New();
+                        composedDeformation->SetRegions(previousFullDeformation->GetLargestPossibleRegion());
+                        composedDeformation->Allocate();
+                        LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
+                        LabelIteratorType label2It(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
+                        LabelIteratorType label3It(fullDeformation,fullDeformation->GetLargestPossibleRegion());
+                        for (label3It.GoToBegin(),label2It.GoToBegin(),labelIt.GoToBegin();!labelIt.IsAtEnd();++label2It,++labelIt,++label3It){
+                            LabelType label=label2It.Get()+label3It.Get();
+                            typename ImageInterpolatorType::ContinuousIndexType idx=labelIt.GetIndex();
+                            //typename LabelImageType::SizeType size=composedDeformation->GetLargestPossibleRegion().GetSize();
+                            idx+=LabelMapperType::getDisplacement(label);
+                            labelIt.Set(label);
+                        }
 #endif
                 
-                    deformedAtlasImage=warpImage(atlasImage,composedDeformation);
-                    deformedAtlasSegmentation=deformSegmentationImage(atlasSegmentationImage,composedDeformation);
-                    //deformedAtlasSegmentation=warpImage(atlasSegmentationImage,composedDeformation);
+                        deformedAtlasImage=warpImage(atlasImage,composedDeformation);
+                        deformedAtlasSegmentation=deformSegmentationImage(atlasSegmentationImage,composedDeformation);
+                        //deformedAtlasSegmentation=warpImage(atlasSegmentationImage,composedDeformation);
                     }
                     
-#if 0
-                    typedef itk::HausdorffDistanceImageFilter<ImageType, ImageType> HausdorffDistanceFilterType;
-                    typedef typename HausdorffDistanceFilterType::Pointer HDPointerType;
-                    HDPointerType hdFilter=HausdorffDistanceFilterType::New();
-                    ImagePointerType deformedForegroundSegmentation=FilterUtils<ImageType,ImageType>::binaryThresholding(deformedAtlasSegmentation,1.5,2.1);
-                    ImagePointerType foregroundSegmentation=FilterUtils<ImageType,ImageType>::binaryThresholding(segmentation,1.5,2.1);
-                    hdFilter->SetInput1(deformedForegroundSegmentation);
-                    hdFilter->SetInput2(foregroundSegmentation);
-                    hdFilter->Update();
-                    double mean=hdFilter->GetAverageHausdorffDistance();
-                    double maxAbsDistance=hdFilter->GetHausdorffDistance();
-                    cout<<"Distance statistics :"<<mean<<" "<<maxAbsDistance<<" "<<(mean+maxAbsDistance)/2<<endl;
-                    pairwiseCoherencePot->SetThreshold((mean+maxAbsDistance)/2);
-#endif
       
                     //pairwiseCoherencePot->SetThreshold(13);
                     //pairwiseCoherencePot->SetThreshold(max(10.0,10*graph.getMaxDisplacementFactor()));
@@ -524,76 +522,29 @@ namespace itk{
                         }
                         //deformation
                         if (regist){
-                        if (m_config.defFilename!=""){
-                            ostringstream tmpDeformationFilename;
-                            tmpDeformationFilename<<m_config.defFilename<<"-l"<<l<<"-i"<<i<<".mha";
-                            //		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
-                            ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
-                            //					ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
+                            if (m_config.defFilename!=""){
+                                ostringstream tmpDeformationFilename;
+                                tmpDeformationFilename<<m_config.defFilename<<"-l"<<l<<"-i"<<i<<".mha";
+                                //		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
+                                ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
+                                //					ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
 
-                            //
-                        }
+                                //
+                            }
                         }
                     }
                     
 #endif
                     
-                    //unaryRegistrationPot->SetAtlasImage((ConstImagePointerType)deformedAtlasImage);
 
                 }
                 std::cout<<std::endl<<std::endl;
             }
 
 
-            LabelImagePointerType finalDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
-            ImagePointerType finalSegmentation=(segmentation);
-
-            //if last level of pyramid was not 1:1, the final deformation has to be scaled and the segmentation needs to be resampled
-            if (scale!=1.0){
-                SpacingType sp;
-                sp.Fill(1.0);
-                finalDeformation=scaleLabelImage(finalDeformation,sp/scale);
-                //            finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,1/scale);
-                finalSegmentation=FilterUtils<ImageType>::NNResample(segmentation,targetImage);
-            }
-
-#if 1
-            if (ImageType::ImageDimension==2){
-                ImageUtils<ImageType>::writeImage("dt-def.png",deformImage(pairwiseCoherencePot->getFGDT(),finalDeformation));    
-            }
-            if (ImageType::ImageDimension==3){
-                ImageUtils<ImageType>::writeImage("dt-def.nii",deformImage(pairwiseCoherencePot->getFGDT(),finalDeformation));
-            }
-#endif          
-            
-
-            ImagePointerType finalDeformedAtlas=deformImage(atlasImage,finalDeformation);
-            ImagePointerType finalDeformedAtlasSegmentation=deformSegmentationImage(atlasSegmentationImage,finalDeformation);
-
-      
-      
-            ImageUtils<ImageType>::writeImage(m_config.outputDeformedFilename, finalDeformedAtlas);
-            if (ImageType::ImageDimension==2){
-                ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename,makePngFromLabelImage((ConstImagePointerType)finalSegmentation,LabelMapperType::nSegmentations));
-                ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,makePngFromLabelImage((ConstImagePointerType)finalDeformedAtlasSegmentation,LabelMapperType::nSegmentations));
-            }
-            if (ImageType::ImageDimension==3){
-                ImageUtils<ImageType>::writeImage(m_config.segmentationOutputFilename,finalSegmentation);
-                ImageUtils<ImageType>::writeImage(m_config.outputDeformedSegmentationFilename,finalDeformedAtlasSegmentation);
-            }
-
-            std::cout<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ConstImagePointerType)finalDeformedAtlas,targetImage)<<endl;
-            //deformation
-            if (m_config.defFilename!=""){
-                //		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
-                ImageUtils<LabelImageType>::writeImage(m_config.defFilename,previousFullDeformation);
-                //
-            }
-
-
+            m_finalDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
+            m_finalSegmentation=(segmentation);
             delete labelmapper;
-            //	}
-
 	
         }
         LabelImagePointerType bSplineInterpolateLabelImage(LabelImagePointerType labelImg, ConstImagePointerType atlas){
@@ -829,17 +780,17 @@ namespace itk{
             return resampler->GetOutput();
         }
         
-          ImagePointerType warpImage(ConstImagePointerType image, LabelImagePointerType deformation){
-              typedef typename itk::WarpImageFilter<ImageType,ImageType,LabelImageType>     WarperType;
-              typedef typename WarperType::Pointer     WarperPointer;
-              WarperPointer warper=WarperType::New();
-              warper->SetInput( image);
-              warper->SetDeformationField(deformation);
-              warper->SetOutputOrigin(  image->GetOrigin() );
-              warper->SetOutputSpacing( image->GetSpacing() );
-              warper->SetOutputDirection( image->GetDirection() );
-              warper->Update();
-              return warper->GetOutput();
+        ImagePointerType warpImage(ConstImagePointerType image, LabelImagePointerType deformation){
+            typedef typename itk::WarpImageFilter<ImageType,ImageType,LabelImageType>     WarperType;
+            typedef typename WarperType::Pointer     WarperPointer;
+            WarperPointer warper=WarperType::New();
+            warper->SetInput( image);
+            warper->SetDeformationField(deformation);
+            warper->SetOutputOrigin(  image->GetOrigin() );
+            warper->SetOutputSpacing( image->GetSpacing() );
+            warper->SetOutputDirection( image->GetDirection() );
+            warper->Update();
+            return warper->GetOutput();
         }
         ImagePointerType deformSegmentationImage(ConstImagePointerType segmentationImage, LabelImagePointerType deformation){
             //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
@@ -890,7 +841,7 @@ namespace itk{
             return (ConstImagePointerType)newImage;
         }
         
-
+        
         ConstImagePointerType fixSegmentationImage(ConstImagePointerType segmentationImage, int nSegmentations){
             ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
             typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;

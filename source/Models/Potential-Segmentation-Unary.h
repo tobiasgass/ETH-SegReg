@@ -37,8 +37,8 @@ namespace itk{
 
         typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
-        ConstImagePointerType m_targetImage, m_sheetnessImage,m_referenceImage, m_referenceGradientImage;
-        ConstImagePointerType m_referenceSegmentation;
+        ConstImagePointerType m_targetImage, m_sheetnessImage,m_atlasImage, m_atlasGradient;
+        ConstImagePointerType m_atlasSegmentation;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
@@ -68,7 +68,7 @@ namespace itk{
             this->m_targetImage=targetImage;
             this->m_targetSize=this->m_targetImage->GetLargestPossibleRegion().GetSize();
         }
-        void SetTargetGradientImage(ConstImagePointerType sheetnessImage){
+        void SetTargetGradient(ConstImagePointerType sheetnessImage){
             this->m_sheetnessImage=sheetnessImage;
             
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
@@ -83,14 +83,14 @@ namespace itk{
             this->m_Sigma*=this->m_Sigma;
             
         }
-        virtual void SetReferenceSegmentation(ConstImagePointerType im){
-            m_referenceSegmentation=im;
+        virtual void SetAtlasSegmentation(ConstImagePointerType im){
+            m_atlasSegmentation=im;
         }
-        virtual void SetReferenceGradient(ConstImagePointerType im){
-            m_referenceGradientImage=im;
+        virtual void SetAtlasGradient(ConstImagePointerType im){
+            m_atlasGradient=im;
         }
-        virtual void SetReferenceImage(ConstImagePointerType im){
-            m_referenceImage=im;
+        virtual void SetAtlasImage(ConstImagePointerType im){
+            m_atlasImage=im;
         }
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
             int s= this->m_sheetnessImage->GetPixel(targetIndex);
@@ -336,7 +336,7 @@ namespace itk{
             
             m_classifier=  ClassifierType::New();
             m_classifier->setNIntensities(256);
-            m_classifier->setData(this->m_referenceImage,this->m_referenceSegmentation,(ConstImagePointerType)this->m_referenceGradientImage);
+            m_classifier->setData(this->m_atlasImage,this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
             //m_classiifier->setData(movingImage,movingSegmentationImage);
 #if 1
             m_classifier->train();
@@ -345,7 +345,7 @@ namespace itk{
             m_classifier->loadProbs("test.probs");
 #endif
             //m_classifier->evalImage(targetImage);
-            //m_classifier->evalImage(targetImage,targetGradientImage);
+            //m_classifier->evalImage(targetImage,targetGradient);
         }
         
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
