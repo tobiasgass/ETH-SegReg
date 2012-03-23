@@ -166,8 +166,8 @@ namespace itk{
         }
         virtual void Update(){
             
-            bool segment=1;//m_config.pairwiseSegmentationWeight>0 ||  m_config.unarySegmentationWeight>0 || m_config.unaryRegistrationWeight>0;
-            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.unaryRegistrationWeight>0|| m_config.unaryRegistrationWeight>0;
+            bool segment=m_config.pairwiseSegmentationWeight>0 ||  m_config.unarySegmentationWeight>0 ||m_config.pairwiseCoherenceWeight>0;
+            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.unaryRegistrationWeight>0|| m_config.pairwiseCoherenceWeight>0;
 
             //define input images
             ConstImagePointerType targetImage = this->GetInput(0);
