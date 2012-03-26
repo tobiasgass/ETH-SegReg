@@ -27,7 +27,7 @@ public:
 	double unarySegmentationWeight;
 	double pairwiseCoherenceWeight;
 	int nSegmentations;
-	bool verbose;
+	int verbose;
 	int * levels;
 	int nLevels;
 	int startTiling;
@@ -56,7 +56,7 @@ public:
 		unarySegmentationWeight=1;
 		pairwiseCoherenceWeight=1;
 		nSegmentations=1;
-		verbose=false;
+		verbose=0;
 		nLevels=3;
 		startTiling=2;
 		iterationsPerLevel=4;
@@ -105,13 +105,14 @@ public:
 		unaryWeight=c.unaryWeight;
 		maxDisplacement=c.maxDisplacement;
 		nSegmentations=c.nSegmentations;
-		verbose=c.nSegmentations;
+		verbose=c.verbose;
 		levels=c.levels;
 		nLevels=c.nLevels;
 		startTiling=c.startTiling;
 		train=c.train;
         displacementRescalingFactor=c.displacementRescalingFactor;
-        scale=c.scale;asymmetry=c.asymmetry;
+        scale=c.scale;
+        asymmetry=c.asymmetry;
         optIter=c.optIter;
         downScale=c.downScale;
         pairwiseContrastWeight=c.pairwiseContrastWeight;
@@ -191,7 +192,7 @@ public:
 		(*as) >> parameter ("l4", tmp_levels[4],"divisor for level 4", false);
 		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
         (*as) >> parameter ("scale", scale,"scaling factor for registration potential", false);
-        (*as) >> option ("verbose", verbose,"get verbose output");
+        (*as) >> parameter ("verbose", verbose,"get verbose output");
         (*as) >> parameter ("downScale", downScale,"downSample ALL  images by an isotropic factor",false);
         (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=2)", false);
         (*as) >> option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");

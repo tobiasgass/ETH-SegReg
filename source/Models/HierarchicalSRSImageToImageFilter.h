@@ -245,7 +245,7 @@ namespace itk{
 
             
             int level;
-            
+
             //start pyramid
             //asm volatile("" ::: "memory");
             LabelImagePointerType deformation;
@@ -255,7 +255,7 @@ namespace itk{
                 pairwiseCoherencePot->SetAtlasSegmentation(atlasSegmentationImage);
             }
 
-          
+            logSetStage("Multiresolution pyramid");
             for (int l=0;l<m_config.nLevels;++l){
 
                 //compute scaling factor for downsampling the images in the registration potential

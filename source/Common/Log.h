@@ -2,31 +2,53 @@
 
 #include "boost/format.hpp"
 #include "boost/timer.hpp"
+
+#include <stack>
 #define logSetStage(stage) mylog.setStage(stage)
 #define logResetStage mylog.resetStage()
 class MyLog {
 
-   boost::timer m_timer;
+    boost::timer m_timer;
     std::string m_stage,m_oldStage;
-    
+    std::stack<std::string> m_stages;
+    int m_verb;
 public:
+    MyLog(){
+        m_stages.push("void");
+        m_verb=0;
+    }
     boost::format  getStatus(){
         unsigned int elapsed = m_timer.elapsed();
-        boost::format logLine("%2d:%02d [%15s] - ");
+        boost::format logLine("%2d:%02d [%25s] - ");
         logLine % (elapsed / 60);
         logLine % (elapsed % 60);
-        logLine % m_stage;
+        if (m_stages.size()){
+            logLine % m_stages.top();
+        }
         return logLine;
     }
     void setStage(std::string stage) {
         m_oldStage=m_stage;
         m_stage = stage;
+        m_stages.push(stage);
     }
     void resetStage(){
         m_stage=m_oldStage;
+        m_stages.pop();
     }
+    void setVerbosity(int v){
+        m_verb=v;
+    }
+    int getVerbosity(){
+        return m_verb;
+    }
+
 };
 MyLog mylog;
 
 #define LOG std::cout << mylog.getStatus()<<" "
+
+#define LOGV(level) \
+if (level>mylog.getVerbosity) \
+    std::cout << mylog.getStatus()<<" "
 

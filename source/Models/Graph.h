@@ -104,7 +104,7 @@ namespace itk{
             assert(m_dim>1);
             assert(m_dim<4);
             m_haveLabelMap=false;
-            verbose=true;
+            verbose=false;
             m_targetImage=NULL;
             m_nSegmentationLabels=LabelMapperType::nSegmentations;
             m_nDisplacementLabels=LabelMapperType::nDisplacements;
@@ -114,6 +114,7 @@ namespace itk{
         }
         void setConfig(SRSConfig c){
             m_config=c;
+            verbose=c.verbose;
         }
         void setTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
@@ -121,11 +122,11 @@ namespace itk{
         
         void initGraph(int nGraphNodesPerEdge){
             assert(m_targetImage);
-
+            logSetStage("Graph initialization");
             //image size
             m_imageSize=m_targetImage->GetLargestPossibleRegion().GetSize();
             m_imageSpacing=m_targetImage->GetSpacing();
-            LOG<<"Full image resolution: "<<m_imageSize<<endl;
+            if (verbose) LOG<<"Full image resolution: "<<m_imageSize<<endl;
             m_nSegmentationNodes=1;
             m_nRegistrationNodes=1;
             //calculate graph spacing
@@ -162,12 +163,10 @@ namespace itk{
         
             //nvertices is not used!?
             if (m_dim>=2){
-                if (verbose) LOG<<m_gridSize[0]<<" "<<m_gridSize[1];
-                m_nRegEdges=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
+               m_nRegEdges=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
                 m_nSegEdges=m_imageSize[1]*(m_imageSize[0]-1)+m_imageSize[0]*(m_imageSize[1]-1);
             }
             if (m_dim==3){
-                LOG<<" "<<m_gridSize[2];
                 m_nRegEdges=m_nRegEdges*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
                 m_nSegEdges=m_nSegEdges*this->m_imageSize[2]+(this->m_imageSize[2]-1)*this->m_imageSize[1]*this->m_imageSize[0];
             }
@@ -182,13 +181,14 @@ namespace itk{
             m_nSegRegEdges=m_nSegmentationNodes/pow(reductionFactor,m_dim);
             m_nEdges=m_nRegEdges+m_nSegEdges+m_nSegRegEdges;
             if (verbose) LOG<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nRegEdges+m_nSegEdges+m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
-            if (verbose) LOG<<" Segnodes:"<<m_nSegmentationNodes<<"\t SegEdges :"<<m_nSegEdges<<std::endl
-                                  <<" Regnodes:"<<m_nRegistrationNodes<<"\t\t RegEdges :"<<m_nRegEdges<<std::endl
-                                  <<" SegRegEdges:"<<m_nSegRegEdges<<std::endl;
+            if (verbose) LOG<<" Segnodes:"<<m_nSegmentationNodes<<"\t SegEdges :"<<m_nSegEdges<<std::endl ;
+            if (verbose) LOG <<" Regnodes:"<<m_nRegistrationNodes<<"\t\t RegEdges :"<<m_nRegEdges<<std::endl;
+            if (verbose) LOG                <<" SegRegEdges:"<<m_nSegRegEdges<<std::endl;
                          
         
        
             if (verbose) LOG<<" finished graph init" <<std::endl;
+            logResetStage;
         }
         //can be used to initialize stuff right before potentials are called
         virtual void Init(){};

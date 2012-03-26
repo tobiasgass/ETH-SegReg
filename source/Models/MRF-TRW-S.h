@@ -108,7 +108,7 @@ public:
         int edgeCount=0;
         nRegLabels=graph->nRegLabels();
         nSegLabels=graph->nSegLabels();
-
+        logSetStage("Potential Functions");
 		//		traverse grid
         if ( (m_pairwiseSegmentationRegistrationWeight || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels){
             //RegUnaries
@@ -243,14 +243,14 @@ public:
         //tInterpolation+=t;
         if (verbose) LOG<<"Finished init after "<<t<<" seconds"<<std::endl;
         nEdges=edgeCount;
-
+        logResetStage;
     }
     
 
     virtual void optimize(int maxIter=20){
         if (verbose) LOG<<"EDGES " <<nEdges<<endl;
         //m_optimizer.SetAutomaticOrdering();
-
+        logSetStage("Optimizer");
         MRFEnergy<TRWType>::Options options;
         TRWType::REAL energy=-1, lowerBound=-1;
         options.m_iterMax = maxIter; // maximum number of iterations
@@ -263,12 +263,9 @@ public:
         clock_t finish = clock();
         tOpt+=((double)(finish-opt_start)/CLOCKS_PER_SEC);
         float t = (float) ((double)(finish - m_start) / CLOCKS_PER_SEC);
-        LOG<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound ;//std::endl;
+        LOG<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound <<std::endl;
 
-        if (verbose){
-            LOG<<std::endl;
-            //            evalSolution();
-        }
+        logResetStage;
     }
 
     virtual std::vector<int> getDeformationLabels(){
@@ -394,7 +391,7 @@ public:
             m_segmented=0;
             m_registered=0;
         }
-        if (verbose) LOG<<std::endl<<"starting graph init"<<std::endl;
+        if (verbose) LOG<<"starting graph init"<<std::endl;
         GraphModelType* graph=this->m_GraphModel;
         graph->Init();
         clock_t endUnary = clock();
