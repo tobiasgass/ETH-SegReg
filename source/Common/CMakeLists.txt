@@ -7,6 +7,7 @@ ADD_LIBRARY(Utils
   argstream.h
   itkDisplacementFieldCompositionFilter.h
   ChamferDistanceTransform.h
+  Log.h
 )
 TARGET_LINK_LIBRARIES(Utils ${ITK_LIBRARIES}  )
 
