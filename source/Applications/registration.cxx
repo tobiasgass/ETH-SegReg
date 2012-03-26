@@ -1,3 +1,4 @@
+#include "Log.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -142,7 +143,7 @@ int main(int argc, char ** argv)
 #if 0
 	for (int i=0;i<3*3;++i){
 		rLabel=RLC->getLabel(i);
-		std::cout<<i<<" "<<rLabel<<" "<<RLC->getIntegerLabel(rLabel)<<std::endl;
+		LOG<<i<<" "<<rLabel<<" "<<RLC->getIntegerLabel(rLabel)<<std::endl;
 	}
 #endif
 
@@ -152,7 +153,7 @@ int main(int argc, char ** argv)
 	for (it.GoToBegin() ; !it.IsAtEnd(); ++it,++i)
 	{
 		IndexType idx=it.GetIndex();
-		std::cout<<i<<" " <<idx<< " "<<fullimageGrid.getGridPositionAtIndex(i)<<std::endl;
+		LOG<<i<<" " <<idx<< " "<<fullimageGrid.getGridPositionAtIndex(i)<<std::endl;
 	}
 #endif
 
@@ -177,7 +178,7 @@ int main(int argc, char ** argv)
 	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 //		typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,pairwiseWeight);
-	std::cout<<"run"<<std::endl;
+	LOG<<"run"<<std::endl;
 	mrfSolver.optimize();
 
 	ImagePointerType transformedImage;

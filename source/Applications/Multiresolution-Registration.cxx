@@ -1,3 +1,4 @@
+#include "Log.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -169,7 +170,7 @@ int main(int argc, char ** argv)
 
 	LabelMapperType * labelmapper=new LabelMapperType(1,maxDisplacement);
 	for (int l=0;l<LabelMapperType::nLabels;++l){
-		std::cout<<l<<" "<<LabelMapperType::getLabel(l)<<" "<<LabelMapperType::getIndex(LabelMapperType::getLabel(l))<<std::endl;
+		LOG<<l<<" "<<LabelMapperType::getLabel(l)<<" "<<LabelMapperType::getIndex(LabelMapperType::getLabel(l))<<std::endl;
 	}
 	typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
 	typedef SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
@@ -224,20 +225,20 @@ int main(int argc, char ** argv)
 		for (int d=0;d<ImageType::ImageDimension;++d){
 			spacing[d]=targetImage->GetLargestPossibleRegion().GetSize()[d]/level;
 		}
-		std::cout<<"spacing at level "<<level<<" :"<<spacing<<std::endl;
+		LOG<<"spacing at level "<<level<<" :"<<spacing<<std::endl;
 
 		double labelScalingFactor=1;
 		for (int i=0;i<5;++i){
-			std::cout<<std::endl<<std::endl<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl<<std::endl;
+			LOG<<std::endl<<std::endl<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl<<std::endl;
 			movingInterpolator->SetInputImage(movingImage);
 
 			GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor,0,pairwiseWeight);
 			unaryPot->SetDisplacementFactor(graph.getDisplacementFactor());
 			unaryPot->SetBaseLabelMap(previousFullDeformation);
 			graph.setLabelImage(previousFullDeformation);
-			std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
-			std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
-			std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
+			LOG<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
+			LOG<<"Current grid size :"<<graph.getGridSize()<<std::endl;
+			LOG<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 			//	ok what now: create graph! solve graph! save result!Z
 			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
 			MRFSolverType mrfSolver(&graph,1,1, false);
@@ -261,7 +262,7 @@ int main(int argc, char ** argv)
 			//	resampler->SetOutputSpacing ( targetImage->GetSpacing() );
 			resampler->SetOutputDirection ( targetImage->GetDirection() );
 			resampler->SetSize ( targetImage->GetLargestPossibleRegion().GetSize() );
-			if (verbose) std::cout<<"interpolating deformation field"<<std::endl;
+			if (verbose) LOG<<"interpolating deformation field"<<std::endl;
 			resampler->Update();
 			//apply deformation to moving image
 
@@ -274,9 +275,9 @@ int main(int argc, char ** argv)
 				ImageInterpolatorType::ContinuousIndexType idx(fixedIt.GetIndex());
 
 				if (false){
-					std::cout<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-					std::cout<<"Total displacement including previous iterations ="<<LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-					std::cout<<"Resulting point in moving image :"<<idx+LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+					LOG<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+					LOG<<"Total displacement including previous iterations ="<<LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+					LOG<<"Resulting point in moving image :"<<idx+LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
 				}
 				idx+=LabelMapperType::getDisplacement(newLabelIt.Get());
 				idx+=LabelMapperType::getDisplacement(LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor()));

@@ -1,3 +1,4 @@
+#include "Log.h"
 /*less
  * HierarchicalSRSImageToImageFilter.h
  *
@@ -169,7 +170,7 @@ public:
         ImagePointerType segmentation;
         
         //init graph
-        std::cout<<"init graph"<<std::endl;
+        LOG<<"init graph"<<std::endl;
         GraphModelType graph;
         graph.setFixedImage(targetImage);
         graph.initGraph(1);
@@ -212,7 +213,7 @@ public:
                                 m_config.pairwiseSegmentationWeight, 
                                 m_config.verbose);
         mrfSolver.optimize(m_config.optIter);
-        std::cout<<" ]"<<std::endl;
+        LOG<<" ]"<<std::endl;
         segmentation=graph.getSegmentationImage(mrfSolver.getLabels());
         if (D==2){
             //segmentation=fixSegmentationImage((ConstImagePointerType)segmentation);
@@ -233,7 +234,7 @@ public:
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
             double multiplier=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                //    cout<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
+                //    LOG<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
                 imageIt2.Set(imageIt.Get()*multiplier);
             }
             return (ConstImagePointerType)newImage;

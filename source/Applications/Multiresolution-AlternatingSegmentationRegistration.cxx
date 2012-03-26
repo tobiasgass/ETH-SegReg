@@ -1,3 +1,4 @@
+#include "Log.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -302,10 +303,10 @@ int main(int argc, char ** argv)
 				segmentationImage->SetPixel(newLabelIt.GetIndex(),segmentation*65535);
 
 			}
-			std::cout<<"TP :"<<tp<<" "<<fp<<" "<<tn<<" "<<fn<<std::endl;
+			LOG<<"TP :"<<tp<<" "<<fp<<" "<<tn<<" "<<fn<<std::endl;
 			overlap=2.0*tp/(2*tp+fp+fn);
 		}
-		std::cout<<"Overlap of old and new segmentation at iteration "<<iterationCount<<" is :"<<overlap<<std::endl;
+		LOG<<"Overlap of old and new segmentation at iteration "<<iterationCount<<" is :"<<overlap<<std::endl;
 		if (overlap>0.99) break;
 		//end segmentation
 
@@ -336,7 +337,7 @@ int main(int argc, char ** argv)
 						//				divisor=1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 					}
 				}
-				//		std::cout<<divisor<<std::endl;
+				//		LOG<<divisor<<std::endl;
 				for (int d=0;d<ImageType::ImageDimension;++d){
 					int div=targetImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 					spacing[d]=int(1.0*targetImage->GetLargestPossibleRegion().GetSize()[d]/div);
@@ -349,24 +350,24 @@ int main(int argc, char ** argv)
 				//					nIterPerLevel=2;
 				//				}
 
-				//				std::cout<<"spacing at level "<<level<<" :"<<spacing<<std::endl;
+				//				LOG<<"spacing at level "<<level<<" :"<<spacing<<std::endl;
 
 				for (int i=0;i<nIterPerLevel;++i){
-					//					std::cout<<std::endl<<std::endl<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl<<std::endl;
+					//					LOG<<std::endl<<std::endl<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl<<std::endl;
 
 					GraphModelType graph(targetImage,unaryPot,spacing,labelScalingFactor, pairwiseSegmentationWeight, pairwiseRegistrationWeight );
 					graph.setGradientImage(fixedSegmentationImage);
 					//			for (int f=0;f<graph.nNodes();++f){
-					//				std::cout<<f<<" "<<graph.getGridPositionAtIndex(f)<<" "<<graph.getImagePositionAtIndex(f)<<std::endl;
+					//				LOG<<f<<" "<<graph.getGridPositionAtIndex(f)<<" "<<graph.getImagePositionAtIndex(f)<<std::endl;
 					//			}
 					unaryPot->SetDisplacementFactor(graph.getDisplacementFactor());
 					unaryPot->SetBaseLabelMap(previousFullDeformation);
 					unaryPot->setFixedSegmentation(true);
 					graph.setLabelImage(previousFullDeformation);
 
-					//					std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
-					//					std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
-					//					std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
+					//					LOG<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
+					//					LOG<<"Current grid size :"<<graph.getGridSize()<<std::endl;
+					//					LOG<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 					//	ok what now: create graph! solve graph! save result!Z
 					typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
 					//			typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
@@ -392,7 +393,7 @@ int main(int argc, char ** argv)
 					resampler->SetOutputSpacing ( targetImage->GetSpacing() );
 					resampler->SetOutputDirection ( targetImage->GetDirection() );
 					resampler->SetSize ( targetImage->GetLargestPossibleRegion().GetSize() );
-					//					if (verbose) std::cout<<"interpolating deformation field"<<std::endl;
+					//					if (verbose) LOG<<"interpolating deformation field"<<std::endl;
 					resampler->Update();
 					//			if (defFilename!=""){
 					//				//		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
@@ -415,10 +416,10 @@ int main(int argc, char ** argv)
 						ImageInterpolatorType::ContinuousIndexType idx=unaryPot->getMovingIndex(fixedIt.GetIndex());
 
 						if (false){
-							std::cout<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-							std::cout<<"Total displacement including previous iterations ="<<LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-							std::cout<<"Resulting point in moving image :"<<idx+LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
-							std::cout<<"Total Label :"<<labelIt.Get()<<std::endl;
+							LOG<<"Current displacement at "<<fixedIt.GetIndex()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get())<<" with factors:"<<graph.getDisplacementFactor()<<" ="<<LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+							LOG<<"Total displacement including previous iterations ="<<LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+							LOG<<"Resulting point in moving image :"<<idx+LabelMapperType::getDisplacement(newLabelIt.Get())+LabelMapperType::getDisplacement(labelIt.Get()).elementMult(graph.getDisplacementFactor())<<std::endl;
+							LOG<<"Total Label :"<<labelIt.Get()<<std::endl;
 						}
 						BaseLabelType displacement=LabelMapperType::scaleDisplacement(labelIt.Get(),graph.getDisplacementFactor());
 						if (iterationCount){

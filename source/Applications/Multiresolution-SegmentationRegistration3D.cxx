@@ -1,3 +1,4 @@
+#include "Log.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -23,7 +24,7 @@ using namespace itk;
 
 int main(int argc, char ** argv)
 {
-    cout<<CLOCKS_PER_SEC<<endl;
+    LOG<<CLOCKS_PER_SEC<<endl;
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 	SRSConfig filterConfig;
@@ -86,8 +87,8 @@ typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothness
 	filter->Update();
 	clock_t FULLend = clock();
 	float t = (float) ((double)(FULLend - FULLstart) / CLOCKS_PER_SEC);
-	std::cout<<"Finished computation after "<<t<<" seconds"<<std::endl;
-	std::cout<<"RegUnaries: "<<tUnary<<" Optimization: "<<tOpt<<std::endl;	
-    std::cout<<"RegPairwise: "<<tPairwise<<std::endl;
+	LOG<<"Finished computation after "<<t<<" seconds"<<std::endl;
+	LOG<<"RegUnaries: "<<tUnary<<" Optimization: "<<tOpt<<std::endl;	
+    LOG<<"RegPairwise: "<<tPairwise<<std::endl;
 	return 1;
 }

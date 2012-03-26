@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Grid.h
  *
@@ -176,7 +177,7 @@ namespace itk{
             constA = vnl_matrix_inverse<double>( vnl_transpose(tempM) * tempM ) * vnl_transpose(tempM);
             
             int nNewSamples=this->m_config.nSubsamples;//(gridSize-2)*(gridSize-2);
-            cout<<nNewSamples<<endl;
+            LOG<<nNewSamples<<endl;
             nRegistrationLabels=nNewSamples;
             m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
             //computing new subsampled labels and label costs
@@ -193,7 +194,7 @@ namespace itk{
                     nodeInfo.label=label;
                     if (l==1) assert(label[0]==-(gridSize-1)/2+1 &&label[1]==-(gridSize-1)/2);
                     originalRegistrationCosts.push_back(nodeInfo);
-                    //if (r==0) std::cout<<r<<" "<<l<<" "<<label<<" "<< tmp<<endl;
+                    //if (r==0) LOG<<r<<" "<<l<<" "<<label<<" "<< tmp<<endl;
                 }
                 
                 // now compute novel mapping and costs and store in m_nodeMappingInfo
@@ -310,7 +311,7 @@ namespace itk{
 
                 if ((a[4]<0 || a[5]<0) || result<minVal){
                     bool test= ((a[4]>0 || a[5]>0) && result<minVal);
-                    cout<<test << endl;
+                    LOG<<test << endl;
                     inf.label=label;
                     RegistrationLabelType l;
                     l=LabelMapperType::scaleDisplacement(label,this->getDisplacementFactor());
@@ -319,8 +320,8 @@ namespace itk{
                     //nodeInfo.subsampledNodeCosts.push_back( trueValue );
                     inf.costs=trueValue;
                         
-                    //                        cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<distanceToOriginal<<" "<<result-minVal<<" "<<trueValue<<" "<<result-trueValue<<endl;
-                    //cout<<"COSTS "<<result<<" "<<minVal<<" "<<trueValue<<" "<<fabs(result-trueValue)<<endl;
+                    //                        LOG<<labelNum<<" "<<result<<" "<<minVal<<" "<<distanceToOriginal<<" "<<result-minVal<<" "<<trueValue<<" "<<result-trueValue<<endl;
+                    //LOG<<"COSTS "<<result<<" "<<minVal<<" "<<trueValue<<" "<<fabs(result-trueValue)<<endl;
                 }else{
                     inf.costs=( minVal );
                     inf.label=( LabelMapperType::getLabel(ind) );
@@ -383,7 +384,7 @@ namespace itk{
 #else
             //or take the actual interpolated values
             result=m_nodeMappingInfo[nodeIndex][labelIndex].costs;
-            //cout<<nodeIndex<<" "<<labelIndex<<" "<<m_nodeMappingInfo[nodeIndex][labelIndex].index<<"/"<<m_nodeMappingInfo[nodeIndex][labelIndex].costs<<"/"<<m_nodeMappingInfo[nodeIndex][labelIndex].label<<endl;
+            //LOG<<nodeIndex<<" "<<labelIndex<<" "<<m_nodeMappingInfo[nodeIndex][labelIndex].index<<"/"<<m_nodeMappingInfo[nodeIndex][labelIndex].costs<<"/"<<m_nodeMappingInfo[nodeIndex][labelIndex].label<<endl;
             return result;
 #endif
         }
@@ -430,7 +431,7 @@ namespace itk{
             for (it.GoToBegin();!it.IsAtEnd();++it,++i){
                 assert(i<labels.size());
                 RegistrationLabelType l=m_nodeMappingInfo[i][labels[i]].label;
-                //std::cout<<"FINAL :"<<i<<" "<<labels[i]<<" "<<l<<" "<<m_nodeMappingInfo[i].subsampledNodeCosts[labels[i]]<<endl;
+                //LOG<<"FINAL :"<<i<<" "<<labels[i]<<" "<<l<<" "<<m_nodeMappingInfo[i].subsampledNodeCosts[labels[i]]<<endl;
                 l=LabelMapperType::scaleDisplacement(l,this->getDisplacementFactor());
                 it.Set(l);
             }
@@ -605,7 +606,7 @@ namespace itk{
                     nodeInfo.index=l;
                     nodeInfo.label=label;
                     originalRegistrationCosts.push_back(nodeInfo);
-                    //if (r==0) std::cout<<r<<" "<<l<<" "<<label<<" "<< tmp<<endl;
+                    //if (r==0) LOG<<r<<" "<<l<<" "<<label<<" "<< tmp<<endl;
                 }
                 
                 // now compute novel mapping and costs and store in m_nodeMappingInfo
@@ -729,10 +730,10 @@ namespace itk{
                     if (concave ||result>minVal)  {
                         if (this->m_config.verbose){
                             if (result>minVal) {
-                                //cout<<"LARGE "<<result<<" "<<minVal<<" bound:"<<boundary<<" conc:"<<concave<<endl;
-                                //cout<<"ERROR "<<fabs(result-minVal)<<endl;
+                                //LOG<<"LARGE "<<result<<" "<<minVal<<" bound:"<<boundary<<" conc:"<<concave<<endl;
+                                //LOG<<"ERROR "<<fabs(result-minVal)<<endl;
                             }
-                            //else cout<<"not convex "<<a[4]<<" "<<a[5]<<" buond:"<<boundary<<endl;
+                            //else LOG<<"not convex "<<a[4]<<" "<<a[5]<<" buond:"<<boundary<<endl;
                         }
                         result=minVal;
                         label=LabelMapperType::getLabel(ind);
@@ -746,12 +747,12 @@ namespace itk{
                     info.costs=result;
                     actualInterpolatedNodes.push_back(ind);
                     nodeInfo.push_back(info);
-                    if (this->m_config.verbose) std::cout<<labelNum<<" "<<result<<" "<<minVal<<" "<<label<<" "<<LabelMapperType::getLabel(ind)<<endl;
+                    if (this->m_config.verbose) LOG<<labelNum<<" "<<result<<" "<<minVal<<" "<<label<<" "<<LabelMapperType::getLabel(ind)<<endl;
                 } // boundary
                 break;
             }//for loop
         
-            //            cout<<nodeInfo.size()<<endl;
+            //            LOG<<nodeInfo.size()<<endl;
             for(unsigned int ii = 0; ii<gridCosts.size()&&nodeInfo.size()< (unsigned int)nNewSamples; ii++){
                 //if (localMinima.end()==std::find( localMinima.begin(),localMinima.end(), ii) ){
                 if ( !actualInterpolatedNodes.size() || actualInterpolatedNodes.end()==std::find( actualInterpolatedNodes.begin(),actualInterpolatedNodes.end(), ii) ){
@@ -773,7 +774,7 @@ namespace itk{
                     nodeInfo.push_back(inf);
                 }
             }
-            //cout<<nodeInfo.size()<<endl;
+            //LOG<<nodeInfo.size()<<endl;
 
        
             return nodeInfo;
@@ -855,14 +856,14 @@ namespace itk{
             int nNewSamples=this->m_config.nSubsamples;//(gridSize-2)*(gridSize-2);
             if (nNewSamples<1) nNewSamples=LabelMapperType::nDisplacements;
             else nNewSamples=min(nNewSamples,LabelMapperType::nDisplacements);
-            cout<<nNewSamples<<endl;
+            LOG<<nNewSamples<<endl;
             this->nRegistrationLabels=nNewSamples;
             this->m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
             //computing new subsampled labels and label costs
             for (int r=0;r<this->m_nRegistrationNodes;++r){
                 std::vector< NodeInformation > originalRegistrationCosts, copy;
                 IndexType imageIndex=this->getImageIndexFromCoarseGraphIndex(r);
-                //cout<< "BEFORE "<<r;
+                //LOG<< "BEFORE "<<r;
                 for (int l=0;l<this->m_nDisplacementLabels;++l){
                     double tmp=Superclass::Superclass::getUnaryRegistrationPotential(r,l);
 
@@ -871,20 +872,20 @@ namespace itk{
                     info.costs=tmp;
                     info.index=l;
                     originalRegistrationCosts.push_back(info);
-                    //    cout<<" "<<l<<"/"<<tmp<<"/"<<info.label;
+                    //    LOG<<" "<<l<<"/"<<tmp<<"/"<<info.label;
                 }
-                //cout<<endl;
+                //LOG<<endl;
                 copy=originalRegistrationCosts;
                 std::sort(originalRegistrationCosts.begin(),originalRegistrationCosts.end(),sort_pred());
                 NodeInformationMapping n;
                 for (int i=0;i<nNewSamples;++i){
                     n.push_back(originalRegistrationCosts[i]);
-                    //cout<<" "<<originalRegistrationCosts[i].second<<"/"<<originalRegistrationCosts[i].first;
-                    //cout<<n.subsampledNodeCosts[i]<<" "<< n.indexToSubsampledDisplacementMapping[i]<<endl;
+                    //LOG<<" "<<originalRegistrationCosts[i].second<<"/"<<originalRegistrationCosts[i].first;
+                    //LOG<<n.subsampledNodeCosts[i]<<" "<< n.indexToSubsampledDisplacementMapping[i]<<endl;
                 }
                 //std::sort(n.begin(),n.end(),sort_index());
 
-                //cout<<endl;
+                //LOG<<endl;
                 this->m_nodeMappingInfo.push_back(n);
             }
         }
@@ -1001,7 +1002,7 @@ namespace itk{
             int nNewSamples=this->m_config.nSubsamples;//(gridSize-2)*(gridSize-2);
             if (nNewSamples<1) nNewSamples=LabelMapperType::nDisplacements;
             else nNewSamples=min(nNewSamples,LabelMapperType::nDisplacements);
-            cout<<nNewSamples<<endl;
+            LOG<<nNewSamples<<endl;
             this->nRegistrationLabels=nNewSamples;
             this->m_nodeMappingInfo= std::vector< NodeInformationMapping >(0);
             
@@ -1009,10 +1010,10 @@ namespace itk{
             for (int r=0;r<this->m_nRegistrationNodes;++r){
                 std::vector<LabelAndCosts> originalRegistrationCosts, copy;
                 IndexType imageIndex=this->getImageIndexFromCoarseGraphIndex(r);
-                //cout<< "BEFORE";
+                //LOG<< "BEFORE";
                 for (int l=0;l<this->m_nDisplacementLabels;++l){
                     double tmp=Superclass::Superclass::getUnaryRegistrationPotential(r,l);
-                    //cout<<" "<<l<<"/"<<tmp;
+                    //LOG<<" "<<l<<"/"<<tmp;
                     LabelAndCosts store;
                     store.label=LabelMapperType::getLabel(l);
                     store.pureCosts=tmp;
@@ -1021,7 +1022,7 @@ namespace itk{
                     originalRegistrationCosts.push_back(store);
                 }
                 copy=originalRegistrationCosts;
-                //cout<<endl<<"AFTER";
+                //LOG<<endl<<"AFTER";
                 NodeInformationMapping n;
                 double maxCost=0, minCost, avgCost;
                 std::vector<int> counts(this->m_nDisplacementLabels,0);
@@ -1030,11 +1031,11 @@ namespace itk{
                     //std::partial_sort(originalRegistrationCosts.begin()+i,originalRegistrationCosts.begin()+nNewSamples,originalRegistrationCosts.end(),LabelAndCosts());
                     std::sort(originalRegistrationCosts.begin(),originalRegistrationCosts.end(),LabelAndCosts());
 #if 0
-                    cout<<"BEGIN "<<i;
+                    LOG<<"BEGIN "<<i;
                     for (int f=0;f<originalRegistrationCosts.size();++f){
-                        cout<<" "<<originalRegistrationCosts[f].index<<"/"<<originalRegistrationCosts[f].weightedCosts;
+                        LOG<<" "<<originalRegistrationCosts[f].index<<"/"<<originalRegistrationCosts[f].weightedCosts;
                     }
-                    cout<<endl;
+                    LOG<<endl;
 #endif
                     //store min element
                     RegistrationLabelType label=(originalRegistrationCosts[i].label);
@@ -1042,7 +1043,7 @@ namespace itk{
                     info.label=label;
                     info.costs=originalRegistrationCosts[i].pureCosts;
                     info.index=originalRegistrationCosts[i].index;
-                    if ( counts[info.index] ) { cout<<" ERROR, duplicate in list! at " <<originalRegistrationCosts[i].index<<endl;}
+                    if ( counts[info.index] ) { LOG<<" ERROR, duplicate in list! at " <<originalRegistrationCosts[i].index<<endl;}
                     counts[info.index]++;
                     n.push_back(info);
 
@@ -1057,14 +1058,14 @@ namespace itk{
                             dist+=(label[d]-l2[d])*(label[d]-l2[d]);
                         }
                         //                  if (dist>maxDist) {
-                        //cout<<" MAXDIST exceeded :"<<dist<<" "<<maxDist<<" "<<label<<" "<<l2<<" "<<this->getDisplacementFactor()<<endl;
+                        //LOG<<" MAXDIST exceeded :"<<dist<<" "<<maxDist<<" "<<label<<" "<<l2<<" "<<this->getDisplacementFactor()<<endl;
                         //}
                         // penalty is bigger the smaller the distance is
                         double penalty=1-(dist/maxDist);//exp(-dist);
                         //penalty is scaled by maxCosts, so worst case penalty is maxCosts if distance=0
                         penalty*=originalRegistrationCosts[j].pureCosts;//maxCost;
                         originalRegistrationCosts[j].weightedCosts+=penalty;
-                        //cout<<i<<" "<<label<<" "<<l2<<" "<<j<<" "<<originalRegistrationCosts[j].pureCosts<<" "<<dist<<" "<<penalty<<" "<< originalRegistrationCosts[j].weightedCosts << endl;
+                        //LOG<<i<<" "<<label<<" "<<l2<<" "<<j<<" "<<originalRegistrationCosts[j].pureCosts<<" "<<dist<<" "<<penalty<<" "<< originalRegistrationCosts[j].weightedCosts << endl;
                     }
 
                     

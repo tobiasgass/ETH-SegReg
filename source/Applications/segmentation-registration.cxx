@@ -1,3 +1,4 @@
+#include "Log.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -160,7 +161,7 @@ int main(int argc, char ** argv)
 
 
 
-	std::cout<<movingImage->GetLargestPossibleRegion().GetSize()<<std::endl;
+	LOG<<movingImage->GetLargestPossibleRegion().GetSize()<<std::endl;
 
 
 	//create Grid
@@ -203,7 +204,7 @@ int main(int argc, char ** argv)
 	//	typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	//	MRFSolverType mrfSolver(targetImage,movingImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,p);
 
-	std::cout<<"run with p="<<p<<std::endl;
+	LOG<<"run with p="<<p<<std::endl;
 	mrfSolver.optimize();
 
 	//deformed image

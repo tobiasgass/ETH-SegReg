@@ -1,3 +1,4 @@
+#include "Log.h"
 
 /*
  * Potentials.h
@@ -92,7 +93,7 @@ namespace itk{
                 m_scaledRadius[d]=m_radius[d]*m_scale;
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
-            cout<<" Radius " << m_radius << " scale "<< m_scale << "scaledRadius "<< m_scaledRadius << endl;
+            LOG<<" Radius " << m_radius << " scale "<< m_scale << "scaledRadius "<< m_scaledRadius << endl;
             nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             m_atlasInterpolator=InterpolatorType::New();
             m_atlasInterpolator->SetInputImage(m_scaledAtlasImage);
@@ -170,7 +171,7 @@ namespace itk{
             }else{
                 m_scaledTargetImage=m_targetImage;
             }
-            cout << this->m_scaledRadius <<endl;
+            LOG << this->m_scaledRadius <<endl;
             nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
 
         }
@@ -186,10 +187,10 @@ namespace itk{
             }
           
             // LabelType baseDisp=m_baseLabelMap->GetPixel(targetIndex);
-            //std::cout<<baseDisp<<" "<<disp<<std::endl;
+            //LOG<<baseDisp<<" "<<disp<<std::endl;
             //baseDisp*=m_scale;
             disp*=m_scale;
-            //            std::cout<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
             //          nIt->SetLocation(targetIndex);
             nIt.SetLocation(targetIndex);
             double count=0, totalCount=0;
@@ -205,7 +206,7 @@ namespace itk{
 
                     idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*m_scale;
 
-                    //cout<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
                     totalCount+=1.0;
                     if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
@@ -231,7 +232,7 @@ namespace itk{
                     }else{
                         m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
                     }
-                    //cout<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
                     sff+=f*f;
                     smm+=m*m;
                     sfm+=f*m;
@@ -339,10 +340,10 @@ namespace itk{
                 targetIndex[d]*=this->m_scale;
             }
             LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
-            //std::cout<<baseDisp<<" "<<disp<<std::endl;
+            //LOG<<baseDisp<<" "<<disp<<std::endl;
             baseDisp*=this->m_scale;
             disp*=this->m_scale;
-            //            std::cout<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
             //          nIt->SetLocation(targetIndex);
             this->nIt.SetLocation(targetIndex);
             double count=0;
@@ -445,10 +446,10 @@ namespace itk{
             }
             LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
             //disp+=baseDisp;
-            //std::cout<<baseDisp<<" "<<disp<<std::endl;
+            //LOG<<baseDisp<<" "<<disp<<std::endl;
             baseDisp*=this->m_scale;
             disp*=this->m_scale;
-            //            std::cout<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
             //          nIt->SetLocation(targetIndex);
             this->nIt.SetLocation(targetIndex);
             double count=0;
@@ -467,7 +468,7 @@ namespace itk{
                     
                     idx2+=finalDisplacement;
 
-                    //cout<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
                     if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
                         continue;
@@ -486,7 +487,7 @@ namespace itk{
                     }else{
                         m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
                     }
-                    //cout<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
                     sff+=f*f;
                     smm+=m*m;
                     sfm+=f*m;
@@ -504,7 +505,7 @@ namespace itk{
                         //double penalty=weight*this->m_srsPotential->getPotential(neighborIndex,neighborIndex,disp,segmentationPriorLabel);
                         double penalty=weight*this->m_srsPotential->getPotential(trueIndex,trueIndex,trueDisplacement+baseDisplacement,segmentationPriorLabel);
                         segmentationPenalty+=penalty;
-                        //cout<<targetIndex<<" "<<neighborIndex<<" "<<weight<<" "<<segmentationPriorLabel<<" "<<penalty<<endl;
+                        //LOG<<targetIndex<<" "<<neighborIndex<<" "<<weight<<" "<<segmentationPriorLabel<<" "<<penalty<<endl;
                         distanceSum+=1;//weight;
                     }
                 }
@@ -645,10 +646,10 @@ namespace itk{
                 targetIndex[d]*=this->m_scale;
             }
             //LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
-            //std::cout<<baseDisp<<" "<<disp<<std::endl;
+            //LOG<<baseDisp<<" "<<disp<<std::endl;
             //baseDisp*=this->m_scale;
             disp*=this->m_scale;
-            //            std::cout<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
             //          nIt->SetLocation(targetIndex);
             this->nIt.SetLocation(targetIndex);
             double count=0;
@@ -665,7 +666,7 @@ namespace itk{
 
                     idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
 
-                    //cout<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
                     if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
                         assert(!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2));
@@ -685,7 +686,7 @@ namespace itk{
                     }else{
                         m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
                     }
-                    //cout<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
                     sff+=f*f;
                     smm+=m*m;
                     sfm+=f*m;
@@ -744,7 +745,7 @@ namespace itk{
                     if (sfm>0) result=0;
                     else result=1;
                 }
-                // cout<<targetIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
+                // LOG<<targetIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
                 if (distanceSum){
                     result=(1-this->m_alpha)*result+this->m_alpha*segmentationPenalty/distanceSum;
                 }
@@ -904,10 +905,10 @@ namespace itk{
                 targetIndex[d]*=this->m_scale;
             }
             //LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
-            //std::cout<<baseDisp<<" "<<disp<<std::endl;
+            //LOG<<baseDisp<<" "<<disp<<std::endl;
             //baseDisp*=this->m_scale;
             disp*=this->m_scale;
-            //            std::cout<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
             //          nIt->SetLocation(targetIndex);
             this->nIt.SetLocation(targetIndex);
             int count=0, totalCount=0;
@@ -924,7 +925,7 @@ namespace itk{
 
                     idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
 
-                    //cout<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
                     totalCount++;
                     if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
@@ -945,7 +946,7 @@ namespace itk{
                     }else{
                         m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
                     }
-                    //cout<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
                     sff+=f*f;
                     smm+=m*m;
                     sfm+=f*m;
@@ -1000,13 +1001,13 @@ namespace itk{
                 else {
                     if (sfm>0) result=0;
                     else result=1;
-                    //cout<<"AUTOCORRELATION ZERO "<<count<<endl;
+                    //LOG<<"AUTOCORRELATION ZERO "<<count<<endl;
                 }
-                // cout<<targetIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
+                // LOG<<targetIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
                 if (distanceSum){
                     result=result+this->m_alpha*segmentationPenalty/distanceSum;
                 }
-                //cout<<"result "<<result<<" penalty factor:"<<1+this->m_alpha*(1.0*totalCount-count)/(totalCount)<<" countDiff:"<<totalCount-count<<endl;
+                //LOG<<"result "<<result<<" penalty factor:"<<1+this->m_alpha*(1.0*totalCount-count)/(totalCount)<<" countDiff:"<<totalCount-count<<endl;
                 result=result*(1+this->m_alpha*(1.0*totalCount-count)/(totalCount+1));//+this->m_alpha*(totalCount-count)/(totalCount+1);
             }
             //no correlation whatsoever (-log(0.5))
@@ -1095,7 +1096,7 @@ namespace itk{
 
             }
             //  if(!( m_shiftedAtlasImage->GetLargestPossibleRegion().IsInside(targetIndex) && this->m_targetImage->GetLargestPossibleRegion().IsInside(targetIndex))){
-            //cout<<targetIndex<<" "<<m_shiftedAtlasImage->GetLargestPossibleRegion().GetSize()<<" "<<this->m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()<<endl;
+            //LOG<<targetIndex<<" "<<m_shiftedAtlasImage->GetLargestPossibleRegion().GetSize()<<" "<<this->m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()<<endl;
             //  }
             this->nIt.SetLocation(targetIndex);
             m_atlasNeighborhoodIterator.SetLocation(targetIndex);

@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Potentials.h
  *
@@ -147,7 +148,7 @@ namespace itk{
 			}
 
 			//			if (false){
-            //cout<<displacement1-displacement2<<" "<<1.0/(1+exp(-result))<<endl;
+            //LOG<<displacement1-displacement2<<" "<<1.0/(1+exp(-result))<<endl;
             return 1.0/(1+exp(-result));
         }
     };//class
@@ -220,8 +221,8 @@ namespace itk{
 
             
             if (! (rightNeighb || leftNeighb) ){
-                std::cout<<"ERROR, no pair has left or right neighbors. 2x2 grids dont work!"<<endl;
-                std::cout<<targetIndex1<<" "<<targetIndex2<<" "<<this->m_gridSpacing<<" "<<this->m_targetSize<<endl;
+                LOG<<"ERROR, no pair has left or right neighbors. 2x2 grids dont work!"<<endl;
+                LOG<<targetIndex1<<" "<<targetIndex2<<" "<<this->m_gridSpacing<<" "<<this->m_targetSize<<endl;
             }
 
             LabelType oldl1=this->m_baseLabelMap->GetPixel((targetIndex1));
@@ -238,8 +239,8 @@ namespace itk{
 			displacement1+=oldl1;
 			displacement2+=oldl2;
             #if 0
-            std::cout<<targetIndex1<<" "<<targetIndex2<<" "<<leftNeighbor<<" "<<rightNeighbor<<endl;;
-            std::cout<<displacement1<<" "<<leftDisp<<" "<<displacement2<<" "<<rightDisp<<endl;;
+            LOG<<targetIndex1<<" "<<targetIndex2<<" "<<leftNeighbor<<" "<<rightNeighbor<<endl;;
+            LOG<<displacement1<<" "<<leftDisp<<" "<<displacement2<<" "<<rightDisp<<endl;;
             #endif
             for (unsigned int d=0;d<D;++d){
 				d1=displacement1[d];
@@ -263,7 +264,7 @@ namespace itk{
             }
             double normaliser=1.0/2;//(int(rightNeighb)+int(leftNeighb));
 			//			if (false){
-            //cout<<displacement1-displacement2<<" "<<1.0/(1+exp(-result))<<endl;
+            //LOG<<displacement1-displacement2<<" "<<1.0/(1+exp(-result))<<endl;
             //double result=normaliser*(leftCost+rightCost)/controlPointDistance;
             double result=normaliser*(rightNeighb*leftCost+leftNeighb*rightCost)/controlPointDistance;
 

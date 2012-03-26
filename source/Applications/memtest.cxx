@@ -1,3 +1,4 @@
+#include "Log.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -49,7 +50,7 @@ public:
             c+=2;
         }        
         sleep(1);
-        std::cout<<" "<<c<<std::endl;
+        LOG<<" "<<c<<std::endl;
     }
 
 };
@@ -69,7 +70,7 @@ public:
             pointers[i]=NULL;
         }
     }
-    std::cout<<"freed TRW-S "<<std::endl;
+    LOG<<"freed TRW-S "<<std::endl;
         sleep(1);
     }
     void init(){
@@ -103,10 +104,10 @@ int main(int argc, char ** argv)
         t3.init();
         sleep(1);
         delete t3;
-        cout<<"deleted optimizer"<<endl;
+        LOG<<"deleted optimizer"<<endl;
 #endif     
 
-        std::cout<<i<<std::endl;
+        LOG<<i<<std::endl;
 
     }
 

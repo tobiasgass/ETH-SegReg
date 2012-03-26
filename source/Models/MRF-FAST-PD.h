@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * FAST-PD-Registration-mrf.h
  *
@@ -49,7 +50,7 @@ public:
 	 * initialize graph, compute potentials, set up neighbourhood structure
 	 */
 	virtual void createGraph(){
-		if (verbose) std::cout<<"starting graph init"<<std::endl;
+		if (verbose) LOG<<"starting graph init"<<std::endl;
 		GraphModelType* graph=m_GraphModel;
         graph->Init();
 
@@ -58,18 +59,18 @@ public:
         m_nPairs=graph->nRegEdges();
         
 		//		pairs is an array of the form [na nb nc nd...] where (na,nb),(nc,nd) are edges in the graph and na,... are indices of the nodes
-		if (verbose) std::cout<<"allocating "<<m_nPairs<<" pairs"<<std::endl;
+		if (verbose) LOG<<"allocating "<<m_nPairs<<" pairs"<<std::endl;
 		pairs=std::vector<int>(m_nPairs*2);
-		if (verbose) std::cout<<"allocating "<<m_nNodes*m_nLabels<<"unary potentials"<<std::endl;
+		if (verbose) LOG<<"allocating "<<m_nNodes*m_nLabels<<"unary potentials"<<std::endl;
 		unaryPotentials=new Real[m_nNodes*m_nLabels];
-		if (verbose) std::cout<<"allocating "<<m_nLabels*m_nLabels*m_nPairs<<" pairwise potentials"<<std::endl;
+		if (verbose) LOG<<"allocating "<<m_nLabels*m_nLabels*m_nPairs<<" pairwise potentials"<<std::endl;
 		//		pairwisePotentials= new Real[m_nLabels*m_nLabels];
 		pairwisePotentials= new Real[m_nLabels*m_nLabels*m_nPairs];
-		if (verbose) std::cout<<"allocating "<<m_nPairs<<" edgeweights"<<std::endl;
+		if (verbose) LOG<<"allocating "<<m_nPairs<<" edgeweights"<<std::endl;
 
 		edgeWeights=std::vector<Real>(m_nPairs,1.0);//new Real[m_nPairs];//={1.0};
 		
-        if (verbose) std::cout<<m_nNodes<<" "<<m_nLabels<<" "<<std::endl;
+        if (verbose) LOG<<m_nNodes<<" "<<m_nLabels<<" "<<std::endl;
 		//memset( edgeWeights, 1.0,this->m_nPairs*sizeof(Real) );
 
 
@@ -82,7 +83,7 @@ public:
 			// get forward neighbors of current grid point, both grid index and image plane index
 			std::vector<int> neighbours=graph->getForwardRegistrationNeighbours(d);
 			int nNeighbours=neighbours.size();
-			//			std::cout<<d<<" "<<nNeighbours<<std::endl;
+			//			LOG<<d<<" "<<nNeighbours<<std::endl;
 			for (int i=0;i<nNeighbours;++i){
 				int pairIndex=runningIndex+i*2;
 				pairs[pairIndex]=d;
@@ -90,7 +91,7 @@ public:
 				edgeWeights[(pairIndex)/2]=1;//graph->getWeight(d,neighbours[i]);
  				for (int l1=0;l1<nLabels;++l1){
 					for (int l2=0;l2<nLabels;++l2){
-						//						std::cout<<pairIndex/2<<" "<<l1<< " "<<l2<<" "<<l1*nLabels+l2 + pairIndex/2*nLabels*nLabels<<std::endl;
+						//						LOG<<pairIndex/2<<" "<<l1<< " "<<l2<<" "<<l1*nLabels+l2 + pairIndex/2*nLabels*nLabels<<std::endl;
 						pairwisePotentials[l1*nLabels+l2 + pairIndex/2*nLabels*nLabels]
                             =m_pairwiseWeight*graph->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);//graph->getPairwisePotential(d,neighbours[i],l1,l2);
                     }
@@ -105,11 +106,11 @@ public:
 
 		}
 
-		if (verbose) std::cout<<"initialised basic graph structure and unary potentials"<<std::endl;
+		if (verbose) LOG<<"initialised basic graph structure and unary potentials"<<std::endl;
 		//		traverse labels
 
 		//create optimizer object
-		if (verbose) std::cout<<"initialising fastPD with "<<this->m_nNodes<<" nodes, "<< this->m_nLabels<<" labels, "<<this->m_nPairs<<" pairs"<<std::endl;
+		if (verbose) LOG<<"initialising fastPD with "<<this->m_nNodes<<" nodes, "<< this->m_nLabels<<" labels, "<<this->m_nPairs<<" pairs"<<std::endl;
         optimizer= new CV_Fast_PD3(this->m_nNodes,this->m_nLabels,unaryPotentials,this->m_nPairs,&pairs[0],pairwisePotentials, 20,&edgeWeights[0]);
         //		this->m_unaryPotentialFunction->freeMemory();
 	}
@@ -159,20 +160,20 @@ public:
 	{
 		verbose=false;
 		//		pairs is an array of the form [na nb nc nd...] where (na,nb),(nc,nd) are edges in the graph and na,... are indices of the nodes
-		if (verbose) std::cout<<"allocating "<<this->m_nPairs<<" pairs"<<std::endl;
+		if (verbose) LOG<<"allocating "<<this->m_nPairs<<" pairs"<<std::endl;
 		pairs=std::vector<int>(this->m_nPairs*2);
-		if (verbose) std::cout<<"allocating "<<this->m_nNodes*this->m_nLabels<<"unary potentials"<<std::endl;
+		if (verbose) LOG<<"allocating "<<this->m_nNodes*this->m_nLabels<<"unary potentials"<<std::endl;
 		unaryPotentials=new Real[this->m_nNodes*this->m_nLabels];
-		if (verbose) std::cout<<"allocating "<<this->m_nLabels*this->m_nLabels<<" pairwise potentials"<<std::endl;
+		if (verbose) LOG<<"allocating "<<this->m_nLabels*this->m_nLabels<<" pairwise potentials"<<std::endl;
 		//		pairwisePotentials= new Real[this->m_nLabels*this->m_nLabels];
 		pairwisePotentials= new Real[this->m_nLabels*this->m_nLabels];
 
 
-		if (verbose) std::cout<<"allocating "<<this->m_nPairs<<" edgeweights"<<std::endl;
+		if (verbose) LOG<<"allocating "<<this->m_nPairs<<" edgeweights"<<std::endl;
 		edgeWeights=std::vector<Real>(this->m_nPairs,1.0);//new Real[this->m_nPairs];//={1.0};
 		m_unaryWeight=unaryWeight;
 		m_pairwiseWeight=pairwiseWeight;
-		if (verbose) std::cout<<this->m_nNodes<<" "<<this->m_nLabels<<" "<<std::endl;
+		if (verbose) LOG<<this->m_nNodes<<" "<<this->m_nLabels<<" "<<std::endl;
 		//memset( edgeWeights, 1.0,this->m_nPairs*sizeof(Real) );
 
 		createGraph();
@@ -187,7 +188,7 @@ public:
 	 * initialize graph, compute potentials, set up neighbourhood structure
 	 */
 	virtual void createGraph(){
-		if (verbose) std::cout<<"starting graph init"<<std::endl;
+		if (verbose) LOG<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_GraphModel;
 		int nLabels=this->m_nLabels;
 		int runningIndex=0;
@@ -198,7 +199,7 @@ public:
 			// get forward neighbors of current grid point, both grid index and image plane index
 			std::vector<int> neighbours=graph->getForwardNeighbours(d);
 			int nNeighbours=neighbours.size();
-			//			std::cout<<d<<" "<<nNeighbours<<std::endl;
+			//			LOG<<d<<" "<<nNeighbours<<std::endl;
 			for (int i=0;i<nNeighbours;++i){
 				int pairIndex=runningIndex+i*2;
 				pairs[pairIndex]=d;
@@ -220,11 +221,11 @@ public:
 				pairwisePotentials[l1*nLabels+l2]=m_pairwiseWeight*(l1!=l2);
 			}
 		}
-		if (verbose) std::cout<<"initialised basic graph structure and unary potentials"<<std::endl;
+		if (verbose) LOG<<"initialised basic graph structure and unary potentials"<<std::endl;
 		//		traverse labels
 
 		//create optimizer object
-		if (verbose) std::cout<<"initialising fastPD with "<<this->m_nNodes<<" nodes, "<< this->m_nLabels<<" labels, "<<this->m_nPairs<<" pairs"<<std::endl;
+		if (verbose) LOG<<"initialising fastPD with "<<this->m_nNodes<<" nodes, "<< this->m_nLabels<<" labels, "<<this->m_nPairs<<" pairs"<<std::endl;
 		optimizer= new CV_Fast_PD(this->m_nNodes,this->m_nLabels,unaryPotentials,this->m_nPairs,&pairs[0],pairwisePotentials,20,&edgeWeights[0]);
 
 		//		this->m_unaryPotentialFunction->freeMemory();

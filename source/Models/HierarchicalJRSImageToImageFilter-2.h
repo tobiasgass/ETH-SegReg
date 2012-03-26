@@ -1,3 +1,4 @@
+#include "Log.h"
 /*less
  * HierarchicalSRSImageToImageFilter.h
  *
@@ -178,7 +179,7 @@ namespace itk{
                 scale=scale<1.0?scale:1.0;
                 //full resolution at last level of pyramid enforced
                 //            if (l==(m_config.nLevels-1)) scale=1.0;
-                std::cout<<"scale :"<<scale<<std::endl;
+                LOG<<"scale :"<<scale<<std::endl;
                 //downsample images if wanted
                 ConstImagePointerType downSampledTarget,downSampledReference,downSampledReferenceSegmentation,downSampledTargetSheetness;
                 if (scale<1.0){
@@ -191,10 +192,10 @@ namespace itk{
                     downSampledReference=movingImage;
                     downSampledReferenceSegmentation=movingSegmentationImage;
                 }
-                std::cout<<"Downsampled images to: "<<downSampledTarget->GetLargestPossibleRegion().GetSize()<<std::endl;
+                LOG<<"Downsampled images to: "<<downSampledTarget->GetLargestPossibleRegion().GetSize()<<std::endl;
 
                 //init graph
-                std::cout<<"init graph"<<std::endl;
+                LOG<<"init graph"<<std::endl;
                 GraphModelType graph;
                 graph.setFixedImage(downSampledTarget);
                 graph.setDisplacementFactor(labelScalingFactor);
@@ -206,7 +207,7 @@ namespace itk{
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
                 //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
-                cout<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
+                LOG<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
                 //setup registration potentials
                 unaryRegistrationPot->SetScale(scaling);
                 unaryRegistrationPot->SetRadius(graph.getSpacing());
@@ -238,13 +239,13 @@ namespace itk{
                     previousFullDeformation=scaleLabelImage(previousFullDeformation,sp);
                 }
                 oldscale=scale;
-                std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
-                std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
-                std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
+                LOG<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
+                LOG<<"Current grid size :"<<graph.getGridSize()<<std::endl;
+                LOG<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
 
                 typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                 for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
-                    std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
+                    LOG<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
                     graph.setDisplacementFactor(labelScalingFactor);
 
                     //register deformation from previous iteration
@@ -267,7 +268,7 @@ namespace itk{
                                                                          m_config.verbose);
                             mrfSolver->createGraph();
                             mrfSolver->optimize(m_config.optIter);
-                            std::cout<<" ]"<<std::endl;
+                            LOG<<" ]"<<std::endl;
                             deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
                             
                             delete mrfSolver;
@@ -299,9 +300,9 @@ namespace itk{
                         //check convergence
                         double dice=compareSegmentations(oldSegmentation,previousSegmentation);
                         double dice2=compareSegmentations(previousSegmentation,previousDeformedReferenceSegmentation);
-                        std::cout<<endl<<endl<<"----------------------------------------------"<<endl;
-                        std::cout<<D<<" Iteration :"<<iter<<", dice (oldSeg vs. newSeg)="<<dice<<", dice (newSeg vs. newDefSeg)="<<dice2<< std::endl;                   
-                        std::cout<<"----------------------------------------------"<<endl<<endl;; 
+                        LOG<<endl<<endl<<"----------------------------------------------"<<endl;
+                        LOG<<D<<" Iteration :"<<iter<<", dice (oldSeg vs. newSeg)="<<dice<<", dice (newSeg vs. newDefSeg)="<<dice2<< std::endl;                   
+                        LOG<<"----------------------------------------------"<<endl<<endl;; 
                         if (iter>=10 || (dice>0.99 && dice2>0.99) ){
                             converged=true;
                         }
@@ -312,7 +313,7 @@ namespace itk{
 
 
                 }
-                std::cout<<std::endl<<std::endl;
+                LOG<<std::endl<<std::endl;
             }
 
 
@@ -354,7 +355,7 @@ namespace itk{
             ImagePointerType segmentation;
 
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,0);
-            if (verbose) cout<<labelmapper->nSegmentations<<endl;
+            if (verbose) LOG<<labelmapper->nSegmentations<<endl;
 #ifndef GC            
             GraphModelType graph;
 #else
@@ -395,7 +396,7 @@ namespace itk{
 #endif
             mrfSolver->createGraph();
             mrfSolver->optimize(m_config.optIter);
-            std::cout<<" ]"<<std::endl;
+            LOG<<" ]"<<std::endl;
 #ifndef GC
             segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
 #else
@@ -419,7 +420,7 @@ namespace itk{
             //interpolate deformation
             for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
                 {
-                    //			std::cout<<k<<" setup"<<std::endl;
+                    //			LOG<<k<<" setup"<<std::endl;
                     typename ParamImageType::Pointer paramsK=ParamImageType::New();
                     paramsK->SetRegions(labelImg->GetLargestPossibleRegion());
                     paramsK->SetOrigin(labelImg->GetOrigin());
@@ -430,7 +431,7 @@ namespace itk{
                     LabelIterator itOld(labelImg,labelImg->GetLargestPossibleRegion());
                     for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
                         itCoarse.Set((itOld.Get()[k]));//*(k<ImageType::ImageDimension?getDisplacementFactor()[k]:1));
-                        //				std::cout<<itCoarse.Get()<<std::endl;
+                        //				LOG<<itCoarse.Get()<<std::endl;
                     }
                     //bspline interpolation for the displacements
                     typename ResamplerType::Pointer upsampler = ResamplerType::New();
@@ -466,7 +467,7 @@ namespace itk{
             for (;!lIt.IsAtEnd();++lIt){
                 LabelType l;
                 for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ ){
-                    //				std::cout<<k<<" label: "<<iterators[k]->Get()<<std::endl;
+                    //				LOG<<k<<" label: "<<iterators[k]->Get()<<std::endl;
                     l[k]=iterators[k].Get();
                     ++((iterators[k]));
                 }
@@ -662,7 +663,7 @@ namespace itk{
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
             double multiplier=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                //    cout<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
+                //    LOG<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
                 imageIt2.Set(imageIt.Get()*multiplier);
             }
             return (ConstImagePointerType)newImage;

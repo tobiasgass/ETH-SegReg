@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Grid.h
  *
@@ -95,7 +96,7 @@ namespace itk{
             //image size
             m_imageSize=m_fixedImage->GetLargestPossibleRegion().GetSize();
             m_imageSpacing=m_fixedImage->GetSpacing();
-            std::cout<<"Full image resolution: "<<m_imageSize<<endl;
+            LOG<<"Full image resolution: "<<m_imageSize<<endl;
             m_nNodes=1;
 	
             for (int d=0;d<(int)m_dim;++d){
@@ -110,7 +111,7 @@ namespace itk{
                     m_imageLevelDivisors[d]=1;
                 }
             }
-            if (verbose) std::cout<<"GridSize: "<<m_dim<<" ";
+            if (verbose) LOG<<"GridSize: "<<m_dim<<" ";
         
             //nvertices is not used!?
             if (m_dim>1){
@@ -121,9 +122,9 @@ namespace itk{
             }
 	
 
-            if (verbose) std::cout<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nEdges<<std::endl;
+            if (verbose) LOG<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nEdges<<std::endl;
             
-            std::cout<<std::flush;
+            LOG<<std::flush;
         
         //     typename ConstImageNeighborhoodIteratorType::RadiusType r;
         //     for (int d=0;d<(int)m_dim;++d){
@@ -131,7 +132,7 @@ namespace itk{
         //     }
         //     m_fixedNeighborhoodIterator=new ConstImageNeighborhoodIteratorType(r,m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
 
-            if (verbose) std::cout<<" finished graph init" <<std::endl;
+            if (verbose) LOG<<" finished graph init" <<std::endl;
         }
 
         virtual int  getImageIntegerIndex(IndexType imageIndex){
@@ -156,7 +157,7 @@ namespace itk{
             //Segmentation:labelIndex==segmentationlabel
             double result=m_unarySegFunction->getPotential(imageIndex,labelIndex)/m_nNodes;
             if (result<0)
-                std::cout<<imageIndex<<" " <<result<<std::endl;
+                LOG<<imageIndex<<" " <<result<<std::endl;
             return result;
         };
         double getPairwisePotential(int nodeIndex1, int nodeIndex2,int labelIndex1, int labelIndex2){
@@ -169,7 +170,7 @@ namespace itk{
             IndexType imageIndex2=getImageIndex(nodeIndex2);
             double result=m_unarySegFunction->getWeight(imageIndex1,imageIndex2)/m_nEdges;
             if (result<0)
-                std::cout<<imageIndex1<<" "<<imageIndex2<<" "<<result<<std::endl;
+                LOG<<imageIndex1<<" "<<imageIndex2<<" "<<result<<std::endl;
             return result;
         }
    

@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Potentials.h
  *
@@ -61,7 +62,7 @@ namespace itk{
             filter->Update();
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
-            std::cout<<"Gradient variance: "<<m_gradientSigma<<std::endl;
+            LOG<<"Gradient variance: "<<m_gradientSigma<<std::endl;
            
             filter->SetInput(this->m_targetImage);
             filter->Update();
@@ -186,7 +187,7 @@ namespace itk{
                     off[1]+=1;
                     IndexType idx2=idx1+off;
                     verIt.Set(getPotential(idx1,idx2,0,1));
-                    //cout<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
+                    //LOG<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
                 }
             }
             typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
@@ -224,7 +225,7 @@ namespace itk{
             //double prob=m_classifier->px_l(intensityDiff,label1!=label2,gradientDiff);
             double prob=m_classifier->px_l(intensityDiff,label1,gradientDiff,label2);
             if (prob<=0.000000001) prob=0.00000000001;
-            //std::cout<<"Pairwise: "<<(label1!=label2)<<" "<<gradientDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
+            //LOG<<"Pairwise: "<<(label1!=label2)<<" "<<gradientDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
             //return 1+100*(-log(prob));
             return (-log(prob));
         }

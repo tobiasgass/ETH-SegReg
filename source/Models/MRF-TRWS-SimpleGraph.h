@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * TRW-S-Registration.h
  *
@@ -50,7 +51,7 @@ public:
 		//		optimizer = new MRFType(globalSize);
 		TRWType::GlobalSize globalSize();
 		optimizer = new MRFType(TRWType::GlobalSize());
-		if (verbose) std::cout<<"starting graph init"<<std::endl;
+		if (verbose) LOG<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_GraphModel;
         nNodes=graph->nNodes();
 		nodes = new NodeType[nNodes];
@@ -66,7 +67,7 @@ public:
 			//set up unary costs at current position
 			for (int l1=0;l1<nLabels;++l1)
 			{
-//				std::cout<<d<<" "<<l1<<" "<<nNodes<<" "<<nLabels<<std::endl;
+//				LOG<<d<<" "<<l1<<" "<<nNodes<<" "<<nLabels<<std::endl;
 				D[l1]=m_unaryWeight*graph->getUnaryPotential(d,l1);
 			}
 			nodes[d] = optimizer->AddNode(TRWType::LocalSize(nLabels), TRWType::NodeData(D));
@@ -74,7 +75,7 @@ public:
 		}
 		clock_t finish1 = clock();
 		float t = (float) ((double)(finish1 - start) / CLOCKS_PER_SEC);
-		if (verbose) std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
+		if (verbose) LOG<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
 		//
 
         //#define POTTS
@@ -93,7 +94,7 @@ public:
 						V[l1+nLabels*l2]=lambda*m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],l1,l2);
                         //						V[l1+nLabels*l2+nLabels*nLabels]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(l1,l2);
                         ///V2[l1*nLabels+l2]=lambda2*m_pairwiseWeight*graph->getPairwisePotential(neighbours[i],d,l1,l2);
-                        //std::cout<<"PAIRWISE " <<d<<" "<<i<<" "<<l1<<" "<<l2<<" "<<                            V[l1+nLabels*l2]<<endl;
+                        //LOG<<"PAIRWISE " <<d<<" "<<i<<" "<<l1<<" "<<l2<<" "<<                            V[l1+nLabels*l2]<<endl;
 
                     }
 				}
@@ -112,7 +113,7 @@ public:
 		}
 		clock_t finish = clock();
 		t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
+		if (verbose) LOG<<"Finished init after "<<t<<" seconds"<<std::endl;
 
 	}
 
@@ -127,7 +128,7 @@ public:
 		optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();
 		float t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound ;//<< std::endl;
+		LOG<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound ;//<< std::endl;
 
 	}
     virtual std::vector<int> getLabels(){
@@ -174,7 +175,7 @@ public:
 		}
 	virtual void createGraph(){
 		optimizer = new MRFType(TRWType::GlobalSize());
-		if (verbose) std::cout<<"starting graph init"<<std::endl;
+		if (verbose) LOG<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_graphModel;
 		nNodes=graph->nNodes();
 
@@ -199,7 +200,7 @@ public:
 		}
 		clock_t finish1 = clock();
 		float t = (float) ((double)(finish1 - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
+		LOG<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
 		//
 
 
@@ -222,7 +223,7 @@ public:
 		}
 		clock_t finish = clock();
 		t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-//		std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
+//		LOG<<"Finished init after "<<t<<" seconds"<<std::endl;
 
 	}
 
@@ -237,7 +238,7 @@ public:
         optimizer->Minimize_TRW_S(options, lowerBound, energy);
 		clock_t finish = clock();
 		float t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound;// << std::endl;
+		LOG<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound;// << std::endl;
 
 	}
  virtual std::vector<int> getLabels(){

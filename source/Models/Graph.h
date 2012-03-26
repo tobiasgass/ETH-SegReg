@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Grid.h
  *
@@ -124,7 +125,7 @@ namespace itk{
             //image size
             m_imageSize=m_targetImage->GetLargestPossibleRegion().GetSize();
             m_imageSpacing=m_targetImage->GetSpacing();
-            std::cout<<"Full image resolution: "<<m_imageSize<<endl;
+            LOG<<"Full image resolution: "<<m_imageSize<<endl;
             m_nSegmentationNodes=1;
             m_nRegistrationNodes=1;
             //calculate graph spacing
@@ -132,10 +133,10 @@ namespace itk{
             if (LabelMapperType::nDisplacementSamples){
             
                 m_labelSpacing=0.4*m_gridPixelSpacing/(LabelMapperType::nDisplacementSamples);
-                if (verbose) std::cout<<"Spacing :"<<m_gridPixelSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<m_labelSpacing<<std::endl;
+                if (verbose) LOG<<"Spacing :"<<m_gridPixelSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<m_labelSpacing<<std::endl;
             }
             for (int d=0;d<(int)m_dim;++d){
-                if (verbose) std::cout<<"total size divided by spacing :"<<1.0*m_imageSize[d]/m_gridPixelSpacing[d]<<std::endl;
+                if (verbose) LOG<<"total size divided by spacing :"<<1.0*m_imageSize[d]/m_gridPixelSpacing[d]<<std::endl;
 
                 //origin is original origin
                 m_origin[d]=m_targetImage->GetOrigin()[d];
@@ -157,16 +158,16 @@ namespace itk{
                 }
             }
             m_nNodes=m_nRegistrationNodes+m_nSegmentationNodes;
-            if (verbose) std::cout<<"GridSize: "<<m_dim<<" ";
+            if (verbose) LOG<<"GridSize: "<<m_dim<<" ";
         
             //nvertices is not used!?
             if (m_dim>=2){
-                if (verbose) std::cout<<m_gridSize[0]<<" "<<m_gridSize[1];
+                if (verbose) LOG<<m_gridSize[0]<<" "<<m_gridSize[1];
                 m_nRegEdges=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
                 m_nSegEdges=m_imageSize[1]*(m_imageSize[0]-1)+m_imageSize[0]*(m_imageSize[1]-1);
             }
             if (m_dim==3){
-                std::cout<<" "<<m_gridSize[2];
+                LOG<<" "<<m_gridSize[2];
                 m_nRegEdges=m_nRegEdges*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
                 m_nSegEdges=m_nSegEdges*this->m_imageSize[2]+(this->m_imageSize[2]-1)*this->m_imageSize[1]*this->m_imageSize[0];
             }
@@ -180,14 +181,14 @@ namespace itk{
             m_targetNeighborhoodIterator=ConstImageNeighborhoodIteratorType(r,m_targetImage,m_targetImage->GetLargestPossibleRegion());
             m_nSegRegEdges=m_nSegmentationNodes/pow(reductionFactor,m_dim);
             m_nEdges=m_nRegEdges+m_nSegEdges+m_nSegRegEdges;
-            if (verbose) std::cout<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nRegEdges+m_nSegEdges+m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
-            if (verbose) std::cout<<" Segnodes:"<<m_nSegmentationNodes<<"\t SegEdges :"<<m_nSegEdges<<std::endl
+            if (verbose) LOG<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nRegEdges+m_nSegEdges+m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
+            if (verbose) LOG<<" Segnodes:"<<m_nSegmentationNodes<<"\t SegEdges :"<<m_nSegEdges<<std::endl
                                   <<" Regnodes:"<<m_nRegistrationNodes<<"\t\t RegEdges :"<<m_nRegEdges<<std::endl
                                   <<" SegRegEdges:"<<m_nSegRegEdges<<std::endl;
                          
         
        
-            if (verbose) std::cout<<" finished graph init" <<std::endl;
+            if (verbose) LOG<<" finished graph init" <<std::endl;
         }
         //can be used to initialize stuff right before potentials are called
         virtual void Init(){};
@@ -291,7 +292,7 @@ namespace itk{
             //Segmentation:labelIndex==segmentationlabel
             double result=m_unarySegFunction->getPotential(imageIndex,labelIndex)/m_nSegmentationNodes;
             if (result<0)
-                std::cout<<imageIndex<<" " <<result<<std::endl;
+                LOG<<imageIndex<<" " <<result<<std::endl;
             return result;
         };
         virtual double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
@@ -313,7 +314,7 @@ namespace itk{
                 dist+=fabs(graphIndex[d]-imageIndex[d]);
             }
             double weight=1;//exp(-dist/2);
-            if (weight<0){ std::cout<<weight<<std::endl; weight=0;}
+            if (weight<0){ LOG<<weight<<std::endl; weight=0;}
             RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
             registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
             return m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
@@ -330,13 +331,13 @@ namespace itk{
             IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             double dist=1;
             for (unsigned int d=0;d<m_dim;++d){
-                //            std::cout<<dist<<" "<<graphIndex[d]-imageIndex[d]<<" "<<std::endl;
+                //            LOG<<dist<<" "<<graphIndex[d]-imageIndex[d]<<" "<<std::endl;
                 dist*=1.0-fabs((1.0*graphIndex[d]-imageIndex[d])/(m_gridPixelSpacing[d]));
             }
             //       if (dist<0.1) dist=0.1;
             weight=dist;
 #endif
-            //        if (true){ std::cout<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
+            //        if (true){ LOG<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
             RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
             registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
             return weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
@@ -355,7 +356,7 @@ namespace itk{
             IndexType imageIndex2=getImageIndex(nodeIndex2);
             double result=m_unarySegFunction->getWeight(imageIndex1,imageIndex2)/m_nSegEdges;
             if (result<0)
-                std::cout<<imageIndex1<<" "<<imageIndex2<<" "<<result<<std::endl;
+                LOG<<imageIndex1<<" "<<imageIndex2<<" "<<result<<std::endl;
             return result;
         }
    
@@ -428,7 +429,7 @@ namespace itk{
                     }
                 }
                 if (inBounds){
-                    //std::cout<<getImageIndex(index)<<" "<<position<<" "<<off<<" "<<position+off<<" "<<getGraphIntegerIndex(position+off)<<std::endl;
+                    //LOG<<getImageIndex(index)<<" "<<position<<" "<<off<<" "<<position+off<<" "<<getGraphIntegerIndex(position+off)<<std::endl;
                     neighbours.push_back(getGraphIntegerIndex(position+off));
                 }
             }
@@ -506,7 +507,7 @@ namespace itk{
             result->SetDirection(m_targetImage->GetDirection());
             result->SetOrigin(m_targetImage->GetOrigin());
             result->Allocate();
-            //        cout<<result->GetLargestPossibleRegion()<<" "<<labels.size()<<" "<<m_nSegmentationLabels<<endl;
+            //        LOG<<result->GetLargestPossibleRegion()<<" "<<labels.size()<<" "<<m_nSegmentationLabels<<endl;
             typename itk::ImageRegionIterator<ImageType> it(result,result->GetLargestPossibleRegion());
             unsigned int i=0;
             if (m_nSegmentationLabels){

@@ -1,3 +1,4 @@
+#include "Log.h"
 /*less
  * HierarchicalSRSImageToImageFilter.h
  *
@@ -154,7 +155,7 @@ namespace itk{
 	
         
             for (int i=0;i<LabelMapperType::nLabels;++i){
-                //cout<<i<<" "<<LabelMapperType::getLabel(i)<<" "<<LabelMapperType::getIndex(LabelMapperType::getLabel(i))<<endl;
+                //LOG<<i<<" "<<LabelMapperType::getLabel(i)<<" "<<LabelMapperType::getIndex(LabelMapperType::getLabel(i))<<endl;
             }
 
             int iterationCount=0;
@@ -202,7 +203,7 @@ namespace itk{
                     scale=scale<1.0?scale:1.0;
                     //full resolution at last level of pyramid enforced
                     //            if (l==(m_config.nLevels-1)) scale=1.0;
-                    std::cout<<"scale :"<<scale<<std::endl;
+                    LOG<<"scale :"<<scale<<std::endl;
                     //downsample images if wanted
                     ConstImagePointerType downSampledTarget,downSampledReference,downSampledReferenceSegmentation,downSampledTargetSheetness;
                     if (scale<1.0){
@@ -218,10 +219,10 @@ namespace itk{
                         downSampledReferenceSegmentation=movingSegmentationImage;
                         downSampledTargetSheetness=fixedGradientImage;
                     }
-                    std::cout<<"Downsampled images to: "<<downSampledTarget->GetLargestPossibleRegion().GetSize()<<std::endl;
+                    LOG<<"Downsampled images to: "<<downSampledTarget->GetLargestPossibleRegion().GetSize()<<std::endl;
 
                     //init graph
-                    std::cout<<"init graph"<<std::endl;
+                    LOG<<"init graph"<<std::endl;
                     GraphModelType graph;
                     graph.setFixedImage(downSampledTarget);
                     graph.setDisplacementFactor(labelScalingFactor);
@@ -229,7 +230,7 @@ namespace itk{
 
                     //             typename itk::ImageRegionConstIteratorWithIndex<ImageType> ii(downSampledTarget, downSampledTarget->GetLargestPossibleRegion());
                     //             for (ii.GoToBegin();!ii.IsAtEnd();++ii){
-                    //                 std::cout<<ii.GetIndex()<<" "<<graph.getClosestGraphIndex(ii.GetIndex())<<std::endl;
+                    //                 LOG<<ii.GetIndex()<<" "<<graph.getClosestGraphIndex(ii.GetIndex())<<std::endl;
                     //             }
                     movingInterpolator->SetInputImage(downSampledReference);
                     segmentationInterpolator->SetInputImage(downSampledReferenceSegmentation);
@@ -264,12 +265,12 @@ namespace itk{
                         previousFullDeformation=scaleLabelImage(previousFullDeformation,sp);
                     }
                     oldscale=scale;
-                    std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
-                    std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
-                    std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
+                    LOG<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
+                    LOG<<"Current grid size :"<<graph.getGridSize()<<std::endl;
+                    LOG<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
                     typedef TRWS_MRFSolver<GraphModelType> MRFSolverType;
                     for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
-                        std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
+                        LOG<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
                         // displacementfactor decreases with iterations
                         graph.setDisplacementFactor(labelScalingFactor);
 
@@ -287,7 +288,7 @@ namespace itk{
                                                  m_config.segWeight,
                                                  true);
                         mrfSolver.optimize();
-                        std::cout<<" ]"<<std::endl;
+                        LOG<<" ]"<<std::endl;
                         deformation=graph.getDeformationImage(mrfSolver.getDeformationLabels());
 
 
@@ -358,7 +359,7 @@ namespace itk{
                         }
 #endif
                     }
-                    std::cout<<std::endl<<std::endl;
+                    LOG<<std::endl<<std::endl;
                 }
 
             }

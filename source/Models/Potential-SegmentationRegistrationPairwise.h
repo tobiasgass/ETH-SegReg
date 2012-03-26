@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Potentials.h
  *
@@ -89,7 +90,7 @@ namespace itk{
             }else{
                 result=999999;
             }
-            //            cout<<fixedIndex1<<" "<<fixedIndex2<<" "<<displacement<<" "<<segmentationLabel<<" "<<deformedAtlasSegmentation<<" "<<idx2<<" "<<result<<endl;
+            //            LOG<<fixedIndex1<<" "<<fixedIndex2<<" "<<displacement<<" "<<segmentationLabel<<" "<<deformedAtlasSegmentation<<" "<<idx2<<" "<<result<<endl;
             return result;
         }
     };//class

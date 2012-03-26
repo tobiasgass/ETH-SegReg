@@ -1,3 +1,4 @@
+#include "Log.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -60,6 +61,6 @@ int main(int argc, char ** argv)
 	filter->Update();
 	clock_t end = clock();
 	float t = (float) ((double)(end - start) / CLOCKS_PER_SEC);
-	std::cout<<"Finished computation after "<<t<<" seconds"<<std::endl;
+	LOG<<"Finished computation after "<<t<<" seconds"<<std::endl;
 	return 1;
 }

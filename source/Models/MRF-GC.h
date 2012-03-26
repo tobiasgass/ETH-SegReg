@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * TRW-S-Registration.h
  *
@@ -42,7 +43,7 @@ public:
 	}
 	virtual void createGraph(){
 
-		if (verbose) std::cout<<"starting graph init"<<std::endl;
+		if (verbose) LOG<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_graphModel;
         nNodes=graph->nNodes();
         
@@ -63,13 +64,13 @@ public:
 			{
 
 				D[l1]=m_unaryWeight*graph->getUnaryPotential(d,l1);
-//				std::cout<<d<<" "<<l1<<" "<<D[l1]<<" "<<nLabels<<std::endl;
+//				LOG<<d<<" "<<l1<<" "<<D[l1]<<" "<<nLabels<<std::endl;
 			}
 			optimizer->add_tweights(d,D[0],D[1]);
 		}
 		clock_t finish1 = clock();
 		float t = (float) ((double)(finish1 - start) / CLOCKS_PER_SEC);
-		if (verbose) std::cout<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
+		if (verbose) LOG<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
 		//
 		int vertCount=0;
 		for (int d=0;d<nNodes;++d){
@@ -78,28 +79,28 @@ public:
 			vertCount+=nNeighbours;
 			for (int i=0;i<nNeighbours;++i){
 				assert(neighbours[i]<nNodes);
-                //                std::cout<<" edge " << m_pairwiseWeight*graph->getWeight(d,neighbours[i])<<" "<< m_pairwiseWeight*graph->getWeight(neighbours[i],d) << std::endl;
+                //                LOG<<" edge " << m_pairwiseWeight*graph->getWeight(d,neighbours[i])<<" "<< m_pairwiseWeight*graph->getWeight(neighbours[i],d) << std::endl;
                 double lambda1=m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],1,0);
                 double lambda2=m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],0,1);
 				optimizer -> add_edge(d,neighbours[i],lambda1,lambda2);
 			}
 		}
-		std::cout<<vertCount<<" "<<graph->nEdges()<<std::endl;
+		LOG<<vertCount<<" "<<graph->nEdges()<<std::endl;
 		clock_t finish = clock();
 		t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		if (verbose) std::cout<<"Finished init after "<<t<<" seconds"<<std::endl;
+		if (verbose) LOG<<"Finished init after "<<t<<" seconds"<<std::endl;
 
 	}
 
 	virtual void optimize(int optiter){
 
 		clock_t start = clock();
-		if (verbose) std::cout<<"starting maxFlow"<<std::endl;
+		if (verbose) LOG<<"starting maxFlow"<<std::endl;
 
 		float flow = optimizer -> maxflow();
 		clock_t finish = clock();
 		float t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		std::cout<<"Finished after "<<t<<" , resulting energy is "<<flow;//<< std::endl;
+		LOG<<"Finished after "<<t<<" , resulting energy is "<<flow;//<< std::endl;
 
 	}
     virtual std::vector<int> getLabels(){

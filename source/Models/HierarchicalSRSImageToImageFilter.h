@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * HierarchicalSRSImageToImageFilter.h
  *
@@ -191,6 +192,7 @@ namespace itk{
         
             if (regist){
                 if (m_useBulkTransform){
+                    if (m_config.verbose) LOG<<"Initializing with bulk transform." <<endl;
                     previousFullDeformation=m_bulkTransform;
                 }else{
                     //allocate memory
@@ -199,7 +201,7 @@ namespace itk{
                     previousFullDeformation->SetOrigin(targetImage->GetOrigin());
                     previousFullDeformation->SetSpacing(targetImage->GetSpacing());
                     previousFullDeformation->SetDirection(targetImage->GetDirection());
-                    if (m_config.verbose) cout<<"allocating full deformation" <<endl;
+                    if (m_config.verbose) LOG<<"allocating full deformation" <<endl;
                     previousFullDeformation->Allocate();
                     Vector<float, D> tmpVox(0.0);
                     previousFullDeformation->FillBuffer(tmpVox);
@@ -243,8 +245,7 @@ namespace itk{
 
             
             int level;
-            double scale=-1;
-
+            
             //start pyramid
             //asm volatile("" ::: "memory");
             LabelImagePointerType deformation;
@@ -269,24 +270,13 @@ namespace itk{
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
                 //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
-                cout<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
+                if (m_config.verbose) LOG<<"Scaling : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
 
-#if 1
                 level=m_config.levels[l];
                 double labelScalingFactor=1;
-                
-                //roughly compute downscaling
-                scale=1;//1;//7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0];
-                
-              
-                scale=scale<1.0?scale:1.0;
-                //full resolution at last level of pyramid enforced
-                //            if (l==(m_config.nLevels-1)) scale=1.0;
-                std::cout<<"scale :"<<scale<<std::endl;
-                //downsample images if wanted
-              
+
                 //init graph
-                std::cout<<"init graph"<<std::endl;
+                LOG<<"init graph"<<std::endl;
                 GraphModelType graph;
                 graph.setConfig(m_config);
                 graph.setTargetImage(targetImage);
@@ -358,17 +348,16 @@ namespace itk{
                 //now scale it according to spacing difference between this and the previous iteration
                 SpacingType sp;
                 sp.Fill(1.0);
-                std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
-                std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
-                std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
-#endif
+                if (m_config.verbose) LOG<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
+                if (m_config.verbose) LOG<<"Current grid size :"<<graph.getGridSize()<<std::endl;
+                if (m_config.verbose) LOG<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
+                
                 //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
               
                 for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
-                    std::cout<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<" :[";
+                    LOG<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl;
                     // displacementfactor decreases with iterations
-#if 1
-                    graph.setDisplacementFactor(labelScalingFactor);
+                  graph.setDisplacementFactor(labelScalingFactor);
                     
                     //register deformation from previous iteration
                     if (regist){
@@ -382,7 +371,6 @@ namespace itk{
                             pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
                         }
                     }
-#endif
                     //if (i>0 || l> 0) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
 
                     //	ok what now: create graph! solve graph! save result!Z
@@ -392,7 +380,7 @@ namespace itk{
                     //double expDecreasingWeight=exp(-l);
                     //#define TRUNC
                     {
-#if 1
+
                         if (ImageType::ImageDimension==2){
 #ifdef TRUNC
                             typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
@@ -410,7 +398,6 @@ namespace itk{
                                                                          m_config.verbose);
                             mrfSolver->createGraph();
                             mrfSolver->optimize(m_config.optIter);
-                            std::cout<<" ]"<<std::endl;
                             if (regist){
                                 deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
                             }
@@ -433,22 +420,13 @@ namespace itk{
                                                                          m_config.verbose);
                             mrfSolver->createGraph();
                             mrfSolver->optimize(m_config.optIter);
-                            std::cout<<" ]"<<std::endl;
                             deformation=graph.getDeformationImage(mrfSolver->getDeformationLabels());
                             segmentation=graph.getSegmentationImage(mrfSolver->getSegmentationLabels());
                             delete mrfSolver;
 
                         }
 
-#else
-                        //     HeapProfilerStart("segreg") ;
-                        MRFSolverType  *mrfSolver= new MRFSolverType();
-                        HeapProfilerDump("dump");
-                        mrfSolver->init2();
-                        delete mrfSolver;
-                        HeapProfilerDump("dump");
-                        //HeapProfilerStop();
-#endif
+
 
                     }
 
@@ -549,7 +527,6 @@ namespace itk{
                     
 
                 }
-                std::cout<<std::endl<<std::endl;
             }
 
 
@@ -572,7 +549,7 @@ namespace itk{
             //interpolate deformation
             for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
                 {
-                    //			std::cout<<k<<" setup"<<std::endl;
+                    //			LOG<<k<<" setup"<<std::endl;
                     typename ParamImageType::Pointer paramsK=ParamImageType::New();
                     paramsK->SetRegions(labelImg->GetLargestPossibleRegion());
                     paramsK->SetOrigin(labelImg->GetOrigin());
@@ -583,7 +560,7 @@ namespace itk{
                     LabelIterator itOld(labelImg,labelImg->GetLargestPossibleRegion());
                     for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
                         itCoarse.Set((itOld.Get()[k]));//*(k<ImageType::ImageDimension?getDisplacementFactor()[k]:1));
-                        //				std::cout<<itCoarse.Get()<<std::endl;
+                        //				LOG<<itCoarse.Get()<<std::endl;
                     }
                     //bspline interpolation for the displacements
                     typename ResamplerType::Pointer upsampler = ResamplerType::New();
@@ -625,7 +602,7 @@ namespace itk{
             for (;!lIt.IsAtEnd();++lIt){
                 LabelType l;
                 for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ ){
-                    //				std::cout<<k<<" label: "<<iterators[k]->Get()<<std::endl;
+                    //				LOG<<k<<" label: "<<iterators[k]->Get()<<std::endl;
                     l[k]=iterators[k].Get();
                     ++((iterators[k]));
                 }
@@ -846,7 +823,7 @@ namespace itk{
                 multiplier=std::numeric_limits<PixelType>::max();
             }
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                //    cout<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
+                //    LOGX<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
                 imageIt2.Set(imageIt.Get()*multiplier);
             }
             return (ConstImagePointerType)newImage;
@@ -859,27 +836,13 @@ namespace itk{
             typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
             ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-#if 0
-            hash_map<int, int> map;
-            int c=0;
-            for (imageIt.GoToBegin();!imageIt.IsAtEnd();++imageIt){
-                int seg=floor(imageIt.Get()+0.5);
-                cout<<seg<<endl;
-                if (map.find(seg)==map.end()){
-                    map[seg]=c;
-                    ++c;
-                }
-            }
-            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                imageIt2.Set(map[floor(imageIt.Get()+0.5)]);
-            }
-#else
+
             nSegmentations=nSegmentations>0?nSegmentations:2;
             int divisor=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
                 imageIt2.Set(floor(1.0*imageIt.Get()/divisor+0.5));
             }
-#endif
+
             return (ConstImagePointerType)newImage;
         }
     }; //class

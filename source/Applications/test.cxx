@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * test.cxx
  *

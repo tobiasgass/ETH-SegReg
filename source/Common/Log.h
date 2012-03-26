@@ -1,38 +1,32 @@
 #pragma once
 
-
-
-
 #include "boost/format.hpp"
 #include "boost/timer.hpp"
-
-#define log mylog << boost::format
 #define logSetStage(stage) mylog.setStage(stage)
-
+#define logResetStage mylog.resetStage()
 class MyLog {
 
    boost::timer m_timer;
-   std::string m_stage;
-
+    std::string m_stage,m_oldStage;
+    
 public:
-
-    template <class T> void operator<<(T t) {
-        
+    boost::format  getStatus(){
         unsigned int elapsed = m_timer.elapsed();
-        
-        boost::format logLine("%2d:%02d [%15s] - %s\n");
+        boost::format logLine("%2d:%02d [%15s] - ");
         logLine % (elapsed / 60);
         logLine % (elapsed % 60);
         logLine % m_stage;
-        logLine % t;
-        
-        std::clog << logLine;
+        return logLine;
     }
-    
     void setStage(std::string stage) {
+        m_oldStage=m_stage;
         m_stage = stage;
     }
-
+    void resetStage(){
+        m_stage=m_oldStage;
+    }
 };
-MyLog LOG;
+MyLog mylog;
+
+#define LOG std::cout << mylog.getStatus()<<" "
 

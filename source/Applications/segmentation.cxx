@@ -1,3 +1,4 @@
+#include "Log.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -88,7 +89,7 @@ int main(int argc, char ** argv)
 	typedef FastPDMRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	//			typedef TRWS_MRFSolver<UnaryPotentialType,PairwisePotentialType> MRFSolverType;
 	MRFSolverType mrfSolver(targetImage,targetImage,&fullimageGrid,potentialFunction,unaryFunction,unaryWeight,pairwiseWeight);
-	std::cout<<"run"<<std::endl;
+	LOG<<"run"<<std::endl;
 	mrfSolver.optimize();
 
 
@@ -99,6 +100,6 @@ int main(int argc, char ** argv)
 
 
 
-	std::cout<<"done"<<std::endl;
+	LOG<<"done"<<std::endl;
 	return 1;
 }

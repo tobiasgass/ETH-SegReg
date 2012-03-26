@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * config.h
  *
@@ -122,7 +123,7 @@ public:
 		std::ostringstream streamm;
 		std::ifstream is(filename.c_str());
 		if (!is){
-			std::cout<<"could not open "<<filename<<" for reading"<<std::endl;
+			LOG<<"could not open "<<filename<<" for reading"<<std::endl;
 			exit(10);
 		}
 		std::string buff;
@@ -132,8 +133,8 @@ public:
 			streamm<<" ";
 			is >>buff;
 			streamm<<buff;
-			//			std::cout<<streamm.str()<<std::endl;
-			//			std::cout<<buff<<std::endl;
+			//			LOG<<streamm.str()<<std::endl;
+			//			LOG<<buff<<std::endl;
 
 		}
 		as= new argstream(streamm.str().c_str());

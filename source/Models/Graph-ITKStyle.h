@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Grid.h
  *
@@ -71,7 +72,7 @@ public:
         //image size
         this->m_imageSize=this->m_fixedImage->GetLargestPossibleRegion().GetSize();
         this->m_imageSpacing=this->m_fixedImage->GetSpacing();
-        std::cout<<"Full image resolution: "<<this->m_imageSize<<endl;
+        LOG<<"Full image resolution: "<<this->m_imageSize<<endl;
         this->m_nSegmentationNodes=1;
         this->m_nRegistrationNodes=1;
         //calculate graph spacing
@@ -80,10 +81,10 @@ public:
         if (LabelMapperType::nDisplacementSamples){
             
             this->m_labelSpacing=0.4*this->m_gridPixelSpacing/(LabelMapperType::nDisplacementSamples);
-            if (this->verbose) std::cout<<"Spacing :"<<this->m_gridPixelSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<this->m_labelSpacing<<std::endl;
+            if (this->verbose) LOG<<"Spacing :"<<this->m_gridPixelSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<this->m_labelSpacing<<std::endl;
         }
         for (int d=0;d<(int)this->m_dim;++d){
-            if (this->verbose) std::cout<<"total size divided by spacing :"<<1.0*this->m_imageSize[d]/this->m_gridPixelSpacing[d]<<std::endl;
+            if (this->verbose) LOG<<"total size divided by spacing :"<<1.0*this->m_imageSize[d]/this->m_gridPixelSpacing[d]<<std::endl;
 
             //origin is original origin
 			this->m_origin[d]=this->m_fixedImage->GetOrigin()[d]+(this->m_gridSpacing[d]/2-0.5);
@@ -103,16 +104,16 @@ public:
             }
         }
         this->m_nNodes=this->m_nRegistrationNodes+this->m_nSegmentationNodes;
-        if (this->verbose) std::cout<<"GridSize: "<<this->m_dim<<" ";
+        if (this->verbose) LOG<<"GridSize: "<<this->m_dim<<" ";
         
         //nvertices is not used!?
         if (this->m_dim>=2){
-            if (this->verbose) std::cout<<this->m_gridSize[0]<<" "<<this->m_gridSize[1];
+            if (this->verbose) LOG<<this->m_gridSize[0]<<" "<<this->m_gridSize[1];
             this->m_nRegEdges=this->m_gridSize[1]*(this->m_gridSize[0]-1)+this->m_gridSize[0]*(this->m_gridSize[1]-1);
             this->m_nSegEdges=this->m_imageSize[1]*(this->m_imageSize[0]-1)+this->m_imageSize[0]*(this->m_imageSize[1]-1);
         }
         if (this->m_dim==3){
-            std::cout<<" "<<this->m_gridSize[2];
+            LOG<<" "<<this->m_gridSize[2];
             this->m_nRegEdges=this->m_nRegEdges*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
             this->m_nSegEdges=this->m_nSegEdges*this->m_imageSize[2]+(this->m_imageSize[2]-1)*this->m_imageSize[1]*this->m_imageSize[0];
         }
@@ -126,14 +127,14 @@ public:
         this->m_fixedNeighborhoodIterator=ConstImageNeighborhoodIteratorType(r,this->m_fixedImage,this->m_fixedImage->GetLargestPossibleRegion());
         this->m_nSegRegEdges=this->m_nSegmentationNodes/pow(reductionFactor,this->m_dim);
         this->m_nEdges=this->m_nRegEdges+this->m_nSegEdges+this->m_nSegRegEdges;
-        if (this->verbose) std::cout<<" nodes:"<<this->m_nNodes<<" totalEdges:"<<this->m_nRegEdges+this->m_nSegEdges+this->m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
-        if (this->verbose) std::cout<<" Segnodes:"<<this->m_nSegmentationNodes<<"\t SegEdges :"<<this->m_nSegEdges<<std::endl
+        if (this->verbose) LOG<<" nodes:"<<this->m_nNodes<<" totalEdges:"<<this->m_nRegEdges+this->m_nSegEdges+this->m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
+        if (this->verbose) LOG<<" Segnodes:"<<this->m_nSegmentationNodes<<"\t SegEdges :"<<this->m_nSegEdges<<std::endl
                               <<" Regnodes:"<<this->m_nRegistrationNodes<<"\t\t RegEdges :"<<this->m_nRegEdges<<std::endl
                               <<" SegRegEdges:"<<this->m_nSegRegEdges<<std::endl;
                          
         
        
-        if (this->verbose) std::cout<<" finished graph init" <<std::endl;
+        if (this->verbose) LOG<<" finished graph init" <<std::endl;
     }
     
   

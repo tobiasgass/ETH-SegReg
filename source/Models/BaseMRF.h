@@ -1,3 +1,4 @@
+#include "Log.h"
 //////////////////////////////////////////////////
 //// SRS-MRF
 //// Tobias Gass
@@ -60,7 +61,7 @@ public:
 			labelImage->SetDirection(m_GraphModel->getDirection());
 			labelImage->SetSpacing(spacing);
 			labelImage->SetOrigin(origin);
-//			std::cout<<size<<" "<<m_GraphModel->getSpacing()<<std::endl;
+//			LOG<<size<<" "<<m_GraphModel->getSpacing()<<std::endl;
 			labelImage->Allocate();
 			itk::ImageRegionIterator<LabelImageType>  it( labelImage, labelImage->GetLargestPossibleRegion() );
 			it.GoToBegin();
@@ -69,7 +70,7 @@ public:
 			for (int i=0;i<m_nNodes;++i){
 				LabelType label=getLabelAtIndex(i);
 				IndexType idx=m_GraphModel->getGridPositionAtIndex(i);
-//				std::cout<<i<<" "<<it.GetIndex()<<" "<<idx<<" "<<label<<std::endl;
+//				LOG<<i<<" "<<it.GetIndex()<<" "<<idx<<" "<<label<<std::endl;
 				it.Set(label);
 //				labelImage->SetPixel(idx,label);
 				++it;

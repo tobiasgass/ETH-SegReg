@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Grid.h
  *
@@ -56,11 +57,11 @@ public:
 		setSpacing(divisor);
 		if (LabelMapperType::nDisplacementSamples){
 			this->m_labelSpacing=0.4*this->m_gridSpacing/(LabelMapperType::nDisplacementSamples);
-			if (this->verbose) std::cout<<"Spacing :"<<this->m_gridSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<this->m_labelSpacing<<std::endl;
+			if (this->verbose) LOG<<"Spacing :"<<this->m_gridSpacing<<" "<<LabelMapperType::nDisplacementSamples<<" labelSpacing :"<<this->m_labelSpacing<<std::endl;
 		}
 		for (int d=0;d<(int)this->m_dim;++d){
 
-			if (this->verbose) std::cout<<"total size divided by spacing :"<<1.0*this->m_totalSize[d]/this->m_spacing[d]<<std::endl;
+			if (this->verbose) LOG<<"total size divided by spacing :"<<1.0*this->m_totalSize[d]/this->m_spacing[d]<<std::endl;
 			this->m_origin[d]=this->m_fixedImage->GetOrigin()[d]+(this->m_spacing[d]/2-0.5);
 			this->m_offset[d]=(1.0*this->m_gridSpacing[d]/2-0.5);//(this->m_origin[d]-this->m_fixedImage->GetOrigin()[d])/this->m_fixedImage->GetSpacing()[d];
 			this->m_gridSize[d]=1.0*this->m_totalSize[d]/((int)this->m_gridSpacing[d]);
@@ -72,17 +73,17 @@ public:
 				this->m_imageLevelDivisors[d]=1;
 			}
 		}
-        cout<<m_offset<<endl;
-		if (this->verbose) std::cout<<"GridSize: "<<this->m_dim<<" ";
+        LOG<<m_offset<<endl;
+		if (this->verbose) LOG<<"GridSize: "<<this->m_dim<<" ";
 		if (this->m_dim>=2){
-			if (this->verbose) std::cout<<this->m_gridSize[0]<<" "<<this->m_gridSize[1];
+			if (this->verbose) LOG<<this->m_gridSize[0]<<" "<<this->m_gridSize[1];
 			this->m_nVertices=this->m_gridSize[1]*(this->m_gridSize[0]-1)+this->m_gridSize[0]*(this->m_gridSize[1]-1);
 		}
 		if (this->m_dim==3){
-			std::cout<<" "<<this->m_gridSize[0];
+			LOG<<" "<<this->m_gridSize[0];
 			this->m_nVertices=this->m_nVertices*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
 		}
-		if (this->verbose) std::cout<<" "<<this->m_nNodes<<" "<<this->m_nVertices<<" "<<LabelMapperType::nLabels<<std::endl;
+		if (this->verbose) LOG<<" "<<this->m_nNodes<<" "<<this->m_nVertices<<" "<<LabelMapperType::nLabels<<std::endl;
 		//		this->m_ImageInterpolator.SetInput(this->m_movingImage);
 	}
 
@@ -99,7 +100,7 @@ public:
 			int div=this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/minSpacing;
 			div=div>0?div:1;
 			spacing[d]=(1.0*this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]/div);
-			std::cout<<spacing[d]<<" "<<div<<" "<<this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]<<" "<<minSpacing<<std::endl;
+			LOG<<spacing[d]<<" "<<div<<" "<<this->m_fixedImage->GetLargestPossibleRegion().GetSize()[d]<<" "<<minSpacing<<std::endl;
 			this->m_gridSpacing[d]=spacing[d];
 			this->m_spacing[d]=spacing[d]*this->m_fixedImage->GetSpacing()[d];
 		}

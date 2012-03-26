@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Potentials.h
  *
@@ -92,7 +93,7 @@ namespace itk{
             m_movingSize=m_movingImage->GetLargestPossibleRegion().GetSize();
             m_movingInterpolator=ImageInterpolatorType::New();
             m_movingInterpolator->SetInputImage(m_movingImage);//,m_movingImage->GetLargestPossibleRegion());
-            cout<<"movingSize "<<m_movingSize<<endl;
+            LOG<<"movingSize "<<m_movingSize<<endl;
         }
         void SetFixedImage(ConstImagePointerType fixedImage){
             m_fixedImage=fixedImage;
@@ -110,7 +111,7 @@ namespace itk{
             filter->Update();
             sigma1=filter->GetSigma();
             mean1=filter->GetMean();
-            cout<<"distance transform main segmentation sigma :"<<sigma1<<endl;
+            LOG<<"distance transform main segmentation sigma :"<<sigma1<<endl;
 
         }
         void SetBackgroundDistanceTransform(FloatImagePointerType dt){
@@ -121,7 +122,7 @@ namespace itk{
             filter->Update();
             sigma2=filter->GetSigma();
             mean2=fabs(filter->GetMean());
-            cout<<"distance transform background segmentation sigma :"<<sigma2<<endl;
+            LOG<<"distance transform background segmentation sigma :"<<sigma2<<endl;
         }
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
         
@@ -168,7 +169,7 @@ namespace itk{
             minDist=filter->GetMinimumOutput()->Get();
           
             mDistTarget=fabs(minDist);
-            cout<<"MINDIST: "<<mDistTarget<<endl;
+            LOG<<"MINDIST: "<<mDistTarget<<endl;
             m_distanceTransform=dt1;
             if (m_nSegmentationLabels>2){
                 FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
@@ -181,7 +182,7 @@ namespace itk{
                 mean2=fabs(filter->GetMean());
                 double di=filter->GetMinimumOutput()->Get();
                 mDistSecondary=fabs(di);
-                cout<<"MINDIST: "<<mDistSecondary<<endl;
+                LOG<<"MINDIST: "<<mDistSecondary<<endl;
                 caster->SetInput(thresholdFilter->GetOutput());
                 caster->Update();
                 ImagePointerType output=caster->GetOutput();
@@ -533,13 +534,13 @@ namespace itk{
                             result=99999999999;
                         }else{
                             result=1.0/(distanceToDeformedSegmentation);
-                            //cout<<result<<endl;
+                            //LOG<<result<<endl;
                         }
                     }
                 }
-                //cout<<segmentationLabel<<" "<<result<<endl;
+                //LOG<<segmentationLabel<<" "<<result<<endl;
             }
-            //cout<<result<<endl;
+            //LOG<<result<<endl;
             return result;
         }
     };//class

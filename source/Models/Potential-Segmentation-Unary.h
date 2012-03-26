@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Potentials.h
  *
@@ -76,7 +77,7 @@ namespace itk{
             filter->Update();
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
-            std::cout<<"Gradient variance: "<<m_gradientSigma<<std::endl;
+            LOG<<"Gradient variance: "<<m_gradientSigma<<std::endl;
             filter->SetInput(this->m_targetImage);
             filter->Update();
             this->m_Sigma=filter->GetSigma();
@@ -165,7 +166,7 @@ namespace itk{
             default:
                 assert(false);
             }
-            //        std::cout<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
+            //        LOG<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             return segmentationProb;
         }
 
@@ -196,7 +197,7 @@ namespace itk{
             else{
                 segmentationProb =  (imageIntensity > 85 && imageIntensity<170  )  ? 1 : 0;
             }
-            //        std::cout<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
+            //        LOG<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             return segmentationProb;
         }
 
@@ -228,7 +229,7 @@ namespace itk{
             }else{
                 segmentationProb = imageIntensity;//( imageIntensity > 0.4) ? 1 : 0;
             }
-            //   std::cout<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
+            //   LOG<<targetIndex<<" "<<segmentationLabel<<" " << imageIntensity <<" "<<segmentationProb<<std::endl;
             
             return segmentationProb;
         }
@@ -363,7 +364,7 @@ namespace itk{
             //prob of inverse segmentation label
             //double prob=m_classifier->px_l(imageIntensity,s,(segmentationLabel));
            
-            //cout<<imageIntensity<<" "<<s<<" "<<segmentationLabel<<" "<<prob<<" "<< -log(prob) <<std::endl ;
+            //LOG<<imageIntensity<<" "<<s<<" "<<segmentationLabel<<" "<<prob<<" "<< -log(prob) <<std::endl ;
             //penalize only if prob <0.6
 #if 1
 #if 0
@@ -376,7 +377,7 @@ namespace itk{
             //            if (prob<=0) prob=0.00000000001;
             //if (segmentationLabel && prob<0.5) prob=0.5;
             //return -log(prob);
-            //cout<<segmentationLabel<<" "<<imageIntensity<<" "<<prob<<endl;
+            //LOG<<segmentationLabel<<" "<<imageIntensity<<" "<<prob<<endl;
             return (1-prob);
 #endif
 #else
@@ -502,7 +503,7 @@ namespace itk{
                 totalCost = ( ((  imageIntensity > bone) && ( s > 0 ) ) )? 1 : 0;
 #else
                 totalCost = ( imageIntensity > bone) && ( s > 127 ) ? 1 : 0;
-                //std::cout<<totalCost<<" "<<imageIntensity<<endl;
+                //LOG<<totalCost<<" "<<imageIntensity<<endl;
 #endif
                 break;
             default  :
@@ -514,7 +515,7 @@ namespace itk{
 #endif
                 break;
             }
-            //            std::cout<<imageIntensity<<" "<<segmentationLabel<<" "<<totalCost<<" "<<bone<<" "<<tissue<<" "<<s<<std::endl;
+            //            LOG<<imageIntensity<<" "<<segmentationLabel<<" "<<totalCost<<" "<<bone<<" "<<tissue<<" "<<s<<std::endl;
             return totalCost;
         }
     };//class

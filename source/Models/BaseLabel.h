@@ -1,3 +1,4 @@
+#include "Log.h"
 /*
  * Label.h
  *
@@ -144,7 +145,7 @@ public:
 		nDisplacementSamples=NDisplacementSamples;
 		nDisplacements=(double(2*nDisplacementSamples+1)*TImage::ImageDimension);
 		nLabels=nSegmentations*nDisplacements;
-		std::cout<<"nDisplacements :"<<nDisplacements<<" nSegmentations:"<<nSegmentations<<" nLabels"<<nLabels<<std::endl;
+		LOG<<"nDisplacements :"<<nDisplacements<<" nSegmentations:"<<nSegmentations<<" nLabels"<<nLabels<<std::endl;
 		k=TImage::ImageDimension+1;
         //   setupLabelMap();
 	}
@@ -160,7 +161,7 @@ public:
         else
             nDisplacements=1;
         nLabels=nSegmentations*nDisplacements;
-        std::cout<<"nDisplacements :"<<nDisplacements<<" nSegmentations:"<<nSegmentations<<" nLabels"<<nLabels<<std::endl;
+        LOG<<"nDisplacements :"<<nDisplacements<<" nSegmentations:"<<nSegmentations<<" nLabels"<<nLabels<<std::endl;
 
     }
     static inline const LabelType getLabel(int index){
@@ -187,7 +188,7 @@ public:
         if (nSegmentations){
             index+=label[k-1]*(nDisplacements>0?nDisplacements:1);
         }
-        //		std::cout<<label<<" "<<label[k-1]<<" "<<index<<std::endl;
+        //		LOG<<label<<" "<<label[k-1]<<" "<<index<<std::endl;
         //find out direction
         if (nDisplacements){
             itk::Vector<double,TImage::ImageDimension> sums;
@@ -195,7 +196,7 @@ public:
             for (int d=0;d<TImage::ImageDimension;++d){
                 for (int d2=0;d2<TImage::ImageDimension;++d2){
                     if (d2!=d){
-                        //					std::cout<<d<<" "<<d2<<" "<<sums[d]<<std::endl;
+                        //					LOG<<d<<" "<<d2<<" "<<sums[d]<<std::endl;
                         sums[d]+=abs(label[d2]);//+nDisplacementSamples;
                     }
                 }
