@@ -174,15 +174,13 @@ namespace itk{
             ConstImagePointerType atlasImage = this->GetInput(1);
             ConstImagePointerType atlasSegmentationImage;
             
-            if (segment){
-                if (D==2){
-                    //2d segmentations pngs [from matlab] may have screwed up intensities
-                    atlasSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
-                    ImageUtils<ImageType>::writeImage("test.png",atlasSegmentationImage);
-
-                }else{
-                    atlasSegmentationImage = (this->GetInput(2));
-                }
+            if (D==2){
+                //2d segmentations pngs [from matlab] may have screwed up intensities
+                atlasSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
+                ImageUtils<ImageType>::writeImage("test.png",atlasSegmentationImage);
+                
+            }else{
+                atlasSegmentationImage = (this->GetInput(2));
             }
             ConstImagePointerType targetGradientImage = this->GetInput(3);
             ConstImagePointerType atlasGradientImage=this->GetInput(4);
@@ -245,7 +243,7 @@ namespace itk{
 
             
             int level;
-            double scale=-1, oldscale=1.0;
+            double scale=-1;
 
             //start pyramid
             //asm volatile("" ::: "memory");
@@ -307,7 +305,6 @@ namespace itk{
                     unaryRegistrationPot->SetRadius(graph.getSpacing());
                     unaryRegistrationPot->SetTargetImage(targetImage);
                     unaryRegistrationPot->SetAtlasImage(atlasImage);
-                    unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
 #if 0
                     unaryRegistrationPot->SetAtlasSegmentation(atlasSegmentationImage);
                     unaryRegistrationPot->SetAlpha(m_config.alpha);
@@ -342,18 +339,25 @@ namespace itk{
                 graph.setPairwiseCoherenceFunction(pairwiseCoherencePot);
                 graph.setPairwiseSegmentationFunction(pairwiseSegmentationPot);
 
-                //resample the deformation from last iteration to the current image resolution.
-                if (scale!=oldscale){
+
+                if (regist && !segment){
+                    //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
+                    previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
+                }else{
                     previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
                 }
+
+                if (regist){
+                    if (!segment){
+                        unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                    }else{
+                        unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
+                    }
+                }
+
                 //now scale it according to spacing difference between this and the previous iteration
                 SpacingType sp;
                 sp.Fill(1.0);
-                if ( oldscale!=-1 && scale!=oldscale) {
-                    sp=sp*1.0* scale/oldscale;//level/m_config.levels[l-1];
-                    previousFullDeformation=scaleLabelImage(previousFullDeformation,sp);
-                }
-                oldscale=scale;
                 std::cout<<"Current displacementFactor :"<<graph.getDisplacementFactor()<<std::endl;
                 std::cout<<"Current grid size :"<<graph.getGridSize()<<std::endl;
                 std::cout<<"Current grid spacing :"<<graph.getSpacing()<<std::endl;
@@ -368,7 +372,11 @@ namespace itk{
                     
                     //register deformation from previous iteration
                     if (regist){
-                        unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        if (!segment){
+                            unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        }else{
+                            unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
+                        }
                         pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                         if (segment){
                             pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
@@ -450,7 +458,10 @@ namespace itk{
 
 #if 1
                     if (regist){
-                        fullDeformation=bSplineInterpolateLabelImage(deformation,targetImage);
+                        if (segment)
+                            fullDeformation=bSplineInterpolateLabelImage(deformation,targetImage);
+                        else
+                            fullDeformation=bSplineInterpolateLabelImage(deformation,(ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
                     }
                     //fullDeformation=scaleLabelImage(fullDeformation,graph.getDisplacementFactor());
            

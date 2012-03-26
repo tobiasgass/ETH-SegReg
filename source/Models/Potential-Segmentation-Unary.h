@@ -477,7 +477,7 @@ namespace itk{
         
         void SetTissuePrior(ConstImagePointerType img){m_tissuePrior=img;}
         UnaryPotentialSegmentationUnsignedBoneMarcel(){
-            m_useTissuePrior=true;
+            m_useTissuePrior=false;//true;
         }
         void SetUseTissuePrior(bool b){
             m_useTissuePrior=b;

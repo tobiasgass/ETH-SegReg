@@ -120,9 +120,9 @@ namespace itk{
             }
             radiusSet=true;
         }
-        void SetBaseLabelMap(LabelImagePointerType blm){
+        void SetBaseLabelMap(LabelImagePointerType blm, double scale=1.0){
             m_baseLabelMap=blm;m_haveLabelMap=true;
-            if (m_scale!=1.0){
+            if (scale!=1.0){
                 typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType> InterpolatorType;
                 typename InterpolatorType::Pointer interpol=InterpolatorType::New();
                 typedef typename itk::VectorResampleImageFilter<LabelImageType,LabelImageType> ResampleFilterType;
@@ -136,7 +136,7 @@ namespace itk{
                 inputSize=blm->GetLargestPossibleRegion().GetSize();
                 inputSpacing=blm->GetSpacing();
                 for (uint d=0;d<LabelImageType::ImageDimension;++d){
-                    size[d]=int(inputSize[d]*m_scale);
+                    size[d]=int(inputSize[d]*scale);
                     spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
                     origin[d]=inputOrigin[d]+0.5*spacing[d]/inputSpacing[d];
                 }
@@ -174,7 +174,9 @@ namespace itk{
             nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
 
         }
-
+        ConstImagePointerType GetTargetImage(){
+            return m_scaledTargetImage;
+        }
         virtual double getPotential(IndexType targetIndex, LabelType disp){
             double result=0;
             IndexType idx1=targetIndex;
