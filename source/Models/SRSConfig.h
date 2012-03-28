@@ -48,6 +48,9 @@ private:
 public:
 	SRSConfig(){
 		defFilename="";
+        outputDeformedSegmentationFilename="deformedAtlasSegmentation.nii";
+        outputDeformedFilename="deformedAtlas.nii";
+        segmentationOutputFilename="targetSegmentation.nii";
 		pairwiseRegistrationWeight=1;
 		pairwiseSegmentationWeight=1;
 		displacementSampling=-1;

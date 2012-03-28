@@ -291,11 +291,19 @@ namespace itk{
             double result=0;
             ContinuousIndexType idx2(targetIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
+#ifdef PIXELTRANSFORM
+           
             idx2+= disp;
             if (m_baseLabelMap){
                 itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(targetIndex2);
                 idx2+=baseDisp;
             }
+#else
+            typename ImageType::PointType p;
+            this->m_baseLabelMap->TransformIndexToPhysicalPoint(targetIndex1,p);
+            p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
+            this->m_baseLabelMap->TransformPhysicalPointToContinuousIndex(p,idx2);
+#endif
             int deformedAtlasSegmentation=-1;
             double distanceToDeformedSegmentation;
             if (!m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
@@ -463,12 +471,20 @@ namespace itk{
             double result=0;
             ContinuousIndexType idx2(targetIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
+#ifdef PIXELTRANSFORM
+           
             idx2+= disp;
-            if (this->m_baseLabelMap){
-                itk::Vector<float,ImageType::ImageDimension> baseDisp=this->m_baseLabelMap->GetPixel(targetIndex2);
+            if (m_baseLabelMap){
+                itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(targetIndex2);
                 idx2+=baseDisp;
             }
-            int deformedAtlasSegmentation=-1;
+#else
+            typename ImageType::PointType p;
+            this->m_baseLabelMap->TransformIndexToPhysicalPoint(targetIndex1,p);
+            p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
+            this->m_baseLabelMap->TransformPhysicalPointToContinuousIndex(p,idx2);
+#endif
+      int deformedAtlasSegmentation=-1;
             double distanceToDeformedSegmentation;
             if (!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
@@ -591,11 +607,19 @@ namespace itk{
             double result=0;
             ContinuousIndexType idx2(targetIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
+#ifdef PIXELTRANSFORM
+           
             idx2+= disp;
-            if (this->m_baseLabelMap){
-                itk::Vector<float,ImageType::ImageDimension> baseDisp=this->m_baseLabelMap->GetPixel(targetIndex2);
+            if (m_baseLabelMap){
+                itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(targetIndex2);
                 idx2+=baseDisp;
             }
+#else
+            typename ImageType::PointType p;
+            this->m_baseLabelMap->TransformIndexToPhysicalPoint(targetIndex1,p);
+            p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
+            this->m_baseLabelMap->TransformPhysicalPointToContinuousIndex(p,idx2);
+#endif
             int deformedAtlasSegmentation=-1;
             if (!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
