@@ -275,11 +275,20 @@ namespace itk{
                     int tmpL=label1;label1=label2;label2=tmpL;
                 }
 #endif       
-                double s1=1.0*this->m_gradientImage->GetPixel(idx1)/100;
-                double s2=1.0*this->m_gradientImage->GetPixel(idx2)/100;
+
+#if 0
+                double s1=1-1.0*this->m_gradientImage->GetPixel(idx1)/127;
+                double s2=1-1.0*this->m_gradientImage->GetPixel(idx2)/127;
                 double gradientDiff=fabs(s1-s2);
-                gradientCost=(s1<s2)?1:exp(-5*gradientDiff);
-                LOGV(30)<<s1<<" "<<s2<<" "<<gradientCost<<std::endl;
+
+#else
+                double s1=1.0*this->m_gradientImage->GetPixel(idx1);
+                double s2=1.0*this->m_gradientImage->GetPixel(idx2);
+                double gradientDiff=fabs(s1-s2)/100;
+                                
+#endif
+                gradientCost=(s1>s2)?1:exp(-5*gradientDiff);
+                LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
             }
             //return 1.0+1000.0*factor*gradientCost;
             return gradientCost;
