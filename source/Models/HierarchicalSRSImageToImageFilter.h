@@ -172,13 +172,14 @@ namespace itk{
             
             bool coherence= (m_config.pairwiseCoherenceWeight>0);
             bool segment=m_config.pairwiseSegmentationWeight>0 ||  m_config.unarySegmentationWeight>0 || coherence;
+            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.unaryRegistrationWeight>0|| coherence;
+
             if (segment){
                 LOG<<"Switching on segmentation module"<<std::endl;
             }
             else{
                 LOG<<"Switching off segmentation module"<<std::endl;
             }
-            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.unaryRegistrationWeight>0|| coherence;
             if (regist){
                 LOG<<"Switching on registration module"<<std::endl;
             }
@@ -279,6 +280,10 @@ namespace itk{
                 pairwiseCoherencePot->SetAtlasSegmentation(atlasSegmentationImage);
             }
 
+            if (!coherence && !regist){
+                m_config.nLevels=1;
+                m_config.iterationsPerLevel=1;
+            }
             typename GraphModelType::Pointer graph=GraphModelType::New();
             for (int l=0;l<m_config.nLevels;++l){
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":0");
@@ -351,11 +356,13 @@ namespace itk{
                 graph->setPairwiseSegmentationFunction(pairwiseSegmentationPot);
 
 
-                if (regist && !segment){
+                if (regist){
+                    if (!coherence){
                     //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
-                    previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
-                }else{
-                    previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
+                        previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
+                    }else{
+                        previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
+                    }
                 }
 
                 if (regist){
@@ -459,17 +466,18 @@ namespace itk{
                     LabelImagePointerType composedDeformation;
 
 #if 1
-                    if (regist){
-                        if (segment)
-                            fullDeformation=bSplineInterpolateLabelImage(deformation,targetImage);
-                        else
-                            fullDeformation=bSplineInterpolateLabelImage(deformation,(ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
-                    }
-                    //fullDeformation=scaleLabelImage(fullDeformation,graph->getDisplacementFactor());
+                    if ((l || i) && regist){
+                        if (!coherence){
+                            //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
+                            previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
+                        }else{
+                            previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
+                        }
+                    }   //fullDeformation=scaleLabelImage(fullDeformation,graph->getDisplacementFactor());
            
                     //apply deformation to atlas image
                     ConstIteratorType targetIt(targetImage,targetImage->GetLargestPossibleRegion());
-                    if (regist){
+                    if (regist || coherence){
 
 #if 1
                   
@@ -553,8 +561,8 @@ namespace itk{
                 }
             }
 
-
-            m_finalDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
+            if (regist || coherence)
+                m_finalDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
             m_finalSegmentation=(segmentation);
             delete labelmapper;
 	
