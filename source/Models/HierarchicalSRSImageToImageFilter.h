@@ -429,7 +429,7 @@ namespace itk{
                                                                          m_config.verbose);
                             mrfSolver->createGraph();
                             mrfSolver->optimize(m_config.optIter);
-                            if (regist){
+                            if (regist || coherence){
                                 deformation=graph->getDeformationImage(mrfSolver->getDeformationLabels());
                             }
                             segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
@@ -451,7 +451,9 @@ namespace itk{
                                                                          m_config.verbose);
                             mrfSolver->createGraph();
                             mrfSolver->optimize(m_config.optIter);
-                            deformation=graph->getDeformationImage(mrfSolver->getDeformationLabels());
+                            if (regist || coherence){
+                                deformation=graph->getDeformationImage(mrfSolver->getDeformationLabels());
+                            }
                             segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
                             delete mrfSolver;
 
@@ -465,45 +467,24 @@ namespace itk{
                     //deformation
                     LabelImagePointerType composedDeformation;
 
-#if 1
-                    if ((l || i) && regist){
+                    if (regist){
                         if (!coherence){
                             //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
-                            previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
+                            fullDeformation=bSplineInterpolateLabelImage(deformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
                         }else{
-                            previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
+                            fullDeformation=bSplineInterpolateLabelImage(deformation, targetImage);
                         }
                     }   //fullDeformation=scaleLabelImage(fullDeformation,graph->getDisplacementFactor());
-           
+   
                     //apply deformation to atlas image
                     ConstIteratorType targetIt(targetImage,targetImage->GetLargestPossibleRegion());
                     if (regist || coherence){
 
-#if 1
-                  
                         typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
                         composer->SetInput(1,fullDeformation);
                         composer->SetInput(0,previousFullDeformation);
                         composer->Update();
                         composedDeformation=composer->GetOutput();
-                        LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
-#else
-                        //
-                        composedDeformation=LabelImageType ::New();
-                        composedDeformation->SetRegions(previousFullDeformation->GetLargestPossibleRegion());
-                        composedDeformation->Allocate();
-                        LabelIteratorType labelIt(composedDeformation,composedDeformation->GetLargestPossibleRegion());
-                        LabelIteratorType label2It(previousFullDeformation,previousFullDeformation->GetLargestPossibleRegion());
-                        LabelIteratorType label3It(fullDeformation,fullDeformation->GetLargestPossibleRegion());
-                        for (label3It.GoToBegin(),label2It.GoToBegin(),labelIt.GoToBegin();!labelIt.IsAtEnd();++label2It,++labelIt,++label3It){
-                            LabelType label=label2It.Get()+label3It.Get();
-                            typename ImageInterpolatorType::ContinuousIndexType idx=labelIt.GetIndex();
-                            //typename LabelImageType::SizeType size=composedDeformation->GetLargestPossibleRegion().GetSize();
-                            idx+=LabelMapperType::getDisplacement(label);
-                            labelIt.Set(label);
-                        }
-#endif
-                
                         deformedAtlasImage=warpImage(atlasImage,composedDeformation);
                         deformedAtlasSegmentation=deformSegmentationImage(atlasSegmentationImage,composedDeformation);
                         //deformedAtlasSegmentation=warpImage(atlasSegmentationImage,composedDeformation);
@@ -555,7 +536,6 @@ namespace itk{
                         }
                     }
                     
-#endif
                     
 
                 }

@@ -10,6 +10,7 @@ ADD_LIBRARY(Utils
   Log.h
   SheetnessFilter.h
   Preprocessing.h
+  TransformationUtils.h
 )
 TARGET_LINK_LIBRARIES(Utils ${ITK_LIBRARIES}  )
 
