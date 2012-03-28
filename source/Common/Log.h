@@ -6,6 +6,7 @@
 #include <stack>
 #define logSetStage(stage) mylog.setStage(stage)
 #define logResetStage mylog.resetStage()
+#define logSetVerbosity(level) mylog.setVerbosity(level)
 class MyLog {
 
     boost::timer m_timer;
@@ -46,9 +47,16 @@ public:
 };
 MyLog mylog;
 
-#define LOG std::cout << mylog.getStatus()<<" "
+
+
+#define LOG \
+    if (mylog.getVerbosity()>=10)                                        \
+        std::cout <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
+    std::cout << mylog.getStatus()<<" "
 
 #define LOGV(level) \
-if (level>mylog.getVerbosity) \
-    std::cout << mylog.getStatus()<<" "
+    if (mylog.getVerbosity()>=10) \
+        std::cout <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
+    if (mylog.getVerbosity()>=level)                                    \
+        std::cout<<mylog.getStatus()<<" ["<<level<<"] "
 

@@ -93,7 +93,7 @@ namespace itk{
                 m_scaledRadius[d]=m_radius[d]*m_scale;
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
-            LOG<<" Radius " << m_radius << " scale "<< m_scale << "scaledRadius "<< m_scaledRadius << endl;
+            LOGV(2)<<"Registration unary patch radius " << m_radius << " scale "<< m_scale << " scaledRadius "<< m_scaledRadius << endl;
             nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             m_atlasInterpolator=InterpolatorType::New();
             m_atlasInterpolator->SetInputImage(m_scaledAtlasImage);
@@ -171,7 +171,6 @@ namespace itk{
             }else{
                 m_scaledTargetImage=m_targetImage;
             }
-            LOG << this->m_scaledRadius <<endl;
             nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
 
         }

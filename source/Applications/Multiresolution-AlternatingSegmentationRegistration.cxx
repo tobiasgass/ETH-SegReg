@@ -393,7 +393,7 @@ int main(int argc, char ** argv)
 					resampler->SetOutputSpacing ( targetImage->GetSpacing() );
 					resampler->SetOutputDirection ( targetImage->GetDirection() );
 					resampler->SetSize ( targetImage->GetLargestPossibleRegion().GetSize() );
-					//					if (verbose) LOG<<"interpolating deformation field"<<std::endl;
+					//					LOGV(1)<<"interpolating deformation field"<<std::endl;
 					resampler->Update();
 					//			if (defFilename!=""){
 					//				//		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);

@@ -35,8 +35,7 @@ namespace itk{
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         SizeType m_targetSize;
-
-        typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
+       typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
         ConstImagePointerType m_targetImage, m_sheetnessImage,m_atlasImage, m_atlasGradient;
         ConstImagePointerType m_atlasSegmentation;
@@ -46,17 +45,17 @@ namespace itk{
         double m_gradientSigma, m_Sigma;
         double m_gradientScaling;
         ConstImagePointerType m_tissuePrior;
+        bool m_useTissuePrior;
     public:
         
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentation, Object);
-
-   
-        
         void SetTissuePrior(ConstImagePointerType img){m_tissuePrior=img;}
-   
+        void SetUseTissuePrior(bool b){
+            m_useTissuePrior=b;
+        }
         UnaryPotentialSegmentation(){
             this->m_haveLabelMap=false;
         }
@@ -77,12 +76,12 @@ namespace itk{
             filter->Update();
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
-            LOG<<"Gradient variance: "<<m_gradientSigma<<std::endl;
+            LOGV(4)<<"Target image gradient variance: "<<m_gradientSigma<<std::endl;
             filter->SetInput(this->m_targetImage);
             filter->Update();
             this->m_Sigma=filter->GetSigma();
             this->m_Sigma*=this->m_Sigma;
-            
+                        
         }
         virtual void SetAtlasSegmentation(ConstImagePointerType im){
             m_atlasSegmentation=im;
@@ -452,7 +451,7 @@ namespace itk{
         }
     };//class
 
-
+    
     template<class TImage>
     class UnaryPotentialSegmentationUnsignedBoneMarcel: public UnaryPotentialSegmentation<TImage> {
     public:
@@ -465,9 +464,6 @@ namespace itk{
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename TImage::ConstPointer ConstImagePointerType;
-    private:
-        ConstImagePointerType m_tissuePrior;
-        bool m_useTissuePrior;
     public:
         
         /** Method for creation through the object factory. */
@@ -476,24 +472,20 @@ namespace itk{
         itkTypeMacro(UnaryPotentialSegmentationUnsignedBone, Object);
         
         
-        void SetTissuePrior(ConstImagePointerType img){m_tissuePrior=img;}
         UnaryPotentialSegmentationUnsignedBoneMarcel(){
-            m_useTissuePrior=false;//true;
+            this->m_useTissuePrior=false;//true;
         }
-        void SetUseTissuePrior(bool b){
-            m_useTissuePrior=b;
-        }
+      
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
             int s=this->m_sheetnessImage->GetPixel(targetIndex);
             int bone=(300+1000)*255.0/2000;
             int tissue=(-500+1000)*255.0/2000;
             double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
             double totalCost=1;
-            bool bonePrior=false,tissuePrior=false;
+            bool tissuePrior=false;
             //#define USEPRIOR
-            if (m_useTissuePrior){
-                bonePrior = (this->m_tissuePrior->GetPixel(targetIndex))>0.5;
-                tissuePrior = (this->m_tissuePrior->GetPixel(targetIndex))<0.2;
+            if (this->m_useTissuePrior){
+                tissuePrior = (this->m_tissuePrior->GetPixel(targetIndex))>0;
             }
 
             switch (segmentationLabel) {
@@ -516,6 +508,58 @@ namespace itk{
                 break;
             }
             //            LOG<<imageIntensity<<" "<<segmentationLabel<<" "<<totalCost<<" "<<bone<<" "<<tissue<<" "<<s<<std::endl;
+            return totalCost;
+        }
+    };//class
+    template<class TImage>
+    class UnaryPotentialSegmentationBoneMarcel: 
+        public UnaryPotentialSegmentationUnsignedBoneMarcel<TImage>  
+    {
+    public:
+        //itk declarations
+        typedef UnaryPotentialSegmentationBoneMarcel            Self;
+        typedef UnaryPotentialSegmentationUnsignedBoneMarcel<TImage> UnarySuperclass;
+        
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
+        typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
+        
+    protected:
+        double m_alpha;
+        SRSPotentialPointerType m_srsPotential;
+        itk::Vector<float,ImageType::ImageDimension> zeroDisplacement;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialSegmentationBoneMarcel, Object);
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            int s=this->m_sheetnessImage->GetPixel(targetIndex);
+            int bone=(300);
+            int tissue=(-500);
+            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
+            double totalCost=1;
+            bool tissuePrior=false;
+            if (this->m_useTissuePrior){
+                tissuePrior = (this->m_tissuePrior->GetPixel(targetIndex))>0;
+            }
+            
+            switch (segmentationLabel) {
+            case 0:
+                
+                totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
+                
+                break;
+            default  :
+                totalCost = (tissuePrior || imageIntensity < tissue) ? 1 : 0;
+                break;
+            }
             return totalCost;
         }
     };//class

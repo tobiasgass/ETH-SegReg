@@ -71,7 +71,7 @@ class FilterUtils {
     typedef itk::MaskNegatedImageFilter<InputImage,InputImage,OutputImage> MaskNegatedImageFilterType;
     typedef itk::SubtractImageFilter <InputImage,InputImage,OutputImage> SubtractFilterType;
     typedef itk::AddImageFilter <InputImage,InputImage,OutputImage> AddFilterType;
-    typedef itk::ConnectedComponentImageFilter<InputImage,OutputImage>  ConnectedComponentImageFilterType;
+    //    typedef itk::ConnectedComponentImageFilter<InputImage,OutputImage>  ConnectedComponentImageFilterType;
     typedef itk::RelabelComponentImageFilter<InputImage,OutputImage>  RelabelComponentImageFilterType;
     typedef itk::ShiftScaleImageFilter<InputImage,OutputImage>  ShiftScaleImageFilterType;
     //    typedef itk::DiscreteGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
@@ -87,7 +87,7 @@ class FilterUtils {
     typedef typename MaskNegatedImageFilterType::Pointer MaskNegatedImageFilterPointer;
     typedef typename SubtractFilterType::Pointer SubtractFilterPointer;
     typedef typename AddFilterType::Pointer AddFilterPointer;
-    typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
+    //    typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
     typedef typename RelabelComponentImageFilterType::Pointer RelabelComponentImageFilterPointer;
     typedef typename ShiftScaleImageFilterType::Pointer ShiftScaleImageFilterPointer;
     typedef typename DiscreteGaussianImageFilterType::Pointer DiscreteGaussianImageFilterPointer;
@@ -198,7 +198,7 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
-   static OutputImagePointer LinearResample( ConstInputImagePointer input,  ConstInputImagePointer reference) {
+    static OutputImagePointer LinearResample( ConstInputImagePointer input,  ConstInputImagePointer reference) {
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
         resampler->SetInput(input);
@@ -457,7 +457,7 @@ public:
         itk::ImageRegionIterator<InputImage> it(
                                                 inputImage, inputImage->GetLargestPossibleRegion());
         itk::ImageRegionIterator<InputImage> it2(
-                                                outputImage, outputImage->GetLargestPossibleRegion());
+                                                 outputImage, outputImage->GetLargestPossibleRegion());
         for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
             double val=it.Get();
             it2.Set(floor(val+0.5));
@@ -537,7 +537,7 @@ public:
     }
 
 
-
+#if 0
     // compute connected components of a (binary image)
     static OutputImagePointer connectedComponents(InputImagePointer image) {
 
@@ -549,7 +549,7 @@ public:
 
         return filter->GetOutput();
     }
-
+#endif
 
 
 
@@ -611,4 +611,7 @@ public:
     }
 
     
+
+
+
 };

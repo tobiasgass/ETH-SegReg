@@ -51,7 +51,7 @@ public:
 		//		optimizer = new MRFType(globalSize);
 		TRWType::GlobalSize globalSize();
 		optimizer = new MRFType(TRWType::GlobalSize());
-		if (verbose) LOG<<"starting graph init"<<std::endl;
+		LOGV(1)<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_GraphModel;
         nNodes=graph->nNodes();
 		nodes = new NodeType[nNodes];
@@ -75,7 +75,7 @@ public:
 		}
 		clock_t finish1 = clock();
 		float t = (float) ((double)(finish1 - start) / CLOCKS_PER_SEC);
-		if (verbose) LOG<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
+		LOGV(1)<<"Finished unary potential initialisation after "<<t<<" seconds"<<std::endl;
 		//
 
         //#define POTTS
@@ -113,7 +113,7 @@ public:
 		}
 		clock_t finish = clock();
 		t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
-		if (verbose) LOG<<"Finished init after "<<t<<" seconds"<<std::endl;
+		LOGV(1)<<"Finished init after "<<t<<" seconds"<<std::endl;
 
 	}
 
@@ -175,7 +175,7 @@ public:
 		}
 	virtual void createGraph(){
 		optimizer = new MRFType(TRWType::GlobalSize());
-		if (verbose) LOG<<"starting graph init"<<std::endl;
+		LOGV(1)<<"starting graph init"<<std::endl;
 		GraphModelType* graph=this->m_graphModel;
 		nNodes=graph->nNodes();
 

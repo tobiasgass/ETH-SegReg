@@ -21,10 +21,9 @@
 #include "vnl/vnl_math.h"
 #include <itkSmoothingRecursiveGaussianImageFilter.h>
 #include "vnl/algo/vnl_symmetric_eigensystem.h"
-
+#include "Log.h"
 #include <limits>
-#include "Globals.hpp"
-
+#include "float.h"
 
 //#include "image_utils.h"
 
@@ -270,7 +269,7 @@ void MemoryEfficientObjectnessFilter::GenerateObjectnessImage()
 	}
 	mean_norm /= (float)pixelsInRoi;
 
-    log("Mean norm = %1%") % mean_norm;
+    LOG<<"Mean norm = "<< mean_norm<<std::endl;
 
 	for (int k=0 ; k<d ; k++)
 	{
@@ -355,9 +354,19 @@ void MemoryEfficientObjectnessFilter::Eigenvalues_3_3_symetric(
 	z = y*y/4.0+x*x*x/27.0;
 
 	double i, j, k, m, n, p;
-	i = sqrt(y*y/4.0-z);
-	j = -pow(i,1.0/3.0);
-	k = acos(-y/(2.0*i));
+    double tmp2=y*y/4.0-z;
+    if (tmp2>0)
+        i = sqrt(tmp2);
+    else
+        i=0;
+    if (fabs(i)>DBL_EPSILON){
+        j = -pow(i,1.0/3.0);
+        double tmp=-y/(2.0*i);
+        if (tmp>1) tmp=1; else if (tmp<-1) tmp=-1;
+        k = acos(tmp);
+    }else{
+        k=0;j=0;
+    }
 	m = cos(k/3.0);
 	n = sqrt(3.0)*sin(k/3.0);
 	p = -(b/(3.0*a));

@@ -93,7 +93,7 @@ namespace itk{
             m_atlasSize=m_atlasImage->GetLargestPossibleRegion().GetSize();
             m_atlasInterpolator=ImageInterpolatorType::New();
             m_atlasInterpolator->SetInputImage(m_atlasImage);//,m_atlasImage->GetLargestPossibleRegion());
-            LOG<<"atlasSize "<<m_atlasSize<<endl;
+            LOGV(3)<<"Dimensions of atlas image for coherence potentials "<<m_atlasSize<<endl;
         }
         void SetTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
@@ -128,6 +128,7 @@ namespace itk{
         
 
         void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
+            logSetStage("Coherence setup");
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
             m_atlasSegmentationInterpolator= SegmentationInterpolatorType::New();
             m_atlasSegmentationInterpolator->SetInputImage(segImage);
@@ -169,7 +170,7 @@ namespace itk{
             minDist=filter->GetMinimumOutput()->Get();
           
             mDistTarget=fabs(minDist);
-            LOG<<"MINDIST: "<<mDistTarget<<endl;
+            LOGV(3)<<"Maximal radius of target object: "<<mDistTarget<<endl;
             m_distanceTransform=dt1;
             if (m_nSegmentationLabels>2){
                 FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
@@ -182,7 +183,7 @@ namespace itk{
                 mean2=fabs(filter->GetMean());
                 double di=filter->GetMinimumOutput()->Get();
                 mDistSecondary=fabs(di);
-                LOG<<"MINDIST: "<<mDistSecondary<<endl;
+                LOGV(3)<<"Maximal Radius of secondary object: "<<mDistSecondary<<endl;
                 caster->SetInput(thresholdFilter->GetOutput());
                 caster->Update();
                 ImagePointerType output=caster->GetOutput();
@@ -198,6 +199,7 @@ namespace itk{
             m_atlasSegmentationInterpolator=SegmentationInterpolatorType::New();
             //            m_atlasSegmentationInterpolator->SetInputImage((ImagePointerType)(const_cast<ImageType* >(&(*segImage))),segImage->GetLargestPossibleRegion());
             m_atlasSegmentationInterpolator->SetInputImage(segImage);
+            logResetStage;
         }
         FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage, int value){
             typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;

@@ -42,6 +42,7 @@ public:
     double alpha;
     int imageLevels;
     bool computeMultilabelAtlasSegmentation;
+    bool useTissuePrior;
 private:
 	argstream * as;
 public:
@@ -73,6 +74,7 @@ public:
         affineBulkTransform="";
         bulkTransformationField="";
         computeMultilabelAtlasSegmentation=false;
+        useTissuePrior=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -119,6 +121,7 @@ public:
         nSubsamples=c.nSubsamples;
         alpha=c.alpha;                          
         imageLevels=c.imageLevels;
+        useTissuePrior=c.useTissuePrior;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -184,6 +187,8 @@ public:
 		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename", false);
 		(*as) >> parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);
 		(*as) >> option ("train", train,"train classifier (and save), if not set data will be read from the given files");
+        (*as) >> option ("useTissuePrior", useTissuePrior,"compute and use a tissue prior. Currently only works with bone CT images.");
+
 		std::vector<int> tmp_levels(6,-1);
 		(*as) >> parameter ("l0", tmp_levels[0],"divisor for level 0", false);
 		(*as) >> parameter ("l1", tmp_levels[1],"divisor for level 1", false);
@@ -192,7 +197,7 @@ public:
 		(*as) >> parameter ("l4", tmp_levels[4],"divisor for level 4", false);
 		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
         (*as) >> parameter ("scale", scale,"scaling factor for registration potential", false);
-        (*as) >> parameter ("verbose", verbose,"get verbose output");
+        (*as) >> parameter ("verbose", verbose,"get verbose output",false);
         (*as) >> parameter ("downScale", downScale,"downSample ALL  images by an isotropic factor",false);
         (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=2)", false);
         (*as) >> option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");

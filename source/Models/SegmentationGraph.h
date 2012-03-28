@@ -111,7 +111,7 @@ namespace itk{
                     m_imageLevelDivisors[d]=1;
                 }
             }
-            if (verbose) LOG<<"GridSize: "<<m_dim<<" ";
+            LOGV(1)<<"GridSize: "<<m_dim<<" ";
         
             //nvertices is not used!?
             if (m_dim>1){
@@ -122,7 +122,7 @@ namespace itk{
             }
 	
 
-            if (verbose) LOG<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nEdges<<std::endl;
+            LOGV(1)<<" nodes:"<<m_nNodes<<" totalEdges:"<<m_nEdges<<std::endl;
             
             LOG<<std::flush;
         
@@ -132,7 +132,7 @@ namespace itk{
         //     }
         //     m_fixedNeighborhoodIterator=new ConstImageNeighborhoodIteratorType(r,m_fixedImage,m_fixedImage->GetLargestPossibleRegion());
 
-            if (verbose) LOG<<" finished graph init" <<std::endl;
+            LOGV(1)<<" finished graph init" <<std::endl;
         }
 
         virtual int  getImageIntegerIndex(IndexType imageIndex){

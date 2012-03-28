@@ -62,7 +62,7 @@ namespace itk{
             filter->Update();
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
-            LOG<<"Gradient variance: "<<m_gradientSigma<<std::endl;
+            LOGV(5)<<"Target image gradient variance: "<<m_gradientSigma<<std::endl;
            
             filter->SetInput(this->m_targetImage);
             filter->Update();
@@ -275,11 +275,11 @@ namespace itk{
                     int tmpL=label1;label1=label2;label2=tmpL;
                 }
 #endif       
-                double s1=1.0-1.0*this->m_gradientImage->GetPixel(idx1)/127;
-                double s2=1.0-1.0*this->m_gradientImage->GetPixel(idx2)/127;
-              
+                double s1=1.0*this->m_gradientImage->GetPixel(idx1)/100;
+                double s2=1.0*this->m_gradientImage->GetPixel(idx2)/100;
                 double gradientDiff=fabs(s1-s2);
                 gradientCost=(s1<s2)?1:exp(-5*gradientDiff);
+                LOGV(30)<<s1<<" "<<s2<<" "<<gradientCost<<std::endl;
             }
             //return 1.0+1000.0*factor*gradientCost;
             return gradientCost;

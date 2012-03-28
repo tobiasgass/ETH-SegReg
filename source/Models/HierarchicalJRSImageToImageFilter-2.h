@@ -355,7 +355,7 @@ namespace itk{
             ImagePointerType segmentation;
 
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,0);
-            if (verbose) LOG<<labelmapper->nSegmentations<<endl;
+            LOGV(1)<<labelmapper->nSegmentations<<endl;
 #ifndef GC            
             GraphModelType graph;
 #else

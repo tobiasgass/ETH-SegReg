@@ -21,13 +21,22 @@
 template<class ImageType>
 class ImageUtils {
 
-
+public:
 	typedef typename ImageType::Pointer  ImagePointerType;
 	typedef typename ImageType::ConstPointer  ConstImagePointerType;
 	typedef typename ImageType::PixelType PixelType;
 
-
-
+    typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
+    typedef typename FloatImageType::Pointer FloatImagePointerType;
+    typedef typename itk::Image<unsigned int,ImageType::ImageDimension> UIntImageType;
+    typedef typename UIntImageType::Pointer UIntImagePointerType;
+    typedef typename itk::Image<int,ImageType::ImageDimension> IntImageType;
+    typedef typename IntImageType::Pointer IntImagePointerType;
+    typedef typename itk::Image<char,ImageType::ImageDimension> CharImageType;
+    typedef typename CharImageType::Pointer CharImagePointerType;
+    typedef typename itk::Image<unsigned char,ImageType::ImageDimension> UCharImageType;
+    typedef typename UCharImageType::Pointer UCharImagePointerType;
+    
 	typedef itk::Image< PixelType , 2 > ImageType2D;
 
 	typedef itk::ImageFileReader< ImageType >  ReaderType;
