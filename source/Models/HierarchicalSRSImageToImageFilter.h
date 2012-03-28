@@ -38,28 +38,26 @@
 #include <itkImageAdaptor.h>
 #include <itkAddPixelAccessor.h>
 #include "itkDisplacementFieldCompositionFilter.h"
-#include "itkBSplineInterpolateImageFunction.h"
 #include "itkVectorImage.h"
 #include "itkConstNeighborhoodIterator.h"
 #include <itkVectorResampleImageFilter.h>
 #include <itkResampleImageFilter.h>
 #include "itkLinearInterpolateImageFunction.h"
-#include "itkBSplineInterpolateImageFunction.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
 #include "itkVectorNearestNeighborInterpolateImageFunction.h"
-#include "itkBSplineResampleImageFunction.h"
 #include "itkRescaleIntensityImageFilter.h"
 #include "itkSignedMaurerDistanceMapImageFilter.h"
 #include <itkImageToImageFilter.h>
 #include <itkBSplineDeformableTransform.h>
+#include "itkBSplineInterpolateImageFunction.h"
+#include "itkBSplineDeformableTransform.h"
+#include <itkWarpImageFilter.h>
 #include "itkImageRegionConstIteratorWithIndex.h"
 #include <google/heap-profiler.h>
 #include "ChamferDistanceTransform.h"
 #include "itkCastImageFilter.h"
 #include "Classifier.h"
 #include "itkHausdorffDistanceImageFilter.h"
-#include "itkBSplineDeformableTransform.h"
-#include <itkWarpImageFilter.h>
 
 
 namespace itk{
@@ -96,12 +94,12 @@ namespace itk{
 
         typedef typename GraphModelType::LabelMapperType LabelMapperType;
         typedef typename LabelMapperType::LabelType LabelType;
-        typedef typename LabelMapperType::LabelImageType LabelImageType;
-        typedef typename LabelImageType::Pointer LabelImagePointerType;
-        typedef itk::ImageRegionIterator< LabelImageType>       LabelIteratorType;
-        typedef VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
+        typedef typename LabelMapperType::LabelImageType DeformationFieldType;
+        typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
+        typedef itk::ImageRegionIterator< DeformationFieldType>       LabelIteratorType;
+        typedef VectorLinearInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
         typedef typename  LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
-        typedef itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
+        typedef itk::VectorResampleImageFilter< DeformationFieldType , DeformationFieldType>	LabelResampleFilterType;
  
     
         typedef  typename GraphModelType::UnaryRegistrationFunctionType UnaryRegistrationPotentialType;
@@ -121,10 +119,10 @@ namespace itk{
 
         //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
     
-        typedef  typename itk::DisplacementFieldCompositionFilter<LabelImageType,LabelImageType> CompositionFilterType;
+        typedef  typename itk::DisplacementFieldCompositionFilter<DeformationFieldType,DeformationFieldType> CompositionFilterType;
     private:
         SRSConfig m_config;
-        LabelImagePointerType m_finalDeformation,m_bulkTransform;
+        DeformationFieldPointerType m_finalDeformation,m_bulkTransform;
         bool m_useBulkTransform;
         ImagePointerType m_finalSegmentation;
     public:
@@ -155,14 +153,14 @@ namespace itk{
         void setTissuePrior(ImagePointerType img){
             SetNthInput(5,img);
         }
-        void setBulkTransform(LabelImagePointerType transf){
+        void setBulkTransform(DeformationFieldPointerType transf){
             m_bulkTransform=transf;
             m_useBulkTransform=true;
         }
-        LabelImagePointerType affineRegistration(ConstImagePointerType targetImage, ConstImagePointerType atlasImage){
+        DeformationFieldPointerType affineRegistration(ConstImagePointerType targetImage, ConstImagePointerType atlasImage){
         }
 
-        LabelImagePointerType getFinalDeformation(){
+        DeformationFieldPointerType getFinalDeformation(){
             return m_finalDeformation;
         }
         ImagePointerType getTargetSegmentationEstimate(){
@@ -210,7 +208,7 @@ namespace itk{
             
             //results
             ImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
-            LabelImagePointerType fullDeformation,previousFullDeformation;
+            DeformationFieldPointerType fullDeformation,previousFullDeformation;
         
             if (regist){
                 if (m_useBulkTransform){
@@ -218,7 +216,7 @@ namespace itk{
                     previousFullDeformation=m_bulkTransform;
                 }else{
                     //allocate memory
-                    previousFullDeformation=LabelImageType::New();
+                    previousFullDeformation=DeformationFieldType::New();
                     previousFullDeformation->SetRegions(targetImage->GetLargestPossibleRegion());
                     previousFullDeformation->SetOrigin(targetImage->GetOrigin());
                     previousFullDeformation->SetSpacing(targetImage->GetSpacing());
@@ -273,7 +271,7 @@ namespace itk{
 
             //start pyramid
             //asm volatile("" ::: "memory");
-            LabelImagePointerType deformation;
+            DeformationFieldPointerType deformation;
             ImagePointerType segmentation;
             if (segment && regist){
                 pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
@@ -359,9 +357,9 @@ namespace itk{
                 if (regist){
                     if (!coherence){
                     //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
-                        previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
+                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
                     }else{
-                        previousFullDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
+                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, targetImage);
                     }
                 }
 
@@ -465,16 +463,16 @@ namespace itk{
 
                     //initialise interpolator
                     //deformation
-                    LabelImagePointerType composedDeformation;
+                    DeformationFieldPointerType composedDeformation;
 
                     if (regist){
                         if (!coherence){
                             //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
-                            fullDeformation=bSplineInterpolateLabelImage(deformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
+                            fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
                         }else{
-                            fullDeformation=bSplineInterpolateLabelImage(deformation, targetImage);
+                            fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, targetImage);
                         }
-                    }   //fullDeformation=scaleLabelImage(fullDeformation,graph->getDisplacementFactor());
+                    }   //fullDeformation=scaleDeformationField(fullDeformation,graph->getDisplacementFactor());
    
                     //apply deformation to atlas image
                     ConstIteratorType targetIt(targetImage,targetImage->GetLargestPossibleRegion());
@@ -485,8 +483,8 @@ namespace itk{
                         composer->SetInput(0,previousFullDeformation);
                         composer->Update();
                         composedDeformation=composer->GetOutput();
-                        deformedAtlasImage=warpImage(atlasImage,composedDeformation);
-                        deformedAtlasSegmentation=deformSegmentationImage(atlasSegmentationImage,composedDeformation);
+                        deformedAtlasImage=TransfUtils<ImageType>::warpImage(atlasImage,composedDeformation);
+                        deformedAtlasSegmentation=TransfUtils<ImageType>::deformSegmentationImage(atlasSegmentationImage,composedDeformation);
                         //deformedAtlasSegmentation=warpImage(atlasSegmentationImage,composedDeformation);
                     }
                     
@@ -515,8 +513,8 @@ namespace itk{
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
                         if (ImageType::ImageDimension==2){
-                            if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
-                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+                            if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromDeformationField((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
+                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromDeformationField((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
                         }
                         if (ImageType::ImageDimension==3){
                             if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
@@ -527,9 +525,9 @@ namespace itk{
                             if (m_config.defFilename!=""){
                                 ostringstream tmpDeformationFilename;
                                 tmpDeformationFilename<<m_config.defFilename<<"-l"<<l<<"-i"<<i<<".mha";
-                                //		ImageUtils<LabelImageType>::writeImage(defFilename,deformation);
-                                ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
-                                //					ImageUtils<LabelImageType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
+                                //		ImageUtils<DeformationFieldType>::writeImage(defFilename,deformation);
+                                ImageUtils<DeformationFieldType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
+                                //					ImageUtils<DeformationFieldType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
 
                                 //
                             }
@@ -542,292 +540,13 @@ namespace itk{
             }
 
             if (regist || coherence)
-                m_finalDeformation=bSplineInterpolateLabelImage(previousFullDeformation, targetImage);
+                m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, targetImage);
             m_finalSegmentation=(segmentation);
             delete labelmapper;
 	
         }
-        LabelImagePointerType bSplineInterpolateLabelImage(LabelImagePointerType labelImg, ConstImagePointerType atlas){ 
-            LOGV(2)<<"Extrapolating deformation image"<<std::endl;
-            LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<atlas->GetLargestPossibleRegion().GetSize()<<std::endl;
-            typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
-            LabelImagePointerType fullLabelImage;
-#if 1
-            const unsigned int SplineOrder = 3;
-            typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
-            typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
-            typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
-            typedef typename itk::BSplineDecompositionImageFilter<ParamImageType,ParamImageType>			DecompositionType;
-            typedef typename itk::ImageRegionIterator<ParamImageType> Iterator;
-            std::vector<typename ParamImageType::Pointer> newImages(ImageType::ImageDimension);
-            //interpolate deformation
-            for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
-                {
-                    //			LOG<<k<<" setup"<<std::endl;
-                    typename ParamImageType::Pointer paramsK=ParamImageType::New();
-                    paramsK->SetRegions(labelImg->GetLargestPossibleRegion());
-                    paramsK->SetOrigin(labelImg->GetOrigin());
-                    paramsK->SetSpacing(labelImg->GetSpacing());
-                    paramsK->SetDirection(labelImg->GetDirection());
-                    paramsK->Allocate();
-                    Iterator itCoarse( paramsK, paramsK->GetLargestPossibleRegion() );
-                    LabelIterator itOld(labelImg,labelImg->GetLargestPossibleRegion());
-                    for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
-                        itCoarse.Set((itOld.Get()[k]));//*(k<ImageType::ImageDimension?getDisplacementFactor()[k]:1));
-                        //				LOG<<itCoarse.Get()<<std::endl;
-                    }
-                    //bspline interpolation for the displacements
-                    typename ResamplerType::Pointer upsampler = ResamplerType::New();
-                    typename FunctionType::Pointer function = FunctionType::New();
-                    function->SetSplineOrder(SplineOrder);
-                    upsampler->SetInput( paramsK );
-                    upsampler->SetInterpolator( function );
-                    upsampler->SetSize(atlas->GetLargestPossibleRegion().GetSize() );
-                    upsampler->SetOutputSpacing( atlas->GetSpacing() );
-                    upsampler->SetOutputOrigin( atlas->GetOrigin());
-                    upsampler->SetOutputDirection( atlas->GetDirection());
-#if 1
-                    upsampler->Update();
-                    newImages[k]=upsampler->GetOutput();
-#else
-                    typename DecompositionType::Pointer decomposition = DecompositionType::New();
-                    decomposition->SetSplineOrder( SplineOrder );
-                    decomposition->SetInput( upsampler->GetOutput() );
-                    decomposition->Update();
-                    newImages[k] = decomposition->GetOutput();
-#endif
-                
-                }
-    
-            std::vector< Iterator> iterators(ImageType::ImageDimension+1);
-            for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
-                {
-                    iterators[k]=Iterator(newImages[k],newImages[k]->GetLargestPossibleRegion());
-                    iterators[k].GoToBegin();
-                }
-            fullLabelImage=LabelImageType::New();
-            fullLabelImage->SetRegions(atlas->GetLargestPossibleRegion());
-            fullLabelImage->SetOrigin(atlas->GetOrigin());
-            fullLabelImage->SetSpacing(atlas->GetSpacing());
-            fullLabelImage->SetDirection(atlas->GetDirection());
-            fullLabelImage->Allocate();
-            LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
-            lIt.GoToBegin();
-            for (;!lIt.IsAtEnd();++lIt){
-                LabelType l;
-                for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ ){
-                    //				LOG<<k<<" label: "<<iterators[k]->Get()<<std::endl;
-                    l[k]=iterators[k].Get();
-                    ++((iterators[k]));
-                }
-
-                //			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
-                lIt.Set(l);
-            }
-#else          
-
-            typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
-            //typedef typename itk::VectorNearestNeighborInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
-            typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
-            typedef typename itk::VectorResampleImageFilter< LabelImageType , LabelImageType>	LabelResampleFilterType;
-            LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();
-            labelInterpolator->SetInputImage(labelImg);
-            //initialise resampler
-            
-            typename LabelResampleFilterType::Pointer resampler = LabelResampleFilterType::New();
-            //resample deformation field to target image dimension
-            resampler->SetInput( labelImg );
-            resampler->SetInterpolator( labelInterpolator );
-            resampler->SetOutputOrigin(atlas->GetOrigin());
-            resampler->SetOutputSpacing ( atlas->GetSpacing() );
-            resampler->SetOutputDirection ( atlas->GetDirection() );
-            resampler->SetSize ( atlas->GetLargestPossibleRegion().GetSize() );
-            resampler->Update();
-            fullLabelImage=resampler->GetOutput();
-#if 0
-            LabelIterator lIt(fullLabelImage,fullLabelImage->GetLargestPossibleRegion());
-            lIt.GoToBegin();
-            for (;!lIt.IsAtEnd();++lIt){
-                LabelType l=lIt.Get();
-                lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
-            }
-#endif
-#endif
-            LOGV(2)<<"Finshed extrapolation.back"<<std::endl;
-            return fullLabelImage;
-        }
-
-        LabelImagePointerType scaleLabelImage(LabelImagePointerType labelImg, SpacingType scalingFactors){
-            typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
-            LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());
-            lIt.GoToBegin();
-            for (;!lIt.IsAtEnd();++lIt){
-                lIt.Set(LabelMapperType::scaleDisplacement(lIt.Get(),scalingFactors));
-            }
-            return labelImg;
-        }
- 
-        ImagePointerType deformImage(ConstImagePointerType image, LabelImagePointerType deformation){
-            //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
-            typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
-            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-            LabelIterator deformationIt(deformation,deformation->GetLargestPossibleRegion());
-
-            typedef typename itk::LinearInterpolateImageFunction<ImageType, double> ImageInterpolatorType;
-            typename ImageInterpolatorType::Pointer interpolator=ImageInterpolatorType::New();
-
-            interpolator->SetInputImage(image);
-            ImagePointerType deformed=ImageType::New();//ImageUtils<ImageType>::createEmpty(image);
       
-            deformed->SetRegions(deformation->GetLargestPossibleRegion());
-            deformed->SetOrigin(deformation->GetOrigin());
-            deformed->SetSpacing(deformation->GetSpacing());
-            deformed->SetDirection(deformation->GetDirection());
-            deformed->Allocate();
-            ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
-            for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
-                IndexType index=deformationIt.GetIndex();
-                typename ImageInterpolatorType::ContinuousIndexType idx(index);
-                LabelType displacement=deformationIt.Get();
-                idx+=(displacement);
-                if (interpolator->IsInsideBuffer(idx)){
-                    imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
-                    //deformed->SetPixel(imageIt.GetIndex(),interpolator->EvaluateAtContinuousIndex(idx));
-
-                }else{
-                    imageIt.Set(0);
-                    //                deformed->SetPixel(imageIt.GetIndex(),0);
-                }
-            }
-            return deformed;
-        }
-
-        ImagePointerType deformImage(ImagePointerType image, LabelImagePointerType deformation){
-            //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
-            typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
-            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-            LabelIterator deformationIt(deformation,deformation->GetLargestPossibleRegion());
-
-            typedef typename itk::LinearInterpolateImageFunction<ImageType, double> ImageInterpolatorType;
-            typename ImageInterpolatorType::Pointer interpolator=ImageInterpolatorType::New();
-
-            interpolator->SetInputImage(image);
-            ImagePointerType deformed=ImageType::New();//ImageUtils<ImageType>::createEmpty(image);
-      
-            deformed->SetRegions(deformation->GetLargestPossibleRegion());
-            deformed->SetOrigin(deformation->GetOrigin());
-            deformed->SetSpacing(deformation->GetSpacing());
-            deformed->SetDirection(deformation->GetDirection());
-            deformed->Allocate();
-            ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
-            for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
-                IndexType index=deformationIt.GetIndex();
-                typename ImageInterpolatorType::ContinuousIndexType idx(index);
-                LabelType displacement=deformationIt.Get();
-                idx+=(displacement);
-                if (interpolator->IsInsideBuffer(idx)){
-                    imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
-                    //deformed->SetPixel(imageIt.GetIndex(),interpolator->EvaluateAtContinuousIndex(idx));
-
-                }else{
-                    imageIt.Set(0);
-                    //                deformed->SetPixel(imageIt.GetIndex(),0);
-                }
-            }
-            return deformed;
-        }
-
-        ImagePointerType deformImageITK(ConstImagePointerType image, LabelImagePointerType deformation){
-            //does not work!!!
-            //itk bspline parameters seem to be very differently arranged compared to my own 
-            exit(1);
-
-            //cast labelimage into itk transform
-            typedef typename itk::BSplineDeformableTransform<double,ImageType::ImageDimension,3> TransformType;
-            typedef typename TransformType::CoefficientImageArray ParameterType;
-            ParameterType transformParameters;
-            typedef typename TransformType::ImagePointer ParamImagePointer;
-            typedef typename TransformType::ImageType ParamImageType;
-            typedef typename itk::ImageRegionIterator<ParamImageType> Iterator;
-            typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
-
-            for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
-                {
-                    ParamImagePointer paramsK=ParamImageType::New();
-                    paramsK->SetRegions(deformation->GetLargestPossibleRegion());
-                    paramsK->SetOrigin(deformation->GetOrigin());
-                    paramsK->SetSpacing(deformation->GetSpacing());
-                    paramsK->SetDirection(deformation->GetDirection());
-                    paramsK->Allocate();
-                    Iterator itCoarse( paramsK, paramsK->GetLargestPossibleRegion() );
-                    LabelIterator itOld(deformation,deformation->GetLargestPossibleRegion());
-                    for (itCoarse.GoToBegin(),itOld.GoToBegin();!itCoarse.IsAtEnd();++itOld,++itCoarse){
-                        itCoarse.Set((itOld.Get()[ ImageType::ImageDimension - k - 1 ]));
-                    }
-                    transformParameters[ k ]=paramsK;
-                }
-            //set parameters
-            typename TransformType::Pointer bSplineTransform=TransformType::New();
-            bSplineTransform->SetCoefficientImage(transformParameters);
-            //setup resampler
-            typedef typename itk::ResampleImageFilter<ImageType,ImageType> ResampleFilterType; 
-            typename ResampleFilterType::Pointer resampler = ResampleFilterType::New();
-            resampler->SetTransform(bSplineTransform);
-            resampler->SetInput(image);
-            resampler->SetDefaultPixelValue( 0 );
-            resampler->SetSize(    image->GetLargestPossibleRegion().GetSize() );
-            resampler->SetOutputOrigin(  image->GetOrigin() );
-            resampler->SetOutputSpacing( image->GetSpacing() );
-            resampler->SetOutputDirection( image->GetDirection() );
-            resampler->Update();
-            return resampler->GetOutput();
-        }
-        
-        ImagePointerType warpImage(ConstImagePointerType image, LabelImagePointerType deformation){
-            typedef typename itk::WarpImageFilter<ImageType,ImageType,LabelImageType>     WarperType;
-            typedef typename WarperType::Pointer     WarperPointer;
-            WarperPointer warper=WarperType::New();
-            warper->SetInput( image);
-            warper->SetDeformationField(deformation);
-            warper->SetOutputOrigin(  image->GetOrigin() );
-            warper->SetOutputSpacing( image->GetSpacing() );
-            warper->SetOutputDirection( image->GetDirection() );
-            warper->Update();
-            return warper->GetOutput();
-        }
-        ImagePointerType deformSegmentationImage(ConstImagePointerType segmentationImage, LabelImagePointerType deformation){
-            //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
-            typedef typename  itk::ImageRegionIterator<LabelImageType> LabelIterator;
-            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-            LabelIterator deformationIt(deformation,deformation->GetLargestPossibleRegion());
-        
-            typedef typename itk::NearestNeighborInterpolateImageFunction<ImageType, double> ImageInterpolatorType;
-            typename ImageInterpolatorType::Pointer interpolator=ImageInterpolatorType::New();
-
-            interpolator->SetInputImage(segmentationImage);
-            ImagePointerType deformed=ImageUtils<ImageType>::createEmpty(segmentationImage);
-            deformed->SetRegions(deformation->GetLargestPossibleRegion());
-            deformed->SetOrigin(deformation->GetOrigin());
-            deformed->SetSpacing(deformation->GetSpacing());
-            deformed->SetDirection(deformation->GetDirection());
-            deformed->Allocate();
-            ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
-            
-
-            for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
-                IndexType index=deformationIt.GetIndex();
-                typename ImageInterpolatorType::ContinuousIndexType idx(index);
-                LabelType displacement=deformationIt.Get();
-                idx+=(displacement);
-                if (interpolator->IsInsideBuffer(idx)){
-                    imageIt.Set(int(interpolator->EvaluateAtContinuousIndex(idx)));
-                }else{
-                    imageIt.Set(0);
-                }
-            }
-            return deformed;
-        }
-        ConstImagePointerType makePngFromLabelImage(ConstImagePointerType segmentationImage, int nSegmentations){
+        ConstImagePointerType makePngFromDeformationField(ConstImagePointerType segmentationImage, int nSegmentations){
             ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
             typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
             typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;

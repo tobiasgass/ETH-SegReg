@@ -14,6 +14,8 @@
 #include "itkConstNeighborhoodIterator.h"
 #include <limits>
 #include "SRSConfig.h"
+#include "Log.h"
+#include "TransformationUtils.h"
 using namespace std;
 /*
  * Isotropic Graph
@@ -131,7 +133,11 @@ namespace itk{
             //calculate graph spacing
             setSpacing(nGraphNodesPerEdge);
             if (LabelMapperType::nDisplacementSamples){
+#ifdef PIXELTRANSFORM
                 m_labelSpacing=0.4*m_gridPixelSpacing/(LabelMapperType::nDisplacementSamples);
+#else
+                m_labelSpacing=0.4*m_gridSpacing/(LabelMapperType::nDisplacementSamples);
+#endif
                 LOGV(1)<<"Graph spacing :"<<m_gridPixelSpacing<<std::endl; 
                 LOGV(1)<<LabelMapperType::nDisplacementSamples<<" displacment samples per direction; "<<"with "<<m_labelSpacing<<" pixels spacing"<<std::endl;
             }

@@ -19,6 +19,8 @@
 #include <itkVectorResampleImageFilter.h>
 #include "Potential-SegmentationRegistration-Pairwise.h"
 #include "itkTranslationTransform.h"
+#include "TransformationUtils.h"
+
 namespace itk{
 
 
@@ -34,6 +36,7 @@ namespace itk{
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename ImageType::PointType PointType;
 
         typedef TLabelMapper LabelMapperType;
         typedef typename LabelMapperType::LabelType LabelType;
@@ -185,12 +188,9 @@ namespace itk{
                 if (targetIndex[d]>=(int)m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()[d]) targetIndex[d]--;
             }
           
-            // LabelType baseDisp=m_baseLabelMap->GetPixel(targetIndex);
-            //LOG<<baseDisp<<" "<<disp<<std::endl;
-            //baseDisp*=m_scale;
+#ifdef PIXELTRANSFORM
             disp*=m_scale;
-            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
-            //          nIt->SetLocation(targetIndex);
+#endif
             nIt.SetLocation(targetIndex);
             double count=0, totalCount=0;
             double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
@@ -199,13 +199,20 @@ namespace itk{
                 double f=nIt.GetPixel(i,inBounds);
                 if (inBounds){
                     IndexType neighborIndex=nIt.GetIndex(i);
+#ifdef PIXELTRANSFORM
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-
                     idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*m_scale;
-
-                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+#else
+                          
+                    PointType p;
+                    m_scaledTargetImage->TransformIndexToPhysicalPoint(neighborIndex,p);
+                    p +=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
+                    ContinuousIndexType idx2;
+                    m_scaledTargetImage->TransformPhysicalPointToContinuousIndex(p,idx2);
+                    
+#endif
                     double m;
                     totalCount+=1.0;
                     if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
