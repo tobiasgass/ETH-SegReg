@@ -330,6 +330,7 @@ namespace itk{
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        typedef typename ImageType::PointType PointType;
 
     public:
         /** Method for creation through the object factory. */
@@ -341,14 +342,12 @@ namespace itk{
         
         virtual double getPotential(IndexType targetIndex, LabelType disp){
             double result=0;
-
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 targetIndex[d]*=this->m_scale;
+                if (targetIndex[d]>=(int)this->m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()[d]) targetIndex[d]--;
             }
-            LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
-            //LOG<<baseDisp<<" "<<disp<<std::endl;
-            baseDisp*=this->m_scale;
-            disp*=this->m_scale;
+         
+            
             //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
             //          nIt->SetLocation(targetIndex);
             this->nIt.SetLocation(targetIndex);
@@ -360,11 +359,12 @@ namespace itk{
                 if (inBounds){
                     IndexType neighborIndex=this->nIt.GetIndex(i);
                     //this should be weighted somehow
-                    ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
-                    
+                    PointType p;
+                    this->m_scaledTargetImage->TransformIndexToPhysicalPoint(neighborIndex,p);
+                    p +=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
+                    ContinuousIndexType idx2;
+                    this->m_scaledAtlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
                     double m;
                     if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
                         //continue;

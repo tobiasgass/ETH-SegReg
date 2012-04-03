@@ -72,7 +72,7 @@ namespace itk{
     protected:
     
         SizeType m_totalSize,m_imageLevelDivisors,m_graphLevelDivisors,m_gridSize, m_imageSize;
-    
+        ImagePointerType m_coarseGraphImage;
         //grid spacing in unit pixels
         SpacingType m_gridPixelSpacing;
         //grid spacing in mm
@@ -162,6 +162,18 @@ namespace itk{
                     m_graphLevelDivisors[d]=1;
                 }
             }
+            //allocate helper image whihc can be used for coordinate transforms between fine and coarse level
+            m_coarseGraphImage=ImageType::New();
+            typename ImageType::RegionType region;
+            region.SetSize(m_gridSize);
+            m_coarseGraphImage->SetOrigin(m_targetImage->GetOrigin());
+            m_coarseGraphImage->SetSpacing(m_gridSpacing);
+            m_coarseGraphImage->SetRegions(region);
+            m_coarseGraphImage->SetDirection(m_targetImage->GetDirection());
+            m_coarseGraphImage->Allocate();
+            
+
+
             m_nNodes=m_nRegistrationNodes+m_nSegmentationNodes;
             LOGV(1)<<"Total size of coarse graph: "<< m_gridSize<<std::endl;;
         
