@@ -210,7 +210,7 @@ namespace itk{
                     m_scaledTargetImage->TransformIndexToPhysicalPoint(neighborIndex,p);
                     p +=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
                     ContinuousIndexType idx2;
-                    m_scaledTargetImage->TransformPhysicalPointToContinuousIndex(p,idx2);
+                    m_scaledAtlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
                     
 #endif
                     double m;

@@ -302,7 +302,7 @@ namespace itk{
             typename ImageType::PointType p;
             this->m_baseLabelMap->TransformIndexToPhysicalPoint(targetIndex1,p);
             p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
-            this->m_baseLabelMap->TransformPhysicalPointToContinuousIndex(p,idx2);
+            this->m_atlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
 #endif
             int deformedAtlasSegmentation=-1;
             double distanceToDeformedSegmentation;

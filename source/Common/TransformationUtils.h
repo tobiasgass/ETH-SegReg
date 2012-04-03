@@ -19,6 +19,7 @@
 #include "itkVectorLinearInterpolateImageFunction.h"
 #include <itkVectorResampleImageFilter.h>
 #include "itkResampleImageFilter.h"
+#include "itkNearestNeighborInterpolateImageFunction.h"
 using namespace std;
 
 template<class ImageType>
@@ -28,7 +29,7 @@ public:
 	typedef typename ImageType::Pointer  ImagePointerType;
 	typedef typename ImageType::ConstPointer  ConstImagePointerType;
 	typedef typename ImageType::PixelType PixelType;
-    typedef typename itk::AffineTransform<float,ImageType::ImageDimension> AffineTransformType;
+    typedef typename itk::AffineTransform<double,ImageType::ImageDimension> AffineTransformType;
     typedef typename AffineTransformType::Pointer AffineTransformPointerType;
     static const int D=ImageType::ImageDimension;
     typedef itk::Vector<float,D> DisplacementType;
@@ -37,8 +38,13 @@ public:
     typedef typename ImageType::PointType PointType;
     typedef typename ImageType::IndexType IndexType;
     typedef typename ImageType::SpacingType SpacingType;
-    typedef itk::ContinuousIndex<float,D> ContinuousIndexType;
-    
+    typedef itk::ContinuousIndex<double,D> ContinuousIndexType;
+    typedef typename itk::LinearInterpolateImageFunction<ImageType, double> LinearInterpolatorType;
+    typedef typename LinearInterpolatorType::Pointer LinearInterpolatorPointerType;
+    typedef typename itk::ResampleImageFilter< ImageType , ImageType>	ResampleFilterType;
+    typedef typename ResampleFilterType::Pointer ResampleFilterPointerType;
+    typedef itk::NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+    typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
 public:
 
     static DeformationFieldPointerType affineToDisplacementField(AffineTransformPointerType affine, ImagePointerType targetImage){
@@ -48,6 +54,7 @@ public:
         deformation->SetSpacing(targetImage->GetSpacing());
         deformation->SetDirection(targetImage->GetDirection());
         deformation->Allocate();
+        typename AffineTransformType::InverseTransformBasePointer inverse=affine->GetInverseTransform();
         typedef itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
         typedef itk::ImageRegionIterator<DeformationFieldType> DeformationIteratorType;
         ImageIteratorType imIt(targetImage,targetImage->GetLargestPossibleRegion());
@@ -58,6 +65,7 @@ public:
             PointType p,p2;
             
             targetImage->TransformIndexToPhysicalPoint(idx,p);
+            
             p2=affine->TransformPoint(p);
             DisplacementType disp;
 
@@ -78,18 +86,81 @@ public:
         return deformation;
         
     }
+    static DeformationFieldPointerType computeCenteringTransform(ImagePointerType targetImage, ImagePointerType movingImage){
+        DeformationFieldPointerType deformation=DeformationFieldType::New();
+        deformation->SetRegions(targetImage->GetLargestPossibleRegion());
+        deformation->SetOrigin(targetImage->GetOrigin());
+        deformation->SetSpacing(targetImage->GetSpacing());
+        deformation->SetDirection(targetImage->GetDirection());
+        deformation->Allocate();
+        ContinuousIndexType centerTargetIndex,centerMovingIndex;
+        PointType centerTargetPoint,centerMovingPoint;
 
+        {
+            const typename ImageType::RegionType & targetRegion =
+                targetImage->GetLargestPossibleRegion();
+            const typename ImageType::IndexType & targetIndex =
+                targetRegion.GetIndex();
+            const typename ImageType::SizeType & targetSize =
+                targetRegion.GetSize();
+            
+            
+            typedef typename PointType::ValueType CoordRepType;
+            typedef typename ContinuousIndexType::ValueType ContinuousIndexValueType;
+            
+            
+            for (  int k = 0; k < D; k++ )
+                {
+                    centerTargetIndex[k] =
+                        static_cast< ContinuousIndexValueType >( targetIndex[k] )
+                        + static_cast< ContinuousIndexValueType >( targetSize[k] - 1 ) / 2.0;
+                }
+            
+            targetImage->TransformContinuousIndexToPhysicalPoint( centerTargetIndex, centerTargetPoint);
+            
+        }
+        {
+            const typename ImageType::RegionType & movingRegion =
+                movingImage->GetLargestPossibleRegion();
+            const typename ImageType::IndexType & movingIndex =
+                movingRegion.GetIndex();
+            const typename ImageType::SizeType & movingSize =
+                movingRegion.GetSize();
+            
+            
+            typedef typename PointType::ValueType CoordRepType;
+            typedef typename ContinuousIndexType::ValueType ContinuousIndexValueType;
+            
+            
+            for ( int k = 0; k < D; k++ )
+                {
+                    centerMovingIndex[k] =
+                        static_cast< ContinuousIndexValueType >( movingIndex[k] )
+                        + static_cast< ContinuousIndexValueType >( movingSize[k] - 1 ) / 2.0;
+                }
+            
+            movingImage->TransformContinuousIndexToPhysicalPoint( centerMovingIndex, centerMovingPoint);
+            
+        }
+        //compute center of moving image
+        PointType movingCenter;
+        DisplacementType translation= centerMovingPoint-centerTargetPoint;
+        deformation->FillBuffer(translation);
+        return deformation;
+        
+    }
+    
 
     static AffineTransformPointerType readAffine(std::string filename){
-        // Register default transforms
-        itk::TransformFactoryBase::RegisterDefaultTransforms();
-        
+
         itk::TransformFileReader::Pointer reader = itk::TransformFileReader::New();
         reader->SetFileName(filename);
         try{
             reader->Update();
         }catch( itk::ExceptionObject & err ){
             LOG<<"could not read affine transform from " <<filename<<std::endl;
+            LOG<<"ERR: "<<err<<std::endl;
+            exit(0);
         }
         
         typedef itk::TransformFileReader::TransformListType * TransformListType;
@@ -107,7 +178,20 @@ public:
         }
         return affine;
     }
-
+    static ImagePointerType affineDeformImage(ImagePointerType input, AffineTransformPointerType affine, ImagePointerType target){
+        
+        LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
+        ResampleFilterPointerType resampler=ResampleFilterType::New();
+        resampler->SetInput(input);
+        resampler->SetInterpolator(interpol);
+        resampler->SetTransform(affine);
+        resampler->SetOutputOrigin(target->GetOrigin());
+		resampler->SetOutputSpacing ( target->GetSpacing() );
+		resampler->SetOutputDirection ( target->GetDirection() );
+		resampler->SetSize ( target->GetLargestPossibleRegion().GetSize() );
+        resampler->Update();
+        return resampler->GetOutput();
+    }
     static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType atlas){ 
         LOGV(2)<<"Extrapolating deformation image"<<std::endl;
         LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<atlas->GetLargestPossibleRegion().GetSize()<<std::endl;
@@ -214,7 +298,7 @@ public:
         }
 #endif
 #endif
-        LOGV(2)<<"Finshed extrapolation.back"<<std::endl;
+        LOGV(2)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
     }
 
@@ -360,15 +444,19 @@ public:
         return resampler->GetOutput();
     }
         
-    static      ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation){
+    static      ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
         typedef typename itk::WarpImageFilter<ImageType,ImageType,DeformationFieldType>     WarperType;
         typedef typename WarperType::Pointer     WarperPointer;
         WarperPointer warper=WarperType::New();
+        if (nnInterpol){
+            NNInterpolatorPointerType nnInt=NNInterpolatorType::New();
+            warper->SetInterpolator(nnInt);
+        }
         warper->SetInput( image);
         warper->SetDeformationField(deformation);
-        warper->SetOutputOrigin(  image->GetOrigin() );
-        warper->SetOutputSpacing( image->GetSpacing() );
-        warper->SetOutputDirection( image->GetDirection() );
+        warper->SetOutputOrigin(  deformation->GetOrigin() );
+        warper->SetOutputSpacing( deformation->GetSpacing() );
+        warper->SetOutputDirection( deformation->GetDirection() );
         warper->Update();
         return warper->GetOutput();
     }

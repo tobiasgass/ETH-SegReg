@@ -127,7 +127,7 @@ public:
         for (uint d=0;d<InputImage::ImageDimension;++d){
             size[d]=int(inputSize[d]*scale);
             spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
-            origin[d]=inputOrigin[d]+0.5*spacing[d]/inputSpacing[d];
+            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
         resampler->SetOutputOrigin(origin);
 		resampler->SetOutputSpacing ( spacing );
@@ -151,7 +151,7 @@ public:
         for (uint d=0;d<InputImage::ImageDimension;++d){
             size[d]=int(inputSize[d]*scale);
             spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
-            origin[d]=inputOrigin[d]+0.5*spacing[d]/inputSpacing[d];
+            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
         resampler->SetOutputOrigin(origin);
 		resampler->SetOutputSpacing ( spacing );
@@ -175,7 +175,7 @@ public:
         for (uint d=0;d<InputImage::ImageDimension;++d){
             size[d]=int(inputSize[d]*scale);
             spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
-            origin[d]=inputOrigin[d]+0.5*spacing[d]/inputSpacing[d];
+            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
         resampler->SetOutputOrigin(origin);
 		resampler->SetOutputSpacing ( spacing );
@@ -238,7 +238,7 @@ public:
         for (uint d=0;d<InputImage::ImageDimension;++d){
             size[d]=int(inputSize[d]*scale);
             spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
-            origin[d]=inputOrigin[d]+0.5*spacing[d]/inputSpacing[d];
+            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
         resampler->SetOutputOrigin(origin);
 		resampler->SetOutputSpacing ( spacing );

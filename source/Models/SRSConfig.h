@@ -43,6 +43,7 @@ public:
     int imageLevels;
     bool computeMultilabelAtlasSegmentation;
     bool useTissuePrior;
+    bool segment,regist,coherence;
 private:
 	argstream * as;
 public:
@@ -78,6 +79,9 @@ public:
         bulkTransformationField="";
         computeMultilabelAtlasSegmentation=false;
         useTissuePrior=false;
+        segment=false;
+        regist=false;
+        coherence=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -229,7 +233,10 @@ public:
 			}
 
 		}
-
+           
+        coherence= (pairwiseCoherenceWeight>0);
+        segment=pairwiseSegmentationWeight>0 ||  unarySegmentationWeight>0 || coherence;
+        regist= pairwiseRegistrationWeight>0||  unaryRegistrationWeight>0|| coherence;
 	}
 };
 #endif /* CONFIG_H_ */

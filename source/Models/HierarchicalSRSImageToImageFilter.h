@@ -168,9 +168,9 @@ namespace itk{
         }
         virtual void Update(){
             
-            bool coherence= (m_config.pairwiseCoherenceWeight>0);
-            bool segment=m_config.pairwiseSegmentationWeight>0 ||  m_config.unarySegmentationWeight>0 || coherence;
-            bool regist= m_config.pairwiseRegistrationWeight>0||  m_config.unaryRegistrationWeight>0|| coherence;
+            bool coherence= (m_config.coherence);
+            bool segment=m_config.segment;
+            bool regist= m_config.regist;
 
             if (segment){
                 LOG<<"Switching on segmentation module"<<std::endl;
@@ -484,7 +484,7 @@ namespace itk{
                         composer->Update();
                         composedDeformation=composer->GetOutput();
                         deformedAtlasImage=TransfUtils<ImageType>::warpImage(atlasImage,composedDeformation);
-                        deformedAtlasSegmentation=TransfUtils<ImageType>::deformSegmentationImage(atlasSegmentationImage,composedDeformation);
+                        deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(atlasSegmentationImage,composedDeformation,true);
                         //deformedAtlasSegmentation=warpImage(atlasSegmentationImage,composedDeformation);
                     }
                     
