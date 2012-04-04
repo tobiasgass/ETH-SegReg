@@ -57,12 +57,14 @@ namespace itk{
     protected:
         ConstImagePointerType m_targetImage, m_atlasImage;
         SegmentationInterpolatorPointerType m_atlasSegmentationInterpolator;
-        FloatImageInterpolatorPointerType m_atlasDistanceTransformInterpolator, m_atlasBackgroundDistanceTransformInterpolator;
-        ImageInterpolatorPointerType  m_atlasInterpolator;
+        std::vector<FloatImageInterpolatorPointerType> m_atlasDistanceTransformInterpolators;
+        std::vector<FloatImagePointerType> m_distanceTransforms;
+        std::vector<double> m_minDists;
+  ImageInterpolatorPointerType  m_atlasInterpolator;
         LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         double m_asymm;
-        FloatImagePointerType m_distanceTransform;
+      
         double sigma1, sigma2, mean1, mean2, m_threshold,maxDist,minDist, mDistTarget,mDistSecondary;
         int m_nSegmentationLabels;
     public:
@@ -129,76 +131,54 @@ namespace itk{
 
         void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             logSetStage("Coherence setup");
-            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
             m_atlasSegmentationInterpolator= SegmentationInterpolatorType::New();
             m_atlasSegmentationInterpolator->SetInputImage(segImage);
-            //get distance transform to foreground label
-            FloatImagePointerType dt1=getDistanceTransform(segImage, m_nSegmentationLabels - 1);
-            //save image for debugging
-            typedef itk::ThresholdImageFilter <FloatImageType>
-                ThresholdImageFilterType;
-            typename ThresholdImageFilterType::Pointer thresholdFilter
-                = ThresholdImageFilterType::New();
-            thresholdFilter->SetInput(dt1);
-            thresholdFilter->ThresholdOutside(0, 1000);
-            thresholdFilter->SetOutsideValue(1000);
-            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
-            typename CasterType::Pointer caster=CasterType::New();
-            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
-            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
-                
-            caster->SetInput(thresholdFilter->GetOutput());
-            caster->Update();
-            ImagePointerType output=caster->GetOutput();
-            if (true){    
-                if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("dt1.png",(output));    
-                }
-                if (ImageType::ImageDimension==3){
-                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));
-                }
-            }
-            
-            //feed DT into interpolator
-            m_atlasDistanceTransformInterpolator=FloatImageInterpolatorType::New();
-            m_atlasDistanceTransformInterpolator->SetInputImage(dt1);
-            filter->SetInput(dt1);
-            filter->Update();
-            sigma1=filter->GetSigma();
-            mean1=filter->GetMean();
-            maxDist=filter->GetMaximumOutput()->Get();
-            minDist=filter->GetMinimumOutput()->Get();
-          
-            mDistTarget=fabs(minDist);
-            LOGV(3)<<"Maximal radius of target object: "<<mDistTarget<<endl;
-            m_distanceTransform=dt1;
-            if (m_nSegmentationLabels>2){
-                FloatImagePointerType dt2=getDistanceTransform(segImage, 1);
-                m_atlasBackgroundDistanceTransformInterpolator=FloatImageInterpolatorType::New();
-                m_atlasBackgroundDistanceTransformInterpolator->SetInputImage(dt2);
-                thresholdFilter->SetInput(dt2);
-                filter->SetInput(dt2);
-                filter->Update();
-                sigma2=filter->GetSigma();
-                mean2=fabs(filter->GetMean());
-                double di=filter->GetMinimumOutput()->Get();
-                mDistSecondary=fabs(di);
-                LOGV(3)<<"Maximal Radius of secondary object: "<<mDistSecondary<<endl;
-                caster->SetInput(thresholdFilter->GetOutput());
-                caster->Update();
-                ImagePointerType output=caster->GetOutput();
-                if (false){
+            m_distanceTransforms= std::vector<FloatImagePointerType>( m_nSegmentationLabels - 1,NULL);
+            m_atlasDistanceTransformInterpolators = std::vector<FloatImageInterpolatorPointerType>( m_nSegmentationLabels - 1,NULL);
+            m_minDists=std::vector<double> ( m_nSegmentationLabels - 1,-1);;
+
+            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+
+            for (int l=1;l< m_nSegmentationLabels;++l){
+                //get distance transform to foreground label
+                FloatImagePointerType dt1=getDistanceTransform(segImage,l);
+                //save image for debugging
+             
+                if (true){    
                     if (ImageType::ImageDimension==2){
-                        ImageUtils<ImageType>::writeImage("dt2.png",(output));    
+                        typedef itk::ThresholdImageFilter <FloatImageType>
+                            ThresholdImageFilterType;
+                        typename ThresholdImageFilterType::Pointer thresholdFilter
+                            = ThresholdImageFilterType::New();
+                        thresholdFilter->SetInput(dt1);
+                        thresholdFilter->ThresholdOutside(0, 1000);
+                        thresholdFilter->SetOutsideValue(1000);
+                        typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+                        typename CasterType::Pointer caster=CasterType::New();
+                        caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+                        caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+                        
+                        caster->SetInput(thresholdFilter->GetOutput());
+                        caster->Update();
+                        ImagePointerType output=caster->GetOutput();
+                        ImageUtils<ImageType>::writeImage("dt1.png",(output));    
                     }
                     if (ImageType::ImageDimension==3){
-                        ImageUtils<ImageType>::writeImage("dt2.nii",(output));
-                    }}
+                        ImageUtils<ImageType>::writeImage("dt1.nii",(dt1));
+                    }
+                }
+                m_distanceTransforms[l-1]=dt1;
+                //feed DT into interpolator
+                FloatImageInterpolatorPointerType dtI=FloatImageInterpolatorType::New();
+                dtI->SetInputImage(dt1);
+                m_atlasDistanceTransformInterpolators[l-1]=dtI;
+                filter->SetInput(dt1);
+                filter->Update();
+               
+                m_minDists[l-1]=fabs(filter->GetMinimumOutput()->Get());
+                LOGV(3)<<"Maximal radius of target object: "<< m_minDists[l-1]<<endl;
             }
-
-            m_atlasSegmentationInterpolator=SegmentationInterpolatorType::New();
-            //            m_atlasSegmentationInterpolator->SetInputImage((ImagePointerType)(const_cast<ImageType* >(&(*segImage))),segImage->GetLargestPossibleRegion());
-            m_atlasSegmentationInterpolator->SetInputImage(segImage);
+        
             logResetStage;
         }
         FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage, int value){
@@ -248,62 +228,17 @@ namespace itk{
         }
         void SetThreshold(double t){m_threshold=t;}
 
-#if 0        //edge from  segmentation to Registration
-        virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
-            double result=0;
-            ContinuousIndexType idx2(targetIndex2);
-            itk::Vector<float,ImageType::ImageDimension> disp=displacement;
-            idx2+= disp;
-            if (m_baseLabelMap){
-                itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(targetIndex2);
-                idx2+=baseDisp;
-            }
-            int deformedAtlasSegmentation=-1;
-            double distanceToDeformedSegmentation;
-            if (!m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
-                for (int d=0;d<ImageType::ImageDimension;++d){
-                    if (idx2[d]>=this->m_atlasSegmentationInterpolator->GetEndContinuousIndex()[d]){
-                        idx2[d]=this->m_atlasSegmentationInterpolator->GetEndContinuousIndex()[d]-0.5;
-                    }
-                    else if (idx2[d]<this->m_atlasSegmentationInterpolator->GetStartContinuousIndex()[d]){
-                        idx2[d]=this->m_atlasSegmentationInterpolator->GetStartContinuousIndex()[d]+0.5;
-                    }
-                }
-            }
-            deformedAtlasSegmentation=floor(m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)+0.5);
-            distanceToDeformedSegmentation= fabs(m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
-            result=0;
-            if (segmentationLabel){
-                if (deformedAtlasSegmentation!=segmentationLabel){
-                    result=m_asymm;//*(1+distanceToDeformedSegmentation);
-                }
-            }else{
-                if (deformedAtlasSegmentation){
-                    result=1;//distanceToDeformedSegmentation;
-                }
-            }
-          
-            return result;
-        }
-#endif
+
         //edge from registration to segmentation
         inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
             ContinuousIndexType idx2(targetIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
-#ifdef PIXELTRANSFORM
-           
-            idx2+= disp;
-            if (m_baseLabelMap){
-                itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(targetIndex2);
-                idx2+=baseDisp;
-            }
-#else
+
             typename ImageType::PointType p;
             this->m_baseLabelMap->TransformIndexToPhysicalPoint(targetIndex1,p);
             p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
             this->m_atlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
-#endif
             int deformedAtlasSegmentation=-1;
             double distanceToDeformedSegmentation;
             if (!m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
@@ -317,79 +252,18 @@ namespace itk{
                 }
             }
             deformedAtlasSegmentation=int(m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
-#define THRESHOLDING
-            if (segmentationLabel==m_nSegmentationLabels - 1){
+            if (segmentationLabel){
+                if (segmentationLabel!=deformedAtlasSegmentation){ 
+                    double dist=m_atlasDistanceTransformInterpolators[segmentationLabel-1]->EvaluateAtContinuousIndex(idx2);
+                    result=dist/m_minDists[segmentationLabel-1];
+               }
+            }else{
                 if (segmentationLabel!=deformedAtlasSegmentation){
-                    distanceToDeformedSegmentation=m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-#ifdef THRESHOLDING
-                    distanceToDeformedSegmentation=distanceToDeformedSegmentation>m_threshold?maxDist:distanceToDeformedSegmentation;
-#endif
-                    result=fabs(distanceToDeformedSegmentation)/mDistTarget;//((sigma1+sigma2)/2);//1;
-                }
-            }
-            else if (segmentationLabel){
-                if (segmentationLabel!=deformedAtlasSegmentation){
-                    distanceToDeformedSegmentation=m_atlasBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/mDistSecondary;//((sigma1+sigma2)/2);//1;
-                }
-            }
-            else{
-                if (deformedAtlasSegmentation==m_nSegmentationLabels - 1){
-                    distanceToDeformedSegmentation=m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-#ifdef THRESHOLDING
-                    distanceToDeformedSegmentation=distanceToDeformedSegmentation>m_threshold?maxDist:distanceToDeformedSegmentation;
-#endif
-                    result=fabs(distanceToDeformedSegmentation)/mDistTarget;//((sigma1+sigma2)/2);//1;
-                }
-                else if(deformedAtlasSegmentation){
-                    distanceToDeformedSegmentation=m_atlasBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/mDistSecondary;//((sigma1+sigma2)/2);//1;
+                    double dist=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation-1]->EvaluateAtContinuousIndex(idx2);
+                    result=dist/m_minDists[deformedAtlasSegmentation-1];
                 }
             }
             result*=result;
-#if 0
-            if (deformedAtlasSegmentation>0){
-                if (segmentationLabel== 0 && deformedAtlasSegmentation == m_nSegmentationLabels - 1){
-                    //trying to assign background label when atlas label is target anatomy
-                    distanceToDeformedSegmentation=m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/mDistTarget;//((sigma1+sigma2)/2);//1;
-                    
-                }else if (segmentationLabel == 0 && deformedAtlasSegmentation ){
-                    //trying to assign background label when atlas label is secondary foreground
-                    distanceToDeformedSegmentation= m_atlasBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2);
-                    result=fabs(distanceToDeformedSegmentation)/mDistSecondary;//((sigma1+sigma2)/2);//2;
-                    
-                }
-                else if (segmentationLabel==m_nSegmentationLabels - 1){
-                    //trying to assign target anatomy label which is different from atlas label
-                    distanceToDeformedSegmentation=fabs(m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/mDistTarget;//((sigma1+sigma2)/2);
-                    if (distanceToDeformedSegmentation>m_threshold)
-                        result=maxDist/((sigma1+sigma2)/2);
-                }
-                else if (segmentationLabel){
-                    //trying to assign secondary foreground label when atlas is foreground
-                    result=fabs(m_atlasBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2))/mDistSecondary;//((sigma1+sigma2)/2);
-                }
-                
-            }else{
-                if (segmentationLabel== m_nSegmentationLabels - 1){
-                    //distanceToDeformedSegmentation= 1;
-                    distanceToDeformedSegmentation=fabs(m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
-#if 1       
-                    if (distanceToDeformedSegmentation>m_threshold)
-                        result=maxDist/((sigma1+sigma2)/2);
-                    else
-#endif
-                        result=(distanceToDeformedSegmentation)/mDistTarget;//((sigma1+sigma2)/2);//1;
-                }else if (segmentationLabel ){
-                    distanceToDeformedSegmentation= fabs(m_atlasBackgroundDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
-#if 0
-                    distanceToDeformedSegmentation=min(m_threshold,distanceToDeformedSegmentation);
-#endif
-                    result=(distanceToDeformedSegmentation)/mDistSecondary;//((sigma1+sigma2)/2);//2;
-                }
-            }
-#endif
             return result;
         }
     };//class
