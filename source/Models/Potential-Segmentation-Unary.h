@@ -335,7 +335,7 @@ namespace itk{
         virtual void Init(){
             
             m_classifier=  ClassifierType::New();
-            m_classifier->setNIntensities(256);
+            m_classifier->setNIntensities(3000);
             m_classifier->setData(this->m_atlasImage,this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
             //m_classiifier->setData(movingImage,movingSegmentationImage);
 #if 1
@@ -344,7 +344,7 @@ namespace itk{
 #else
             m_classifier->loadProbs("test.probs");
 #endif
-            //m_classifier->evalImage(targetImage);
+            m_classifier->evalImage(this->m_targetImage);
             //m_classifier->evalImage(targetImage,targetGradient);
         }
         

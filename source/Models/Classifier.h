@@ -98,8 +98,8 @@ namespace itk{
                 result0->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob0);
                 result1->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob1);
             }
-            ImageUtils<ImageType>::writeImage("p0-rf.png",result0);
-            ImageUtils<ImageType>::writeImage("p1-rf.png",result1);
+            ImageUtils<ImageType>::writeImage("p0-rf.nii",result0);
+            ImageUtils<ImageType>::writeImage("p1-rf.nii",result1);
             
         }
         virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient=NULL){

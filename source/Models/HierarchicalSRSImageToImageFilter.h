@@ -273,9 +273,10 @@ namespace itk{
             //asm volatile("" ::: "memory");
             DeformationFieldPointerType deformation;
             ImagePointerType segmentation;
-            if (segment && regist){
+            if (coherence){
+                deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(atlasSegmentationImage,previousFullDeformation,true);
                 pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
-                pairwiseCoherencePot->SetAtlasSegmentation(atlasSegmentationImage);
+                pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
             }
 
             if (!coherence && !regist){
@@ -398,9 +399,10 @@ namespace itk{
                     }
                     if (coherence){
                             pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
-                        }
+                            if ( l || i ) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                    }
 
-                    //if (i>0 || l> 0) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                    
 
                     //	ok what now: create graph! solve graph! save result!Z
                     //double linearIncreasingWeight=1.0/(m_config.nLevels-l);
