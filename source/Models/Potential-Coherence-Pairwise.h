@@ -34,6 +34,7 @@ namespace itk{
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
         typedef typename FloatImageType::Pointer FloatImagePointerType;
+        typedef typename FloatImageType::ConstPointer FloatImageConstPointerType;
         
         typedef typename  itk::Vector<float,ImageType::ImageDimension>  LabelType;
         typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
@@ -104,6 +105,7 @@ namespace itk{
         void SetAsymmetryWeight(double as){
             m_asymm=1-as;
         }
+#if 0
         void SetDistanceTransform(FloatImagePointerType dt){
             m_distanceTransform=dt;
             m_atlasDistanceTransformInterpolator=FloatImageInterpolatorType::New();
@@ -126,8 +128,9 @@ namespace itk{
             mean2=fabs(filter->GetMean());
             LOG<<"distance transform background segmentation sigma :"<<sigma2<<endl;
         }
+
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
-        
+#endif        
 
         void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             logSetStage("Coherence setup");
@@ -164,7 +167,9 @@ namespace itk{
                         ImageUtils<ImageType>::writeImage("dt1.png",(output));    
                     }
                     if (ImageType::ImageDimension==3){
-                        ImageUtils<ImageType>::writeImage("dt1.nii",(dt1));
+                        ostringstream dtFilename;
+                        dtFilename<<"dt"<<l<<".nii";
+                        ImageUtils<FloatImageType>::writeImage(dtFilename.str().c_str(),FloatImageConstPointerType(dt1));
                     }
                 }
                 m_distanceTransforms[l-1]=dt1;
@@ -210,6 +215,7 @@ namespace itk{
 #endif
             return  positiveDM;
         }
+#if 0
         ImagePointerType getFGDT(){
             typedef itk::ThresholdImageFilter <FloatImageType>
                 ThresholdImageFilterType;
@@ -226,6 +232,7 @@ namespace itk{
             caster->Update();
             return caster->GetOutput();
         }
+#endif
         void SetThreshold(double t){m_threshold=t;}
 
 
@@ -240,7 +247,6 @@ namespace itk{
             p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
             this->m_atlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
             int deformedAtlasSegmentation=-1;
-            double distanceToDeformedSegmentation;
             if (!m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
                     if (idx2[d]>=this->m_atlasSegmentationInterpolator->GetEndContinuousIndex()[d]){

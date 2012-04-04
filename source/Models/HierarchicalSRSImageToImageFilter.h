@@ -256,10 +256,10 @@ namespace itk{
                 pairwiseSegmentationPot->SetAtlasImage(atlasImage);
                 pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)atlasGradientImage);
                 pairwiseSegmentationPot->SetAtlasSegmentation(atlasSegmentationImage);
+                pairwiseSegmentationPot->SetNSegmentationLabels(m_config.nSegmentations);
                 pairwiseSegmentationPot->Init();
-                if (ImageType::ImageDimension==2){
-                    //pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)targetGradientImage);
-                }
+                pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)targetGradientImage);
+                
             }
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
         

@@ -41,7 +41,7 @@ namespace itk{
         double m_gradientSigma, m_Sigma;
         double m_gradientScaling;
         ConstImagePointerType m_atlasSegmentation, m_atlasGradient, m_atlasImage;
-
+        int m_nSegmentationLabels;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -53,6 +53,7 @@ namespace itk{
         }
         virtual void freeMemory(){
         }
+        void SetNSegmentationLabels(int n){m_nSegmentationLabels=n;}
         virtual void Init(){
             assert(this->m_targetImage);
             assert(this->m_gradientImage);
@@ -102,7 +103,71 @@ namespace itk{
                 return 0;
             }
         }
-        virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){}
+        virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){  
+            typedef typename itk::ImageRegionConstIterator< ImageType > IteratorType;
+            typedef itk::Image<float, ImageType::ImageDimension> FloatImageType;
+            typedef typename FloatImageType::Pointer FloatImagePointerType;
+            typedef typename FloatImageType::ConstPointer FloatImageConstPointerType;
+            typedef typename itk::ImageRegionIterator< FloatImageType > NewIteratorType;
+            IteratorType iterator(im, im->GetLargestPossibleRegion());
+            IteratorType iterator2(grad, grad->GetLargestPossibleRegion());
+            FloatImagePointerType horiz=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
+            FloatImagePointerType vert=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
+            FloatImagePointerType sum=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
+            NewIteratorType horIt(horiz, im->GetLargestPossibleRegion());
+            NewIteratorType verIt(vert, im->GetLargestPossibleRegion());
+            NewIteratorType sumIt(sum, im->GetLargestPossibleRegion());
+            sumIt.GoToBegin();
+            horIt.GoToBegin();
+            verIt.GoToBegin();
+            typedef typename ImageType::OffsetType OffsetType;
+            for (iterator.GoToBegin(),iterator2.GoToBegin();!iterator.IsAtEnd();++iterator,++iterator2,++horIt,++verIt,++sumIt){
+                IndexType idx1=iterator.GetIndex();
+                OffsetType off;
+                off.Fill(0);
+                if (idx1[0]<(int)im->GetLargestPossibleRegion().GetSize()[0]-1){
+                    off[0]+=1;
+                    IndexType idx2=idx1+off;
+                    horIt.Set(getPotential(idx1,idx2,0,1));
+                    sumIt.Set(horIt.Get()*horIt.Get());
+                }
+                off.Fill(0);
+                if (idx1[1]<(int)im->GetLargestPossibleRegion().GetSize()[1]-1){
+                    off[1]+=1;
+                    IndexType idx2=idx1+off;
+                    verIt.Set(getPotential(idx1,idx2,0,1));
+                    sumIt.Set(sumIt.Get()+verIt.Get()*verIt.Get());
+                    //LOG<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
+                }
+                if (ImageType::ImageDimension == 3){
+                    off.Fill(0);
+                    if (idx1[2]<(int)im->GetLargestPossibleRegion().GetSize()[2]-1){
+                        off[2]+=1;
+                        IndexType idx2=idx1+off;
+                        sumIt.Set(sumIt.Get()+getPotential(idx1,idx2,0,1)*getPotential(idx1,idx2,0,1));
+                    }
+                    //LOG<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
+                }
+            }
+            if (ImageType::ImageDimension == 2){
+                typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+                //typedef itk::CastImageFilter<ImageType,ImageType> CasterType;
+                typename CasterType::Pointer caster=CasterType::New();
+                caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+                caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+                caster->SetInput(horiz);
+                caster->Update();
+                ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
+                caster->SetInput(vert);
+                caster->Update();
+                ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
+            }else{
+                ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
+                ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
+                ImageUtils<FloatImageType>::writeImage("smooth-sum.nii",(FloatImageConstPointerType)sum);
+                
+            }
+        }
 
     };//class
 
@@ -138,7 +203,8 @@ namespace itk{
             assert(this->m_atlasGradient);
             assert(this->m_atlasImage);
             m_classifier=ClassifierType::New();
-            m_classifier->setNIntensities(256);
+            m_classifier->setNIntensities(3000);
+            m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
 #if 1
             m_classifier->train();
@@ -156,12 +222,13 @@ namespace itk{
             //m_classifier->LoadProbs(filename);
         }
         virtual void SetClassifier(ClassifierPointerType c){ m_classifier=c;}
-#if 0      
+#if 1
         virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){
             assert(ImageType::ImageDimension==2);
             typedef typename itk::ImageRegionConstIterator< ImageType > IteratorType;
             typedef itk::Image<float, ImageType::ImageDimension> FloatImageType;
             typedef typename FloatImageType::Pointer FloatImagePointerType;
+            typedef typename FloatImageType::ConstPointer FloatImageConstPointerType;
             typedef typename itk::ImageRegionIterator< FloatImageType > NewIteratorType;
             IteratorType iterator(im, im->GetLargestPossibleRegion());
             IteratorType iterator2(grad, grad->GetLargestPossibleRegion());
@@ -190,17 +257,22 @@ namespace itk{
                     //LOG<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
                 }
             }
-            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
-            //typedef itk::CastImageFilter<ImageType,ImageType> CasterType;
-            typename CasterType::Pointer caster=CasterType::New();
-            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
-            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
-            caster->SetInput(horiz);
-            caster->Update();
-            ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
-            caster->SetInput(vert);
-            caster->Update();
-            ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
+            if (ImageType::ImageDimension == 2){
+                typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+                //typedef itk::CastImageFilter<ImageType,ImageType> CasterType;
+                typename CasterType::Pointer caster=CasterType::New();
+                caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+                caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+                caster->SetInput(horiz);
+                caster->Update();
+                ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
+                caster->SetInput(vert);
+                caster->Update();
+                ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
+            }else{
+                ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
+                ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
+            }
         }
 #endif
         ClassifierPointerType GetClassifier(){return m_classifier;}
@@ -224,6 +296,7 @@ namespace itk{
             double intensityDiff=(i1-i2);
             //double prob=m_classifier->px_l(intensityDiff,label1!=label2,gradientDiff);
             double prob=m_classifier->px_l(intensityDiff,label1,gradientDiff,label2);
+            //double prob=m_classifier->px_l(i1,i2,s1,s2,label1,label2);
             if (prob<=0.000000001) prob=0.00000000001;
             //LOG<<"Pairwise: "<<(label1!=label2)<<" "<<gradientDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
             //return 1+100*(-log(prob));
@@ -288,7 +361,7 @@ namespace itk{
                                 
 #endif
                 gradientCost=(s1>s2)?1:exp(-5*gradientDiff);
-                LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
+                //LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
             }
             //return 1.0+1000.0*factor*gradientCost;
             return gradientCost;

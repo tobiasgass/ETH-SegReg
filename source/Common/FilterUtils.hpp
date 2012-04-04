@@ -112,7 +112,15 @@ class FilterUtils {
 
 
 public:
-
+	static OutputImagePointer createEmpty(InputImagePointer refImg) {
+		OutputImagePointer img=OutputImage::New();
+		img->SetRegions(refImg->GetLargestPossibleRegion());
+		img->SetOrigin(refImg->GetOrigin());
+		img->SetSpacing(refImg->GetSpacing());
+		img->SetDirection(refImg->GetDirection());
+		img->Allocate();
+		return img;
+	};
     static OutputImagePointer LinearResample( InputImagePointer input,  double scale) {
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
