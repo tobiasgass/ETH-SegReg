@@ -258,10 +258,14 @@ void MemoryEfficientObjectnessFilter::GenerateObjectnessImage()
 					{//Vesselness
 						tmp_obj[add] = bright * (-eigenVals[2]/al3) * (1-exp(-Rsheet*Rsheet/alpha_sq)) * exp(-Rtube*Rtube/beta_sq) * exp(-Rblob*Rblob/gamma_sq);
 					}
-					else
+					else if (objectDimension==2)
 					{//Sheetness
 						tmp_obj[add] = bright * (-eigenVals[2]/al3) * exp(-Rsheet*Rsheet/alpha_sq) * exp(-Rtube*Rtube/beta_sq) * exp(-Rblob*Rblob/gamma_sq);
 					}
+                    else{
+                        std::cerr<<"not implemented! objectDimension:"<<objectDimension<<std::endl;
+                        exit(0);
+                    }
 					if (scaleObjectnessMeasure)	 tmp_obj[add] *= al3;
 				}
 			}

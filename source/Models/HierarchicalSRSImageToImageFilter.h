@@ -276,7 +276,7 @@ namespace itk{
             if (coherence){
                 deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(atlasSegmentationImage,previousFullDeformation,true);
                 pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
-                pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)atlasSegmentationImage);//deformedAtlasSegmentation);
             }
 
             if (!coherence && !regist){
@@ -340,7 +340,7 @@ namespace itk{
                 }
                 if (coherence){
                     //setup segreg potentials
-                    pairwiseCoherencePot->SetAtlasSegmentationInterpolator(segmentationInterpolator);
+                    //pairwiseCoherencePot->SetAtlasSegmentationInterpolator(segmentationInterpolator);
                     //pairwiseCoherencePot->SetAtlasInterpolator(atlasInterpolator);
                     pairwiseCoherencePot->SetAtlasImage(atlasImage);
                     pairwiseCoherencePot->SetTargetImage(targetImage);
@@ -399,7 +399,7 @@ namespace itk{
                     }
                     if (coherence){
                             pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
-                            if ( l || i ) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                            //if ( l || i ) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
                     }
 
                     

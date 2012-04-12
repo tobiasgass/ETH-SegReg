@@ -56,12 +56,12 @@ namespace itk{
 
 
     protected:
-        ConstImagePointerType m_targetImage, m_atlasImage;
+        ConstImagePointerType m_targetImage, m_atlasImage, m_atlasSegmentationImage;
         SegmentationInterpolatorPointerType m_atlasSegmentationInterpolator;
         std::vector<FloatImageInterpolatorPointerType> m_atlasDistanceTransformInterpolators;
         std::vector<FloatImagePointerType> m_distanceTransforms;
         std::vector<double> m_minDists;
-  ImageInterpolatorPointerType  m_atlasInterpolator;
+        ImageInterpolatorPointerType  m_atlasInterpolator;
         LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         double m_asymm;
@@ -136,13 +136,14 @@ namespace itk{
             logSetStage("Coherence setup");
             m_atlasSegmentationInterpolator= SegmentationInterpolatorType::New();
             m_atlasSegmentationInterpolator->SetInputImage(segImage);
-            m_distanceTransforms= std::vector<FloatImagePointerType>( m_nSegmentationLabels - 1,NULL);
-            m_atlasDistanceTransformInterpolators = std::vector<FloatImageInterpolatorPointerType>( m_nSegmentationLabels - 1,NULL);
-            m_minDists=std::vector<double> ( m_nSegmentationLabels - 1,-1);;
+            m_atlasSegmentationImage=segImage;
+            m_distanceTransforms= std::vector<FloatImagePointerType>( m_nSegmentationLabels ,NULL);
+            m_atlasDistanceTransformInterpolators = std::vector<FloatImageInterpolatorPointerType>( m_nSegmentationLabels ,NULL);
+            m_minDists=std::vector<double> ( m_nSegmentationLabels ,-1);;
 
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
 
-            for (int l=1;l< m_nSegmentationLabels;++l){
+            for (int l=0;l< m_nSegmentationLabels;++l){
                 //get distance transform to foreground label
                 FloatImagePointerType dt1=getDistanceTransform(segImage,l);
                 //save image for debugging
@@ -172,16 +173,16 @@ namespace itk{
                         ImageUtils<FloatImageType>::writeImage(dtFilename.str().c_str(),FloatImageConstPointerType(dt1));
                     }
                 }
-                m_distanceTransforms[l-1]=dt1;
+                m_distanceTransforms[l]=dt1;
                 //feed DT into interpolator
                 FloatImageInterpolatorPointerType dtI=FloatImageInterpolatorType::New();
                 dtI->SetInputImage(dt1);
-                m_atlasDistanceTransformInterpolators[l-1]=dtI;
+                m_atlasDistanceTransformInterpolators[l]=dtI;
                 filter->SetInput(dt1);
                 filter->Update();
                
-                m_minDists[l-1]=fabs(filter->GetMinimumOutput()->Get());
-                LOGV(3)<<"Maximal radius of target object: "<< m_minDists[l-1]<<endl;
+                m_minDists[l]=fabs(filter->GetMinimumOutput()->Get());
+                LOGV(3)<<"Maximal radius of target object: "<< m_minDists[l]<<endl;
             }
         
             logResetStage;
@@ -243,9 +244,9 @@ namespace itk{
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
 
             typename ImageType::PointType p;
-            this->m_baseLabelMap->TransformIndexToPhysicalPoint(targetIndex1,p);
+            this->m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,p);
             p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
-            this->m_atlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
+            this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p,idx2);
             int deformedAtlasSegmentation=-1;
             if (!m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
@@ -258,16 +259,9 @@ namespace itk{
                 }
             }
             deformedAtlasSegmentation=int(m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
-            if (segmentationLabel){
-                if (segmentationLabel!=deformedAtlasSegmentation){ 
-                    double dist=m_atlasDistanceTransformInterpolators[segmentationLabel-1]->EvaluateAtContinuousIndex(idx2);
-                    result=dist/m_minDists[segmentationLabel-1];
-               }
-            }else{
-                if (segmentationLabel!=deformedAtlasSegmentation){
-                    double dist=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation-1]->EvaluateAtContinuousIndex(idx2);
-                    result=dist/m_minDists[deformedAtlasSegmentation-1];
-                }
+            if (segmentationLabel!=deformedAtlasSegmentation){ 
+                double dist=m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);
+                result=dist/m_minDists[segmentationLabel];
             }
             result*=result;
             return result;

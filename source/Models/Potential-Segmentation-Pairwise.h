@@ -64,11 +64,11 @@ namespace itk{
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
             LOGV(5)<<"Target image gradient variance: "<<m_gradientSigma<<std::endl;
-           
             filter->SetInput(this->m_targetImage);
             filter->Update();
             this->m_Sigma=filter->GetSigma();
             this->m_Sigma*=this->m_Sigma;	  
+            LOGV(5)<<"Target image  variance: "<<m_Sigma<<std::endl;
         }
         void SetGradientScaling(double s){m_gradientScaling=s;}
         void SetTargetImage(ConstImagePointerType targetImage){
@@ -131,6 +131,7 @@ namespace itk{
                     horIt.Set(getPotential(idx1,idx2,0,1));
                     sumIt.Set(horIt.Get()*horIt.Get());
                 }
+                else sumIt.Set(0);
                 off.Fill(0);
                 if (idx1[1]<(int)im->GetLargestPossibleRegion().GetSize()[1]-1){
                     off[1]+=1;

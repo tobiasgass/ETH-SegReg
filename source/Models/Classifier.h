@@ -1887,5 +1887,159 @@ namespace itk{
     };
 
 
+    template<class ImageType>
+    class SegmentationGenerativeClassifierGradient: public SegmentationClassifierGradient<ImageType> {
+    public:
+        typedef SegmentationGenerativeClassifierGradient            Self;
+        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::PixelType PixelType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
+        typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
+    public:
+        /** Standard part of every itk Object. */
+        itkTypeMacro(SegmentationGenerativeClassifierGradient, Object);
+        itkNewMacro(Self);
+
+    
+        virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
+            LOGV(5)<<"Preparing data for intensity and gradient based segmentation classifier" << endl;
+            int maxTrain=3000000;
+            //maximal size
+            long int nData=1;
+            for (int d=0;d<ImageType::ImageDimension;++d)
+                nData*=intensities->GetLargestPossibleRegion().GetSize()[d];
+            
+            maxTrain=maxTrain>nData?nData:maxTrain;
+            LOG<<maxTrain<<" computed"<<std::endl;
+            int nFeatures=2;
+            matrix<float> data(maxTrain,nFeatures);
+            LOG<<maxTrain<<" matrix allocated"<<std::endl;
+            std::vector<int> labelVector(maxTrain);
+            typedef typename itk::ImageRandomConstIteratorWithIndex< ImageType > IteratorType;
+            //		typedef typename itk::ImageRegionIteratorWithIndex< ImageType > IteratorType;
+            IteratorType ImageIterator(intensities, intensities->GetLargestPossibleRegion());
+            ImageIterator.SetNumberOfSamples(maxTrain);
+            int i=0;
+            ImageIterator.GoToBegin();
+            this->m_counts= std::vector<int>(2,0);
+            //this->m_intensCounts= std::vector<int>(this->m_nIntensities,0);
+            this->m_mean=0.0;
+            this->m_variance=0.0;
+            this->m_meanIntens=0; this->m_meanGrad=0;this->m_varianceIntens=0;this->m_varianceGrad=0;this->m_covariance=0;
+            //this->m_jointCounts=std::vector<int>(this->m_nIntensities/10*this->m_nIntensities/10,0);
+            this->m_jointCounts=std::vector<int>(this->m_nIntensities*this->m_nIntensities,0);
+            for (;!ImageIterator.IsAtEnd() ;
+                 ++ImageIterator)
+                {
+                    typename ImageType::IndexType idx=ImageIterator.GetIndex();
+                    float grad=mapGradient(gradient->GetPixel(idx));
+                    int label=labels->GetPixel(idx)>0;
+                    int intens=mapIntensity(ImageIterator.Get());
+                    data(i,0)=intens;
+                    data(i,1)=grad;
+                    labelVector[i]=label;
+                    this->m_counts[label]++;
+                    i++;
+#if 0
+                    this->m_meanIntens+=intens;
+                    this->m_meanGrad+=grad;
+                    this->m_varianceIntens+=intens*intens;
+                    this->m_varianceGrad+=grad*grad;
+                    this->m_covariance+=intens*grad;
+                    //joint histogram, 10 bins
+#endif
+                    //this->m_jointCounts[floor(intens/10) + this->m_nIntensities/10*floor(grad/10)]++;
+                    this->m_jointCounts[floor(intens) + this->m_nIntensities*floor(grad)]++;
+
+                }
+            this->m_totalCount=i;
+            this->m_meanIntens/=i;
+            this->m_meanGrad/=i;
+            LOG<<i<<" "<< this->m_varianceIntens<<" "<<  this->m_meanIntens<<" "<<this->m_varianceIntens/i- this->m_meanIntens<<endl;
+            this->m_varianceIntens= this->m_varianceIntens/i- this->m_meanIntens;
+            this->m_varianceGrad=this->m_varianceGrad/i-this->m_meanGrad;
+            this->m_covariance= this->m_covariance/i-this->m_meanGrad*this->m_meanIntens;
+            data.resize(i,nFeatures);
+            std::vector<int> copy=labelVector;
+            labelVector.resize(i);
+
+            this->m_nData=i;
+            std::vector<double> weights(labelVector.size());
+            for (i=0;i<(int)labelVector.size();++i){
+                
+                weights[i]=1.0;
+                //      weights[i]=1-1.0*this->m_counts[labelVector[i]]/(this->m_counts[0]+this->m_counts[1]);
+            }
+            this->m_weights=weights;
+            LOG<<"done adding data. "<<std::endl;
+            this->m_TrainData.setData(data);
+            this->m_TrainData.setLabels(labelVector);
+        };
+
+        virtual void computeProbabilities(){
+            LOGV(5)<<"Storing probabilities for intensity and gradient based segmentation classifier" << endl;
+            this->m_probs= std::vector<float> (2*this->m_nIntensities*this->m_nIntensities,0);
+
+            matrix<float> data(this->m_nIntensities*this->m_nIntensities,2);
+            std::vector<int> labelVector(this->m_nIntensities*this->m_nIntensities,0);
+            int c=0;
+            for (int i=0;i<this->m_nIntensities;++i){
+                for (int j=0;j<this->m_nIntensities;++j,++c){
+                    data(c,0)=i;
+                    data(c,1)=j;
+                    
+                    labelVector[c]=0;
+                }
+            }
+            this->m_Forest->eval(data,labelVector,false);
+            matrix<float> conf = this->m_Forest->getConfidences();
+            LOGV(5)<<conf.size1()<<" "<<conf.size2()<<std::endl;
+            c=0;
+            //double min=9999;
+            //double max=-1;
+            std::vector<double> mins(2,99999);
+            std::vector<double> maxs(2,-99999);
+            LOGV(5)<<this->m_varianceIntens<<" "<<this->m_varianceGrad<<" "<<this->m_covariance<<" "<<this->m_counts[0] <<" "<<  this->m_counts[1]<<endl;
+            double det=this->m_varianceIntens*this->m_varianceGrad-this->m_covariance*this->m_covariance;
+            LOGV(5)<<det<<" "<<this->m_counts[0] +  this->m_counts[1]<<endl;
+            //double norm=1.0/sqrt(2*3.14*det);
+            for (int i=0;i<this->m_nIntensities;++i){
+                for (int j=0;j<this->m_nIntensities;++j,++c){
+                    for (int s=0;s<2;++s){
+                        // p(s) = relative frequency
+                        double p_s=  1.0*this->m_counts[s]/( this->m_counts[0]+ this->m_counts[1]);
+                        //double p_x=  1.0*this->m_jointCounts[floor(i/10) + this->m_nIntensities/10*floor(j/10)]/this->m_totalCount;
+                        double p_x=  1.0*this->m_jointCounts[floor(i) + this->m_nIntensities*floor(j)]/this->m_totalCount;
+                        double p= conf(c,s) / p_s  * p_x ; 
+                        this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p;
+                        if (p<mins[0]) mins[0]=p;
+                        if (p>maxs[0]) maxs[0]=p;
+                    }
+                }
+            }
+#if 1
+            for (int i=0;i<this->m_nIntensities;++i){
+                for (int j=0;j<this->m_nIntensities;++j,++c){
+                    //  for (int s=0;s<2;++s){
+                    double p0,p1;
+                    p0=( this->m_probs[0*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]);//(maxs[0]);
+                    if (p0==0.0) p0= 0.0000000001;
+                    p1=( this->m_probs[1*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]);//(maxs[0]);
+                    if (p1==0.0) p1= 0.0000000001;
+                    this->m_probs[0*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p0;//<0.5?0.5:p0;
+                    this->m_probs[1*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p1;//<0.5?0.5:p1;
+                }
+            }
+#endif
+        }
+  
+
+    };
+  
+
+
 }//namespace
 #endif /* CLASSIFIER_H_ */

@@ -533,7 +533,7 @@ namespace itk{
             result->SetDirection(m_targetImage->GetDirection());
             result->SetOrigin(m_targetImage->GetOrigin());
             result->Allocate();
-            //        LOG<<result->GetLargestPossibleRegion()<<" "<<labels.size()<<" "<<m_nSegmentationLabels<<endl;
+            LOGV(10)<<"target segmentation image: "<<result->GetLargestPossibleRegion()<<" "<<labels.size()<<" "<<m_nSegmentationLabels<<endl;
             typename itk::ImageRegionIterator<ImageType> it(result,result->GetLargestPossibleRegion());
             unsigned int i=0;
             if (m_nSegmentationLabels){
