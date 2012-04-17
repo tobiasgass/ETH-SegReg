@@ -135,20 +135,19 @@ namespace itk{
             if (LabelMapperType::nDisplacementSamples){
 #ifdef PIXELTRANSFORM
                 m_labelSpacing=0.4*m_gridPixelSpacing/(LabelMapperType::nDisplacementSamples);
+                LOGV(1)<<"Graph pixel spacing :"<<m_gridPixelSpacing<<std::endl; 
+
 #else
                 m_labelSpacing=0.4*m_gridSpacing/(LabelMapperType::nDisplacementSamples);
 #endif
-                LOGV(1)<<"Graph spacing :"<<m_gridPixelSpacing<<std::endl; 
                 LOGV(1)<<LabelMapperType::nDisplacementSamples<<" displacment samples per direction; "<<"with "<<m_labelSpacing<<" pixels spacing"<<std::endl;
             }
             for (int d=0;d<(int)m_dim;++d){
-                LOGV(5)<<d<<" Total image size divided by graph spacing :"<<1.0*m_imageSize[d]/m_gridPixelSpacing[d]<<std::endl;
+
                 //origin is original origin
                 m_origin[d]=m_targetImage->GetOrigin()[d];
                 //
-                m_gridSize[d]=m_imageSize[d]/m_gridPixelSpacing[d];
-                if (m_gridSpacing!=1.0)
-                    m_gridSize[d]++;
+
             
                 m_nRegistrationNodes*=m_gridSize[d];
                 m_nSegmentationNodes*=m_imageSize[d];
@@ -176,7 +175,8 @@ namespace itk{
 
             m_nNodes=m_nRegistrationNodes+m_nSegmentationNodes;
             LOGV(1)<<"Total size of coarse graph: "<< m_gridSize<<std::endl;;
-        
+            LOGV(3)<<"Grid physical spacing: "<<m_gridSpacing<<std::endl;;
+            LOGV(3)<<"Grid pixel spacing: "<<m_gridPixelSpacing<<std::endl;;
             //nvertices is not used!?
             if (m_dim>=2){
                m_nRegEdges=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
@@ -191,7 +191,7 @@ namespace itk{
             //controls the size of the neighborhood for registration-to-segmentation edges
             double reductionFactor=1;
             for (int d=0;d<(int)m_dim;++d){
-                r[d]=(m_gridPixelSpacing[d]/(2*reductionFactor));
+                r[d]=1;//(m_gridPixelSpacing[d]/(2*reductionFactor));
             }
             m_targetNeighborhoodIterator=ConstImageNeighborhoodIteratorType(r,m_targetImage,m_targetImage->GetLargestPossibleRegion());
             m_nSegRegEdges=m_nSegmentationNodes/pow(reductionFactor,m_dim);
@@ -209,24 +209,54 @@ namespace itk{
         }
         //can be used to initialize stuff right before potentials are called
         virtual void Init(){};
-        virtual void setSpacing(int divisor){
+        virtual void setSpacing(int shortestN){
             assert(m_targetImage);
-            unsigned int minSpacing=999999;
+            m_coarseGraphImage=ImageType::New();
+            
+            unsigned int minDim=999999;
+            unsigned int minSize=999999;
+            LOGV(8)<<"original image spacing "<<m_imageSpacing<<endl;
+            //get shortest image edge
             for (int d=0;d<ImageType::ImageDimension;++d){
-                if(m_imageSize[d]/(divisor-1) < minSpacing){
-                    minSpacing=(m_imageSize[d]/(divisor-1)-1);
-                }
+                if(m_imageSize[d]<minSize) {minSize=m_imageSize[d]; minDim=d;}
             }
+            LOGV(8)<<"shortest edge has size :"<<minSize<<" in dimension :"<<minDim<<" which has spacing :"<<m_imageSpacing[minDim]<<endl;
+            //calculate spacing for resizing the shortest edge to shortestN
+            double minSpacing=m_imageSpacing[minDim]*(m_imageSize[minDim]-1)/(shortestN-1);
             minSpacing=minSpacing>=1?minSpacing:1.0;
+            LOGV(8)<<"spacing for resampling this edge to "<<shortestN<<" pixels :"<<minSpacing<<endl;
+            //calculate spacing and size for all image dimensions using
             for (int d=0;d<ImageType::ImageDimension;++d){
-                int div=m_imageSize[d]/minSpacing;
-                div=div>0?div:1;
-                double spacing=(1.0*m_imageSize[d]/div);
-                if (spacing>1.0) spacing-=1.0/(div);
-                m_gridPixelSpacing[d]=spacing;
-                m_gridSpacing[d]=spacing*m_imageSpacing[d];
+                int div= ceil(1.0*m_imageSpacing[d]/minSpacing*(m_imageSize[d]-1))+1 ;
+                m_gridSpacing[d]=1.0*m_imageSpacing[d]*(m_imageSize[d]-1)/(div-1);
+                //m_gridPixelSpacing[d]= (m_imageSize[d]-1)/(div-1);
+                LOGV(8)<<d<<" "<<div<<" "<< m_gridSpacing[d] <<" "<< m_gridPixelSpacing[d]<<" "<<m_imageSpacing[d]<<endl;
+                m_gridSize[d]=div;
             }
- 
+            m_coarseGraphImage->SetSpacing(m_gridSpacing);
+            typename ImageType::RegionType region;
+            region.SetSize(m_gridSize);
+
+            m_coarseGraphImage->SetRegions(region);
+            m_coarseGraphImage->SetOrigin(m_targetImage->GetOrigin());
+            m_coarseGraphImage->SetDirection(m_targetImage->GetDirection());
+            m_coarseGraphImage->Allocate();
+            m_coarseGraphImage->FillBuffer(1);
+            
+            ImageUtils<ImageType>::writeImage("coarsegraph.nii",m_coarseGraphImage);
+            LOGV(8)<<"physical coordinate consistency check"<<endl;
+            for (int d=0;d<ImageType::ImageDimension;++d){
+                IndexType idx;
+                PointType pt;
+                idx.Fill(0);
+                idx[d]=m_gridSize[d]-1;
+                m_coarseGraphImage->TransformIndexToPhysicalPoint(idx,pt);
+                LOGV(8)<<d<<" Graph :"<<idx<<" "<<pt<<endl;
+                idx[d]=m_imageSize[d]-1;
+                m_targetImage->TransformIndexToPhysicalPoint(idx,pt);
+                LOGV(8)<<d<<" Image :"<<idx<<" "<<pt<<endl;
+            }
+
         }
     
 
@@ -350,7 +380,7 @@ namespace itk{
             //compute distance between center index and patch index
             double weight=1.0;
             //#ifdef MULTISEGREGNEIGHBORS
-#if 1
+#if 0
             IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             double dist=1;
             for (unsigned int d=0;d<m_dim;++d){
@@ -492,6 +522,7 @@ namespace itk{
                 it.Set(l);
             }
             assert(i==(labels.size()));
+            LOGV(8)<<"git "<<labels.size()<<" registration labels which were transformed into a deformation field with parameters : "<<result<<endl;
             return result;
         }
         
@@ -591,7 +622,7 @@ namespace itk{
         }
         SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
         SpacingType getSpacing(){return m_gridSpacing;}	
-        SpacingType getPixelSpacing(){return m_gridPixelSpacing;}
+        //SpacingType getPixelSpacing(){return m_gridPixelSpacing;}
         PointType getOrigin(){return m_origin;}
         int nRegNodes(){
             return m_nRegistrationNodes;

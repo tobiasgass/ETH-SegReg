@@ -330,7 +330,7 @@ namespace itk{
                     unaryRegistrationPot->Init();
             
                     pairwiseRegistrationPot->SetTargetImage(targetImage);
-                    pairwiseRegistrationPot->SetSpacing(graph->getPixelSpacing());
+                    pairwiseRegistrationPot->SetSpacing(graph->getSpacing());
                     
                 }
 

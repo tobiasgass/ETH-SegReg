@@ -121,6 +121,8 @@ public:
 		img->Allocate();
 		return img;
 	};
+
+#ifdef ISOTROPIC_RESAMPLING
     static OutputImagePointer LinearResample( InputImagePointer input,  double scale) {
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
@@ -169,40 +171,7 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
-    static OutputImagePointer ResampleCube( ConstInputImagePointer input,  double scale, bool nnResample=false) {
-        LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
-        NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
-        ResampleFilterPointerType resampler=ResampleFilterType::New();
-        resampler->SetInput(input);
-        if (nnResample)
-            resampler->SetInterpolator(interpolNN);
-        else
-            resampler->SetInterpolator(interpol);
-        typename InputImage::SpacingType spacing,inputSpacing;
-        typename InputImage::SizeType size,inputSize;
-        typename InputImage::PointType origin,inputOrigin;
-        inputOrigin=input->GetOrigin();
-        inputSize=input->GetLargestPossibleRegion().GetSize();
-        inputSpacing=input->GetSpacing();
-        double maxSpacing=-1;
-        double newSpacing;
-        for (uint d=0;d<InputImage::ImageDimension;++d){
-            if (inputSpacing[d]>maxSpacing) maxSpacing=indputSpacing[d];
-        }
-        double newSpacing=maxSpacing*scale;
-        for (uint d=0;d<InputImage::ImageDimension;++d){
-            spacing[d]=newSpacing;inputSpacing[d]*(1.0*inputSize[d]/size[d]);
 
-            size[d]=int(inputSize[d]*inputSpacing[d]/newSpacing);
-            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
-        }
-        resampler->SetOutputOrigin(origin);
-		resampler->SetOutputSpacing ( spacing );
-		resampler->SetOutputDirection ( input->GetDirection() );
-		resampler->SetSize ( size );
-        resampler->Update();
-        return resampler->GetOutput();
-    }
 
     static OutputImagePointer NNResample( ConstInputImagePointer input,  double scale) {
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
@@ -228,6 +197,79 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
+  static OutputImagePointer NNResample( InputImagePointer input,  double scale) {
+        NNInterpolatorPointerType interpol=NNInterpolatorType::New();
+        ResampleFilterPointerType resampler=ResampleFilterType::New();
+        resampler->SetInput(input);
+        resampler->SetInterpolator(interpol);
+        typename InputImage::SpacingType spacing,inputSpacing;
+        typename InputImage::SizeType size,inputSize;
+        typename InputImage::PointType origin,inputOrigin;
+        inputOrigin=input->GetOrigin();
+        inputSize=input->GetLargestPossibleRegion().GetSize();
+        inputSpacing=input->GetSpacing();
+        for (uint d=0;d<InputImage::ImageDimension;++d){
+            size[d]=int(inputSize[d]*scale);
+            spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
+        }
+        resampler->SetOutputOrigin(origin);
+		resampler->SetOutputSpacing ( spacing );
+		resampler->SetOutputDirection ( input->GetDirection() );
+		resampler->SetSize ( size );
+        
+        resampler->Update();
+        return resampler->GetOutput();
+    }
+#else
+
+    static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool nnResample=false) {
+
+        LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
+        NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
+        ResampleFilterPointerType resampler=ResampleFilterType::New();
+        resampler->SetInput(input);
+        if (nnResample)
+            resampler->SetInterpolator(interpolNN);
+        else
+            resampler->SetInterpolator(interpol);
+        typename InputImage::SpacingType spacing,inputSpacing;
+        typename InputImage::SizeType size,inputSize;
+        typename InputImage::PointType origin,inputOrigin;
+        inputOrigin=input->GetOrigin();
+        inputSize=input->GetLargestPossibleRegion().GetSize();
+        inputSpacing=input->GetSpacing();
+        double maxSpacing=-1;
+        for (uint d=0;d<InputImage::ImageDimension;++d){
+            if (inputSpacing[d]>maxSpacing) maxSpacing=inputSpacing[d];
+        }
+        double newSpacing=maxSpacing/scale;
+        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
+        for (uint d=0;d<InputImage::ImageDimension;++d){
+            spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            size[d]=int(inputSize[d]*inputSpacing[d]/newSpacing);
+            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
+        }
+        LOGV(7)<<"full parameters : "<<spacing<<" "<<size<<" "<<origin<<endl;
+        LOGV(3)<<"Resampling to isotropic isotropic spacing "<<spacing<<" with resolution "<<size<<endl;
+        resampler->SetOutputOrigin(origin);
+		resampler->SetOutputSpacing ( spacing );
+		resampler->SetOutputDirection ( input->GetDirection() );
+		resampler->SetSize ( size );
+        resampler->Update();
+        return resampler->GetOutput();
+    }
+    static OutputImagePointer LinearResample( InputImagePointer input,  double scale, bool nnResample=false) {
+        return LinearResample(ConstInputImagePointer(input),scale,nnResample);
+    }
+
+    static OutputImagePointer NNResample( ConstInputImagePointer input,  double scale) {
+        return LinearResample(input,scale,true);
+    }
+    static OutputImagePointer NNResample( InputImagePointer input,  double scale) {
+        return LinearResample((ConstInputImagePointer)input,scale,true);
+    }
+#endif
     static OutputImagePointer NNResample( ConstInputImagePointer input,  ConstInputImagePointer reference) {
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
@@ -267,30 +309,7 @@ public:
         return resampler->GetOutput();
     }
 
-    static OutputImagePointer NNResample( InputImagePointer input,  double scale) {
-        NNInterpolatorPointerType interpol=NNInterpolatorType::New();
-        ResampleFilterPointerType resampler=ResampleFilterType::New();
-        resampler->SetInput(input);
-        resampler->SetInterpolator(interpol);
-        typename InputImage::SpacingType spacing,inputSpacing;
-        typename InputImage::SizeType size,inputSize;
-        typename InputImage::PointType origin,inputOrigin;
-        inputOrigin=input->GetOrigin();
-        inputSize=input->GetLargestPossibleRegion().GetSize();
-        inputSpacing=input->GetSpacing();
-        for (uint d=0;d<InputImage::ImageDimension;++d){
-            size[d]=int(inputSize[d]*scale);
-            spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
-            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
-        }
-        resampler->SetOutputOrigin(origin);
-		resampler->SetOutputSpacing ( spacing );
-		resampler->SetOutputDirection ( input->GetDirection() );
-		resampler->SetSize ( size );
-        
-        resampler->Update();
-        return resampler->GetOutput();
-    }
+  
 
 
     /**

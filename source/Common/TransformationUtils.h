@@ -96,7 +96,8 @@ public:
         ContinuousIndexType centerTargetIndex,centerMovingIndex;
         PointType centerTargetPoint,centerMovingPoint;
 
-        {
+        {       //compute center of target image
+
             const typename ImageType::RegionType & targetRegion =
                 targetImage->GetLargestPossibleRegion();
             const typename ImageType::IndexType & targetIndex =
@@ -119,7 +120,8 @@ public:
             targetImage->TransformContinuousIndexToPhysicalPoint( centerTargetIndex, centerTargetPoint);
             
         }
-        {
+        {        //compute center of moving image
+
             const typename ImageType::RegionType & movingRegion =
                 movingImage->GetLargestPossibleRegion();
             const typename ImageType::IndexType & movingIndex =
@@ -142,8 +144,6 @@ public:
             movingImage->TransformContinuousIndexToPhysicalPoint( centerMovingIndex, centerMovingPoint);
             
         }
-        //compute center of moving image
-        PointType movingCenter;
         DisplacementType translation= centerMovingPoint-centerTargetPoint;
         deformation->FillBuffer(translation);
         return deformation;
@@ -231,8 +231,8 @@ public:
                 upsampler->SetOutputSpacing( atlas->GetSpacing() );
                 upsampler->SetOutputOrigin( atlas->GetOrigin());
                 upsampler->SetOutputDirection( atlas->GetDirection());
-#if 1
                 upsampler->Update();
+#if 0
                 newImages[k]=upsampler->GetOutput();
 #else
                 typename DecompositionType::Pointer decomposition = DecompositionType::New();
@@ -240,7 +240,7 @@ public:
                 decomposition->SetInput( upsampler->GetOutput() );
                 decomposition->Update();
                 newImages[k] = decomposition->GetOutput();
-#endif
+#endif         
                 
             }
     
@@ -289,14 +289,7 @@ public:
         resampler->SetSize ( atlas->GetLargestPossibleRegion().GetSize() );
         resampler->Update();
         fullDeformationField=resampler->GetOutput();
-#if 0
-        LabelIterator lIt(fullDeformationField,fullDeformationField->GetLargestPossibleRegion());
-        lIt.GoToBegin();
-        for (;!lIt.IsAtEnd();++lIt){
-            DisplacementType l=lIt.Get();
-            lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
-        }
-#endif
+
 #endif
         LOGV(2)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
@@ -313,7 +306,77 @@ public:
         exit(0);
         return labelImg;
     }
- 
+    //#define ITK_WARP
+#ifdef ITK_WARP
+    static      ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
+        typedef typename itk::WarpImageFilter<ImageType,ImageType,DeformationFieldType>     WarperType;
+        typedef typename WarperType::Pointer     WarperPointer;
+        WarperPointer warper=WarperType::New();
+        if (nnInterpol){
+            NNInterpolatorPointerType nnInt=NNInterpolatorType::New();
+            warper->SetInterpolator(nnInt);
+        }
+        warper->SetInput( image);
+        warper->SetDeformationField(deformation);
+        warper->SetOutputOrigin(  deformation->GetOrigin() );
+        warper->SetOutputSpacing( deformation->GetSpacing() );
+        warper->SetOutputDirection( deformation->GetDirection() );
+        warper->Update();
+        return warper->GetOutput();
+    }
+#else
+    static ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
+        //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+        LabelIterator deformationIt(deformation,deformation->GetLargestPossibleRegion());
+
+        typedef typename itk::LinearInterpolateImageFunction<ImageType, double> ImageInterpolatorType;
+        typename ImageInterpolatorType::Pointer interpolator=ImageInterpolatorType::New(); 
+        NNInterpolatorPointerType nnInt=NNInterpolatorType::New();
+
+        if (nnInterpol){
+            nnInt->SetInputImage(image);
+        }else{
+            interpolator->SetInputImage(image);
+        }
+        ImagePointerType deformed=ImageType::New();//ImageUtils<ImageType>::createEmpty(image);
+      
+        deformed->SetRegions(deformation->GetLargestPossibleRegion());
+        deformed->SetOrigin(deformation->GetOrigin());
+        deformed->SetSpacing(deformation->GetSpacing());
+        deformed->SetDirection(deformation->GetDirection());
+        deformed->Allocate();
+        ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
+        for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
+            IndexType index=deformationIt.GetIndex();
+            typename ImageInterpolatorType::ContinuousIndexType idx(index);
+            DisplacementType displacement=deformationIt.Get();
+#ifdef PIXELTRANSFORM
+            idx+=(displacement);
+#else
+            PointType p;
+            deformed->TransformIndexToPhysicalPoint(index,p);
+            p+=displacement;
+            image->TransformPhysicalPointToContinuousIndex(p,idx);
+#endif
+            bool inside=true;
+            if (nnInterpol){
+                if (nnInt->IsInsideBuffer(idx)){
+                    imageIt.Set(nnInt->EvaluateAtContinuousIndex(idx));
+                }else inside=false;
+            }else{
+                if (interpolator->IsInsideBuffer(idx)){
+                    imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
+                }else inside=false;
+            }
+            if (!inside){
+                imageIt.Set(0);
+            }
+        }
+        return deformed;
+    }
+#endif
     static ImagePointerType deformImage(ConstImagePointerType image, DeformationFieldPointerType deformation){
         //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
@@ -443,23 +506,7 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
-        
-    static      ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
-        typedef typename itk::WarpImageFilter<ImageType,ImageType,DeformationFieldType>     WarperType;
-        typedef typename WarperType::Pointer     WarperPointer;
-        WarperPointer warper=WarperType::New();
-        if (nnInterpol){
-            NNInterpolatorPointerType nnInt=NNInterpolatorType::New();
-            warper->SetInterpolator(nnInt);
-        }
-        warper->SetInput( image);
-        warper->SetDeformationField(deformation);
-        warper->SetOutputOrigin(  deformation->GetOrigin() );
-        warper->SetOutputSpacing( deformation->GetSpacing() );
-        warper->SetOutputDirection( deformation->GetDirection() );
-        warper->Update();
-        return warper->GetOutput();
-    }
+ 
     static     ImagePointerType deformSegmentationImage(ConstImagePointerType segmentationImage, DeformationFieldPointerType deformation){
         //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;

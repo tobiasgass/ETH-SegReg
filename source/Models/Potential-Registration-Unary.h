@@ -216,7 +216,7 @@ namespace itk{
                     double m;
                     totalCount+=1.0;
                     if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
-#if 0
+#if 1
                         continue;
                         m=0;
                         
