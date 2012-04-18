@@ -85,15 +85,19 @@ namespace itk{
             assert(m_targetImage);
             assert(m_atlasImage);
             if (m_scale!=1.0){
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,100),m_scale);
-                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,100),m_scale);
+                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,1),m_scale);
+                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,1),m_scale);
             }else{
                 m_scaledTargetImage=m_targetImage;
                 m_scaledAtlasImage=m_atlasImage;
             }
-            assert(radiusSet);
+            if (!radiusSet){
+                LOG<<"Radius must be set before calling registrationUnaryPotential.Init()"<<endl;
+                exit(0);
+            }
+                
             for (int d=0;d<ImageType::ImageDimension;++d){
-                m_scaledRadius[d]=m_radius[d]*m_scale;
+                m_scaledRadius[d]= m_radius[d]/m_scaledTargetImage->GetSpacing()[d]*m_targetImage->GetSpacing()[d];
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             LOGV(2)<<"Registration unary patch radius " << m_radius << " scale "<< m_scale << " scaledRadius "<< m_scaledRadius << endl;
@@ -111,19 +115,17 @@ namespace itk{
         }
         void SetRadius(SpacingType sp){
             for (int d=0;d<ImageType::ImageDimension;++d){
-                m_radius[d]=sp[d];
-                m_scaledRadius[d]=this->m_scale*sp[d];
+                m_radius[d]=sp[d]/m_targetImage->GetSpacing()[d];
             
             }
             radiusSet=true;
         }
+#if 0
         void SetRadius(RadiusType sp){
             m_radius=sp;
-            for (int d=0;d<ImageType::ImageDimension;++d){
-                m_scaledRadius[d]=this->m_scale*sp[d];
-            }
             radiusSet=true;
         }
+#endif
         void SetBaseLabelMap(LabelImagePointerType blm, double scale=1.0){
             m_baseLabelMap=blm;m_haveLabelMap=true;
             if (scale!=1.0){
@@ -157,24 +159,12 @@ namespace itk{
       
     	virtual void SetAtlasImage(ConstImagePointerType atlasImage){
             m_atlasImage=atlasImage;
-            if (m_scale!=1.0){
-                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((m_atlasImage),m_scale);
-            }else{
-                m_scaledAtlasImage=m_atlasImage;
-            }
             m_atlasSize=m_atlasImage->GetLargestPossibleRegion().GetSize();
-            m_atlasInterpolator=InterpolatorType::New();
-            m_atlasInterpolator->SetInputImage(m_scaledAtlasImage);
+       
         }
         void SetTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
             m_targetSize=m_targetImage->GetLargestPossibleRegion().GetSize();
-            if (m_scale!=1.0){
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((m_targetImage),m_scale);
-            }else{
-                m_scaledTargetImage=m_targetImage;
-            }
-            nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
 
         }
         ConstImagePointerType GetTargetImage(){
@@ -183,15 +173,17 @@ namespace itk{
         virtual double getPotential(IndexType targetIndex, LabelType disp){
             double result=0;
             IndexType idx1=targetIndex;
-            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
-                targetIndex[d]*=m_scale;
-                if (targetIndex[d]>=(int)m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()[d]) targetIndex[d]--;
+            PointType pos;
+            //m_targetImage->TransformIndexToPhysicalPoint(idx1,pos);
+            //m_scaledTargetImage->TransformPhysicalPointToIndex(pos,idx1);
+            for (int d=0;d<ImageType::ImageDimension;++d){
+                idx1[d]=m_scale*idx1[d];
             }
-          
+                
 #ifdef PIXELTRANSFORM
             disp*=m_scale;
 #endif
-            nIt.SetLocation(targetIndex);
+            nIt.SetLocation(idx1);
             double count=0, totalCount=0;
             double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
             for (unsigned int i=0;i<nIt.Size();++i){
@@ -248,7 +240,14 @@ namespace itk{
                 }
 
             }
-          
+            if (!totalCount){
+                LOG<<"this should never happen, neighborhood of pixel "<<idx1<<" was empty." <<endl;
+                LOG<<m_scaledTargetImage->GetLargestPossibleRegion().GetSize()<<endl;
+                LOG<<m_scaledRadius<<endl;
+                LOG<<m_scaledRadius<<endl;
+                LOG<<nIt.Size()<<endl;
+                exit(0);
+            }
             if (1.0*count/totalCount<0.0001)
                 result=0;//100000000;//-log(0.0000000000000000001);{
             else{

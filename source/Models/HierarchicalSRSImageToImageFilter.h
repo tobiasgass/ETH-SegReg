@@ -319,9 +319,9 @@ namespace itk{
                 if (regist){
                     //setup registration potentials
                     unaryRegistrationPot->SetScale(scaling);
-                    unaryRegistrationPot->SetRadius(graph->getSpacing());
                     unaryRegistrationPot->SetTargetImage(targetImage);
                     unaryRegistrationPot->SetAtlasImage(atlasImage);
+                    unaryRegistrationPot->SetRadius(graph->getSpacing());
 #if 0
                     unaryRegistrationPot->SetAtlasSegmentation(atlasSegmentationImage);
                     unaryRegistrationPot->SetAlpha(m_config.alpha);

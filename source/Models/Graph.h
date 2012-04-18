@@ -276,6 +276,7 @@ namespace itk{
         //return position in full image from coarse graph node index
         virtual IndexType  getImageIndexFromCoarseGraphIndex(int idx){
             IndexType position;
+#ifdef MANUALCONVERSION
             for ( int d=m_dim-1;d>=0;--d){
                 //position[d] is now the index in the coarse graph (image)
                 position[d]=idx/m_graphLevelDivisors[d];
@@ -283,6 +284,12 @@ namespace itk{
                 //now calculate the fine image index from the coarse graph index
                 position[d]*=m_gridSpacing[d]/m_imageSpacing[d];
             }
+#else
+            position=getGraphIndex(idx);
+            PointType physicalPoint;
+            m_coarseGraphImage->TransformIndexToPhysicalPoint(position,physicalPoint);
+            m_targetImage->TransformPhysicalPointToIndex(physicalPoint,position);
+#endif
             if (!m_targetImage->GetLargestPossibleRegion().IsInside(position)){
                 LOG<<"BROKEN :"<<position<<" not in target image region. target image size: "<<m_targetImage->GetLargestPossibleRegion().GetSize()<<std::endl;
                 LOG<<idx<<" "<<m_graphLevelDivisors<<" "<<m_gridSpacing[0]/m_imageSpacing[0]<<endl;
@@ -292,10 +299,16 @@ namespace itk{
         }
         virtual IndexType getClosestGraphIndex(IndexType imageIndex){
             IndexType position;
+#ifdef MANUALCONVERSION
             for (unsigned int d=0;d<m_dim;++d){
                 position[d]=floor(1.0*imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d]+0.5);
                 //position[d]<<std::target << std::setprecision(0) << imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d];
             }
+#else
+            PointType physicalPoint;
+            m_targetImage->TransformIndexToPhysicalPoint(imageIndex,physicalPoint);
+            m_coarseGraphImage ->TransformPhysicalPointToIndex(physicalPoint,position);
+#endif
             return position;
         }
         virtual IndexType getLowerGraphIndex(IndexType imageIndex){
