@@ -272,7 +272,7 @@ namespace itk{
             }
             return position;
         }
-     
+        //#define MANUALCONVERSION
         //return position in full image from coarse graph node index
         virtual IndexType  getImageIndexFromCoarseGraphIndex(int idx){
             IndexType position;

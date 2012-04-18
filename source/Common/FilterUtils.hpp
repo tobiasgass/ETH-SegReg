@@ -121,7 +121,7 @@ public:
 		img->Allocate();
 		return img;
 	};
-    //#define  ISOTROPIC_RESAMPLING
+#define  ISOTROPIC_RESAMPLING
 #ifdef ISOTROPIC_RESAMPLING
     static OutputImagePointer LinearResample( InputImagePointer input,  double scale) {
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();

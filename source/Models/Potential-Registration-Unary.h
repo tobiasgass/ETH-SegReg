@@ -97,7 +97,7 @@ namespace itk{
             }
                 
             for (int d=0;d<ImageType::ImageDimension;++d){
-                m_scaledRadius[d]= m_radius[d]/m_scaledTargetImage->GetSpacing()[d]*m_targetImage->GetSpacing()[d];
+                m_scaledRadius[d]=m_scale*m_radius[d];
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             LOGV(2)<<"Registration unary patch radius " << m_radius << " scale "<< m_scale << " scaledRadius "<< m_scaledRadius << endl;
@@ -174,11 +174,11 @@ namespace itk{
             double result=0;
             IndexType idx1=targetIndex;
             PointType pos;
-            //m_targetImage->TransformIndexToPhysicalPoint(idx1,pos);
-            //m_scaledTargetImage->TransformPhysicalPointToIndex(pos,idx1);
-            for (int d=0;d<ImageType::ImageDimension;++d){
-                idx1[d]=m_scale*idx1[d];
-            }
+            m_targetImage->TransformIndexToPhysicalPoint(idx1,pos);
+            m_scaledTargetImage->TransformPhysicalPointToIndex(pos,idx1);
+            //for (int d=0;d<ImageType::ImageDimension;++d){
+            //idx1[d]=m_scale*idx1[d];
+            //}
                 
 #ifdef PIXELTRANSFORM
             disp*=m_scale;
