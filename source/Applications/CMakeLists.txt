@@ -44,6 +44,8 @@ ADD_EXECUTABLE(SRS3D Multiresolution-SRS3D.cxx )
 TARGET_LINK_LIBRARIES(SRS3D maxflow  Utils TRWS FastPD SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
 
+ADD_EXECUTABLE(SRS3D-Bone SRS3D-Bone.cxx )
+TARGET_LINK_LIBRARIES(SRS3D-Bone maxflow  Utils TRWS FastPD SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
 #ADD_EXECUTABLE(AlternatingSegReg2DBone Alternating-JRS2D-Bone.cxx )
 #TARGET_LINK_LIBRARIES(AlternatingSegReg2DBone maxflow  Utils TRWS FastPD SRSMRFModels   RF    xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )

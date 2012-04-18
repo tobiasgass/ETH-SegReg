@@ -121,7 +121,7 @@ public:
 		img->Allocate();
 		return img;
 	};
-
+#define  ISOTROPIC_RESAMPLING
 #ifdef ISOTROPIC_RESAMPLING
     static OutputImagePointer LinearResample( InputImagePointer input,  double scale) {
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
@@ -136,7 +136,7 @@ public:
         inputSpacing=input->GetSpacing();
         for (uint d=0;d<InputImage::ImageDimension;++d){
             size[d]=int(inputSize[d]*scale);
-            spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
             origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
         resampler->SetOutputOrigin(origin);
@@ -160,7 +160,7 @@ public:
         inputSpacing=input->GetSpacing();
         for (uint d=0;d<InputImage::ImageDimension;++d){
             size[d]=int(inputSize[d]*scale);
-            spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
             origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
         resampler->SetOutputOrigin(origin);

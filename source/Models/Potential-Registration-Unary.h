@@ -141,8 +141,8 @@ namespace itk{
                 inputSpacing=blm->GetSpacing();
                 for (uint d=0;d<LabelImageType::ImageDimension;++d){
                     size[d]=int(inputSize[d]*scale);
-                    spacing[d]=inputSpacing[d]*(1.0*inputSize[d]/size[d]);
-                    origin[d]=inputOrigin[d]+0.5*spacing[d]/inputSpacing[d];
+                    spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
+                    origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
                 }
                 resampler->SetOutputOrigin(origin);
                 resampler->SetOutputSpacing ( spacing );
@@ -217,7 +217,7 @@ namespace itk{
                     totalCount+=1.0;
                     if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
 #if 1
-                        continue;
+                        //continue;
                         m=0;
                         
 #else

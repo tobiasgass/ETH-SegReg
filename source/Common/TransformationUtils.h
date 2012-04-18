@@ -192,9 +192,9 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
-    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType atlas){ 
+    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
         LOGV(2)<<"Extrapolating deformation image"<<std::endl;
-        LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<atlas->GetLargestPossibleRegion().GetSize()<<std::endl;
+        LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
 #if 1
@@ -227,10 +227,10 @@ public:
                 function->SetSplineOrder(SplineOrder);
                 upsampler->SetInput( paramsK );
                 upsampler->SetInterpolator( function );
-                upsampler->SetSize(atlas->GetLargestPossibleRegion().GetSize() );
-                upsampler->SetOutputSpacing( atlas->GetSpacing() );
-                upsampler->SetOutputOrigin( atlas->GetOrigin());
-                upsampler->SetOutputDirection( atlas->GetDirection());
+                upsampler->SetSize(reference->GetLargestPossibleRegion().GetSize() );
+                upsampler->SetOutputSpacing( reference->GetSpacing() );
+                upsampler->SetOutputOrigin( reference->GetOrigin());
+                upsampler->SetOutputDirection( reference->GetDirection());
                 upsampler->Update();
 #if 0
                 newImages[k]=upsampler->GetOutput();
@@ -251,10 +251,10 @@ public:
                 iterators[k].GoToBegin();
             }
         fullDeformationField=DeformationFieldType::New();
-        fullDeformationField->SetRegions(atlas->GetLargestPossibleRegion());
-        fullDeformationField->SetOrigin(atlas->GetOrigin());
-        fullDeformationField->SetSpacing(atlas->GetSpacing());
-        fullDeformationField->SetDirection(atlas->GetDirection());
+        fullDeformationField->SetRegions(reference->GetLargestPossibleRegion());
+        fullDeformationField->SetOrigin(reference->GetOrigin());
+        fullDeformationField->SetSpacing(reference->GetSpacing());
+        fullDeformationField->SetDirection(reference->GetDirection());
         fullDeformationField->Allocate();
         LabelIterator lIt(fullDeformationField,fullDeformationField->GetLargestPossibleRegion());
         lIt.GoToBegin();
@@ -283,10 +283,10 @@ public:
         //resample deformation field to target image dimension
         resampler->SetInput( labelImg );
         resampler->SetInterpolator( labelInterpolator );
-        resampler->SetOutputOrigin(atlas->GetOrigin());
-        resampler->SetOutputSpacing ( atlas->GetSpacing() );
-        resampler->SetOutputDirection ( atlas->GetDirection() );
-        resampler->SetSize ( atlas->GetLargestPossibleRegion().GetSize() );
+        resampler->SetOutputOrigin(reference->GetOrigin());
+        resampler->SetOutputSpacing ( reference->GetSpacing() );
+        resampler->SetOutputDirection ( reference->GetDirection() );
+        resampler->SetSize ( reference->GetLargestPossibleRegion().GetSize() );
         resampler->Update();
         fullDeformationField=resampler->GetOutput();
 

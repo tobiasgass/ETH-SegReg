@@ -293,7 +293,7 @@ namespace itk{
         virtual IndexType getClosestGraphIndex(IndexType imageIndex){
             IndexType position;
             for (unsigned int d=0;d<m_dim;++d){
-                position[d]=int(imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d]+0.5);
+                position[d]=floor(1.0*imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d]+0.5);
                 //position[d]<<std::target << std::setprecision(0) << imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d];
             }
             return position;
