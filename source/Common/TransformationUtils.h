@@ -197,7 +197,6 @@ public:
         LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
-#if 1
         const unsigned int SplineOrder = 3;
         typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
         typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
@@ -269,8 +268,15 @@ public:
             //			lIt.Set(LabelMapperType::scaleDisplacement(l,getDisplacementFactor()));
             lIt.Set(l);
         }
-#else          
 
+        LOGV(2)<<"Finshed extrapolation"<<std::endl;
+        return fullDeformationField;
+    }
+   static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
+        LOGV(2)<<"Linearly intrapolating deformation image"<<std::endl;
+        LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        DeformationFieldPointerType fullDeformationField;
         typedef typename itk::VectorLinearInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
         //typedef typename itk::VectorNearestNeighborInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
         typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
@@ -290,11 +296,9 @@ public:
         resampler->Update();
         fullDeformationField=resampler->GetOutput();
 
-#endif
         LOGV(2)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
-    }
-
+   }
     static DeformationFieldPointerType scaleDeformationField(DeformationFieldPointerType labelImg, SpacingType scalingFactors){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());

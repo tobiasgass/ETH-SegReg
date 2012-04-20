@@ -120,47 +120,26 @@ namespace itk{
             }
             radiusSet=true;
         }
-#if 0
-        void SetRadius(RadiusType sp){
-            m_radius=sp;
-            radiusSet=true;
-        }
-#endif
+
         void SetBaseLabelMap(LabelImagePointerType blm, double scale=1.0){
             m_baseLabelMap=blm;m_haveLabelMap=true;
             if (scale!=1.0){
-                typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType> InterpolatorType;
-                typename InterpolatorType::Pointer interpol=InterpolatorType::New();
-                typedef typename itk::VectorResampleImageFilter<LabelImageType,LabelImageType> ResampleFilterType;
-                typename ResampleFilterType::Pointer resampler=ResampleFilterType::New();
-                resampler->SetInput(blm);
-                resampler->SetInterpolator(interpol);
-                typename LabelImageType::SpacingType spacing,inputSpacing;
-                typename LabelImageType::SizeType size,inputSize;
-                typename LabelImageType::PointType origin,inputOrigin;
-                inputOrigin=blm->GetOrigin();
-                inputSize=blm->GetLargestPossibleRegion().GetSize();
-                inputSpacing=blm->GetSpacing();
-                for (uint d=0;d<LabelImageType::ImageDimension;++d){
-                    size[d]=int(inputSize[d]*scale);
-                    spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
-                    origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
-                }
-                resampler->SetOutputOrigin(origin);
-                resampler->SetOutputSpacing ( spacing );
-                resampler->SetOutputDirection ( blm->GetDirection() );
-                resampler->SetSize ( size );
-                resampler->Update();
-                m_baseLabelMap=resampler->GetOutput();
+                m_baseLabelMap=TransfUtils<ImageType>::linearInterpolateDeformationField(blm,m_scaledTargetImage);
             }
-
         }
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
-      
+        virtual void SetAtlasImage(ImagePointerType atlasImage){
+            SetAtlasImage(ConstImagePointerType(atlasImage));
+        }
+
     	virtual void SetAtlasImage(ConstImagePointerType atlasImage){
             m_atlasImage=atlasImage;
             m_atlasSize=m_atlasImage->GetLargestPossibleRegion().GetSize();
-       
+#if 0
+            m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,1),m_scale);
+            m_atlasInterpolator=InterpolatorType::New();
+            m_atlasInterpolator->SetInputImage(m_scaledAtlasImage);
+#endif
         }
         void SetTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;

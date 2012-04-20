@@ -464,24 +464,32 @@ namespace itk{
         }
         virtual void evalImage(ImageConstPointerType im, ImageConstPointerType gradient){
             LOGV(5)<<"Evaluating intensity and gradient based segmentation classifier" << endl;
-
+            ImageUtils<ImageType>::writeImage("komischergradient.nii",gradient);
             typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
             typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
             FloatImagePointerType result0=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
             FloatImagePointerType result1=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
+            FloatImagePointerType result2=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
+
             typename itk::ImageRegionConstIterator<ImageType> it(im,im->GetLargestPossibleRegion());
             typename itk::ImageRegionConstIterator<ImageType> itGrad(gradient,gradient->GetLargestPossibleRegion());
 
             for (it.GoToBegin();!it.IsAtEnd(); ++it){
-                PixelType val=mapIntensity(it.Get());
-                PixelType grad=mapGradient(itGrad.Get());
+                PixelType val=(it.Get());
+                PixelType grad=(itGrad.Get());
                 double prob0=px_l(val,0,grad);
                 double prob1=px_l(val,1,grad);
                 result0->SetPixel(it.GetIndex(),prob0);
                 result1->SetPixel(it.GetIndex(),prob1);
+                if (prob0>0 ){
+                    result2->SetPixel(it.GetIndex(),prob1/prob0);
+                }else{
+                    result2->SetPixel(it.GetIndex(),0);
+                }
             }
             ImageUtils<FloatImageType>::writeImage("p0-rf.nii",result0);
             ImageUtils<FloatImageType>::writeImage("p1-rf.nii",result1);
+            ImageUtils<FloatImageType>::writeImage("prelative-rf.nii",result2);
           
         }
 
@@ -550,48 +558,17 @@ namespace itk{
         typedef typename ImageType::ConstPointer ImageConstPointerType;
         typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
     protected:
-    
-        FileData m_TrainData;
-        Forest * m_Forest;
-        std::vector<double> m_weights;
-        std::vector<int> m_labelVector;
-        matrix<float> m_data;
-        matrix<float> m_conf;
-        int m_nData;
-        std::vector<int> m_counts, m_intensCounts;
-        int m_nIntensities;
-        std::vector<float> m_probs;
         std::vector<double> m_meanIntens, m_meanGrad,m_varianceIntens,m_varianceGrad,m_covariance;
-
     public:
         /** Standard part of every itk Object. */
         itkTypeMacro(SegmentationGaussianClassifierGradient, Object);
         itkNewMacro(Self);
 
-        SegmentationGaussianClassifierGradient(){
-            m_data=matrix<float>(1,3);
-            m_conf=matrix<float>(1,2);
-            m_labelVector=std::vector<int>(1);
-        };
-        virtual void setNIntensities(int n){
-            m_nIntensities=n;
-            m_probs= std::vector<float> (2*m_nIntensities*m_nIntensities,0);
-        }
-        virtual void freeMem(){
-            delete m_Forest;
-            m_data=matrix<float>(0,0);
-            m_conf=matrix<float>(0,0);
-        }
-        virtual void save(string filename){
-            m_Forest->save(filename);
-        }
-        virtual void load(string filename){
-            m_Forest->load(filename);
-        }
-
+    
+      
         virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
        
-            int maxTrain=1000000;
+            int maxTrain=10000000;
             //maximal size
             long int nData=1;
             for (int d=0;d<ImageType::ImageDimension;++d)
@@ -608,7 +585,7 @@ namespace itk{
             ImageIterator.GoToBegin();
             this->m_counts= std::vector<int>(2,0);
             //this->m_intensCounts= std::vector<int>(this->m_nIntensities,0);
-            m_meanIntens=std::vector<double>(2,0.0); m_meanGrad=std::vector<double>(2,0.0);m_varianceIntens=std::vector<double>(2,0.0);m_varianceGrad=std::vector<double>(2,0.0);m_covariance=std::vector<double>(2,0.0);
+            this->m_meanIntens=std::vector<double>(2,0.0); this->m_meanGrad=std::vector<double>(2,0.0);this->m_varianceIntens=std::vector<double>(2,0.0);this->m_varianceGrad=std::vector<double>(2,0.0);this->m_covariance=std::vector<double>(2,0.0);
 
             for (;!ImageIterator.IsAtEnd() ;
                  ++ImageIterator)
@@ -619,31 +596,32 @@ namespace itk{
                     int intens=mapIntensity(ImageIterator.Get());
                     this->m_counts[label]++;
                     i++;
-                    m_meanIntens[label]+=intens;
-                    m_meanGrad[label]+=grad;
-                    m_varianceIntens[label]+=intens*intens;
-                    m_varianceGrad[label]+=grad*grad;
-                    m_covariance[label]+=intens*grad;
+                    this->m_meanIntens[label]+=intens;
+                    this->m_meanGrad[label]+=grad;
+                    this->m_varianceIntens[label]+=intens*intens;
+                    this->m_varianceGrad[label]+=grad*grad;
+                    this->m_covariance[label]+=intens*grad;
                 }
 
             for (int s=0;s<2;++s){
-                m_meanIntens[s]/=i;
-                m_meanGrad[s]/=i;
-                m_varianceIntens[s]= m_varianceIntens[s]/i- m_meanIntens[s];
-                m_varianceGrad[s]=m_varianceGrad[s]/i-m_meanGrad[s];
-                m_covariance[s]= m_covariance[s]/i-m_meanGrad[s]*m_meanIntens[s];
+                this->m_meanIntens[s]/=i;
+                this->m_meanGrad[s]/=i;
+                this->m_varianceIntens[s]= this->m_varianceIntens[s]/i- this->m_meanIntens[s];
+                this->m_varianceGrad[s]=this->m_varianceGrad[s]/i-this->m_meanGrad[s];
+                this->m_covariance[s]= this->m_covariance[s]/i-this->m_meanGrad[s]*this->m_meanIntens[s];
             }
         };
 
+#if 0
         virtual void computeProbabilities(){
-
+            this->m_probs= std::vector<float> (2*this->m_nIntensities*this->m_nIntensities,0);
             double min=9999;
             double max=-1;
             std::vector<double> mins(2,99999);
             std::vector<double> maxs(2,-99999);
             std::vector<double> det(2,0);
             for (int s=0;s<2;++s){
-                det[s]=m_varianceIntens[s]*m_varianceGrad[s]-m_covariance[s]*m_covariance[s];
+                det[s]=this->m_varianceIntens[s]*this->m_varianceGrad[s]-this->m_covariance[s]*this->m_covariance[s];
             }
         
             for (int i=0;i<this->m_nIntensities;++i){
@@ -654,21 +632,21 @@ namespace itk{
                         // p(s) = relative frequency
                         double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
                         //p(x) = multivariate gaussian
-                        double bar_intens=i-m_meanIntens[s];
-                        double bar_grad=j-m_meanGrad[s];
+                        double bar_intens=i-this->m_meanIntens[s];
+                        double bar_grad=j-this->m_meanGrad[s];
                         //-1/2(i-mu_i g-mu_g)^T E^-1 (i-mu_i g-mu_g)
-                        double mahalanobis=-1.0/(2*det[s]) *(bar_intens*(bar_intens*m_varianceGrad[s]-bar_grad*m_covariance[s]) + bar_grad*(bar_grad*m_varianceIntens[s]-bar_intens*m_covariance[s]));
+                        double mahalanobis=-1.0/(2*det[s]) *(bar_intens*(bar_intens*this->m_varianceGrad[s]-bar_grad*this->m_covariance[s]) + bar_grad*(bar_grad*this->m_varianceIntens[s]-bar_intens*this->m_covariance[s]));
                         double p=norm*exp(mahalanobis);
                         sum+=p;
                         this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p;
+                        LOGV(10)<<s<<" "<<i<<" "<<j<<" "<<p<<" "<<norm<<" "<<mahalanobis<<" "<<det[s]<<endl;
                         if (p<mins[0]) mins[0]=p;
                         if (p>maxs[0]) maxs[0]=p;
                     }
                     for (int s=0;s<2;++s){
                         double p=( this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]);
-                        double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
-
-                        p=p*p_s/sum;
+                        //double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
+                        //p=p*p_s/sum;
                         this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p;
                     }
 
@@ -689,38 +667,48 @@ namespace itk{
             }
 #endif
         }
-        
-        inline virtual int mapIntensity(float intensity){
-            return intensity;
-        }
-        virtual double px_l(float intensity,int label, int gradient){
-            int intens=mapIntensity(intensity);
-            return this->m_probs[(label>0)*this->m_nIntensities*this->m_nIntensities+intens*this->m_nIntensities+gradient];
-        }
-        virtual void evalImage(ImageConstPointerType im, ImageConstPointerType gradient){
-            ImagePointerType result0=ImageUtils<ImageType>::createEmpty(im);
-            ImagePointerType result1=ImageUtils<ImageType>::createEmpty(im);
-            typename itk::ImageRegionConstIterator<ImageType> it(im,im->GetLargestPossibleRegion());
-            typename itk::ImageRegionConstIterator<ImageType> itGrad(gradient,gradient->GetLargestPossibleRegion());
-            for (it.GoToBegin();!it.IsAtEnd(); ++it,++itGrad){
-                PixelType val=it.Get();
-                PixelType grad=itGrad.Get();
-                double prob0=px_l(val,grad,0);
-                double prob1=px_l(val,grad,1);
-                //                LOG<<prob0<<" "<<prob1<<" "<<(PixelType)std::numeric_limits<PixelType>::max()*prob0<<std::endl;
-                result0->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob0);
-                result1->SetPixel(it.GetIndex(),(PixelType)std::numeric_limits<PixelType>::max()*prob1);
+#else
+        virtual void computeProbabilities(){
+            this->m_probs= std::vector<float> (2*this->m_nIntensities*this->m_nIntensities,0);
+            double min=9999;
+            double max=-1;
+            std::vector<double> mins(2,99999);
+            std::vector<double> maxs(2,-99999);
+            std::vector<double> det(2,0);
+            for (int s=0;s<2;++s){
+                det[s]=sqrt(this->m_varianceIntens[s]+this->m_varianceGrad[s]);
             }
-            if (false){
-                if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("p0-gaussGradient.png",result0);
-                    ImageUtils<ImageType>::writeImage("p1-gaussGradient.png",result1);
-                }else{
-                    ImageUtils<ImageType>::writeImage("p0-gaussGradient.nii",result0);
-                    ImageUtils<ImageType>::writeImage("p1-gaussGradient.nii",result1);
+        
+            for (int i=0;i<this->m_nIntensities;++i){
+                for (int j=0;j<this->m_nIntensities;++j){
+                    double sum=0.0;
+                    for (int s=0;s<2;++s){
+                        double norm=1.0/sqrt(2*3.14*det[s]);
+                        // p(s) = relative frequency
+                        //p(x) = multivariate gaussian
+                        double bar_intens=i-this->m_meanIntens[s];
+                        double bar_grad=j-this->m_meanGrad[s];
+                        //-1/2(i-mu_i g-mu_g)^T E^-1 (i-mu_i g-mu_g)
+                        double mahalanobis=-1.0/(2*det[s]) *( bar_intens * bar_intens/(this->m_varianceIntens[s]) +
+                                                              bar_grad*bar_grad/(this->m_varianceGrad[s]));
+                        double p=norm*exp(mahalanobis);
+                        sum+=p;
+                        this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p;
+                        //LOGV(10)<<s<<"  bla  "<<i<<" "<<j<<" "<<p<<" "<<norm<<" "<<mahalanobis<<" "<<det[s]<<endl;
+                        if (p<mins[0]) mins[0]=p;
+                        if (p>maxs[0]) maxs[0]=p;
+                    }
+                    for (int s=0;s<2;++s){
+                        double p=( this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]);
+                        //double p_s=1.0*this->m_counts[s] / ( this->m_counts[0] +  this->m_counts[1]);
+                        //p=p*p_s/sum;
+                        this->m_probs[s*this->m_nIntensities*this->m_nIntensities+i*this->m_nIntensities+j]=p;
+                    }
+
                 }
             }
         }
+#endif
 
         virtual void loadProbs(string filename){
 
@@ -1955,6 +1943,21 @@ namespace itk{
                     this->m_jointCounts[floor(intens) + this->m_nIntensities*floor(grad)]++;
 
                 }
+            std::vector<int> tmpCounts(this->m_jointCounts.size(),0);
+            int kernelwidth=2;
+            for (unsigned int i=0;i< this->m_jointCounts.size();++i){
+                int sumCount=0;
+                for (int k=-kernelwidth;k<=kernelwidth;++k){
+                    int newIndex=i+k;
+                    if (newIndex>0 &&newIndex<int(this->m_jointCounts.size())){
+                        int w=kernelwidth-fabs(k)+1;
+                        tmpCounts[i]+=w*this->m_jointCounts[newIndex];
+                        sumCount+=w;
+                    }
+                }
+                tmpCounts[i]=floor(0.5+1.0*tmpCounts[i]/sumCount);
+            }
+            this->m_jointCounts=tmpCounts;
             this->m_totalCount=i;
             this->m_meanIntens/=i;
             this->m_meanGrad/=i;

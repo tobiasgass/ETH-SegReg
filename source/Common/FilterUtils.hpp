@@ -121,7 +121,8 @@ public:
 		img->Allocate();
 		return img;
 	};
-#define  ISOTROPIC_RESAMPLING
+    //#define  ISOTROPIC_RESAMPLING
+    //resample with an uniform scaling factor
 #ifdef ISOTROPIC_RESAMPLING
     static OutputImagePointer LinearResample( InputImagePointer input,  double scale) {
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
@@ -222,7 +223,8 @@ public:
         return resampler->GetOutput();
     }
 #else
-
+    //downscale to isotropic spacing defined by minspacing/scale
+    //never upsample!
     static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool nnResample=false) {
 
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
@@ -239,15 +241,16 @@ public:
         inputOrigin=input->GetOrigin();
         inputSize=input->GetLargestPossibleRegion().GetSize();
         inputSpacing=input->GetSpacing();
-        double maxSpacing=-1;
+        double minSpacing=std::numeric_limits<double>::max();
         for (uint d=0;d<InputImage::ImageDimension;++d){
-            if (inputSpacing[d]>maxSpacing) maxSpacing=inputSpacing[d];
+            if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
         }
-        double newSpacing=maxSpacing/scale;
+        double newSpacing=minSpacing/scale;
         LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
         for (uint d=0;d<InputImage::ImageDimension;++d){
-            spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
-            size[d]=int((inputSize[d]-1)*inputSpacing[d]/newSpacing)+1;
+            //never increase resolution!
+            spacing[d]=max(inputSpacing[d],newSpacing);//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            size[d]=int((inputSize[d]-1)*inputSpacing[d]/spacing[d])+1;
             origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
         LOGV(7)<<"full parameters : "<<spacing<<" "<<size<<" "<<origin<<endl;
@@ -295,6 +298,10 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
+    static OutputImagePointer LinearResample( InputImagePointer input,  InputImagePointer reference) {
+        return LinearResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference);
+    }
+ 
     static OutputImagePointer NNResample( InputImagePointer input,  ConstInputImagePointer reference) {
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
@@ -512,6 +519,39 @@ public:
         return thresholder->GetOutput();
     }
 
+      static OutputImagePointer binaryThresholdingLow(
+                                                 InputImagePointer inputImage,
+                                                 InputImagePixelType lowerThreshold,
+                                                 OutputImagePixelType insideValue = 1,
+                                                 OutputImagePixelType outsideValue = 0
+                                                 ) {
+        BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
+        thresholder->SetInput(inputImage);
+
+        thresholder->SetLowerThreshold( lowerThreshold );
+        thresholder->SetInsideValue(insideValue);
+        thresholder->SetOutsideValue(outsideValue);
+
+        thresholder->Update();
+
+        return thresholder->GetOutput();
+    }
+      static OutputImagePointer binaryThresholdingHigh(
+                                                 InputImagePointer inputImage,
+                                                 InputImagePixelType upperThreshold,
+                                                 OutputImagePixelType insideValue = 1,
+                                                 OutputImagePixelType outsideValue = 0
+                                                 ) {
+        BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
+        thresholder->SetInput(inputImage);
+        thresholder->SetUpperThreshold( upperThreshold );
+        thresholder->SetInsideValue(insideValue);
+        thresholder->SetOutsideValue(outsideValue);
+
+        thresholder->Update();
+
+        return thresholder->GetOutput();
+    }
     static OutputImagePointer round(
                                     InputImagePointer inputImage
                                     ) {

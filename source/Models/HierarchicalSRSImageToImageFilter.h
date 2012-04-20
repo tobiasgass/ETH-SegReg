@@ -207,10 +207,9 @@ namespace itk{
             ConstImagePointerType atlasGradientImage=this->GetInput(4);
             
             //results
-            ImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
+            ConstImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
             DeformationFieldPointerType fullDeformation,previousFullDeformation;
-        
-            if (regist){
+            if (regist || coherence){
                 if (m_useBulkTransform){
                     LOGV(1)<<"Initializing with bulk transform." <<endl;
                     previousFullDeformation=m_bulkTransform;
@@ -226,7 +225,9 @@ namespace itk{
                     Vector<float, D> tmpVox(0.0);
                     previousFullDeformation->FillBuffer(tmpVox);
                 }
+                deformedAtlasImage=TransfUtils<ImageType>::warpImage(atlasImage,previousFullDeformation);
             }
+
             //instantiate potentials
             UnaryRegistrationPotentialPointerType unaryRegistrationPot=UnaryRegistrationPotentialType::New();
             UnarySegmentationPotentialPointerType unarySegmentationPot=UnarySegmentationPotentialType::New();
@@ -288,12 +289,10 @@ namespace itk{
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":0");
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config.scale);
-                int exponent=m_config.nLevels-l;
-                if (m_config.downScale||ImageType::ImageDimension==2){
-                    exponent--;
-                }
+                int exponent=max(0,m_config.nLevels-l-1);
+               
                 if (m_config.imageLevels>0){
-                    exponent=max(0,m_config.imageLevels-l);
+                    exponent=max(0,m_config.imageLevels-l-1);
                 }
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
@@ -401,7 +400,7 @@ namespace itk{
                             pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
                             //if ( l || i ) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
                     }
-
+                    //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
                     
 
                     //	ok what now: create graph! solve graph! save result!Z

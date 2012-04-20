@@ -81,7 +81,7 @@ namespace itk{
             filter->Update();
             this->m_Sigma=filter->GetSigma();
             this->m_Sigma*=this->m_Sigma;
-                        
+                                    
         }
         virtual void SetAtlasSegmentation(ConstImagePointerType im){
             m_atlasSegmentation=im;
@@ -335,7 +335,7 @@ namespace itk{
         virtual void Init(){
             
             m_classifier=  ClassifierType::New();
-            m_classifier->setNIntensities(3000);
+            m_classifier->setNIntensities(3500);
             m_classifier->setData(this->m_atlasImage,this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
             //m_classiifier->setData(movingImage,movingSegmentationImage);
 #if 1

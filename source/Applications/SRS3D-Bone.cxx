@@ -38,7 +38,8 @@ int main(int argc, char ** argv)
     //typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
     typedef TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef DeformationFieldType::Pointer DeformationFieldPointerType;
-
+    typedef ImageUtils<ImageType>::FloatImageType FloatImageType;
+    typedef ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
 
 
     //unary seg
@@ -184,13 +185,14 @@ int main(int argc, char ** argv)
     //upsample?
     if (filterConfig.downScale<1){
         LOG<<"Upsampling Images.."<<endl;
-
-        double scale=1.0/filterConfig.downScale;
         finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
         //this is more or less f***** up
         //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
-        if (targetSegmentationEstimate)
-            targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),scale));
+        if (targetSegmentationEstimate){
+            FloatImagePointerType distanceMap=FilterUtils<ImageType,FloatImageType>::distanceMapByFastMarcher(FilterUtils<ImageType>::binaryThresholdingLow(targetSegmentationEstimate,1),1);
+            targetSegmentationEstimate=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(FilterUtils<FloatImageType>::LinearResample(distanceMap,FilterUtils<ImageType,FloatImageType>::cast(originalTargetImage)),0);
+            //targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),scale));
+        }
     }
     LOG<<"Deforming Images.."<<endl;
 

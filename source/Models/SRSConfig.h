@@ -52,27 +52,28 @@ public:
         outputDeformedSegmentationFilename="deformedAtlasSegmentation.nii";
         outputDeformedFilename="deformedAtlas.nii";
         segmentationOutputFilename="targetSegmentation.nii";
-		pairwiseRegistrationWeight=1;
-		pairwiseSegmentationWeight=1;
+		pairwiseRegistrationWeight=0;
+		pairwiseSegmentationWeight=0;
 		displacementSampling=-1;
 		unaryWeight=1;
 		maxDisplacement=10;
 		unaryRegistrationWeight=1;
-		unarySegmentationWeight=1;
-		pairwiseCoherenceWeight=1;
-		nSegmentations=1;
+		unarySegmentationWeight=0;
+		pairwiseCoherenceWeight=0;
+		nSegmentations=2;
 		verbose=0;
-		nLevels=3;
-		startTiling=2;
+		nLevels=4;
+		startTiling=3;
 		iterationsPerLevel=4;
 		train=false;
 		segmentationProbsFilename="segmentation.bin";
 		pairWiseProbsFilename="pairwise.bin";
-        displacementRescalingFactor=0.5;
-        scale=1;asymmetry=0;
+        displacementRescalingFactor=0.618;
+        scale=0.5;
+        asymmetry=0;
         downScale=1;
         pairwiseContrastWeight=1;
-        nSubsamples=1;
+        nSubsamples=-1;
         alpha=0;
         imageLevels=-1;
         affineBulkTransform="";
@@ -82,6 +83,7 @@ public:
         segment=false;
         regist=false;
         coherence=false;
+        optIter=10;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -184,6 +186,7 @@ public:
 
 		(*as) >> parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
 		(*as) >> parameter ("nLevels", nLevels,"number of grid multiresolution pyramid levels", false);
+        imageLevels=nLevels;
 		(*as) >> parameter ("nImageLevels", imageLevels,"number of image multiresolution  levels", false);
 		(*as) >> parameter ("startlevel", startTiling,"start tiling", false);
 		(*as) >> parameter ("iterationsPerLevel", iterationsPerLevel,"iterationsPerLevel", false);
