@@ -221,18 +221,37 @@ namespace itk{
                 if(m_imageSize[d]<minSize) {minSize=m_imageSize[d]; minDim=d;}
             }
             LOGV(8)<<"shortest edge has size :"<<minSize<<" in dimension :"<<minDim<<" which has spacing :"<<m_imageSpacing[minDim]<<endl;
+
+#if 1
             //calculate spacing for resizing the shortest edge to shortestN
             double minSpacing=m_imageSpacing[minDim]*(m_imageSize[minDim]-1)/(shortestN-1);
             minSpacing=minSpacing>=1?minSpacing:1.0;
             LOGV(8)<<"spacing for resampling this edge to "<<shortestN<<" pixels :"<<minSpacing<<endl;
             //calculate spacing and size for all image dimensions using
             for (int d=0;d<ImageType::ImageDimension;++d){
+
                 int div= ceil(1.0*m_imageSpacing[d]/minSpacing*(m_imageSize[d]-1))+1 ;
                 m_gridSpacing[d]=1.0*m_imageSpacing[d]*(m_imageSize[d]-1)/(div-1);
                 //m_gridPixelSpacing[d]= (m_imageSize[d]-1)/(div-1);
                 LOGV(8)<<d<<" "<<div<<" "<< m_gridSpacing[d] <<" "<< m_gridPixelSpacing[d]<<" "<<m_imageSpacing[d]<<endl;
                 m_gridSize[d]=div;
             }
+#else
+
+            //calculate spacing for resizing the shortest edge to shortestN
+            double minSpacing=m_imageSpacing[minDim]*(m_imageSize[minDim])/(shortestN);
+            minSpacing=minSpacing>=1?minSpacing:1.0;
+            LOGV(8)<<"spacing for resampling this edge to "<<shortestN<<" pixels :"<<minSpacing<<endl;
+            //calculate spacing and size for all image dimensions using
+            for (int d=0;d<ImageType::ImageDimension;++d){
+
+                int div= ceil(1.0*m_imageSpacing[d]/minSpacing*(m_imageSize[d])) ;
+                m_gridSpacing[d]=1.0*m_imageSpacing[d]*(m_imageSize[d])/(div);
+                //m_gridPixelSpacing[d]= (m_imageSize[d]-1)/(div-1);
+                LOGV(8)<<d<<" "<<div<<" "<< m_gridSpacing[d] <<" "<< m_gridPixelSpacing[d]<<" "<<m_imageSpacing[d]<<endl;
+                m_gridSize[d]=div;
+            }
+#endif
             m_coarseGraphImage->SetSpacing(m_gridSpacing);
             typename ImageType::RegionType region;
             region.SetSize(m_gridSize);
