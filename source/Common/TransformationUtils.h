@@ -197,7 +197,7 @@ public:
         LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
-        const unsigned int SplineOrder = 3;
+        const unsigned int SplineOrder = 5;
         typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
         typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
         typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
