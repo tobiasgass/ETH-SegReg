@@ -6,6 +6,7 @@ include_directories (${SRS-MRF_SOURCE_DIR}/Utils)
 include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
 include_directories (${SRS-MRF_SOURCE_DIR}/External/TRWS) 
 include_directories (${SRS-MRF_SOURCE_DIR}/External/RF) 
+include_directories (${SRS-MRF_SOURCE_DIR}/External/c-ugmix) 
 include_directories (${SRS-MRF_SOURCE_DIR}/External/maxFlow) 
 
 include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
@@ -41,8 +42,9 @@ ADD_EXECUTABLE(SegReg3D Multiresolution-SegmentationRegistration3D.cxx )
 TARGET_LINK_LIBRARIES(SegReg3D maxflow  Utils TRWS FastPD SRSMRFModels   RF    xml2 /home/gasst/work/lib/libconfig++.a  )
 
 ADD_EXECUTABLE(SRS3D Multiresolution-SRS3D.cxx )
-TARGET_LINK_LIBRARIES(SRS3D maxflow  Utils TRWS FastPD SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
-
+TARGET_LINK_LIBRARIES(SRS3D ugmix maxflow  Utils TRWS FastPD SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(SRS2D Multiresolution-SRS2D.cxx )
+TARGET_LINK_LIBRARIES(SRS2D ugmix maxflow  Utils TRWS FastPD SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SRS3D-Bone SRS3D-Bone.cxx )
 TARGET_LINK_LIBRARIES(SRS3D-Bone maxflow  Utils TRWS FastPD SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )

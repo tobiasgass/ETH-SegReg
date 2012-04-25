@@ -62,7 +62,6 @@ public:
 			//set up unary costs at current position
 			for (int l1=0;l1<nLabels;++l1)
 			{
-
 				D[l1]=m_unaryWeight*graph->getUnaryPotential(d,l1);
 //				LOG<<d<<" "<<l1<<" "<<D[l1]<<" "<<nLabels<<std::endl;
 			}
@@ -85,7 +84,7 @@ public:
 				optimizer -> add_edge(d,neighbours[i],lambda1,lambda2);
 			}
 		}
-		LOG<<vertCount<<" "<<graph->nEdges()<<std::endl;
+		LOGV(2)<<vertCount<<" "<<graph->nEdges()<<std::endl;
 		clock_t finish = clock();
 		t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
 		LOGV(1)<<"Finished init after "<<t<<" seconds"<<std::endl;

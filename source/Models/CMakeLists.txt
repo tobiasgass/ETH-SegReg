@@ -2,12 +2,14 @@ include(${ITK_USE_FILE})
 INCLUDE_DIRECTORIES(
     /usr/include/libxml2
     ../External/RF
+    ../External/c-ugmix
     ../External/fastPD
     ../Common
  )
 
 
 SET(SRSMRFModels_SRC
+  NewClassifier.h
   Classifier.h
   BaseLabel.h
   MRF-TRW-S.h
@@ -27,6 +29,6 @@ SET(SRSMRFModels_SRC
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )
 #TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters FastPD )
-TARGET_LINK_LIBRARIES (SRSMRFModels RF  FastPD tcmalloc)
+TARGET_LINK_LIBRARIES (SRSMRFModels ugmix RF  FastPD tcmalloc)
 #INSTALL(TARGETS SRSMRFModels)
 #TARGET_LINK_LIBRARIES(ITKAlgorithms ITKStatistics ITKNumerics)

@@ -331,7 +331,7 @@ namespace itk{
         }
         virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
             LOGV(5)<<"Preparing data for intensity and gradient based segmentation classifier" << endl;
-            int maxTrain=3000000;
+            int maxTrain=3000000000;
             //maximal size
             long int nData=1;
             for (int d=0;d<ImageType::ImageDimension;++d)
@@ -343,10 +343,10 @@ namespace itk{
             matrix<float> data(maxTrain,nFeatures);
             LOG<<maxTrain<<" matrix allocated"<<std::endl;
             std::vector<int> labelVector(maxTrain);
-            typedef typename itk::ImageRandomConstIteratorWithIndex< ImageType > IteratorType;
-            //		typedef typename itk::ImageRegionIteratorWithIndex< ImageType > IteratorType;
+            //typedef typename itk::ImageRandomConstIteratorWithIndex< ImageType > IteratorType;
+            typedef typename itk::ImageRegionConstIteratorWithIndex< ImageType > IteratorType;
             IteratorType ImageIterator(intensities, intensities->GetLargestPossibleRegion());
-            ImageIterator.SetNumberOfSamples(maxTrain);
+            //ImageIterator.SetNumberOfSamples(maxTrain);
             int i=0;
             ImageIterator.GoToBegin();
             this->m_counts= std::vector<int>(2,0);
@@ -1891,10 +1891,13 @@ namespace itk{
         itkTypeMacro(SegmentationGenerativeClassifierGradient, Object);
         itkNewMacro(Self);
 
+        virtual int mapIntensity(float intens){
+            return int(min(1.0*this->m_nIntensities,1.0*this->m_nIntensities*(intens+1000)/1800));
+        }
     
         virtual void setData(ImageConstPointerType intensities, ImageConstPointerType labels, ImageConstPointerType gradient){
             LOGV(5)<<"Preparing data for intensity and gradient based segmentation classifier" << endl;
-            int maxTrain=3000000;
+            long int maxTrain=30000000;
             //maximal size
             long int nData=1;
             for (int d=0;d<ImageType::ImageDimension;++d)
@@ -1906,10 +1909,10 @@ namespace itk{
             matrix<float> data(maxTrain,nFeatures);
             LOG<<maxTrain<<" matrix allocated"<<std::endl;
             std::vector<int> labelVector(maxTrain);
-            typedef typename itk::ImageRandomConstIteratorWithIndex< ImageType > IteratorType;
-            //		typedef typename itk::ImageRegionIteratorWithIndex< ImageType > IteratorType;
+            //typedef typename itk::ImageRandomConstIteratorWithIndex< ImageType > IteratorType;
+            typedef typename itk::ImageRegionConstIteratorWithIndex< ImageType > IteratorType;
             IteratorType ImageIterator(intensities, intensities->GetLargestPossibleRegion());
-            ImageIterator.SetNumberOfSamples(maxTrain);
+            //ImageIterator.SetNumberOfSamples(maxTrain);
             int i=0;
             ImageIterator.GoToBegin();
             this->m_counts= std::vector<int>(2,0);

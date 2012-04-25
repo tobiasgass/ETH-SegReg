@@ -242,7 +242,10 @@ public:
     static OutputImagePointer LinearResample( InputImagePointer input,  InputImagePointer reference) {
         return LinearResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference);
     }
- 
+    static OutputImagePointer NNResample( InputImagePointer input,  InputImagePointer reference) {
+        return NNResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference);
+    }
+
     static OutputImagePointer NNResample( InputImagePointer input,  ConstInputImagePointer reference) {
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();

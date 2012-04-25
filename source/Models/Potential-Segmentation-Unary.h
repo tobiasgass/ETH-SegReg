@@ -29,7 +29,7 @@ namespace itk{
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
 
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
@@ -37,14 +37,14 @@ namespace itk{
         SizeType m_targetSize;
        typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
-        ConstImagePointerType m_targetImage, m_targetGradient,m_atlasImage, m_atlasGradient;
-        ConstImagePointerType m_atlasSegmentation;
+        ImageConstPointerType m_targetImage, m_targetGradient,m_atlasImage, m_atlasGradient;
+        ImageConstPointerType m_atlasSegmentation;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         double m_gradientSigma, m_Sigma;
         double m_gradientScaling;
-        ConstImagePointerType m_tissuePrior;
+        ImageConstPointerType m_tissuePrior;
         bool m_useTissuePrior;
     public:
         
@@ -52,7 +52,7 @@ namespace itk{
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentation, Object);
-        void SetTissuePrior(ConstImagePointerType img){m_tissuePrior=img;}
+        void SetTissuePrior(ImageConstPointerType img){m_tissuePrior=img;}
         void SetUseTissuePrior(bool b){
             m_useTissuePrior=b;
         }
@@ -64,11 +64,11 @@ namespace itk{
         virtual void freeMemory(){
         }
         void SetGradientScaling(double s){m_gradientScaling=s;}
-        void SetTargetImage(ConstImagePointerType targetImage){
+        void SetTargetImage(ImageConstPointerType targetImage){
             this->m_targetImage=targetImage;
             this->m_targetSize=this->m_targetImage->GetLargestPossibleRegion().GetSize();
         }
-        void SetTargetGradient(ConstImagePointerType targetGradient){
+        void SetTargetGradient(ImageConstPointerType targetGradient){
             this->m_targetGradient=targetGradient;
             
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
@@ -83,13 +83,13 @@ namespace itk{
             this->m_Sigma*=this->m_Sigma;
                                     
         }
-        virtual void SetAtlasSegmentation(ConstImagePointerType im){
+        virtual void SetAtlasSegmentation(ImageConstPointerType im){
             m_atlasSegmentation=im;
         }
-        virtual void SetAtlasGradient(ConstImagePointerType im){
+        virtual void SetAtlasGradient(ImageConstPointerType im){
             m_atlasGradient=im;
         }
-        virtual void SetAtlasImage(ConstImagePointerType im){
+        virtual void SetAtlasImage(ImageConstPointerType im){
             m_atlasImage=im;
         }
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
@@ -317,13 +317,13 @@ namespace itk{
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
 
         typedef TClassifier ClassifierType;
         typedef typename ClassifierType::Pointer ClassifierPointerType;
         
     protected:
-        ConstImagePointerType m_deformationPrior;
+        ImageConstPointerType m_deformationPrior;
         double m_alpha;
         ClassifierPointerType m_classifier;
     public:
@@ -336,7 +336,7 @@ namespace itk{
             
             m_classifier=  ClassifierType::New();
             m_classifier->setNIntensities(3500);
-            m_classifier->setData(this->m_atlasImage,this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
+            m_classifier->setData(this->m_atlasImage,this->m_atlasSegmentation,(ImageConstPointerType)this->m_atlasGradient);
             //m_classiifier->setData(movingImage,movingSegmentationImage);
 #if 1
             m_classifier->train();
@@ -401,7 +401,7 @@ namespace itk{
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
         typedef TClassifier ClassifierType;
         typedef typename ClassifierType::Pointer ClassifierPointerType;
 
@@ -443,7 +443,7 @@ namespace itk{
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
-        typedef typename TImage::ConstPointer ConstImagePointerType;
+        typedef typename TImage::ConstPointer ImageConstPointerType;
     public:
         
         /** Method for creation through the object factory. */
@@ -505,7 +505,7 @@ namespace itk{
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
 
         typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
         typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
@@ -559,7 +559,7 @@ namespace itk{
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
 
         typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
         typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
@@ -587,6 +587,51 @@ namespace itk{
         }
     };//class
 
+  template<class TImage, class TClassifier>
+    class UnaryPotentialNewSegmentationClassifier: public UnaryPotentialSegmentation<TImage> {
+    public:
+        //itk declarations
+        typedef UnaryPotentialNewSegmentationClassifier            Self;
+        typedef UnaryPotentialSegmentation<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
 
+        typedef TClassifier ClassifierType;
+        typedef typename ClassifierType::Pointer ClassifierPointerType;
+      typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
+        
+    protected:
+      ClassifierPointerType m_classifier;
+      std::vector<FloatImagePointerType> m_probabilityImages;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialNewSegmentationClassifier, Object);
+          
+        virtual void Init(){
+            m_classifier=  ClassifierType::New();
+            m_classifier->setNSegmentationLabels(2);
+            std::vector<ImageConstPointerType> atlas;
+            atlas.push_back(this->m_atlasImage);
+            //atlas.push_back(this->m_atlasGradient);
+            m_classifier->setData(atlas,this->m_atlasSegmentation);
+            m_classifier->train();
+            std::vector<ImageConstPointerType> target;
+            target.push_back(this->m_targetImage);
+            //target.push_back(this->m_targetGradient);
+            m_probabilityImages=m_classifier->evalImage(target);
+        }
+        
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+            double prob= m_probabilityImages[segmentationLabel>0]->GetPixel(targetIndex);
+            if (prob<=0) prob=0.00000000001;
+            return -log(prob);
+        }
+    };
 }//namespace
 #endif /* POTENTIALS_H_ */

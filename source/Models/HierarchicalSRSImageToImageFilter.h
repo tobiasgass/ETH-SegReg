@@ -195,14 +195,8 @@ namespace itk{
             ConstImagePointerType atlasImage = this->GetInput(1);
             ConstImagePointerType atlasSegmentationImage;
             
-            if (D==2){
-                //2d segmentations pngs [from matlab] may have screwed up intensities
-                atlasSegmentationImage = fixSegmentationImage(this->GetInput(2),m_config.nSegmentations);
-                ImageUtils<ImageType>::writeImage("test.png",atlasSegmentationImage);
-                
-            }else{
-                atlasSegmentationImage = (this->GetInput(2));
-            }
+            atlasSegmentationImage = (this->GetInput(2));
+            
             ConstImagePointerType targetGradientImage = this->GetInput(3);
             ConstImagePointerType atlasGradientImage=this->GetInput(4);
             
@@ -353,9 +347,9 @@ namespace itk{
                 graph->setPairwiseCoherenceFunction(pairwiseCoherencePot);
                 graph->setPairwiseSegmentationFunction(pairwiseSegmentationPot);
 
-
+                bool computeLowResolutionBsplineIfPossible=false;
                 if (regist){
-                    if (!coherence){
+                    if (computeLowResolutionBsplineIfPossible && !coherence){
                     //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
                         previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
                     }else{
@@ -389,7 +383,7 @@ namespace itk{
                     
                     //register deformation from previous iteration
                     if (regist){
-                        if (!coherence){
+                        if (computeLowResolutionBsplineIfPossible && !coherence){
                             unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                         }else{
                             unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
@@ -467,7 +461,7 @@ namespace itk{
                     DeformationFieldPointerType composedDeformation;
 
                     if (regist){
-                        if (!coherence){
+                        if (computeLowResolutionBsplineIfPossible && !coherence){
                             //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
                             fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
                         }else{
@@ -565,8 +559,8 @@ namespace itk{
         }
         
         
-        ConstImagePointerType fixSegmentationImage(ConstImagePointerType segmentationImage, int nSegmentations){
-            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
+        ImagePointerType fixSegmentationImage(ImagePointerType segmentationImage, int nSegmentations){
+            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty((ConstImagePointerType)segmentationImage);
             typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
             typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
             ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
@@ -578,7 +572,7 @@ namespace itk{
                 imageIt2.Set(floor(1.0*imageIt.Get()/divisor+0.5));
             }
 
-            return (ConstImagePointerType)newImage;
+            return (ImagePointerType)newImage;
         }
     }; //class
 } //namespace

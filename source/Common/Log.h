@@ -48,6 +48,7 @@ public:
 MyLog mylog;
 
 
+#define VAR(x)  #x " = " << x 
 
 #define LOG \
     if (mylog.getVerbosity()>=30)                                        \
