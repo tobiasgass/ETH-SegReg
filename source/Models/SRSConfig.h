@@ -56,7 +56,7 @@ public:
 		pairwiseSegmentationWeight=0;
 		displacementSampling=-1;
 		unaryWeight=1;
-		maxDisplacement=10;
+		maxDisplacement=4;
 		unaryRegistrationWeight=1;
 		unarySegmentationWeight=0;
 		pairwiseCoherenceWeight=0;
@@ -234,7 +234,6 @@ public:
 			}else{
 				levels[i]=tmp_levels[i];
 			}
-
 		}
            
         coherence= (pairwiseCoherenceWeight>0);

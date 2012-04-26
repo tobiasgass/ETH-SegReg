@@ -85,8 +85,8 @@ namespace itk{
             assert(m_targetImage);
             assert(m_atlasImage);
             if (m_scale!=1.0){
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,1),m_scale);
-                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,1),m_scale);
+                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,100),m_scale);
+                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,100),m_scale);
             }else{
                 m_scaledTargetImage=m_targetImage;
                 m_scaledAtlasImage=m_atlasImage;
@@ -240,8 +240,9 @@ namespace itk{
                     result=-log(result);
                 }
                 else {
-                    if (sfm>0) result=0;
-                    else result=1;
+                    result=-log(0.5);
+                    //if (sfm>0) result=0;
+                    //else result=1;
                 }
             }
             return result;

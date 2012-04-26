@@ -230,7 +230,6 @@ namespace itk{
             PairwiseCoherencePotentialPointerType pairwiseCoherencePot=PairwiseCoherencePotentialType::New();
 
             //instantiate interpolators
-            SegmentationInterpolatorPointerType segmentationInterpolator=SegmentationInterpolatorType::New();
             ImageInterpolatorPointerType atlasInterpolator=ImageInterpolatorType::New();
 
             if (segment){
@@ -278,6 +277,7 @@ namespace itk{
                 m_config.nLevels=1;
                 m_config.iterationsPerLevel=1;
             }
+            bool computeLowResolutionBsplineIfPossible=true;
             typename GraphModelType::Pointer graph=GraphModelType::New();
             for (int l=0;l<m_config.nLevels;++l){
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":0");
@@ -306,10 +306,8 @@ namespace itk{
             
                 atlasInterpolator->SetInputImage(atlasImage);
                 
-                if (segment && regist)
-                    segmentationInterpolator->SetInputImage(atlasSegmentationImage);
 
-                if (regist){
+                if (regist||coherence){
                     //setup registration potentials
                     unaryRegistrationPot->SetScale(scaling);
                     unaryRegistrationPot->SetTargetImage(targetImage);
@@ -333,7 +331,6 @@ namespace itk{
                 }
                 if (coherence){
                     //setup segreg potentials
-                    //pairwiseCoherencePot->SetAtlasSegmentationInterpolator(segmentationInterpolator);
                     //pairwiseCoherencePot->SetAtlasInterpolator(atlasInterpolator);
                     pairwiseCoherencePot->SetAtlasImage(atlasImage);
                     pairwiseCoherencePot->SetTargetImage(targetImage);
@@ -347,7 +344,6 @@ namespace itk{
                 graph->setPairwiseCoherenceFunction(pairwiseCoherencePot);
                 graph->setPairwiseSegmentationFunction(pairwiseSegmentationPot);
 
-                bool computeLowResolutionBsplineIfPossible=false;
                 if (regist){
                     if (computeLowResolutionBsplineIfPossible && !coherence){
                     //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
@@ -358,7 +354,7 @@ namespace itk{
                 }
 
                 if (regist){
-                    if (!segment){
+                    if (computeLowResolutionBsplineIfPossible && !coherence){
                         unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                     }else{
                         unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
