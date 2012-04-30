@@ -81,12 +81,19 @@ namespace itk{
         ~UnaryPotentialRegistrationNCC(){
             //delete nIt;
         }
+        virtual void Compute(){}
+        virtual void setDisplacements(std::vector<LabelType> displacements){}
+        virtual void setCoarseImage(ImagePointerType img){}
+        
+
         virtual void Init(){
             assert(m_targetImage);
             assert(m_atlasImage);
             if (m_scale!=1.0){
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,100),m_scale);
-                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,100),m_scale);
+                //m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,1),m_scale);
+                //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,1),m_scale);
+                m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),10);
+                m_scaledAtlasImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale),10);
             }else{
                 m_scaledTargetImage=m_targetImage;
                 m_scaledAtlasImage=m_atlasImage;
@@ -1017,6 +1024,8 @@ namespace itk{
         typedef TLabelMapper LabelMapperType;
         typedef typename LabelMapperType::LabelType LabelType;
         typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::PointType PointType;
+
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
@@ -1031,69 +1040,77 @@ namespace itk{
         typedef itk::TranslationTransform<double,ImageType::ImageDimension> TranslationTransformType;
         typedef typename TranslationTransformType::Pointer TranslationTransformPointerType;
         typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleImageFilterType;
-
+        
+        typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        typedef typename itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
     protected:
-        ImagePointerType m_shiftedAtlasImage;
-        ImageNeighborhoodIteratorType m_atlasNeighborhoodIterator;
-        LabelType m_currentDisp;
+        ImageNeighborhoodIteratorType m_atlasNeighborhoodIterator,m_maskNeighborhoodIterator;
+        std::vector<LabelType> m_displacements;
+        std::vector<FloatImagePointerType> m_potentials;
+        ImagePointerType m_coarseImage;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(FastRegistrationUnaryPotentialNCC, Object);
+        
+        virtual void compute(){
+            m_potentials=std::vector<FloatImagePointerType>(m_displacements.size(),NULL);
+            for (unsigned int n=0;n<m_displacements.size();++n){
+                LOGV(9)<<"cachhing unary registrationpotentials for label " <<n<<endl;
+                FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(m_coarseImage);
+                LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
+                translation->FillBuffer( m_displacements[n]);
+                LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
+                ImagePointerType deformedAtlas,deformedMask;
+                pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
+                deformedAtlas=result.first;
+                deformedMask=result.second;
+                m_atlasNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedAtlas,deformedAtlas->GetLargestPossibleRegion());
+                m_maskNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedMask,deformedMask->GetLargestPossibleRegion());
+                FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
+                for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator){
+                    IndexType coarseIndex=coarseIterator.GetIndex();
+                    PointType point;
+                    m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
+                    IndexType targetIndex;
+                    this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
+                    coarseIterator.Set(getLocalPotential(targetIndex));
 
-        virtual void shiftAtlasImage(LabelType displacement){
-            LabelType scaledLabel=displacement*this->m_scale;
-            typename TranslationTransformType::Pointer transform =
-                TranslationTransformType::New();
-            typename TranslationTransformType::OutputVectorType translation;
-            for (int d=0;d<ImageType::ImageDimension;++d){
-                //translation[d] =scaledLabel[d];
-                translation[d] =displacement[d];
+                }
+                m_potentials[n]=pot;
+                            
             }
-            transform->Translate(translation);
-            typename ResampleImageFilterType::Pointer resampleFilter = ResampleImageFilterType::New();
-            resampleFilter->SetTransform(transform.GetPointer());
-            resampleFilter->SetDefaultPixelValue(0);
-            //translate atlas image
-            resampleFilter->SetOutputParametersFromImage(this->m_scaledAtlasImage);
-            resampleFilter->SetInput(this->m_scaledAtlasImage);
-            resampleFilter->Update();
-#if 0
-            if (this->m_scale!=1.0){
-                m_shiftedAtlasImage=FilterUtils<ImageType>::LinearResample((ConstImagePointerType)(resampleFilter->GetOutput()),this->m_scale);
-            }else{
-                m_shiftedAtlasImage=resampleFilter->GetOutput();
-            }
-#endif
-            
-            m_shiftedAtlasImage=resampleFilter->GetOutput();
-            m_atlasNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_radius,this->m_shiftedAtlasImage, this-> m_shiftedAtlasImage->GetLargestPossibleRegion());
-            m_currentDisp=scaledLabel;
-          
+        }
+        
+        void setDisplacements(std::vector<LabelType> displacements){
+            m_displacements=displacements;
+        }
+        void setCoarseImage(ImagePointerType img){m_coarseImage=img;}
+
+        virtual double getPotential(IndexType coarseIndex, unsigned int displacementLabel){
+            return m_potentials[displacementLabel]->GetPixel(coarseIndex);
+        }
+        virtual double getPotential(IndexType coarseIndex, LabelType l){
+            LOG<<"ERROR NEVER CALL THIS"<<endl;
+            exit(0);
         }
         virtual double getLocalPotential(IndexType targetIndex){
 
             double result;
-            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
-                targetIndex[d]*=this->m_scale;
-                if (targetIndex[d]>=(int)m_shiftedAtlasImage->GetLargestPossibleRegion().GetSize()[d]) targetIndex[d]--;
-
-            }
-            //  if(!( m_shiftedAtlasImage->GetLargestPossibleRegion().IsInside(targetIndex) && this->m_targetImage->GetLargestPossibleRegion().IsInside(targetIndex))){
-            //LOG<<targetIndex<<" "<<m_shiftedAtlasImage->GetLargestPossibleRegion().GetSize()<<" "<<this->m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()<<endl;
-            //  }
             this->nIt.SetLocation(targetIndex);
             m_atlasNeighborhoodIterator.SetLocation(targetIndex);
-
+            m_maskNeighborhoodIterator.SetLocation(targetIndex);
+            
             double count=0;
             double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
             for (unsigned int i=0;i<this->nIt.Size();++i){
                 bool inBounds;
                 double m=m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
-                if (inBounds){
+                bool inside=m_maskNeighborhoodIterator.GetPixel(i);
+                if (inside && inBounds){
                     double f=this->nIt.GetPixel(i);
-                    
                     sff+=f*f;
                     smm+=m*m;
                     sfm+=f*m;
@@ -1114,12 +1131,11 @@ namespace itk{
                     result=-log(result);
                 }
                 else {
-                    if (sfm>0) result=0;
-                    else result=1;
+                    result=-log(0.5);
                 }
             }
             //no correlation whatsoever
-            else result=-log(0.0000000000000000001);
+            else result=-log(0.5);
             //result=result>0.5?0.5:result;
             return result;
         }

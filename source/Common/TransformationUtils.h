@@ -20,6 +20,8 @@
 #include <itkVectorResampleImageFilter.h>
 #include "itkResampleImageFilter.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
+#include "itkDisplacementFieldCompositionFilter.h"
+#include <utility>
 using namespace std;
 
 template<class ImageType>
@@ -329,7 +331,18 @@ public:
         return warper->GetOutput();
     }
 #else
+    static ImagePointerType warpImage(ImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
+        return warpImage(ConstImagePointerType(image),deformation,nnInterpol);
+    }
+
     static ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
+        std::pair<ImagePointerType,ImagePointerType> result;
+        result = warpImageWithMask(image,deformation,nnInterpol);
+        ImageUtils<ImageType>::writeImage("mask.nii",result.second);
+        return result.first;
+    }
+
+    static std::pair<ImagePointerType,ImagePointerType> warpImageWithMask(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
         //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
@@ -345,25 +358,24 @@ public:
             interpolator->SetInputImage(image);
         }
         ImagePointerType deformed=ImageType::New();//ImageUtils<ImageType>::createEmpty(image);
-      
         deformed->SetRegions(deformation->GetLargestPossibleRegion());
         deformed->SetOrigin(deformation->GetOrigin());
         deformed->SetSpacing(deformation->GetSpacing());
         deformed->SetDirection(deformation->GetDirection());
         deformed->Allocate();
+        ImagePointerType mask=ImageUtils<ImageType>::createEmpty((ConstImagePointerType)deformed);
         ImageIterator imageIt(deformed,deformed->GetLargestPossibleRegion());        
-        for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
+        ImageIterator maskIt(mask,mask->GetLargestPossibleRegion());        
+        for (maskIt.GoToBegin(),imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt,++maskIt){
             IndexType index=deformationIt.GetIndex();
             typename ImageInterpolatorType::ContinuousIndexType idx(index);
             DisplacementType displacement=deformationIt.Get();
-#ifdef PIXELTRANSFORM
-            idx+=(displacement);
-#else
+
             PointType p;
             deformed->TransformIndexToPhysicalPoint(index,p);
             p+=displacement;
             image->TransformPhysicalPointToContinuousIndex(p,idx);
-#endif
+
             bool inside=true;
             if (nnInterpol){
                 if (nnInt->IsInsideBuffer(idx)){
@@ -376,9 +388,13 @@ public:
             }
             if (!inside){
                 imageIt.Set(0);
+                maskIt.Set(0);
+            }else{
+                maskIt.Set(1);
             }
         }
-        return deformed;
+        pair<ImagePointerType,ImagePointerType> result=std::make_pair(deformed,mask);
+        return result;
     }
 #endif
     static ImagePointerType deformImage(ConstImagePointerType image, DeformationFieldPointerType deformation){
@@ -550,6 +566,37 @@ public:
         }
         return deformed;
     }
-    
+    static DeformationFieldPointerType createEmpty(DeformationFieldPointerType def){
+        DeformationFieldPointerType result=DeformationFieldType::New();
+        result->SetRegions(def->GetLargestPossibleRegion());
+        result->SetOrigin(def->GetOrigin());
+        result->SetSpacing(def->GetSpacing());
+        result->SetDirection(def->GetDirection());
+        result->Allocate();
+        DisplacementType tmpVox(0.0);
+        result->FillBuffer(tmpVox);
+        return result;
+    }
+    static DeformationFieldPointerType createEmpty(ImagePointerType def){
+        DeformationFieldPointerType result=DeformationFieldType::New();
+        result->SetRegions(def->GetLargestPossibleRegion());
+        result->SetOrigin(def->GetOrigin());
+        result->SetSpacing(def->GetSpacing());
+        result->SetDirection(def->GetDirection());
+        result->Allocate();
+        DisplacementType tmpVox(0.0);
+        result->FillBuffer(tmpVox);
+        return result;
+    }
+
+    static DeformationFieldPointerType composeDeformations(DeformationFieldPointerType def1, DeformationFieldPointerType def2){
+        typedef  typename itk::DisplacementFieldCompositionFilter<DeformationFieldType,DeformationFieldType> CompositionFilterType;
+        typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
+        composer->SetInput(1,def1);
+        composer->SetInput(0,def2);
+        composer->Update();
+        return composer->GetOutput();
+
+    }
 
 };

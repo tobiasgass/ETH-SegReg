@@ -37,7 +37,6 @@
 #include "FilterUtils.hpp"
 #include <itkImageAdaptor.h>
 #include <itkAddPixelAccessor.h>
-#include "itkDisplacementFieldCompositionFilter.h"
 #include "itkVectorImage.h"
 #include "itkConstNeighborhoodIterator.h"
 #include <itkVectorResampleImageFilter.h>
@@ -119,7 +118,6 @@ namespace itk{
 
         //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
     
-        typedef  typename itk::DisplacementFieldCompositionFilter<DeformationFieldType,DeformationFieldType> CompositionFilterType;
     private:
         SRSConfig m_config;
         DeformationFieldPointerType m_finalDeformation,m_bulkTransform;
@@ -469,11 +467,7 @@ namespace itk{
                     ConstIteratorType targetIt(targetImage,targetImage->GetLargestPossibleRegion());
                     if (regist || coherence){
 
-                        typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
-                        composer->SetInput(1,fullDeformation);
-                        composer->SetInput(0,previousFullDeformation);
-                        composer->Update();
-                        composedDeformation=composer->GetOutput();
+                        composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
                         deformedAtlasImage=TransfUtils<ImageType>::warpImage(atlasImage,composedDeformation);
                         deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(atlasSegmentationImage,composedDeformation,true);
                         //deformedAtlasSegmentation=warpImage(atlasSegmentationImage,composedDeformation);

@@ -654,6 +654,52 @@ namespace itk{
         }
     }; //GraphModel
 
+    template<class TImage, 
+             class TUnaryRegistrationFunction, 
+             class TPairwiseRegistrationFunction, 
+             class TUnarySegmentationFunction, 
+             class TPairwiseSegmentationFunction,
+             class TPairwiseCoherenceFunction,
+             class TLabelMapper>
+    class FastGraphModel: public GraphModel<TImage,TUnaryRegistrationFunction,TPairwiseRegistrationFunction,TUnarySegmentationFunction,TPairwiseSegmentationFunction,TPairwiseCoherenceFunction,TLabelMapper>
+    {
+    public:
+        typedef FastGraphModel Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        itkNewMacro(Self);
+        
+        //    typedef  itk::ImageToimageFilter<TImage,TImage> Superclass;
+        typedef TImage ImageType;
+        typedef typename TImage::IndexType IndexType;
+        typedef typename TImage::PixelType PixelType;
+        typedef typename TImage::OffsetType OffsetType;
+        typedef typename TImage::PointType PointType;
+        typedef typename TImage::SizeType SizeType;
+        typedef typename TImage::SpacingType SpacingType;
+        typedef typename TImage::Pointer ImagePointerType;
+        typedef typename TImage::ConstPointer ConstImagePointerType;
+        typedef TUnaryRegistrationFunction UnaryRegistrationFunctionType;
+        typedef typename UnaryRegistrationFunctionType::Pointer UnaryRegistrationFunctionPointerType;
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType RegistrationLabelType;
+    public:
+        virtual void Init(){
+            this->m_unaryRegFunction->setCoarseImage(this->m_coarseGraphImage);
+            std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
+            for (int n=0;n<this->m_nDisplacementLabels;++n){
+                displacementList[n]=LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(n),this->getDisplacementFactor());
+            }
+            this->m_unaryRegFunction->setDisplacements(displacementList);
+            this->m_unaryRegFunction->compute();
+        }
+        virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
+            IndexType index=this->getGraphIndex(nodeIndex);
+            return  this->m_unaryRegFunction->getPotential(index,labelIndex)/this->m_nRegistrationNodes;
+        }
+
+
+    };
 }//namespace
 
 #endif /* GRIm_dim_H_ */

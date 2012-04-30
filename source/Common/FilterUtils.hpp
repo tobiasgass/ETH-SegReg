@@ -334,6 +334,10 @@ public:
         return filter->GetOutput();
     }
 
+    static OutputImagePointer gaussian(InputImagePointer image, float variance
+                                       ) {
+        return gaussian(ConstInputImagePointer(image),variance);
+    }
 
 
 

@@ -207,7 +207,6 @@ public:
 		(*as) >> parameter ("l4", tmp_levels[4],"divisor for level 4", false);
 		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
         (*as) >> parameter ("scale", scale,"scaling factor for registration potential", false);
-        (*as) >> parameter ("verbose", verbose,"get verbose output",false);
         (*as) >> parameter ("downScale", downScale,"downSample ALL  images by an isotropic factor",false);
         (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=2)", false);
         (*as) >> option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");
@@ -215,7 +214,8 @@ public:
         (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
         (*as) >> parameter ("alpha",alpha ,"generic weight (0)", false);
-		std::list<int> bla;
+        (*as) >> parameter ("verbose", verbose,"get verbose output",false);
+        std::list<int> bla;
 //		(*as) >> values<int> (back_inserter(bla),"descr",nLevels);
 		(*as) >> help();
 		as->defaultErrorHandling();
