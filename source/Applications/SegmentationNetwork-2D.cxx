@@ -45,15 +45,19 @@ int main(int argc, char ** argv)
 
   
     argstream * as=new argstream(argc,argv);
-    string atlasSegmentationFilename,deformationFileList,imageFileList,atlasID="",supportSamplesListFileName="";
+    string atlasSegmentationFilename,deformationFileList,imageFileList,atlasID="",supportSamplesListFileName="",outputDir=".",outputSuffix="";
     int verbose=0;
     unsigned int nImages=-1;
+    double pWeight=1.0;
 
     (*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
     (*as) >> parameter ("N", nImages,"number of target images", false);
     (*as) >> parameter ("a", atlasID,"atlas ID. if not set, first image in imageFileList is assumed to be the atlas",false);
+    (*as) >> parameter ("w", pWeight,"pairwise potential weight",false);
+    (*as) >> parameter ("O", outputDir,"outputdirectory",false);
+
     (*as) >> parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
     (*as) >> help();
@@ -84,7 +88,8 @@ int main(int argc, char ** argv)
                     for (unsigned int d=0;d<D;++d){
                         img.imageSize*=img.img->GetLargestPossibleRegion().GetSize()[d];
                     }
-                    totalNumberOfPixels+=img.imageSize;
+                    if (imageID!=atlasID)
+                        totalNumberOfPixels+=img.imageSize;
                     if (inputImages.find(imageID)==inputImages.end())
                         inputImages[imageID]=img;
                     else{
@@ -95,9 +100,9 @@ int main(int argc, char ** argv)
             }
     }
     if (nImages>0)
-        nImages=min(nImages,(unsigned int)(inputImages.size()-1));
+        nImages=min(nImages,(unsigned int)(inputImages.size()));
     else
-        nImages=inputImages.size()-1;
+        nImages=inputImages.size();
 
     LOG<<"Reading deformations."<<endl;
     int nEdges=0;
@@ -132,7 +137,7 @@ int main(int argc, char ** argv)
 
     
   
-  
+    logSetStage("Init");
   
     unsigned int nNodes=totalNumberOfPixels;
    
@@ -143,7 +148,7 @@ int main(int argc, char ** argv)
     LOG<<"Allocating MRF with "<<nNodes<<" nodes and "<<nEdges<<" edges."<<endl;
     optimizer = new MRFType(nNodes,nEdges);
     optimizer->add_node(nNodes);
-    LOGV(1)<<"Setting up unary potentials"<<std::endl;
+    LOG<<"Setting up unary potentials"<<std::endl;
     unsigned long  int i=0;
     map <string, DeformationFieldPointerType> atlasToTargetDeformations=deformations[atlasID];
     ImagePointerType atlasImage=inputImages[atlasID].img;
@@ -162,24 +167,28 @@ int main(int argc, char ** argv)
                     PixelType segmentationLabel=defSegIt.Get();
                     PixelType imageIntensity=imgIt.Get();
                     PixelType deformedAtlasIntensity=defAtlasIt.Get();
-                    double weight=1;//exp(-0.5*fabs(imageIntensity-deformedAtlasIntensity)/30);
-                    optimizer->add_tweights(i,weight*(segmentationLabel==0),weight*(segmentationLabel>0));
+                    double weight=exp(-0.5*fabs(imageIntensity-deformedAtlasIntensity)/30);
+                    //one node fore each pixel in each non-atlas image
+                    double e0=(segmentationLabel==0)?1:-1;
+                    double e1=(segmentationLabel>0)?1:-1;
+
+                    optimizer->add_tweights(i,weight*e0,weight*e1);
                     
                 }
         }
     }
     LOGV(1)<<"done"<<endl;
-    LOGV(1)<<"Setting up pairwise potentials"<<endl;
+    LOG<<"Setting up pairwise potentials"<<endl;
     unsigned long int runningIndex=0;
     for (unsigned int n1=0;n1<nImages;++n1){
         string id1=imageIDs[n1];
         if (id1!=atlasID){
             unsigned long int runningIndex2=0;
             for (unsigned int n2=0;n2<nImages;++n2){
-                if (n1!=n2){
-                    string id2=imageIDs[n2];
-                    if (id2!=atlasID){
-                        //calculate edges from all pixel of image 2 to their corresponding locations in img1
+                string id2=imageIDs[n2];
+                if (id2!=atlasID){
+                    if (n1!=n2){
+                        //calculate edges from all pixel of image 1 to their corresponding locations in img2
                         ImagePointerType img1=inputImages[id1].img;
                         DeformationFieldPointerType deformation=deformations[id2][id1];
                         ImagePointerType img2=inputImages[id2].img;
@@ -192,47 +201,58 @@ int main(int argc, char ** argv)
                         img1It.GoToBegin();
                         img2It.GoToBegin();
                         ImageType::SizeType size=img2->GetLargestPossibleRegion().GetSize();
-                        for (;!img1It.IsAtEnd();++img1It,++i,++defIt,++img2It){
+                        for (;!img1It.IsAtEnd();++img1It,++defIt,++img2It,++i){
                             IndexType idx=img1It.GetIndex();
                             //compute index in first image to get edge endpoint
                             PointType pt;
                             img1->TransformIndexToPhysicalPoint(idx,pt);
                             pt+=defIt.Get();
-                            img2->TransformPhysicalPointToIndex(pt,idx);
+                            IndexType idx2;
+                            img2->TransformPhysicalPointToIndex(pt,idx2);
                             
                             //check if index is within image bounds
                             int withinImageIndex=0;
                             int dimensionMultiplier=1;
                             bool inside=true;
                             for ( int d=0;inside && d<D;++d){
-                                if (idx[d]>=0 && idx[d]<size[d]){
-                                    withinImageIndex+=dimensionMultiplier*idx[d];
+                                if (idx2[d]>=0 && idx2[d]<size[d]){
+                                    withinImageIndex+=dimensionMultiplier*idx2[d];
                                     dimensionMultiplier*= size[d];
                                 }else inside=false;
                             }
+                            int linearIndex=runningIndex2+withinImageIndex;
+                            LOGV(50)<<inside<<" "<<VAR(id1)<<" "<<VAR(id2)<<" "<<VAR(i)<<" "<<VAR(idx)<<" "<<VAR(linearIndex)<<" "<<VAR(idx2)<<endl;
                             if (inside){
                                 //compute linear edge index
-                                int linearIndex=runningIndex2+withinImageIndex;
+
                                 //compute edge weight
-                                float weight=1;//exp(-0.5*fabs(img1It.Get()-img2It.Get())/30);
+                                float weight=exp(-0.5*fabs(img1It.Get()-img2It.Get())/30);
                                 //divide weight by (rough) number of edges of the node
                                 weight/=(nImages-2);
+                                weight*=pWeight;
                                 //add bidirectional edge
-                                optimizer -> add_edge(i,linearIndex,weight,weight);
+                                if (weight>0){
+                                    optimizer -> add_edge(i,linearIndex,weight,weight);
+                                }
                             }
                         }
-                        runningIndex2+=inputImages[id2].imageSize;
                     }
+                    runningIndex2+=inputImages[id2].imageSize;
                 }
-                
+
             }
             runningIndex+=inputImages[id1].imageSize;
+
         }
+
+
     }
     LOG<<"done"<<endl;
+    logSetStage("Optimization");
     LOG<<"starting optimization"<<endl;
     float flow = optimizer -> maxflow();
     LOG<<"Done, resulting energy is "<<flow<< std::endl;
+    logSetStage("Finalizing and storing output.");
     i=0;
     for (unsigned int n1=0;n1<nImages;++n1){
         string id1=imageIDs[n1];
@@ -243,7 +263,7 @@ int main(int argc, char ** argv)
                 imgIt.Set(255*(optimizer->what_segment(i)== MRFType::SINK ));
             }
             ostringstream tmpSegmentationFilename;
-            tmpSegmentationFilename<<id1<<"-MRF-nImages"<<nImages<<".png";
+            tmpSegmentationFilename<<outputDir<<"/segmentation-"<<id1<<"-MRF-nImages"<<nImages<<".png";
             ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),inputImages[id1].img);
         }
     }

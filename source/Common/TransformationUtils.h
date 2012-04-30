@@ -338,7 +338,7 @@ public:
     static ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
         std::pair<ImagePointerType,ImagePointerType> result;
         result = warpImageWithMask(image,deformation,nnInterpol);
-        ImageUtils<ImageType>::writeImage("mask.nii",result.second);
+        //ImageUtils<ImageType>::writeImage("mask.nii",result.second);
         return result.first;
     }
 
