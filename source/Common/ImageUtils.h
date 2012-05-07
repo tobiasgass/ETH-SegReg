@@ -25,6 +25,7 @@ public:
 	typedef typename ImageType::Pointer  ImagePointerType;
 	typedef typename ImageType::ConstPointer  ConstImagePointerType;
 	typedef typename ImageType::PixelType PixelType;
+    typedef typename ImageType::SizeType SizeType;
 
     typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
@@ -356,5 +357,18 @@ public:
             }
             return deformed;
         }
+    
+    static inline  int ImageIndexToLinearIndex(IndexType &idx, SizeType &size, bool & inside){
+        inside=true;
+        unsigned int dimensionMultiplier=1;
+        int withinImageIndex=0;
+        for ( int d=0; d<D;++d){
+            if (idx[d]>=0 && idx[d]<size[d]){
+                withinImageIndex+=dimensionMultiplier*idx[d];
+                dimensionMultiplier*= size[d];
+            }else inside=false;
+        }
+        return withinImageIndex;
+    }
 };
 #endif // IMAGE_UTILS

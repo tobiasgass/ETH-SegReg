@@ -55,3 +55,5 @@ TARGET_LINK_LIBRARIES(Seg3D maxflow  Utils TRWS FastPD SRSMRFModels  ${ITK_LIBRA
 #seg-network
 ADD_EXECUTABLE(SegNetwork2D SegmentationNetwork-2D.cxx )
 TARGET_LINK_LIBRARIES(SegNetwork2D ugmix maxflow  Utils TRWS FastPD SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(SegNetwork2D-ConnectivityTest SegNetwork-Connectivity.cxx )
+TARGET_LINK_LIBRARIES( SegNetwork2D-ConnectivityTest maxflow  Utils TRWS FastPD SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
