@@ -137,7 +137,7 @@ double NCCFunc(ImageNeighborhoodIteratorPointerType i1, ImageNeighborhoodIterato
         //    cout<<VAR(result)<<" "<<VAR(sfm)<<" "<<VAR(sff)<<" "<<VAR(smm)<<endl;
         result=result;
     }else{
-        result=1;
+        result=0;
     }
     return result;
 }
@@ -300,7 +300,7 @@ int main(int argc, char ** argv)
     optimizer->add_node(nNodes);
     unsigned long  int i=0;
     map <string, DeformationFieldPointerType> atlasToTargetDeformations=deformations[atlasID];
-    std::vector<int> missingEdgeCount(nNodes,0);
+    std::vector<int> edgeCount(nNodes,0);
     ImagePointerType atlasImage=inputImages[atlasID].img;
     unsigned long int runningIndex=0;
     LOG<<"Setting up pairwise potentials"<<endl;
@@ -355,25 +355,13 @@ int main(int argc, char ** argv)
                                     float weight;
                                     if (SAD) weight=exp(-0.5*fabs(img1It.Get()-img2It.Get())/sigma);
                                     else if (NCC) weight=NCCFunc(tIt,aIt);
-                                    //divide weight by (rough) number of edges of the node
-                                    if (useSupportSamples){
-                                        if ( supportSampleList.find(id1)!=supportSampleList.end()  ){
-                                            //supportsamples are connected to all images
-                                            weight/=(nImages-1);
-                                        }else{
-                                            //non-SS are connected just to the support samples
-                                            weight/=(nSupportSamples);
-                                        }
-                                    }else
-                                        weight/=(nImages-2);
-                                    weight=pWeight;
+                                    weight*=pWeight;
                                     //add bidirectional edge
                                     if (weight>0){
                                         optimizer -> add_edge(i,linearIndex,weight,weight);
+                                        edgeCount[i]++;
                                     }
 
-                                }else{
-                                    missingEdgeCount[i]++;
                                 }
                             }
                             delete tIt,aIt;
@@ -418,12 +406,17 @@ int main(int argc, char ** argv)
                         double weight=exp(-0.5*fabs(imageIntensity-deformedAtlasIntensity)/sigma);
                         img2It.Set(int(65535.0*weight));
                         //one node fore each pixel in each non-atlas image
-                        double e0=(segmentationLabel==0)?1:-1;
-                        double e1=(segmentationLabel>0)?1:-1;
-                        int nMissingEdges=missingEdgeCount[i];
-                        if (nMissingEdges)
-                            e0+=missingEdgeCount[i];
-                        optimizer->add_tweights(i,weight*e0,weight*e1);
+                        int nEdges=edgeCount[i];
+                        //cost for labelling node foreground
+                        double e1=(segmentationLabel==0)?1:0;
+                        if (nEdges)
+                            e1*=1.0*(nImages-2)/nEdges;
+                        else
+                            e1=100000;
+                        //cost for labelling node background
+                        double e0=(segmentationLabel>0)?1:0;
+                        e0*=1.0*nEdges/(nImages-2);
+                        optimizer->add_tweights(i,nEdges*weight*e1,nEdges*weight*e0);
                         if (segPairwiseWeight>0){
                             IndexType idx=imgIt.GetIndex();
                             for (unsigned  int d=0;d<D;++d){
@@ -450,9 +443,14 @@ int main(int argc, char ** argv)
                     double weight=NCCFunc(tIt,aIt,sigma);
                     //weight=NCCFuncLoc(tIt,aIt,smm,sff,sfmR);
                     img2It.Set(65535.0*weight);
-                    double e0=(segmentationLabel==0)?1:-1;
-                    double e1=(segmentationLabel)?1:-1;
-                        
+                    double e0=(segmentationLabel==0)?1:0;
+                    double e1=(segmentationLabel)?1:0;
+                    if (nEdges)
+                        e1*=1.0*(nImages-2)/nEdges;
+                    else
+                        e1=100000;
+                    e0*=1.0*nEdges/(nImages-2);
+
                     optimizer->add_tweights(i,weight*e0,weight*e1);
                     if (segPairwiseWeight>0){
                         IndexType idx=img2It.GetIndex();

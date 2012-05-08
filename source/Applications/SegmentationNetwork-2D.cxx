@@ -326,8 +326,8 @@ int main(int argc, char ** argv)
                         double weight=exp(-0.5*fabs(imageIntensity-deformedAtlasIntensity)/sigma);
                         img2It.Set(int(65535.0*weight));
                         //one node fore each pixel in each non-atlas image
-                        double e0=(segmentationLabel==0)?1:-1;
-                        double e1=(segmentationLabel>0)?1:-1;
+                        double e0=(segmentationLabel==0)?1:0;//-1;
+                        double e1=(segmentationLabel>0)?1:0;//-1;
                         
                         optimizer->add_tweights(i,weight*e0,weight*e1);
                         if (segPairwiseWeight>0){
@@ -397,7 +397,7 @@ int main(int argc, char ** argv)
     LOGV(1)<<"done"<<endl;
     LOG<<"Setting up pairwise potentials"<<endl;
     runningIndex=0;
-#define CONNECTOUTSIDEPIXELS
+    //#define CONNECTOUTSIDEPIXELS
     int ooIEdges=0;
     for (unsigned int n1=0;n1<nImages;++n1){
         string id1=imageIDs[n1];
@@ -461,7 +461,7 @@ int main(int argc, char ** argv)
                                         }
                                     }else
                                         weight/=(nImages-2);
-                                    weight=pWeight;
+                                    weight*=pWeight;
                                     //add bidirectional edge
                                     if (weight>0){
                                         optimizer -> add_edge(i,linearIndex,weight,weight);
