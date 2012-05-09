@@ -265,7 +265,7 @@ int main(int argc, char ** argv)
             if (id1!=""){
                 ifs >> id2;
                 ifs >> defFileName;
-                if ( id1 == atlasID|| (evalAtlas && id2 == atlasID)  || (! useSupportSamples || supportSampleList.find(id1)!=supportSampleList.end() ||  supportSampleList.find(id2)!=supportSampleList.end())){
+                if ( id1 == atlasID|| (evalAtlas && id2 == atlasID)  || (! useSupportSamples || supportSampleList.find(id1)!=supportSampleList.end() ||  ( (supportSampleList.find(id2)!=supportSampleList.end()) && (id1!=atlasID))) ){
                     LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<id1<<" to "<<id2<<endl;
                     DeformationFieldPointerType def=ImageUtils<DeformationFieldType>::readImage(defFileName);
                     if (inputImages.find(id1)==inputImages.end() || inputImages.find(id2)==inputImages.end() ){
@@ -319,7 +319,7 @@ int main(int argc, char ** argv)
                 string id2=imageIDs[n2];
                 if (evalAtlas || id2!=atlasID){
                     if (n1!=n2){
-                        if (! useSupportSamples || supportSampleList.find(id2)!=supportSampleList.end()) || supportSampleList.find(id1)!=supportSampleList.end() ){
+                        if (! useSupportSamples || supportSampleList.find(id2)!=supportSampleList.end() || supportSampleList.find(id1)!=supportSampleList.end() ){
 
                             //calculate edges from all pixel of image 1 to their corresponding locations in img2
                             ImagePointerType img1=inputImages[id1].img;
