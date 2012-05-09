@@ -56,9 +56,9 @@ void NCCHelper(ImagePointerType i1, ImagePointerType i2, double & smmR , double 
     for (;!it1.IsAtEnd();++it1,++it2,++c){
         double f=it1.Get();
         double m=it2.Get();
-         sff+=f*f;
-         smm+=m*m;
-         sfm+=f*m;
+        sff+=f*f;
+        smm+=m*m;
+        sfm+=f*m;
     }
     sffR =sff- ( sf * sf / c );
     smmR = smm -( sm * sm / c );
@@ -161,6 +161,9 @@ int main(int argc, char ** argv)
     double segPairwiseWeight=0.0;
     bool NCC=false;
     int radius=3;
+    double edgeThreshold=0.0;
+    double edgeCountPenaltyWeight=0.0;
+    bool evalAtlas=false;
     (*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
@@ -172,6 +175,9 @@ int main(int argc, char ** argv)
     (*as) >> parameter ("O", outputDir,"outputdirectory",false);
     (*as) >> option ("NCC", NCC,"outputdirectory");
     (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
+    (*as) >> parameter ("thresh", edgeThreshold,"threshold for edge pruning (0=off)",false);
+    (*as) >> parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges",false);
+    (*as) >> option ("evalAtlas", evalAtlas,"also segment the atlas within the network");
 
     (*as) >> parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
@@ -186,7 +192,7 @@ int main(int argc, char ** argv)
     LOG<<"Reading images."<<endl;
     unsigned int totalNumberOfPixels=0;
     std::vector<string> imageIDs;
-    int nEdges=0;
+    int nTotalEdges=0;
 
     {
         ifstream ifs(imageFileList.c_str());
@@ -206,7 +212,7 @@ int main(int argc, char ** argv)
                     for (unsigned int d=0;d<D;++d){
                         img.imageSize*=imgSize[d];
                     }
-                    if (imageID!=atlasID){
+                    if (evalAtlas || imageID!=atlasID){
                         totalNumberOfPixels+=img.imageSize;
                         //add edges between pixels if weight is >0
                         if (segPairwiseWeight>0){
@@ -217,7 +223,7 @@ int main(int argc, char ** argv)
                                 interImgEdges+=(imgSize[2]-1)*imgSize[0]*imgSize[1];
                             }
                             LOGV(3)<<VAR(interImgEdges)<<endl;
-                            nEdges+=interImgEdges;
+                            nTotalEdges+=interImgEdges;
                         }
                     }
                     if (inputImages.find(imageID)==inputImages.end())
@@ -259,7 +265,7 @@ int main(int argc, char ** argv)
             if (id1!=""){
                 ifs >> id2;
                 ifs >> defFileName;
-                if (id1 == atlasID || (! useSupportSamples || supportSampleList.find(id1)!=supportSampleList.end() ||  supportSampleList.find(id2)!=supportSampleList.end())){
+                if ( id1 == atlasID|| (evalAtlas && id2 == atlasID)  || (! useSupportSamples || supportSampleList.find(id1)!=supportSampleList.end() ||  supportSampleList.find(id2)!=supportSampleList.end())){
                     LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<id1<<" to "<<id2<<endl;
                     DeformationFieldPointerType def=ImageUtils<DeformationFieldType>::readImage(defFileName);
                     if (inputImages.find(id1)==inputImages.end() || inputImages.find(id2)==inputImages.end() ){
@@ -268,12 +274,12 @@ int main(int argc, char ** argv)
                     }else{
                         deformations[id1][id2]=def;
                     }
-                    if (id1!= atlasID && id2 != atlasID){
+                    if ( evalAtlas || (id1!= atlasID && id2 != atlasID)){
                         int nDefs=1;
                         for (unsigned int d=0;d<D;++d){
                             nDefs*=def->GetLargestPossibleRegion().GetSize()[d];
                         }
-                        nEdges+=nDefs;
+                        nTotalEdges+=nDefs;
                       
                     }
 
@@ -295,24 +301,25 @@ int main(int argc, char ** argv)
 	typedef MRFType::node_id NodeType;
     MRFType* optimizer;
     
-    LOG<<"Allocating MRF with "<<nNodes<<" nodes and "<<nEdges<<" edges."<<endl;
-    optimizer = new MRFType(nNodes,nEdges);
+    LOG<<"Allocating MRF with "<<nNodes<<" nodes and "<<nTotalEdges<<" edges."<<endl;
+    optimizer = new MRFType(nNodes,nTotalEdges);
     optimizer->add_node(nNodes);
     unsigned long  int i=0;
     map <string, DeformationFieldPointerType> atlasToTargetDeformations=deformations[atlasID];
     std::vector<int> edgeCount(nNodes,0);
+    int totalEdgeCount=0;
     ImagePointerType atlasImage=inputImages[atlasID].img;
     unsigned long int runningIndex=0;
     LOG<<"Setting up pairwise potentials"<<endl;
     for (unsigned int n1=0;n1<nImages;++n1){
         string id1=imageIDs[n1];
-        if (id1!=atlasID){
+        if (evalAtlas || id1!=atlasID){
             unsigned long int runningIndex2=0;
             for (unsigned int n2=0;n2<nImages;++n2){
                 string id2=imageIDs[n2];
-                if (id2!=atlasID){
+                if (evalAtlas || id2!=atlasID){
                     if (n1!=n2){
-                        if (! useSupportSamples || supportSampleList.find(id2)!=supportSampleList.end()  ){
+                        if (! useSupportSamples || supportSampleList.find(id2)!=supportSampleList.end()) || supportSampleList.find(id1)!=supportSampleList.end() ){
 
                             //calculate edges from all pixel of image 1 to their corresponding locations in img2
                             ImagePointerType img1=inputImages[id1].img;
@@ -347,7 +354,7 @@ int main(int argc, char ** argv)
                                 bool inside=true;
                                 int withinImageIndex=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx2,size2,inside);
                                 int linearIndex=runningIndex2+withinImageIndex;
-                                LOGV(50)<<inside<<" "<<VAR(id1)<<" "<<VAR(id2)<<" "<<VAR(i)<<" "<<VAR(idx)<<" "<<VAR(linearIndex)<<" "<<VAR(idx2)<<endl;
+                                LOGV(150)<<inside<<" "<<VAR(id1)<<" "<<VAR(id2)<<" "<<VAR(i)<<" "<<VAR(idx)<<" "<<VAR(linearIndex)<<" "<<VAR(idx2)<<endl;
                                 if (inside){
                                     //compute linear edge index
 
@@ -355,11 +362,13 @@ int main(int argc, char ** argv)
                                     float weight;
                                     if (SAD) weight=exp(-0.5*fabs(img1It.Get()-img2It.Get())/sigma);
                                     else if (NCC) weight=NCCFunc(tIt,aIt);
-                                    weight*=pWeight;
                                     //add bidirectional edge
-                                    if (weight>0){
+                                    if (weight>edgeThreshold){
+                                        weight*=pWeight;
                                         optimizer -> add_edge(i,linearIndex,weight,weight);
                                         edgeCount[i]++;
+                                        //edgeCount[linearIndex]++;
+                                        totalEdgeCount++;
                                     }
 
                                 }
@@ -378,8 +387,9 @@ int main(int argc, char ** argv)
 
     }
     LOG<<"done"<<endl;
-
-
+    LOGV(1)<<VAR(totalEdgeCount)<<endl;
+    double edgeToUnaryRatio=1.0*totalEdgeCount/nNodes;
+    LOGV(1)<<VAR(edgeToUnaryRatio)<<endl;
     LOG<<"Setting up unary potentials"<<std::endl;
     runningIndex=0;
     i=0;
@@ -404,19 +414,36 @@ int main(int argc, char ** argv)
                         double imageIntensity=imgIt.Get();
                         double deformedAtlasIntensity=defAtlasIt.Get();
                         double weight=exp(-0.5*fabs(imageIntensity-deformedAtlasIntensity)/sigma);
+                        LOGV(51)<<VAR(imageIntensity)<<" "<<VAR(deformedAtlasIntensity)<<" "<<VAR(weight)<<endl;
                         img2It.Set(int(65535.0*weight));
                         //one node fore each pixel in each non-atlas image
-                        int nEdges=edgeCount[i];
+                        int nLocalEdges=edgeCount[i];
                         //cost for labelling node foreground
                         double e1=(segmentationLabel==0)?1:0;
-                        if (nEdges)
-                            e1*=1.0*(nImages-2)/nEdges;
-                        else
-                            e1=100000;
                         //cost for labelling node background
                         double e0=(segmentationLabel>0)?1:0;
-                        e0*=1.0*nEdges/(nImages-2);
-                        optimizer->add_tweights(i,nEdges*weight*e1,nEdges*weight*e0);
+                        
+                        if (edgeCountPenaltyWeight>0.0){
+                            int nMaxPossibleEdges=nImages-2;
+                            if ( useSupportSamples && supportSampleList.find(id)==supportSampleList.end()  ) {
+                                nMaxPossibleEdges=nSupportSamples;
+                            }
+                            
+                            if (nLocalEdges)
+                                {
+                                    e1+=1.0*(nMaxPossibleEdges)/nLocalEdges -1 ;
+                                    LOGV(10)<<VAR(1.0*(nMaxPossibleEdges)/nLocalEdges -1)<<" "<<VAR(nMaxPossibleEdges)<<" "<<VAR(nLocalEdges)<<endl;
+                                }
+                            else{
+                                e1=100000;
+                                e0=0;
+                            }
+                        }
+                        
+                        //e0*=1.0*nLocalEdges/(2*(nImages-2));
+
+                        optimizer->add_tweights(i,edgeToUnaryRatio*weight*e1,edgeToUnaryRatio*weight*e0);
+
                         if (segPairwiseWeight>0){
                             IndexType idx=imgIt.GetIndex();
                             for (unsigned  int d=0;d<D;++d){
@@ -427,11 +454,18 @@ int main(int argc, char ** argv)
                                 bool inside2;
                                 int withinImageIndex2=ImageUtils<ImageType>::ImageIndexToLinearIndex(neighborIndex,size,inside2);
                                 if (inside2){
+                                    double imageIntensity2=img->GetPixel(neighborIndex);
+                                    double weight2=exp(-0.5*fabs(imageIntensity-imageIntensity2)/sigma);
+
                                     unsigned int linearIndex2=runningIndex+withinImageIndex2;
-                                    optimizer -> add_edge(i,linearIndex2,segPairwiseWeight,segPairwiseWeight);
+                                    optimizer -> add_edge(i,linearIndex2,segPairwiseWeight*weight2,segPairwiseWeight*weight2);
+                                    nLocalEdges++;
                                 }
                             }
                         }
+
+                        
+
                     }
             }else if (NCC){
                 double sff,smm,sfmR;
@@ -445,12 +479,24 @@ int main(int argc, char ** argv)
                     img2It.Set(65535.0*weight);
                     double e0=(segmentationLabel==0)?1:0;
                     double e1=(segmentationLabel)?1:0;
-                    if (nEdges)
-                        e1*=1.0*(nImages-2)/nEdges;
-                    else
-                        e1=100000;
-                    e0*=1.0*nEdges/(nImages-2);
+                    int nLocalEdges=edgeCount[i];
 
+                    if (edgeCountPenaltyWeight>0.0){
+                        int nMaxPossibleEdges=nImages-2;
+                        if ( useSupportSamples && supportSampleList.find(id)==supportSampleList.end()  ) {
+                            nMaxPossibleEdges=nSupportSamples;
+                        }
+                        
+                        if (nLocalEdges)
+                            {
+                                e1+=1.0*(nMaxPossibleEdges)/nLocalEdges -1 ;
+                                LOGV(10)<<VAR(1.0*(nMaxPossibleEdges)/nLocalEdges -1)<<" "<<VAR(nMaxPossibleEdges)<<" "<<VAR(nLocalEdges)<<endl;
+                            }
+                        else{
+                            e1=100000;
+                            e0=0;
+                        }
+                    }
                     optimizer->add_tweights(i,weight*e0,weight*e1);
                     if (segPairwiseWeight>0){
                         IndexType idx=img2It.GetIndex();
@@ -481,7 +527,49 @@ int main(int argc, char ** argv)
                 tmpSegmentationFilename2<<"deformedAtlasSeg-"<<id<<".png";
                 ImageUtils<ImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),deformedAtlas);
             }
+        }else if (evalAtlas){//id!=atlasID{
+            ImagePointerType img=inputImages[id].img;
+            SizeType size=img->GetLargestPossibleRegion().GetSize();
+
+            ImageIteratorType atlasIt(atlasSegmentationImage,atlasSegmentationImage->GetLargestPossibleRegion());
+            for (atlasIt.GoToBegin();!atlasIt.IsAtEnd();++i,++atlasIt){
+                PixelType segmentationLabel=atlasIt.Get();
+                int nLocalEdges=edgeCount[i];
+                //cost for labelling node foreground
+                double e1=0;//(segmentationLabel==0)?1:0;
+                //cost for labelling node background
+                double e0=0;//(segmentationLabel>0)?1:0;
+          
+                
+                //e0*=1.0*nLocalEdges/(2*(nImages-2));
+                
+                optimizer->add_tweights(i,edgeToUnaryRatio*e1,edgeToUnaryRatio*e0);
+                if (segPairwiseWeight>0){
+                    IndexType idx=atlasIt.GetIndex();
+                    double imageIntensity=img->GetPixel(idx);
+                    for (unsigned  int d=0;d<D;++d){
+                        OffsetType off;
+                        off.Fill(0);
+                        off[d]+=1;
+                        IndexType neighborIndex=idx+off;
+                        bool inside2;
+                        int withinImageIndex2=ImageUtils<ImageType>::ImageIndexToLinearIndex(neighborIndex,size,inside2);
+                        if (inside2){
+                            double imageIntensity2=img->GetPixel(neighborIndex);
+                            double weight2=exp(-0.5*fabs(imageIntensity-imageIntensity2)/sigma);
+
+                            unsigned int linearIndex2=runningIndex+withinImageIndex2;
+                            optimizer -> add_edge(i,linearIndex2,segPairwiseWeight*weight2,segPairwiseWeight*weight2);
+                            nLocalEdges++;
+                        }
+                    }
+                }
+
+            }
+
+
         }
+
     }
     optimizer->add_tweights(nNodes,0,nNodes);
 
@@ -497,7 +585,7 @@ int main(int argc, char ** argv)
     mkdir(outputDir.c_str(),0755);
     for (unsigned int n1=0;n1<nImages;++n1){
         string id1=imageIDs[n1];
-        if (id1!=atlasID){
+        if (evalAtlas || id1!=atlasID){
             ImageIteratorType imgIt(inputImages[id1].img,inputImages[id1].img->GetLargestPossibleRegion());
             imgIt.GoToBegin();
             for (;!imgIt.IsAtEnd();++imgIt,++i){
