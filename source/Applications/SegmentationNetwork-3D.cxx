@@ -17,8 +17,8 @@
 #include <sys/types.h>
 #include "itkConstNeighborhoodIterator.h"
 
-typedef unsigned short int PixelType;
-const unsigned int D=2;
+typedef float PixelType;
+const unsigned int D=3;
 typedef itk::Image<PixelType,D> ImageType;
 typedef ImageType::Pointer ImagePointerType;
 typedef ImageType::IndexType IndexType;

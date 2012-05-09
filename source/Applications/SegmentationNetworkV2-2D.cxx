@@ -162,7 +162,7 @@ int main(int argc, char ** argv)
     bool NCC=false;
     int radius=3;
     double edgeThreshold=0.0;
-    double edgeCountPenaltyWeight=0.0;
+    double edgeCountPenaltyWeight=1.0;
     bool evalAtlas=false;
     (*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
@@ -176,7 +176,7 @@ int main(int argc, char ** argv)
     (*as) >> option ("NCC", NCC,"outputdirectory");
     (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
     (*as) >> parameter ("thresh", edgeThreshold,"threshold for edge pruning (0=off)",false);
-    (*as) >> parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges",false);
+    (*as) >> parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges (0 to disable)",false);
     (*as) >> option ("evalAtlas", evalAtlas,"also segment the atlas within the network");
 
     (*as) >> parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
