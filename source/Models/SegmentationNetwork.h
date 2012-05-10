@@ -50,7 +50,7 @@ public:
         ImagePointerType img;
         int imageSize;
     };
-
+private:
     void NCCHelper(ImagePointerType i1, ImagePointerType i2, double & smmR , double & sffR , double   & sfmR ){
         ImageIteratorType it1(i1,i1->GetLargestPossibleRegion().GetSize());
         ImageIteratorType it2(i2,i2->GetLargestPossibleRegion().GetSize());
@@ -80,14 +80,16 @@ public:
         for (;i<i1->Size();++i){
             bool inBounds;
             double f=i1->GetPixel(i,inBounds);
+
             if (inBounds){
-                double m=i2->GetPixel(i);;
-          
+            double m=i2->GetPixel(i);;
+            if (m!=0){
 
                 sfm+=f*m;
                 sf+=f;
                 sm+=m;
                 count+=1;
+            }
             }
         }
         //sfm -= sfmR;
@@ -117,15 +119,7 @@ public:
             if (inBounds){
                 double m=i2->GetPixel(i);;
                 IndexType idx=i1->GetIndex(i);
-                if (sigma>0){
-                    double w=0;
-                    for (unsigned int d=0;d<D;++d){
-                        w+=(idx[d]-centerIndex[d])*(idx[d]-centerIndex[d]);
-                    }
-                    w=exp(- sqrt(w)/sigma );
-                    f*=w;
-                    m*=w;
-                }
+              
                 sff+=f*f;
                 smm+=m*m;
                 sfm+=f*m;
@@ -147,9 +141,27 @@ public:
         }
         return result;
     }
+    
+    template<class bidiiter>
+    bidiiter random_unique(bidiiter begin, bidiiter end, size_t num_random, string ID) {
+        size_t left = std::distance(begin, end);
+        srand ( time(NULL) );
 
-
-
+        while (num_random--) {
+            bidiiter r = begin;
+            std::advance(r, rand()%left);
+            if ((*r)!=ID){
+                std::swap(*begin, *r);
+                ++begin;
+                --left;
+            }else{
+                num_random++;
+            }
+        }
+        return begin;
+    }
+    
+public:
     int run(int argc, char ** argv)
     {
         feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
@@ -166,10 +178,12 @@ public:
         double sigma=30;
         double segPairwiseWeight=0.0;
         bool NCC=false;
+        bool SSD=false;
         int radius=3;
         double edgeThreshold=0.0;
         double edgeCountPenaltyWeight=1.0;
         bool evalAtlas=false;
+        int nRandomSupportSamples=0;
         (*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
@@ -179,17 +193,25 @@ public:
         (*as) >> parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight",false);
         (*as) >> parameter ("s", sigma,"sigma",false);
         (*as) >> parameter ("O", outputDir,"outputdirectory",false);
-        (*as) >> option ("NCC", NCC,"outputdirectory");
+        (*as) >> option ("NCC", NCC," use NCC as weighting function");
+        (*as) >> option ("SSD", SSD," use SSD as weighing function");
         (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
         (*as) >> parameter ("thresh", edgeThreshold,"threshold for edge pruning (0=off)",false);
         (*as) >> parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges (0 to disable)",false);
         (*as) >> option ("evalAtlas", evalAtlas,"also segment the atlas within the network");
 
         (*as) >> parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
+        (*as) >> parameter ("nRandomSupportSamples",nRandomSupportSamples,"draw random target images as support samples.",false);
         (*as) >> parameter ("verbose", verbose,"get verbose output",false);
         (*as) >> help();
         as->defaultErrorHandling();
+        string suffix;
+        if (D==2)
+            suffix=".png";
+        else
+            suffix=".nii";
 
+        mkdir(outputDir.c_str(),0755);
         logSetStage("IO");
         logSetVerbosity(verbose);
         bool SAD=!NCC;
@@ -259,6 +281,14 @@ public:
                     supportSampleList[supID]=true;
                     nSupportSamples++;
                 }
+            }
+        }else if (nRandomSupportSamples){
+            useSupportSamples=true;
+            nSupportSamples=nRandomSupportSamples;
+            std::vector<string> tmpList = imageIDs;
+            random_unique(tmpList.begin(),tmpList.end(),nRandomSupportSamples,atlasID);
+            for (int i=0;i<nRandomSupportSamples;++i){
+                supportSampleList[tmpList[i]]=true;
             }
         }
         LOG<<"Reading deformations."<<endl;
@@ -419,8 +449,16 @@ public:
                             PixelType segmentationLabel=defSegIt.Get();
                             double imageIntensity=imgIt.Get();
                             double deformedAtlasIntensity=defAtlasIt.Get();
-                            double weight=exp(-0.5*fabs(imageIntensity-deformedAtlasIntensity)/sigma);
-                            LOGV(51)<<VAR(imageIntensity)<<" "<<VAR(deformedAtlasIntensity)<<" "<<VAR(weight)<<endl;
+                            double diff=imageIntensity-deformedAtlasIntensity;
+                            double weight;
+                            if (!SSD)
+                                weight=exp(-0.5*fabs(diff)/sigma);
+                            else
+                                weight=exp(-0.5*(diff*diff)/(sigma*sigma));
+                            
+
+                            //LOGV(51)<<VAR(imageIntensity)<<" "<<VAR(deformedAtlasIntensity)<<" "<<VAR(weight)<<endl;
+                            
                             img2It.Set(int(65535.0*weight));
                             //one node fore each pixel in each non-atlas image
                             int nLocalEdges=edgeCount[i];
@@ -438,7 +476,7 @@ public:
                                 if (nLocalEdges)
                                     {
                                         e1+=1.0*(nMaxPossibleEdges)/nLocalEdges -1 ;
-                                        LOGV(10)<<VAR(1.0*(nMaxPossibleEdges)/nLocalEdges -1)<<" "<<VAR(nMaxPossibleEdges)<<" "<<VAR(nLocalEdges)<<endl;
+                                        LOGV(30)<<VAR(1.0*(nMaxPossibleEdges)/nLocalEdges -1)<<" "<<VAR(nMaxPossibleEdges)<<" "<<VAR(nLocalEdges)<<endl;
                                     }
                                 else{
                                     e1=100000;
@@ -461,7 +499,13 @@ public:
                                     int withinImageIndex2=ImageUtils<ImageType>::ImageIndexToLinearIndex(neighborIndex,size,inside2);
                                     if (inside2){
                                         double imageIntensity2=img->GetPixel(neighborIndex);
-                                        double weight2=exp(-0.5*fabs(imageIntensity-imageIntensity2)/sigma);
+                                        double diff=imageIntensity-imageIntensity2;
+                                        double weight2;
+                                        if (!SSD)
+                                            weight2=exp(-0.5*fabs(diff)/sigma);
+                                        else
+                                            weight2=exp(-0.5*(diff*diff)/(sigma*sigma));
+                                        
 
                                         unsigned int linearIndex2=runningIndex+withinImageIndex2;
                                         optimizer -> add_edge(i,linearIndex2,segPairwiseWeight*weight2,segPairwiseWeight*weight2);
@@ -496,7 +540,7 @@ public:
                             if (nLocalEdges)
                                 {
                                     e1+=1.0*(nMaxPossibleEdges)/nLocalEdges -1 ;
-                                    LOGV(10)<<VAR(1.0*(nMaxPossibleEdges)/nLocalEdges -1)<<" "<<VAR(nMaxPossibleEdges)<<" "<<VAR(nLocalEdges)<<endl;
+                                    LOGV(20)<<VAR(1.0*(nMaxPossibleEdges)/nLocalEdges -1)<<" "<<VAR(nMaxPossibleEdges)<<" "<<VAR(nLocalEdges)<<endl;
                                 }
                             else{
                                 e1=100000;
@@ -527,10 +571,10 @@ public:
                 runningIndex=i;
                 if (verbose>10){
                     ostringstream tmpSegmentationFilename;
-                    tmpSegmentationFilename<<"weightedSeg-"<<id<<".png";
+                    tmpSegmentationFilename<<outputDir<<"/weightedSeg-"<<id<<suffix;
                     ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),weightImage);
                     ostringstream tmpSegmentationFilename2;
-                    tmpSegmentationFilename2<<"deformedAtlasSeg-"<<id<<".png";
+                    tmpSegmentationFilename2<<outputDir<<"/deformedAtlasSeg-"<<id<<suffix;
                     ImageUtils<ImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),deformedAtlas);
                 }
             }else if (evalAtlas){//id!=atlasID{
@@ -569,7 +613,7 @@ public:
         LOG<<"Done, resulting energy is "<<flow<< std::endl;
         logSetStage("Finalizing and storing output.");
         i=0;
-        mkdir(outputDir.c_str(),0755);
+
         for (unsigned int n1=0;n1<nImages;++n1){
             string id1=imageIDs[n1];
             if (evalAtlas || id1!=atlasID){
@@ -579,7 +623,7 @@ public:
                     imgIt.Set(65535*(optimizer->what_segment(i)== MRFType::SINK ));
                 }
                 ostringstream tmpSegmentationFilename;
-                tmpSegmentationFilename<<outputDir<<"/segmentation-"<<id1<<"-MRF-nImages"<<nImages<<".png";
+                tmpSegmentationFilename<<outputDir<<"/segmentation-"<<id1<<"-MRF-nImages"<<nImages<<suffix;
                 ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),inputImages[id1].img);
             }
         }
