@@ -397,6 +397,10 @@ public:
         return result;
     }
 #endif
+    static ImagePointerType warpSegmentationImage(ImagePointerType image, DeformationFieldPointerType deformation){
+        return warpImage(image,deformation,true);
+    }
+
     static ImagePointerType deformImage(ConstImagePointerType image, DeformationFieldPointerType deformation){
         //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
