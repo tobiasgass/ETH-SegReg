@@ -56,7 +56,7 @@ MyLog mylog;
     std::cout << mylog.getStatus()<<" "
 
 #define LOGV(level) \
-    if (mylog.getVerbosity()>=30) \
+    if (mylog.getVerbosity()>=level && mylog.getVerbosity()>=30) \
         std::cout <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
     if (mylog.getVerbosity()>=level)                                    \
         std::cout<<mylog.getStatus()<<" ["<<level<<"] "

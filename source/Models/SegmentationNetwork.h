@@ -51,6 +51,30 @@ public:
         int imageSize;
     };
 private:
+    double getMaxVectorLength(ImagePointerType img, RadiusType r){
+        double maxLength=0;
+        ImageNeighborhoodIteratorType tIt=ImageNeighborhoodIteratorType(r,img,img->GetLargestPossibleRegion());
+        int count=0;
+        for (tIt.GoToBegin();!tIt.IsAtEnd();++tIt){
+            double sf=0.0,sff=0.0;
+            int c=0;
+            for (int i=0 ;i<tIt.Size();++i){
+                bool inBounds;
+                double f=tIt.GetPixel(i,inBounds);
+                if (inBounds){
+                    ++c;
+                    sf+=f;
+                    sff+=f*f;
+                }
+            }
+            sff -= ( sf * sf / c );
+            //if (fabs(sff)>fabs(maxLength))
+            maxLength+=sff;
+            ++count;
+        }
+        return maxLength/count;
+    }
+
     void NCCHelper(ImagePointerType i1, ImagePointerType i2, double & smmR , double & sffR , double   & sfmR ){
         ImageIteratorType it1(i1,i1->GetLargestPossibleRegion().GetSize());
         ImageIteratorType it2(i2,i2->GetLargestPossibleRegion().GetSize());
@@ -72,7 +96,7 @@ private:
         //sfmR = ( sf * sm / c );
     
     }
-    double NCCFuncLoc(ImageNeighborhoodIteratorPointerType i1, ImageNeighborhoodIteratorPointerType i2, double smm, double sff,double sfmR){
+    double NCCFuncLoc(ImageNeighborhoodIteratorPointerType i1, ImageNeighborhoodIteratorPointerType i2, double smm, double sff){
         double result=0;
         double count=0, totalCount=0;
         double sfm=0.0,sf=0.0,sm=0.0;
@@ -80,26 +104,23 @@ private:
         for (;i<i1->Size();++i){
             bool inBounds;
             double f=i1->GetPixel(i,inBounds);
-
             if (inBounds){
-            double m=i2->GetPixel(i);;
-            if (m!=0){
-
+                double m=i2->GetPixel(i);;
                 sfm+=f*m;
                 sf+=f;
                 sm+=m;
                 count+=1;
             }
-            }
         }
-        //sfm -= sfmR;
-        //sfm = sfmR;
+      
         sfm-=( sf * sm / count );
     
         if (smm*sff>0){
-            result=((1+1.0*sfm/sqrt(sff*smm))/2);
+            result=((1+1.0*sfm/(sqrt(sff)*sqrt(smm)))/2);
+            LOGV(40)<<VAR(result)<<" "<<VAR(sfm)<<" "<<VAR(sff)<<" "<<VAR(smm)<<endl;
             //cout<<VAR(result)<<" "<<VAR(sfm)<<" "<<VAR(sff)<<" "<<VAR(smm)<<endl;
-            result=result;
+            result=result>1?1:result;
+            result=result<0?0:result;
         }else{
             result=1;
         }
@@ -133,8 +154,9 @@ private:
         sfm -= ( sf * sm / count );
     
         if (smm*sff>0){
-            result=((1+1.0*sfm/sqrt(sff*smm))/2);
-            //    cout<<VAR(result)<<" "<<VAR(sfm)<<" "<<VAR(sff)<<" "<<VAR(smm)<<endl;
+            //result=((1+1.0*sfm/sqrt(sff*smm))/2);
+            result=((sfm));
+            LOGV(41)<<VAR(result)<<" "<<VAR(sfm)<<" "<<VAR(sff)<<" "<<VAR(smm)<<endl;
             result=result;
         }else{
             result=0;
@@ -210,7 +232,8 @@ public:
             suffix=".png";
         else
             suffix=".nii";
-
+        RadiusType rNCC;
+        for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) rNCC[i] = radius;
         mkdir(outputDir.c_str(),0755);
         logSetStage("IO");
         logSetVerbosity(verbose);
@@ -221,7 +244,7 @@ public:
         unsigned int totalNumberOfPixels=0;
         std::vector<string> imageIDs;
         int nTotalEdges=0;
-
+        map<string,double> maxNormFactor;
         {
             ifstream ifs(imageFileList.c_str());
             while( ! ifs.eof() ) 
@@ -259,6 +282,9 @@ public:
                         else{
                             LOG<<"duplicate ID "<<imageID<<", aborting"<<endl;
                             exit(0);
+                        }
+                        if (NCC){
+                            maxNormFactor[imageID]=getMaxVectorLength(img.img,rNCC); 
                         }
                     }
                 }
@@ -302,22 +328,24 @@ public:
                     ifs >> id2;
                     ifs >> defFileName;
                     if ( id1 == atlasID|| (evalAtlas && id2 == atlasID)  || (! useSupportSamples || supportSampleList.find(id1)!=supportSampleList.end() ||  ( (supportSampleList.find(id2)!=supportSampleList.end()) && (id1!=atlasID))) ){
-                        LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<id1<<" to "<<id2<<endl;
-                        DeformationFieldPointerType def=ImageUtils<DeformationFieldType>::readImage(defFileName);
                         if (inputImages.find(id1)==inputImages.end() || inputImages.find(id2)==inputImages.end() ){
-                            LOG<<id1<<" or "<<id2<<" not in image database, aborting"<<endl;
-                            exit(0);
+                            LOG<<id1<<" or "<<id2<<" not in image database, skipping"<<endl;
+                            //exit(0);
                         }else{
+                            LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<id1<<" to "<<id2<<endl;
+                            DeformationFieldPointerType def=ImageUtils<DeformationFieldType>::readImage(defFileName);
                             deformations[id1][id2]=def;
-                        }
-                        if ( evalAtlas || (id1!= atlasID && id2 != atlasID)){
-                            int nDefs=1;
-                            for (unsigned int d=0;d<D;++d){
-                                nDefs*=def->GetLargestPossibleRegion().GetSize()[d];
-                            }
-                            nTotalEdges+=nDefs;
+                        
+                            if ( evalAtlas || (id1!= atlasID && id2 != atlasID)){
+                                int nDefs=1;
+                                for (unsigned int d=0;d<D;++d){
+                                    nDefs*=def->GetLargestPossibleRegion().GetSize()[d];
+                                }
+                                nTotalEdges+=nDefs;
                       
+                            }
                         }
+
 
                     }
                 }
@@ -328,8 +356,7 @@ public:
   
         logSetStage("Init");
   
-        RadiusType rNCC;
-        for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) rNCC[i] = radius;
+      
 
         unsigned int nNodes=totalNumberOfPixels;
  
@@ -390,14 +417,20 @@ public:
                                     bool inside=true;
                                     int withinImageIndex=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx2,size2,inside);
                                     int linearIndex=runningIndex2+withinImageIndex;
-                                    LOGV(150)<<inside<<" "<<VAR(id1)<<" "<<VAR(id2)<<" "<<VAR(i)<<" "<<VAR(idx)<<" "<<VAR(linearIndex)<<" "<<VAR(idx2)<<endl;
+                                    //LOGV(150)<<inside<<" "<<VAR(id1)<<" "<<VAR(id2)<<" "<<VAR(i)<<" "<<VAR(idx)<<" "<<VAR(linearIndex)<<" "<<VAR(idx2)<<endl;
                                     if (inside){
                                         //compute linear edge index
 
                                         //compute edge weight
-                                        float weight;
-                                        if (SAD) weight=exp(-0.5*fabs(img1It.Get()-img2It.Get())/sigma);
-                                        else if (NCC) weight=NCCFunc(tIt,aIt);
+                                        float weight=1;
+                                        if (SAD) {
+                                            if (sigma>0)
+                                                weight=exp(-0.5*fabs(img1It.Get()-img2It.Get())/sigma);
+                                        }
+                                        else if (NCC) {
+                                            if (radius>0)
+                                                weight=NCCFuncLoc(tIt,aIt,maxNormFactor[id1],maxNormFactor[id2]);//NCCFunc(tIt,aIt);
+                                        }
                                         //add bidirectional edge
                                         if (weight>edgeThreshold){
                                             weight*=pWeight;
@@ -450,12 +483,13 @@ public:
                             double imageIntensity=imgIt.Get();
                             double deformedAtlasIntensity=defAtlasIt.Get();
                             double diff=imageIntensity-deformedAtlasIntensity;
-                            double weight;
-                            if (!SSD)
-                                weight=exp(-0.5*fabs(diff)/sigma);
-                            else
-                                weight=exp(-0.5*(diff*diff)/(sigma*sigma));
-                            
+                            double weight=1;
+                            if (sigma>0){
+                                if (!SSD)
+                                    weight=exp(-0.5*fabs(diff)/sigma);
+                                else
+                                    weight=exp(-0.5*(diff*diff)/(sigma*sigma));
+                            }
 
                             //LOGV(51)<<VAR(imageIntensity)<<" "<<VAR(deformedAtlasIntensity)<<" "<<VAR(weight)<<endl;
                             
@@ -524,11 +558,15 @@ public:
                     ImageNeighborhoodIteratorPointerType aIt=new ImageNeighborhoodIteratorType(rNCC,deformedAtlas,img->GetLargestPossibleRegion());
                     for (img2It.GoToBegin(),aIt->GoToBegin(),defSegIt.GoToBegin(),tIt->GoToBegin();!tIt->IsAtEnd();++(*tIt),++i,++(*aIt),++defSegIt,++img2It)  {
                         PixelType segmentationLabel=defSegIt.Get()>0;
-                        double weight=NCCFunc(tIt,aIt,sigma);
-                        //weight=NCCFuncLoc(tIt,aIt,smm,sff,sfmR);
+                        double weight;//=NCCFunc(tIt,aIt,sigma);
+                        if (radius>0)
+                            weight=NCCFuncLoc(tIt,aIt,maxNormFactor[id],maxNormFactor[atlasID]);
+                        else 
+                            weight=1;
                         img2It.Set(65535.0*weight);
-                        double e0=(segmentationLabel==0)?1:0;
-                        double e1=(segmentationLabel)?1:0;
+                        LOGV(40)<<weight<<endl;
+                        double e1=(segmentationLabel==0)?1:0;
+                        double e0=(segmentationLabel)?1:0;
                         int nLocalEdges=edgeCount[i];
 
                         if (edgeCountPenaltyWeight>0.0){
@@ -547,7 +585,7 @@ public:
                                 e0=0;
                             }
                         }
-                        optimizer->add_tweights(i,weight*e0,weight*e1);
+                        optimizer->add_tweights(i,weight*e1,weight*e0);
                         if (segPairwiseWeight>0){
                             IndexType idx=img2It.GetIndex();
 
