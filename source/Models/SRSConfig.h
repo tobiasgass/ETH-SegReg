@@ -44,6 +44,8 @@ public:
     bool computeMultilabelAtlasSegmentation;
     bool useTissuePrior;
     bool segment,regist,coherence;
+    double thresh_UnaryReg,thresh_PairwiseReg;
+    bool log_UnaryReg,log_PairwiseReg;
 private:
 	argstream * as;
 public:
@@ -84,6 +86,11 @@ public:
         regist=false;
         coherence=false;
         optIter=10;
+        thresh_UnaryReg=numeric_limits<double>::max();
+        thresh_PairwiseReg=numeric_limits<double>::max();;
+        log_UnaryReg=true;
+        log_PairwiseReg=true;
+
 	}
     ~SRSConfig(){
 		//delete as;
@@ -131,6 +138,8 @@ public:
         alpha=c.alpha;                          
         imageLevels=c.imageLevels;
         useTissuePrior=c.useTissuePrior;
+        thresh_UnaryReg=c.thresh_UnaryReg;
+        thresh_PairwiseReg=c.thresh_PairwiseReg;
 	}
 	void parseFile(std::string filename){
 		std::ostringstream streamm;
@@ -178,12 +187,19 @@ public:
 		(*as) >> parameter ("tsa", outputDeformedSegmentationFilename, "output image (file name)", false);
 		(*as) >> parameter ("st", segmentationOutputFilename, "output segmentation image (file name)", false);
 		(*as) >> parameter ("T", defFilename,"deformation field filename", false);
+        //weights
 		(*as) >> parameter ("rp", pairwiseRegistrationWeight,"weight for pairwise registration potentials", false);
 		(*as) >> parameter ("sp", pairwiseSegmentationWeight,"weight for pairwise segmentation potentials", false);
 		(*as) >> parameter ("cp", pairwiseCoherenceWeight,"weight for coherence potential", false);
 		(*as) >> parameter ("ru", unaryRegistrationWeight,"weight for registration unary", false);
 		(*as) >> parameter ("su", unarySegmentationWeight,"weight for segmentation unary", false);
-
+        //thresholds
+        (*as) >> parameter ("tru", thresh_UnaryReg,"threshold for unary registration potential.", false);
+        (*as) >> parameter ("trp", thresh_PairwiseReg,"threshold for pairwise registration potential (factor of max distance).", false);
+        (*as) >> parameter ("lru", log_UnaryReg,"negative log metric unary registration potential.", false);
+        (*as) >> parameter ("lrp", log_PairwiseReg,"negative log metric for pairwise registration potential.", false);
+        
+        //other params
 		(*as) >> parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
 		(*as) >> parameter ("nLevels", nLevels,"number of grid multiresolution pyramid levels", false);
         imageLevels=nLevels;

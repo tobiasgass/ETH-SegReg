@@ -35,7 +35,7 @@ int main(int argc, char ** argv)
     typedef ImageType::ConstPointer ImageConstPointerType;
 	typedef TransfUtils<ImageType>::DisplacementType DisplacementType;
     typedef SparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
-    //typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
+    //Typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
     typedef TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef DeformationFieldType::Pointer DeformationFieldPointerType;
 
@@ -64,7 +64,8 @@ int main(int argc, char ** argv)
     
     //reg
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationNMI< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -75,6 +76,7 @@ int main(int argc, char ** argv)
     //typedef FastRegistrationGraphModel<
     //    typedef SortedSubsamplingGraphModel<
     typedef FastGraphModel<
+    //typedef GraphModel<
         ImageType,
         RegistrationUnaryPotentialType,
         RegistrationPairwisePotentialType,
@@ -96,7 +98,7 @@ int main(int argc, char ** argv)
     ImagePointerType atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
     if (!atlasImage) {LOG<<"failed!"<<endl; exit(0);
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
-    ImagePointerType atlasSegmentation=filter->fixSegmentationImage(ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename),filterConfig.nSegmentations);
+    ImagePointerType atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
     if (!atlasSegmentation) {LOG<<"failed!"<<endl; exit(0);}
     logSetStage("Preprocessing");
     //preprocessing 1: gradients
@@ -130,7 +132,10 @@ int main(int argc, char ** argv)
   
     ImagePointerType originalTargetImage=targetImage,originalAtlasImage=atlasImage,originalAtlasSegmentation=atlasSegmentation;
     //preprocessing 3: downscaling
-    
+    if (D==2){
+        atlasSegmentation=filter->fixSegmentationImage(atlasSegmentation,filterConfig.nSegmentations);
+        //        ImageUtils<ImageType>::writeImage("fixedSegmentation.png",atlasSegmentation);
+    }
     if (filterConfig.downScale<1){
         double sigma=1;
         double scale=filterConfig.downScale;
@@ -206,14 +211,16 @@ int main(int argc, char ** argv)
     if (filterConfig.defFilename!=""){
         ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
     }
-    ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
-    ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
+    ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpSegmentationImage(originalAtlasSegmentation,finalDeformation);
+    ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage(originalAtlasImage,finalDeformation);
     
     ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
     if (ImageType::ImageDimension==2){
         if (targetSegmentationEstimate)
             ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,filter->makePngFromDeformationField((ImageConstPointerType)targetSegmentationEstimate,LabelMapperType::nSegmentations));
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,filter->makePngFromDeformationField((ImageConstPointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+        //ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,filter->makePngFromDeformationField((ImageConstPointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,(ImageConstPointerType)deformedAtlasSegmentation);
+
     }    else if (ImageType::ImageDimension==3){ 
         if (targetSegmentationEstimate)
             ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);

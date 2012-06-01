@@ -147,7 +147,7 @@ public:
                         for (int l1=0;l1<nRegLabels;++l1){
                             for (int l2=0;l2<nRegLabels;++l2){
                                 if (m_pairwiseRegistrationWeight>0)
-                                    Vreg[l1*nRegLabels+l2]=m_pairwiseRegistrationWeight*this->m_GraphModel->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+                                    Vreg[l1+l2*nRegLabels]=m_pairwiseRegistrationWeight*this->m_GraphModel->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
                                 else{
                                     Vreg[l1*nRegLabels+l2]=0;
                                 }

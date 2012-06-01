@@ -229,7 +229,12 @@ namespace itk{
 
             //instantiate interpolators
             ImageInterpolatorPointerType atlasInterpolator=ImageInterpolatorType::New();
+            if (regist || coherence){
+                unaryRegistrationPot->setThreshold(m_config.thresh_UnaryReg);
+                unaryRegistrationPot->setLogPotential(m_config.log_UnaryReg);
+                pairwiseRegistrationPot->setThreshold(m_config.thresh_PairwiseReg);
 
+            }
             if (segment){
                 unarySegmentationPot->SetTargetImage(targetImage);
                 unarySegmentationPot->SetTargetGradient((ConstImagePointerType)targetGradientImage);
@@ -275,7 +280,8 @@ namespace itk{
                 m_config.nLevels=1;
                 m_config.iterationsPerLevel=1;
             }
-            bool computeLowResolutionBsplineIfPossible=true;
+            bool computeLowResolutionBsplineIfPossible=false;
+            LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
             for (int l=0;l<m_config.nLevels;++l){
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":0");
@@ -409,7 +415,7 @@ namespace itk{
 
                             MRFSolverType  *mrfSolver= new MRFSolverType(graph,
                                                                          m_config.unaryRegistrationWeight,
-                                                                         m_config.pairwiseRegistrationWeight * (l>0 || i>0 ) ,
+                                                                         m_config.pairwiseRegistrationWeight,// * (l>0 || i>0 ) ,
                                                                          m_config.unarySegmentationWeight,
                                                                          m_config.pairwiseSegmentationWeight,
                                                                          m_config.pairwiseCoherenceWeight,
@@ -470,7 +476,6 @@ namespace itk{
                         composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
                         deformedAtlasImage=TransfUtils<ImageType>::warpImage(atlasImage,composedDeformation);
                         deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(atlasSegmentationImage,composedDeformation,true);
-                        //deformedAtlasSegmentation=warpImage(atlasSegmentationImage,composedDeformation);
                     }
                     
       
@@ -542,7 +547,7 @@ namespace itk{
                 multiplier=std::numeric_limits<PixelType>::max();
             }
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                //    LOGX<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
+                //LOG<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
                 imageIt2.Set(imageIt.Get()*multiplier);
             }
             return (ConstImagePointerType)newImage;
@@ -557,9 +562,9 @@ namespace itk{
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
 
             nSegmentations=nSegmentations>0?nSegmentations:2;
-            int divisor=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
+            double divisor=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                imageIt2.Set(floor(1.0*imageIt.Get()/divisor+0.5));
+                imageIt2.Set(floor(1.0*imageIt.Get()/divisor+0.51));
             }
 
             return (ImagePointerType)newImage;

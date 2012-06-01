@@ -26,6 +26,7 @@ namespace itk{
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::PointType PointType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         static const unsigned int D=ImageType::ImageDimension;
         typedef TLabelMapper LabelMapperType;
@@ -44,6 +45,7 @@ namespace itk{
         bool m_haveLabelMap;
         SpacingType m_gridSpacing;
         double m_maxDist;
+        double m_threshold;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -52,9 +54,11 @@ namespace itk{
 
         PairwisePotentialRegistration(){
             m_haveLabelMap=false;
+            m_threshold=std::numeric_limits<double>::max();
         }
         virtual void freeMemory(){
         }
+        virtual void setThreshold(double t){m_threshold=t;}
         void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
         void SetTargetImage(ConstImagePointerType targetImage){
@@ -71,27 +75,41 @@ namespace itk{
         virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
             assert(m_haveLabelMap);
             double result=0;
-            
-
+            PointType pt;
+            LOGV(50)<<VAR(targetIndex1)<<endl;            
+            m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,pt);
+            m_baseLabelMap->TransformPhysicalPointToIndex(pt,targetIndex1);
+            LOGV(50)<<VAR(targetIndex1)<<endl;            
+            m_targetImage->TransformIndexToPhysicalPoint(targetIndex2,pt);
+            m_baseLabelMap->TransformPhysicalPointToIndex(pt,targetIndex2);
+            //LOG<<VAR(targetIndex1)<<" "<<m_baseLabelMap->GetLargestPossibleRegion().GetSize()<<endl;
 			LabelType oldl1=m_baseLabelMap->GetPixel((targetIndex1));
 			LabelType oldl2=m_baseLabelMap->GetPixel((targetIndex2));
 			double d1,d2;
 			int delta;
-            //			displacement1+=oldl1;
-			//displacement2+=oldl2;
+            LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
+            LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
+
+            displacement1+=oldl1;
+			displacement2+=oldl2;
+
+            LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
 
 			for (unsigned int d=0;d<D;++d){
 
 				d1=displacement1[d];
 				d2=displacement2[d];
-				delta=(targetIndex2[d]-targetIndex1[d]);
-				double axisPositionDifference=1.0*(d2-d1)/(m_gridSpacing[d]);
+				//delta=(targetIndex2[d]-targetIndex1[d]);
+				double axisPositionDifference=1.0*(d2-d1);//(m_gridSpacing[d]);
 				result+=(axisPositionDifference)*(axisPositionDifference);
 			}
 
 			//			if (false){
-            
-            return (result);
+            LOGV(50)<<VAR(result)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<" "<<VAR(targetIndex1)<<" "<<VAR(targetIndex1)<<" "<<VAR(oldl1)<<" "<<VAR(oldl2)<<endl;
+            if (m_threshold<numeric_limits<double>::max()){
+                result=min(m_maxDist*m_threshold,(result));
+            }
+            return result;
         }
     };//class
     template<class TLabelMapper,class TImage>

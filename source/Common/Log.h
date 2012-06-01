@@ -2,11 +2,14 @@
 
 #include "boost/format.hpp"
 #include "boost/timer.hpp"
-
+#include <iostream>
+#include <stdio.h>
 #include <stack>
 #define logSetStage(stage) mylog.setStage(stage)
 #define logResetStage mylog.resetStage()
 #define logSetVerbosity(level) mylog.setVerbosity(level)
+
+using namespace std;
 class MyLog {
 
     boost::timer m_timer;
@@ -60,4 +63,9 @@ MyLog mylog;
         std::cout <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
     if (mylog.getVerbosity()>=level)                                    \
         std::cout<<mylog.getStatus()<<" ["<<level<<"] "
+
+#define LOGI(level, instruction) \
+    if (mylog.getVerbosity()>=level)  \
+        instruction
+
 

@@ -292,6 +292,15 @@ public:
         }
         return result/c;
     }
+
+    static  void multiplyImage(ImagePointerType img, double scalar){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        for (it1.GoToBegin();!it1.IsAtEnd();++it1){
+            it1.Set(it1.Get()*scalar);
+        }
+
+    }
     static ImagePointerType deformSegmentationImage(ConstImagePointerType segmentationImage, FloatVectorImagePointerType deformation){
             //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
             typedef  typename itk::ImageRegionIterator<FloatVectorImageType> LabelIterator;

@@ -246,7 +246,7 @@ namespace itk{
             m_coarseGraphImage->Allocate();
             m_coarseGraphImage->FillBuffer(1);
             
-            ImageUtils<ImageType>::writeImage("coarsegraph.nii",m_coarseGraphImage);
+            //ImageUtils<ImageType>::writeImage("coarsegraph.nii",m_coarseGraphImage);
             LOGV(8)<<"physical coordinate consistency check"<<endl;
             for (int d=0;d<ImageType::ImageDimension;++d){
                 IndexType idx;
@@ -371,7 +371,7 @@ namespace itk{
             IndexType graphIndex2=getImageIndexFromCoarseGraphIndex(nodeIndex2);
             RegistrationLabelType l2=LabelMapperType::getLabel(labelIndex2);
             l2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());
-            return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2)/m_nRegEdges;
+            return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2);//m_nRegEdges;
         };
          virtual double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
             assert(false);

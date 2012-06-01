@@ -165,12 +165,12 @@ namespace itk{
                         caster->SetInput(thresholdFilter->GetOutput());
                         caster->Update();
                         ImagePointerType output=caster->GetOutput();
-                        ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+                        //ImageUtils<ImageType>::writeImage("dt1.png",(output));    
                     }
                     if (ImageType::ImageDimension==3){
                         ostringstream dtFilename;
                         dtFilename<<"dt"<<l<<".nii";
-                        ImageUtils<FloatImageType>::writeImage(dtFilename.str().c_str(),FloatImageConstPointerType(dt1));
+                        //                        ImageUtils<FloatImageType>::writeImage(dtFilename.str().c_str(),FloatImageConstPointerType(dt1));
                     }
                 }
                 m_distanceTransforms[l]=dt1;
