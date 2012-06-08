@@ -691,9 +691,9 @@ namespace itk{
         typedef typename LabelMapperType::LabelType RegistrationLabelType;
     public:
         virtual void Init(){
-#define moarcaching
-#ifdef moarcaching
+            //#define moarcaching
             this->m_unaryRegFunction->setCoarseImage(this->m_coarseGraphImage);
+#ifdef moarcaching
             std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
             for (int n=0;n<this->m_nDisplacementLabels;++n){
                 LOGV(5)<<"Caching unary registration potentials for label "<<n<<endl;
@@ -705,6 +705,7 @@ namespace itk{
         }
         virtual void cacheRegistrationPotentials(int labelIndex){
 #ifndef moarcaching
+            LOGV(5)<<"Caching unary registration function for label " << labelIndex<<endl;
             this->m_unaryRegFunction->cachePotentials(LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(labelIndex),this->getDisplacementFactor()));
 #endif
         }

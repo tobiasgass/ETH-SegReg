@@ -113,7 +113,7 @@ public:
             //RegUnaries
             clock_t startUnary = clock();
             m_registered=true;
-#define moarcaching
+            //#define moarcaching
 #ifdef moarcaching
             for (int d=0;d<nRegNodes;++d){
                 TRWType::REAL D1[nRegLabels];
@@ -132,7 +132,6 @@ public:
             for (int d=0;d<nRegNodes;++d){
                 regNodes[d] = 
                     m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
-                // Pairwise potentials
             }
             //now compute&set all potentials
             if (m_unaryRegistrationWeight>0){
@@ -155,6 +154,7 @@ public:
             double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
             LOGV(1)<<"Registration Unaries took "<<t<<" seconds."<<endl;
             tUnary+=t;
+            // Pairwise potentials
             for (int d=0;d<nRegNodes;++d){
             
                 {//pure Registration

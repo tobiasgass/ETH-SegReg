@@ -1181,11 +1181,11 @@ namespace itk{
             }
             //result=result>0.5?0.5:result; 
             if (this->LOGPOTENTIAL){
-                result=((fabs(NCC)));
+                result=(1.0+((NCC)))/2;
                 result=result>0?result:0.00000001;
                 result=-log(result);
             }else{
-                result=(1-fabs(NCC));
+                result=(1-(NCC))/2;
             }
             result=min(this->m_threshold,result);
             
