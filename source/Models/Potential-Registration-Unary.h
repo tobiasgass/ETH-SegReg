@@ -89,7 +89,7 @@ namespace itk{
             m_scale=1.0;
             m_scaleITK.Fill(1.0);
             m_threshold=std::numeric_limits<double>::max();
-            LOGPOTENTIAL=true;
+            LOGPOTENTIAL=false;
         }
         ~UnaryPotentialRegistrationNCC(){
             //delete nIt;

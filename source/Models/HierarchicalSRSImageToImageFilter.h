@@ -380,6 +380,7 @@ namespace itk{
                     oldEnergy=newEnergy;
                     LOGV(7)<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl;
                     // displacementfactor decreases with iterations
+                    LOGV(2)<<VAR(labelScalingFactor)<<endl;
                     graph->setDisplacementFactor(labelScalingFactor);
                     
                     //register deformation from previous iteration
