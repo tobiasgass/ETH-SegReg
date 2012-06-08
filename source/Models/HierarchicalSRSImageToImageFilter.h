@@ -57,7 +57,7 @@
 #include "itkCastImageFilter.h"
 #include "Classifier.h"
 #include "itkHausdorffDistanceImageFilter.h"
-
+#include <float.h>
 
 namespace itk{
     template<class TGraph>
@@ -280,7 +280,7 @@ namespace itk{
                 m_config.nLevels=1;
                 m_config.iterationsPerLevel=1;
             }
-            bool computeLowResolutionBsplineIfPossible=false;
+            bool computeLowResolutionBsplineIfPossible=true;
             LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
             for (int l=0;l<m_config.nLevels;++l){
@@ -298,7 +298,7 @@ namespace itk{
                 LOGV(1)<<"Image downsampling factor for registration unary computation : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
 
                 level=m_config.levels[l];
-                double labelScalingFactor=1;
+                double labelScalingFactor=m_config.displacementScaling;
 
                 //init graph
                 LOG<<"Initializing graph structure."<<std::endl;
@@ -373,10 +373,11 @@ namespace itk{
                 LOGV(1)<<"Current grid spacing :"<<graph->getSpacing()<<std::endl;
                 
                 //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-              
-                for (int i=0;i<m_config.iterationsPerLevel;++i,++iterationCount){
+                bool converged=false;
+                double oldEnergy,newEnergy=DBL_EPSILON;
+                for (int i=0;!converged && i<m_config.iterationsPerLevel;++i,++iterationCount){
                     logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":"+boost::lexical_cast<std::string>(i));
-
+                    oldEnergy=newEnergy;
                     LOGV(7)<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl;
                     // displacementfactor decreases with iterations
                     graph->setDisplacementFactor(labelScalingFactor);
@@ -421,7 +422,7 @@ namespace itk{
                                                                          m_config.pairwiseCoherenceWeight,
                                                                          m_config.verbose);
                             mrfSolver->createGraph();
-                            mrfSolver->optimize(m_config.optIter);
+                            newEnergy=mrfSolver->optimize(m_config.optIter);
                             if (regist || coherence){
                                 deformation=graph->getDeformationImage(mrfSolver->getDeformationLabels());
                             }
@@ -443,7 +444,7 @@ namespace itk{
                                                                          m_config.pairwiseCoherenceWeight,
                                                                          m_config.verbose);
                             mrfSolver->createGraph();
-                            mrfSolver->optimize(m_config.optIter);
+                            newEnergy=mrfSolver->optimize(m_config.optIter);
                             if (regist || coherence){
                                 deformation=graph->getDeformationImage(mrfSolver->getDeformationLabels());
                             }
@@ -455,7 +456,8 @@ namespace itk{
 
 
                     }
-
+                    converged=fabs(newEnergy-oldEnergy)/fabs(oldEnergy) <0.01 ; 
+                    LOGV(3)<<"Convergence ratio " <<100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy)<<"%"<<endl;
                     //initialise interpolator
                     //deformation
                     DeformationFieldPointerType composedDeformation;
@@ -470,9 +472,7 @@ namespace itk{
                     }   //fullDeformation=scaleDeformationField(fullDeformation,graph->getDisplacementFactor());
    
                     //apply deformation to atlas image
-                    ConstIteratorType targetIt(targetImage,targetImage->GetLargestPossibleRegion());
                     if (regist || coherence){
-
                         composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
                         deformedAtlasImage=TransfUtils<ImageType>::warpImage(atlasImage,composedDeformation);
                         deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(atlasSegmentationImage,composedDeformation,true);

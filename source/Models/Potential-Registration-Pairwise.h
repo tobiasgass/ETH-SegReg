@@ -72,21 +72,19 @@ namespace itk{
                 m_maxDist+=sp[d]*sp[d];
             }
         }
-        virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
+        virtual inline double getPotential(PointType pt1, PointType pt2,LabelType displacement1, LabelType displacement2){
             assert(m_haveLabelMap);
             double result=0;
-            PointType pt;
+            IndexType targetIndex1, targetIndex2;
             LOGV(50)<<VAR(targetIndex1)<<endl;            
-            m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,pt);
-            m_baseLabelMap->TransformPhysicalPointToIndex(pt,targetIndex1);
+            m_baseLabelMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
             LOGV(50)<<VAR(targetIndex1)<<endl;            
-            m_targetImage->TransformIndexToPhysicalPoint(targetIndex2,pt);
-            m_baseLabelMap->TransformPhysicalPointToIndex(pt,targetIndex2);
+            m_baseLabelMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
             //LOG<<VAR(targetIndex1)<<" "<<m_baseLabelMap->GetLargestPossibleRegion().GetSize()<<endl;
 			LabelType oldl1=m_baseLabelMap->GetPixel((targetIndex1));
 			LabelType oldl2=m_baseLabelMap->GetPixel((targetIndex2));
 			double d1,d2;
-			int delta;
+			double delta;
             LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
             LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
 
@@ -99,8 +97,76 @@ namespace itk{
 
 				d1=displacement1[d];
 				d2=displacement2[d];
-				//delta=(targetIndex2[d]-targetIndex1[d]);
+				delta=(pt2[d]-pt1[d]);
 				double axisPositionDifference=1.0*(d2-d1);//(m_gridSpacing[d]);
+                if (delta>0.0 ){
+                    if (pt2[d]+d2 - (pt1[d]+d1) < 0.2*delta){
+                        cout<<"//folding"<<endl;
+                        cout<<VAR(pt1[d])<<" "<<d1<<" "<<VAR(pt2[d])<<" "<<d2<<" "<<VAR(m_gridSpacing[d])<<" "<<VAR(delta)<<endl;
+                        cout<<VAR(pt2[d]+d2)<<" "<<VAR((pt1[d]+d1))<<" diff:"<< pt2[d]+d2 - (pt1[d]+d1) << " "<< VAR(0.2*delta)<<endl;
+                        return 10000000;
+                    }else if (pt2[d]+d2 - (pt1[d]+d1) > 1.8*delta){
+                        //tearing
+                        cout<<"//tearing"<<endl;
+                        return 10000000;
+                    }
+                    
+                }
+				result+=(axisPositionDifference)*(axisPositionDifference);
+			}
+
+			//			if (false){
+            LOGV(50)<<VAR(result)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<" "<<VAR(targetIndex1)<<" "<<VAR(targetIndex1)<<" "<<VAR(oldl1)<<" "<<VAR(oldl2)<<endl;
+            if (m_threshold<numeric_limits<double>::max()){
+                result=min(m_maxDist*m_threshold,(result));
+            }
+            return result;
+        }
+            
+        virtual inline double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
+            LOG<<"DEPRECATED, do not call!"<<endl;
+            exit(0);
+            assert(m_haveLabelMap);
+            double result=0;
+            PointType pt1,pt2;
+            LOGV(50)<<VAR(targetIndex1)<<endl;            
+            //m_coarseGraphImage->TransformIndexToPhysicalPoint(targetIndex1,pt1);
+            m_baseLabelMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
+            LOGV(50)<<VAR(targetIndex1)<<endl;            
+            //m_coarseGraphImage->TransformIndexToPhysicalPoint(targetIndex2,pt2);
+            m_baseLabelMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
+            //LOG<<VAR(targetIndex1)<<" "<<m_baseLabelMap->GetLargestPossibleRegion().GetSize()<<endl;
+			LabelType oldl1=m_baseLabelMap->GetPixel((targetIndex1));
+			LabelType oldl2=m_baseLabelMap->GetPixel((targetIndex2));
+			double d1,d2;
+			double delta;
+            LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
+            LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
+
+            displacement1+=oldl1;
+			displacement2+=oldl2;
+
+            LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
+
+			for (unsigned int d=0;d<D;++d){
+
+				d1=displacement1[d];
+				d2=displacement2[d];
+				delta=(pt2[d]-pt1[d]);
+				double axisPositionDifference=1.0*(d2-d1);//(m_gridSpacing[d]);
+                if (delta>0.0 ){
+                    if (pt2[d]+d2 - (pt1[d]+d1) < 0.2*delta){
+                        cout<<"//folding"<<endl;
+                        cout<<VAR(pt1[d])<<" "<<d1<<" "<<VAR(pt2[d])<<" "<<d2<<" "<<VAR(m_gridSpacing[d])<<" "<<VAR(delta)<<endl;
+                        cout<<VAR(pt2[d]+d2)<<" "<<VAR((pt1[d]+d1))<<" diff:"<< pt2[d]+d2 - (pt1[d]+d1) << " "<< VAR(0.2*delta)<<endl;
+                        return 10000000;
+                    }else if (pt2[d]+d2 - (pt1[d]+d1) > 1.8*delta){
+                        //tearing
+                        cout<<"//tearing"<<endl;
+                        return 10000000;
+                    }
+                    
+                }
 				result+=(axisPositionDifference)*(axisPositionDifference);
 			}
 

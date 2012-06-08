@@ -27,7 +27,10 @@ ADD_EXECUTABLE(DeformImage3D DeformImage3D.cxx )
 TARGET_LINK_LIBRARIES(DeformImage3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DeformImage2D DeformImage2D.cxx )
 TARGET_LINK_LIBRARIES(DeformImage2D  Utils   ${ITK_LIBRARIES}  )
-
+ADD_EXECUTABLE(ComposeDeformations3D ComposeDeformations3D.cxx )
+TARGET_LINK_LIBRARIES(ComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(ComposeDeformations2D ComposeDeformations2D.cxx )
+TARGET_LINK_LIBRARIES(ComposeDeformations2D  Utils   ${ITK_LIBRARIES}  )
 
 #SRS
 ADD_EXECUTABLE(SRS3D Multiresolution-SRS3D.cxx )

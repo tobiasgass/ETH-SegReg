@@ -34,8 +34,8 @@ int main(int argc, char ** argv)
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
 	typedef TransfUtils<ImageType>::DisplacementType DisplacementType;
-    typedef SparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
-    //Typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
+    //typedef SparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
+    typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
     typedef TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef DeformationFieldType::Pointer DeformationFieldPointerType;
 
@@ -64,8 +64,9 @@ int main(int argc, char ** argv)
     
     //reg
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNMI< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationNMI< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;

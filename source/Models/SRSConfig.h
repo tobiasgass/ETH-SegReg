@@ -46,6 +46,7 @@ public:
     bool segment,regist,coherence;
     double thresh_UnaryReg,thresh_PairwiseReg;
     bool log_UnaryReg,log_PairwiseReg;
+    double displacementScaling;
 private:
 	argstream * as;
 public:
@@ -90,6 +91,7 @@ public:
         thresh_PairwiseReg=numeric_limits<double>::max();;
         log_UnaryReg=true;
         log_PairwiseReg=true;
+        displacementScaling=1.0;
 
 	}
     ~SRSConfig(){
@@ -209,6 +211,7 @@ public:
 		(*as) >> parameter ("optIter", optIter,"max iterations of optimizer", false);
         (*as) >> parameter ("r",displacementRescalingFactor,"displacementRescalingFactor", false);
         (*as) >> parameter ("asymmetry",asymmetry,"asymmetry in segreg potential", false);
+        (*as) >> parameter ("displacementScaling",displacementScaling,"Scaling of displacement labels relative to image spacing. WARNING: if set larger than 1, diffeomorphic registrations are no longer guaranteed!", false);
 
 		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename", false);
 		(*as) >> parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);

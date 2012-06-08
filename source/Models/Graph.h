@@ -170,7 +170,6 @@ namespace itk{
             m_coarseGraphImage->SetRegions(region);
             m_coarseGraphImage->SetDirection(m_targetImage->GetDirection());
             m_coarseGraphImage->Allocate();
-            
 
 
             m_nNodes=m_nRegistrationNodes+m_nSegmentationNodes;
@@ -364,14 +363,21 @@ namespace itk{
             }
             return result;
         };
-        virtual double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
-            IndexType graphIndex1=getImageIndexFromCoarseGraphIndex(nodeIndex1);
-            RegistrationLabelType l1=LabelMapperType::getLabel(labelIndex1);
-            l1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());
-            IndexType graphIndex2=getImageIndexFromCoarseGraphIndex(nodeIndex2);
+        virtual inline double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
+            
+            //IndexType graphIndex1=getImageIndexFromCoarseGraphIndex(nodeIndex1);
+            //IndexType graphIndex2=getImageIndexFromCoarseGraphIndex(nodeIndex2);
+            IndexType graphIndex1=getGraphIndex(nodeIndex1);
+            IndexType graphIndex2=getGraphIndex(nodeIndex2);
+            PointType pt1,pt2;
+            m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex1,pt1);
+            m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex2,pt2);
             RegistrationLabelType l2=LabelMapperType::getLabel(labelIndex2);
             l2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());
-            return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2);//m_nRegEdges;
+            RegistrationLabelType l1=LabelMapperType::getLabel(labelIndex1);
+            l1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());
+            //return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2);//m_nRegEdges;
+            return m_pairwiseRegFunction->getPotential(pt1, pt2, l1,l2);//m_nRegEdges;
         };
          virtual double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
             assert(false);
@@ -686,16 +692,19 @@ namespace itk{
     public:
         virtual void Init(){
             this->m_unaryRegFunction->setCoarseImage(this->m_coarseGraphImage);
-            std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
-            for (int n=0;n<this->m_nDisplacementLabels;++n){
-                displacementList[n]=LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(n),this->getDisplacementFactor());
-            }
-            this->m_unaryRegFunction->setDisplacements(displacementList);
-            this->m_unaryRegFunction->compute();
+            //std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
+            //for (int n=0;n<this->m_nDisplacementLabels;++n){
+            //displacementList[n]=LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(n),this->getDisplacementFactor());
+            //}
+            //this->m_unaryRegFunction->setDisplacements(displacementList);
+            //this->m_unaryRegFunction->compute();
+        }
+        virtual void cacheRegistrationPotentials(int labelIndex){
+            this->m_unaryRegFunction->cachePotentials(LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(labelIndex),this->getDisplacementFactor()));
         }
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType index=this->getGraphIndex(nodeIndex);
-            return  this->m_unaryRegFunction->getPotential(index,labelIndex)/this->m_nRegistrationNodes;
+            return  this->m_unaryRegFunction->getPotential(index)/this->m_nRegistrationNodes;
         }
 
 

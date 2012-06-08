@@ -328,7 +328,7 @@ public:
             DiscreteGaussianImageFilterType::New();
 
         filter->SetInput(image);
-        //  filter->SetVariance(variance);
+        filter->SetSigma(variance);
         filter->Update();
 
         return filter->GetOutput();

@@ -22,6 +22,8 @@
 #include "itkNearestNeighborInterpolateImageFunction.h"
 #include "itkDisplacementFieldCompositionFilter.h"
 #include <utility>
+#include <itkWarpVectorImageFilter.h>
+#include <itkAddImageFilter.h>
 using namespace std;
 
 template<class ImageType>
@@ -37,6 +39,7 @@ public:
     typedef itk::Vector<float,D> DisplacementType;
     typedef itk::Image<DisplacementType,D> DeformationFieldType;
     typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
+    typedef typename DeformationFieldType::ConstPointer DeformationFieldConstPointerType;
     typedef typename ImageType::PointType PointType;
     typedef typename ImageType::IndexType IndexType;
     typedef typename ImageType::SpacingType SpacingType;
@@ -593,6 +596,8 @@ public:
         return result;
     }
 
+    //#define USE_INRIA
+#ifdef USE_INRIA
     static DeformationFieldPointerType composeDeformations(DeformationFieldPointerType def1, DeformationFieldPointerType def2){
         typedef  typename itk::DisplacementFieldCompositionFilter<DeformationFieldType,DeformationFieldType> CompositionFilterType;
         typename CompositionFilterType::Pointer composer=CompositionFilterType::New();
@@ -600,7 +605,45 @@ public:
         composer->SetInput(0,def2);
         composer->Update();
         return composer->GetOutput();
-
     }
+#else
+    static DeformationFieldPointerType composeDeformations(DeformationFieldPointerType rightField, DeformationFieldPointerType leftField){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        typedef itk::AddImageFilter<DeformationFieldType,DeformationFieldType,
+                               DeformationFieldType>                           AdderType;
+        typedef typename AdderType::Pointer                  AdderPointer;
+        // Setup the default interpolator
+        typedef itk::VectorLinearInterpolateNearestNeighborExtrapolateImageFunction<
+            DeformationFieldType,double> DefaultFieldInterpolatorType;
 
+        typename DefaultFieldInterpolatorType::Pointer interpolator=DefaultFieldInterpolatorType::New();
+        interpolator->SetInputImage(leftField);
+        AdderPointer m_Adder=AdderType::New();
+        // Setup the adder to not be inplace
+        m_Adder->InPlaceOff();
+
+        DeformationFieldPointerType warpedLeftField=ImageUtils<DeformationFieldType>::createEmpty((DeformationFieldConstPointerType)rightField);
+        
+        LabelIterator imageIt(warpedLeftField,warpedLeftField->GetLargestPossibleRegion());
+        LabelIterator deformationIt(rightField,rightField->GetLargestPossibleRegion());
+        for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
+            IndexType index=deformationIt.GetIndex();
+            typename DefaultFieldInterpolatorType::ContinuousIndexType idx(index);
+            DisplacementType displacement=deformationIt.Get();
+            PointType p;
+            rightField->TransformIndexToPhysicalPoint(index,p);
+            p+=displacement;
+            leftField->TransformPhysicalPointToContinuousIndex(p,idx);
+            imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx)+displacement);
+        }
+        
+        // m_Adder->SetInput1( warpedLeftField);
+        //m_Adder->SetInput2( rightField );
+        
+        //m_Adder->GetOutput()->SetRequestedRegion( this->GetOutput()->GetRequestedRegion() );
+        //m_Adder->Update();
+
+        return warpedLeftField;//m_Adder->GetOutput();
+    }
+#endif
 };

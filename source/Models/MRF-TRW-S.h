@@ -114,17 +114,23 @@ public:
             clock_t startUnary = clock();
             m_registered=true;
             TRWType::REAL D1[nRegLabels];
+            //
+            for (int l1=0;l1<nRegLabels;++l1) D1[l1]=0;
+            //firstly allocate registration nodes with zero potentials
             for (int d=0;d<nRegNodes;++d){
-                for (int l1=0;l1<nRegLabels;++l1)
-                    {
-                        if (m_unaryRegistrationWeight>0)
-                            D1[l1]=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1);
-                        else
-                            D1[l1]=0;
-                    }
                 regNodes[d] = 
                     m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
                 // Pairwise potentials
+            }
+            //now compute&set all potentials
+            if (m_unaryRegistrationWeight>0){
+                for (int l1=0;l1<nRegLabels;++l1)
+                    {
+                        this->m_GraphModel->cacheRegistrationPotentials(l1);
+                        for (int d=0;d<nRegNodes;++d){
+                            m_optimizer.SetNodeData(regNodes[d],l1,m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1));
+                        }
+                    }
             }
             TRWType::REAL Vreg[nRegLabels*nRegLabels];
             for (int l1=0;l1<nRegLabels;++l1){
@@ -245,7 +251,7 @@ public:
     }
     
 
-    virtual void optimize(int maxIter=20){
+    virtual double optimize(int maxIter=20){
         LOGV(1)<<"Total number of MRF edges: " <<nEdges<<endl;
         //m_optimizer.SetAutomaticOrdering();
 
@@ -264,7 +270,8 @@ public:
         tOpt+=((double)(finish-opt_start)/CLOCKS_PER_SEC);
         float t = (float) ((double)(finish - m_start) / CLOCKS_PER_SEC);
         LOG<<"Finished optimization after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound <<std::endl;
-
+        
+        return energy;
 
     }
 

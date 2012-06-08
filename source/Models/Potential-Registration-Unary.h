@@ -23,6 +23,7 @@
 #include "Log.h"
 #include <limits>
 #include "itkNormalizedMutualInformationHistogramImageToImageMetric.h"
+#include "itkMattesMutualInformationImageToImageMetric.h"
 #include "itkHistogram.h"
 #include "itkScalarImageToHistogramGenerator.h"
 #include <limits>
@@ -68,6 +69,7 @@ namespace itk{
         bool m_haveLabelMap;
         bool radiusSet;
         RadiusType m_radius, m_scaledRadius;
+        SpacingType m_coarseImageSpacing;
         ImageNeighborhoodIteratorType nIt;
         double m_scale;
         SizeType m_scaleITK,m_invertedScaleITK;
@@ -100,13 +102,13 @@ namespace itk{
         virtual void Init(){
             assert(m_targetImage);
             assert(m_atlasImage);
-            if (m_scale!=1.0){
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,100),m_scale);
-                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,100),m_scale);
+            if ( m_scale!=1.0){
+                //m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,100),m_scale);
+                //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,100),m_scale);
                 //m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale);
                 //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale);
-                //m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),10);
-                //m_scaledAtlasImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale),10);
+                m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),1);
+                m_scaledAtlasImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale),1);
             }else{
                 m_scaledTargetImage=m_targetImage;
                 m_scaledAtlasImage=m_atlasImage;
@@ -134,6 +136,7 @@ namespace itk{
             this->m_invertedScaleITK.Fill(1.0/s);
         }
         void SetRadius(SpacingType sp){
+            m_coarseImageSpacing=sp;
             double radiusScaling=1;
             LOGV(2)<<VAR(radiusScaling)<<endl;
             for (int d=0;d<ImageType::ImageDimension;++d){
@@ -1062,6 +1065,8 @@ namespace itk{
         ImageNeighborhoodIteratorType m_atlasNeighborhoodIterator,m_maskNeighborhoodIterator;
         std::vector<LabelType> m_displacements;
         std::vector<FloatImagePointerType> m_potentials;
+        LabelType currentActiveDisplacement;
+        FloatImagePointerType currentCachedPotentials;
         ImagePointerType m_coarseImage;
     public:
         /** Method for creation through the object factory. */
@@ -1070,6 +1075,7 @@ namespace itk{
         itkTypeMacro(FastRegistrationUnaryPotentialNCC, Object);
         
         virtual void compute(){
+            LOG<<"DEPRECATED, too memory intensive!!"<<endl;
             m_potentials=std::vector<FloatImagePointerType>(m_displacements.size(),NULL);
             for (unsigned int n=0;n<m_displacements.size();++n){
                 LOGV(9)<<"cachhing unary registrationpotentials for label " <<n<<endl;
@@ -1097,14 +1103,41 @@ namespace itk{
                             
             }
         }
-        
+        void cachePotentials(LabelType displacement){
+            FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(m_coarseImage);
+            LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
+            translation->FillBuffer( displacement);
+            LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
+            ImagePointerType deformedAtlas,deformedMask;
+            pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
+            deformedAtlas=result.first;
+            deformedMask=result.second;
+            m_atlasNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedAtlas,deformedAtlas->GetLargestPossibleRegion());
+            m_maskNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedMask,deformedMask->GetLargestPossibleRegion());
+            FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
+            for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator){
+                IndexType coarseIndex=coarseIterator.GetIndex();
+                PointType point;
+                m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
+                IndexType targetIndex;
+                this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
+                coarseIterator.Set(getLocalPotential(targetIndex));
+                
+            }
+            currentCachedPotentials=pot;
+            currentActiveDisplacement=displacement;
+        }
         void setDisplacements(std::vector<LabelType> displacements){
             m_displacements=displacements;
         }
         void setCoarseImage(ImagePointerType img){m_coarseImage=img;}
 
         virtual double getPotential(IndexType coarseIndex, unsigned int displacementLabel){
+            LOG<<"DEPRECATED BEHAVIOUR!"<<endl;
             return m_potentials[displacementLabel]->GetPixel(coarseIndex);
+        }
+        virtual double getPotential(IndexType coarseIndex){
+            return currentCachedPotentials->GetPixel(coarseIndex);
         }
         virtual double getPotential(IndexType coarseIndex, LabelType l){
             LOG<<"ERROR NEVER CALL THIS"<<endl;
@@ -1147,18 +1180,100 @@ namespace itk{
             }
             //result=result>0.5?0.5:result; 
             if (this->LOGPOTENTIAL){
-                result=((1+NCC)/2);
+                result=((fabs(NCC)));
                 result=result>0?result:0.00000001;
                 result=-log(result);
             }else{
-                result=(1-(NCC))/2;
+                result=(1-fabs(NCC));
             }
             result=min(this->m_threshold,result);
             
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationNCC
+  template<class TLabelMapper,class TImage>
+    class FastUnaryPotentialRegistrationSAD: public FastUnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
+    public:
+        //itk declarations
+        typedef FastUnaryPotentialRegistrationSAD            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
 
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::PointType PointType;
+
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+
+        typedef typename LabelMapperType::LabelImageType LabelImageType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        
+        typedef itk::TranslationTransform<double,ImageType::ImageDimension> TranslationTransformType;
+        typedef typename TranslationTransformType::Pointer TranslationTransformPointerType;
+        typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleImageFilterType;
+        
+        typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        typedef typename itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
+  public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(FastRegistrationUnaryPotentialSAD, Object);
+        
+    
+        virtual double getLocalPotential(IndexType targetIndex){
+
+            double result;
+            this->nIt.SetLocation(targetIndex);
+            this->m_atlasNeighborhoodIterator.SetLocation(targetIndex);
+            this->m_maskNeighborhoodIterator.SetLocation(targetIndex);
+            double insideCount=0.0;
+            double count=0;
+            double sum=0.0;
+            PointType centerPoint,neighborPoint;
+            this->m_scaledTargetImage->TransformIndexToPhysicalPoint(targetIndex,centerPoint);
+            double maxNorm=this->m_coarseImageSpacing.GetNorm();
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double m=this->m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
+                insideCount+=inBounds;
+                bool inside=true;//this->m_maskNeighborhoodIterator.GetPixel(i);
+                if (inside && inBounds){
+                    double f=this->nIt.GetPixel(i);
+                    this->m_scaledTargetImage->TransformIndexToPhysicalPoint(this->nIt.GetIndex(i),neighborPoint);
+                    double weight=1.0-(centerPoint-neighborPoint).GetNorm()/maxNorm;
+                    sum+=weight*fabs(f-m);
+                    count+=weight;
+                }
+            }
+            if (count>0){
+                sum/=count;
+            }//else          sum=this->nIt.Size();
+            //result=result>0.5?0.5:result; 
+            if (this->LOGPOTENTIAL){
+            }else{
+                result=sum;
+            }
+            result=min(this->m_threshold,result);
+            
+            return result*insideCount/this->nIt.Size();
+        }
+    };//FastUnaryPotentialRegistrationSAD
+
+
+#define NMI
     template<class TLabelMapper,class TImage>
     class FastUnaryPotentialRegistrationNMI: public UnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
     public:
@@ -1197,7 +1312,7 @@ namespace itk{
         typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
         typedef typename FloatImageType::Pointer FloatImagePointerType;
         typedef typename itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
-        
+#ifdef NMI        
         typedef typename itk::NormalizedMutualInformationHistogramImageToImageMetric<ImageType,ImageType> NMIMetricType;
         typedef typename NMIMetricType::MeasureType             MeasureType;
         typedef typename NMIMetricType::HistogramType            HistogramType;
@@ -1207,8 +1322,14 @@ namespace itk{
         typedef typename HistogramType::Iterator              HistogramIteratorType;
         
         typedef Statistics::ScalarImageToHistogramGenerator<ImageType> HistGenType ;
-
-        
+#else
+#ifdef MMI
+        typedef typename itk::MattesMutualInformationImageToImageMetric<ImageType,ImageType> NMIMetricType;
+#else
+#ifdef MI
+#endif
+#endif
+#endif
     protected:
         ImageNeighborhoodIteratorType m_atlasNeighborhoodIterator,m_maskNeighborhoodIterator;
         std::vector<LabelType> m_displacements;
@@ -1229,7 +1350,12 @@ namespace itk{
             typename NNInterpolatorType::Pointer nnInt=NNInterpolatorType::New();
             m_metric->SetInterpolator(nnInt);
             m_potentials=std::vector<FloatImagePointerType>(m_displacements.size(),NULL);
+#ifdef NMI
             double fixedEntropy=computeEntropy(this->m_scaledTargetImage);
+#else
+            //m_metric->SetNumberOfSpatialSamples();
+            m_metric->SetNumberOfHistogramBins(64);
+#endif          
             for (unsigned int n=0;n<m_displacements.size();++n){
                 LOGV(9)<<"cachhing unary registrationpotentials for label " <<n<<endl;
                 FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(m_coarseImage);
@@ -1244,10 +1370,13 @@ namespace itk{
                 m_maskNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedMask,deformedMask->GetLargestPossibleRegion());
                 m_metric->SetFixedImage(this->m_scaledTargetImage);
                 m_metric->SetMovingImage(deformedAtlas);
+                nnInt->SetInputImage(deformedAtlas);
+#ifdef NMI
                 double movingEntropy=computeEntropy((ConstImagePointerType)deformedAtlas);
                 typename HistogramType::SizeType histSize(2);
                 histSize.Fill(100); 
                 m_metric->SetHistogramSize(histSize);
+#endif
                 FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
                 for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator){
                     IndexType coarseIndex=coarseIterator.GetIndex();
@@ -1256,8 +1385,8 @@ namespace itk{
                     IndexType targetIndex;
                     this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
                     //coarseIterator.Set(getLocalPotential(targetIndex));
-                    double potentialNMI=getLocalPotential(targetIndex,fixedEntropy,movingEntropy);
-                    //double potentialNMI=getLocalPotential(targetIndex);
+                    //double potentialNMI=getLocalPotential(targetIndex,fixedEntropy,movingEntropy);
+                    double potentialNMI=getLocalPotential(targetIndex);
                     //double potentialNCC=getLocalPotentialNCC(targetIndex);
                     //LOGGV(5)<<VAR(potentialNMI)<<" "<<VAR(potentialNCC)<<endl;
                     coarseIterator.Set(potentialNMI);
@@ -1267,7 +1396,7 @@ namespace itk{
                             
             }
         }
-        
+#ifdef NMI        
         double computeEntropy(ConstImagePointerType img){
             typename HistGenType::Pointer histGen=HistGenType::New();
             histGen->SetInput(img);
@@ -1280,22 +1409,22 @@ namespace itk{
             HistogramFrequencyRealType totalFreq =
                 static_cast< HistogramFrequencyRealType >( hist->GetTotalFrequency() );
 
-                for ( unsigned int i = 0; i < hist->GetSize(0); i++ )
-                    {
-                        HistogramFrequencyRealType freq =
-                            static_cast< HistogramFrequencyRealType >( hist->GetFrequency(i, 0) );
-                        LOGV(70)<<VAR(i)<<" "<<VAR(freq)<<endl;
-                        if ( freq > 0 )
-                            {
-                                entropyX += freq * vcl_log(freq);
-                            }
-                    }
+            for ( unsigned int i = 0; i < hist->GetSize(0); i++ )
+                {
+                    HistogramFrequencyRealType freq =
+                        static_cast< HistogramFrequencyRealType >( hist->GetFrequency(i, 0) );
+                    LOGV(70)<<VAR(i)<<" "<<VAR(freq)<<endl;
+                    if ( freq > 0 )
+                        {
+                            entropyX += freq * vcl_log(freq);
+                        }
+                }
 
-                entropyX = -entropyX / static_cast< MeasureType >( totalFreq ) + vcl_log(totalFreq);
-                LOGV(40)<<VAR(entropyX)<<endl;
-                return entropyX;
+            entropyX = -entropyX / static_cast< MeasureType >( totalFreq ) + vcl_log(totalFreq);
+            LOGV(40)<<VAR(entropyX)<<endl;
+            return entropyX;
         }
-
+#endif
         void setDisplacements(std::vector<LabelType> displacements){
             m_displacements=displacements;
         }
@@ -1309,7 +1438,7 @@ namespace itk{
             exit(0);
         }
         virtual double getLocalPotential(IndexType targetIndex){
-#if 0
+#if 1
             //use ITK (SLOW!!!)
             typedef itk::IdentityTransform<double,ImageType::ImageDimension> TransType;
             typename TransType::Pointer t=TransType::New();
@@ -1327,8 +1456,8 @@ namespace itk{
             m_metric->SetTransform(t);
             m_metric->SetFixedImageRegion(region);
             m_metric->Initialize();
-            double NMI=m_metric->GetValue(t->GetParameters());
-            return NMI;
+            double result=m_metric->GetValue(t->GetParameters());
+            return result;
                 
 #else            
             //use iterators
@@ -1460,6 +1589,7 @@ namespace itk{
             return result;
 #endif
         }
+#ifdef NMI
         virtual double getLocalPotential(IndexType targetIndex, double entropyX, double entropyY){
             if (!this->nIt.Size()) {
                 cout<<VAR(this->nIt.Size())<<endl;
@@ -1562,7 +1692,7 @@ namespace itk{
             LOGV(15)<<VAR(result)<<endl;
             return result*insideCount/this->nIt.Size();
         }
-          virtual double getLocalPotentialNCC(IndexType targetIndex){
+        virtual double getLocalPotentialNCC(IndexType targetIndex){
 
             double result;
             this->nIt.SetLocation(targetIndex);
@@ -1608,6 +1738,7 @@ namespace itk{
             
             return result;
         }
+#endif
     };//FastUnaryPotentialRegistrationNMI
 }//namespace
 #endif /* POTENTIALS_H_ */
