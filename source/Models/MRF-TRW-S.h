@@ -113,6 +113,18 @@ public:
             //RegUnaries
             clock_t startUnary = clock();
             m_registered=true;
+#define moarcaching
+#ifdef moarcaching
+            for (int d=0;d<nRegNodes;++d){
+                TRWType::REAL D1[nRegLabels];
+                for (int l1=0;l1<nRegLabels;++l1)
+                    {
+                        D1[l1]=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1);
+                    }
+                regNodes[d] = m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
+            }
+
+#else
             TRWType::REAL D1[nRegLabels];
             //
             for (int l1=0;l1<nRegLabels;++l1) D1[l1]=0;
@@ -132,6 +144,7 @@ public:
                         }
                     }
             }
+#endif
             TRWType::REAL Vreg[nRegLabels*nRegLabels];
             for (int l1=0;l1<nRegLabels;++l1){
                 for (int l2=0;l2<nRegLabels;++l2){

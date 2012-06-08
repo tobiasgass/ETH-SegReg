@@ -1075,7 +1075,7 @@ namespace itk{
         itkTypeMacro(FastRegistrationUnaryPotentialNCC, Object);
         
         virtual void compute(){
-            LOG<<"DEPRECATED, too memory intensive!!"<<endl;
+            //LOG<<"DEPRECATED, too memory intensive!!"<<endl;
             m_potentials=std::vector<FloatImagePointerType>(m_displacements.size(),NULL);
             for (unsigned int n=0;n<m_displacements.size();++n){
                 LOGV(9)<<"cachhing unary registrationpotentials for label " <<n<<endl;
@@ -1133,10 +1133,11 @@ namespace itk{
         void setCoarseImage(ImagePointerType img){m_coarseImage=img;}
 
         virtual double getPotential(IndexType coarseIndex, unsigned int displacementLabel){
-            LOG<<"DEPRECATED BEHAVIOUR!"<<endl;
+            //LOG<<"DEPRECATED BEHAVIOUR!"<<endl;
             return m_potentials[displacementLabel]->GetPixel(coarseIndex);
         }
         virtual double getPotential(IndexType coarseIndex){
+            //LOG<<"NEW BEHAVIOUR!"<<endl;
             return currentCachedPotentials->GetPixel(coarseIndex);
         }
         virtual double getPotential(IndexType coarseIndex, LabelType l){

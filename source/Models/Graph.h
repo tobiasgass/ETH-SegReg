@@ -691,20 +691,31 @@ namespace itk{
         typedef typename LabelMapperType::LabelType RegistrationLabelType;
     public:
         virtual void Init(){
+#define moarcaching
+#ifdef moarcaching
             this->m_unaryRegFunction->setCoarseImage(this->m_coarseGraphImage);
-            //std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
-            //for (int n=0;n<this->m_nDisplacementLabels;++n){
-            //displacementList[n]=LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(n),this->getDisplacementFactor());
-            //}
-            //this->m_unaryRegFunction->setDisplacements(displacementList);
-            //this->m_unaryRegFunction->compute();
+            std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
+            for (int n=0;n<this->m_nDisplacementLabels;++n){
+                LOGV(5)<<"Caching unary registration potentials for label "<<n<<endl;
+                displacementList[n]=LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(n),this->getDisplacementFactor());
+            }
+            this->m_unaryRegFunction->setDisplacements(displacementList);
+            this->m_unaryRegFunction->compute();
+#endif
         }
         virtual void cacheRegistrationPotentials(int labelIndex){
+#ifndef moarcaching
             this->m_unaryRegFunction->cachePotentials(LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(labelIndex),this->getDisplacementFactor()));
+#endif
         }
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType index=this->getGraphIndex(nodeIndex);
+#ifdef moarcaching
+            return  this->m_unaryRegFunction->getPotential(index,labelIndex)/this->m_nRegistrationNodes;
+#else
             return  this->m_unaryRegFunction->getPotential(index)/this->m_nRegistrationNodes;
+#endif
+
         }
 
 
