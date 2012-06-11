@@ -90,8 +90,11 @@ namespace itk{
 
             displacement1+=oldl1;
 			displacement2+=oldl2;
-
-            LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
+#if 1
+            LabelType diff=displacement1-displacement2;
+            result=diff.GetSquaredNorm();
+            //LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
+#else
             double axisPositionDifference;
 			for (unsigned int d=0;d<D;++d){
 
@@ -101,7 +104,7 @@ namespace itk{
                 axisPositionDifference=1.0*(d2-d1);//(m_gridSpacing[d]);
                 result+=(axisPositionDifference)*(axisPositionDifference);
 			}
-
+#endif
 			//			if (false){
             //LOGV(50)<<VAR(result)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<" "<<VAR(targetIndex1)<<" "<<VAR(targetIndex1)<<" "<<VAR(oldl1)<<" "<<VAR(oldl2)<<endl;
             if (m_threshold<numeric_limits<double>::max()){
