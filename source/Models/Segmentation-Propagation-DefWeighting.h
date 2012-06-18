@@ -23,7 +23,7 @@
 using namespace std;
 
 template <class ImageType>
-class SegmentationPropagation{
+class SegmentationPropagationDeformationWeighting{
 public:
     typedef typename ImageType::PixelType PixelType;
     static const unsigned int D=ImageType::ImageDimension;
@@ -51,7 +51,6 @@ public:
         ImagePointerType img;
         int imageSize;
     };
-
 private:
     void NCCHelper(ImagePointerType i1, ImagePointerType i2, double & smmR , double & sffR , double   & sfmR ){
         ImageIteratorType it1(i1,i1->GetLargestPossibleRegion().GetSize());
@@ -173,7 +172,7 @@ public:
 
   
         argstream * as=new argstream(argc,argv);
-        string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="";
+        string atlasSegmentationFilename,deformationFileList,imageFileList,atlasID="",supportSamplesListFileName="",outputDir=".",outputSuffix="";
         int verbose=0;
         int nImages=-1;
         double pWeight=1.0;
@@ -181,6 +180,7 @@ public:
         double segPairwiseWeight=0.0;
         bool NCC=false;
         bool SSD=false;
+        bool DEF=false;
         int radius=3;
         double edgeThreshold=0.0;
         double edgeCountPenaltyWeight=1.0;
@@ -188,16 +188,18 @@ public:
         int nRandomSupportSamples=0;        
         int maxHops=10;
 
-        (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+        (*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-        (*as) >> parameter ("i", imageFileList, " list of  images", true);
+        (*as) >> parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
         (*as) >> parameter ("N", nImages,"number of target images", false);
+        (*as) >> parameter ("a", atlasID,"atlas ID. if not set, first image in imageFileList is assumed to be the atlas",false);
         (*as) >> parameter ("w", pWeight,"inter-image pairwise potential weight",false);
         (*as) >> parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight",false);
         (*as) >> parameter ("s", sigma,"sigma",false);
         (*as) >> parameter ("O", outputDir,"outputdirectory",false);
         (*as) >> option ("NCC", NCC," use NCC as weighting function");
         (*as) >> option ("SSD", SSD," use SSD as weighing function");
+        (*as) >> option ("DEF", DEF," use DEF as weighing function");
         (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
         (*as) >> parameter ("thresh", edgeThreshold,"threshold for edge pruning (0=off)",false);
         (*as) >> parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges (0 to disable)",false);
@@ -218,54 +220,16 @@ public:
         mkdir(outputDir.c_str(),0755);
         logSetStage("IO");
         logSetVerbosity(verbose);
-        bool SAD=!NCC;
-        map<string,ImageInformation> inputImages,inputAtlasSegmentations;
-
-        LOG<<"Reading atlas segmentations."<<endl;
-        int nAtlases=0;
-        {
-            ifstream ifs(atlasSegmentationFileList.c_str());
-            if (!ifs){
-                LOG<<"could not read "<<atlasSegmentationFileList<<endl;
-                exit(0);
-            }
-            while( ! ifs.eof() ) 
-                {
-                    string imageID;
-                    ifs >> imageID;                
-                    if (imageID!=""){
-                        ImageInformation img;
-                        string imageFileName ;
-                        ifs >> imageFileName;
-                        LOGV(3)<<"Reading image "<<imageFileName<< " with ID "<<imageID<<endl;
-                        img.img=ImageUtils<ImageType>::readImage(imageFileName);
-                        if (D==2){
-
-                            img.img=FilterUtils<ImageType>::binaryThresholdingLow(img.img,1);
-                        }
-                        img.imageSize=1;
-                    
-                        if (inputAtlasSegmentations.find(imageID)==inputAtlasSegmentations.end())
-                            inputAtlasSegmentations[imageID]=img;
-                        else{
-                            LOG<<"duplicate atlas ID "<<imageID<<", aborting"<<endl;
-                            exit(0);
-                        }
-                    }
-                }
-        }        
-
+        bool SAD=!NCC && ! DEF;
+        FloatImagePointerType atlasSegmentationImage=FilterUtils<ImageType,FloatImageType>::cast(FilterUtils<ImageType>::binaryThresholdingLow(ImageUtils<ImageType>::readImage(atlasSegmentationFilename),1));
+        map<string,ImageInformation> inputImages;
         LOG<<"Reading images."<<endl;
         unsigned int totalNumberOfPixels=0;
         std::vector<string> imageIDs;
         int nTotalEdges=0;
+
         {
             ifstream ifs(imageFileList.c_str());
-            if (!ifs){
-                LOG<<"could not read "<<imageFileList<<endl;
-                exit(0);
-            }
-
             while( ! ifs.eof() ) 
                 {
                     string imageID;
@@ -282,7 +246,7 @@ public:
                         for (unsigned int d=0;d<D;++d){
                             img.imageSize*=imgSize[d];
                         }
-                        if (evalAtlas || inputAtlasSegmentations.find(imageID)==inputAtlasSegmentations.end()){
+                        if (evalAtlas || imageID!=atlasID){
                             totalNumberOfPixels+=img.imageSize;
                             //add edges between pixels if weight is >0
                             if (segPairwiseWeight>0){
@@ -310,7 +274,6 @@ public:
         else
             nImages=inputImages.size();
 
-     
         bool useSupportSamples=false;
         map<string,bool> supportSampleList;
         int nSupportSamples=0;
@@ -329,9 +292,7 @@ public:
             useSupportSamples=true;
             nSupportSamples=nRandomSupportSamples;
             std::vector<string> tmpList = imageIDs;
-            //random_unique(tmpList.begin(),tmpList.end(),nRandomSupportSamples,atlasID);
-            LOG<<"NYI"<<endl;
-            exit(0);
+            random_unique(tmpList.begin(),tmpList.end(),nRandomSupportSamples,atlasID);
             for (int i=0;i<nRandomSupportSamples;++i){
                 supportSampleList[tmpList[i]]=true;
             }
@@ -346,8 +307,8 @@ public:
                 if (id1!=""){
                     ifs >> id2;
                     ifs >> defFileName;
-                    if ( inputAtlasSegmentations.find(id1)!=inputAtlasSegmentations.end()|| (evalAtlas && inputAtlasSegmentations.find(id2)!=inputAtlasSegmentations.end())  || (! useSupportSamples || supportSampleList.find(id1)!=supportSampleList.end() ||  ( (supportSampleList.find(id2)!=supportSampleList.end()) && (inputAtlasSegmentations.find(id1)==inputAtlasSegmentations.end()))) ){
-                        if (inputImages.find(id1)==inputImages.end() || inputImages.find(id2)==inputImages.end() ){
+                    if ( id1 == atlasID|| (evalAtlas && id2 == atlasID)  || (! useSupportSamples || supportSampleList.find(id1)!=supportSampleList.end() ||  ( (supportSampleList.find(id2)!=supportSampleList.end()) && (id1!=atlasID))) ){
+                         if (inputImages.find(id1)==inputImages.end() || inputImages.find(id2)==inputImages.end() ){
                             LOG<<id1<<" or "<<id2<<" not in image database, skipping"<<endl;
                             //exit(0);
                         }else{
@@ -355,7 +316,7 @@ public:
                             DeformationFieldPointerType def=ImageUtils<DeformationFieldType>::readImage(defFileName);
                             deformations[id1][id2]=def;
                         
-                            if ( evalAtlas || (inputAtlasSegmentations.find(id1)==inputAtlasSegmentations.end() && inputAtlasSegmentations.find(id2)==inputAtlasSegmentations.end())){
+                            if ( evalAtlas || (id1!= atlasID && id2 != atlasID)){
                                 int nDefs=1;
                                 for (unsigned int d=0;d<D;++d){
                                     nDefs*=def->GetLargestPossibleRegion().GetSize()[d];
@@ -369,8 +330,68 @@ public:
                 }
             }
         }
+        LOG<<"Computing deformation statistics"<<endl;
+        map< string,  DeformationFieldPointerType > avgDeformations, deformationVariances;
+        for (unsigned int n1=0;n1<nImages;++n1){
+                string id1=imageIDs[n1];
+                if ( id1!=atlasID){
+                    ImagePointerType img1=inputImages[id1].img;
+                    avgDeformations[id1]=TransfUtils<ImageType>::createEmpty(img1);
+                    deformationVariances[id1]=TransfUtils<ImageType>::createEmpty(img1);  
+                    DeformationIteratorType avgDefIt(avgDeformations[id1],avgDeformations[id1]->GetLargestPossibleRegion());
+                    DeformationIteratorType varDefIt(deformationVariances[id1],deformationVariances[id1]->GetLargestPossibleRegion());
+                    int count=0;
+                    for (unsigned int n2=0;n2<nImages;++n2){
+                        string id2=imageIDs[n2];
+                        if (n1!=n2 ){
+                            DeformationFieldPointerType def;
+                            if (id2==atlasID){
+                                def=deformations[atlasID][id1];
+                            }else{
+                                DeformationFieldPointerType def1=deformations[id2][id1];
+                                DeformationFieldPointerType def2=deformations[atlasID][id2];
+                                def=TransfUtils<ImageType>::composeDeformations(def1,def2);
+                            }
+                            DeformationIteratorType defIt(def,def->GetLargestPossibleRegion());
+                          
+                            defIt.GoToBegin();
+                            avgDefIt.GoToBegin();
+                            varDefIt.GoToBegin();
+                            for (;!defIt.IsAtEnd();++defIt,++avgDefIt,++varDefIt){
+                                DisplacementType t=defIt.Get();
+                                avgDefIt.Set(avgDefIt.Get()+t);
+                                for (unsigned int d=0;d<D;++d){
+                                    t[d]=t[d]*t[d];
+                                }
+                                varDefIt.Set(varDefIt.Get()+t);
+                            }
+                            count++;
 
-    
+                        }
+                    }
+                    avgDefIt.GoToBegin();
+                    varDefIt.GoToBegin();
+                    for (;!avgDefIt.IsAtEnd();++avgDefIt,++varDefIt){
+                        DisplacementType mean=avgDefIt.Get();
+                        DisplacementType var=varDefIt.Get();
+                        for (unsigned int d=0;d<D;++d){
+                            mean[d]/=count;
+                            var[d]=var[d]/count - mean[d]*mean[d];
+                            LOGV(28)<<VAR(mean[d])<<" "<<VAR(var[d])<<endl;
+                        }
+                        avgDefIt.Set(mean);
+                        varDefIt.Set(var);
+                    }
+                    ostringstream tmpSegmentationFilename;
+                    tmpSegmentationFilename<<outputDir<<"/avgDeformedAtlasSegmentation-"<<id1<<suffix;
+                    FloatImagePointerType deformedAtlasSeg=TransfUtils<FloatImageType>::warpSegmentationImage(atlasSegmentationImage,avgDeformations[id1]);
+                    ImageUtils<FloatImageType>::multiplyImage(deformedAtlasSeg,65535);
+                    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(deformedAtlasSeg));
+                }
+        }
+        LOG<<"Done"<<endl;
+        ImagePointerType atlasImage=inputImages[atlasID].img;
+        map <string, DeformationFieldPointerType> atlasToTargetDeformations=deformations[atlasID];
         logSetStage("Zero Hop");
         LOG<<"Computing"<<std::endl;
         RadiusType rNCC;
@@ -378,11 +399,13 @@ public:
         std::vector<FloatImagePointerType> segmentations(nImages,NULL);
         for (unsigned int n1=0;n1<nImages;++n1){
             string id=imageIDs[n1];
-            if (inputAtlasSegmentations.find(id)==inputAtlasSegmentations.end()){
-                
+            if (id!=atlasID){
                 ImagePointerType img=inputImages[id].img;
                 SizeType size=img->GetLargestPossibleRegion().GetSize();
-              
+                DeformationFieldPointerType deformation=atlasToTargetDeformations[id];
+                ImagePointerType deformedAtlas=TransfUtils<ImageType>::warpImage(atlasImage,deformation);
+                FloatImagePointerType deformedAtlasSegmentation=TransfUtils<FloatImageType>::warpSegmentationImage(atlasSegmentationImage,deformation);
+                FloatImageIteratorType defSegIt(deformedAtlasSegmentation,deformedAtlasSegmentation->GetLargestPossibleRegion());
                
                 FloatImagePointerType probSegmentation=FilterUtils<ImageType,FloatImageType>::createEmptyFrom(img);
                 probSegmentation->FillBuffer(0.0);
@@ -390,55 +413,75 @@ public:
                 normalization->FillBuffer(0.0);
                 FloatImageIteratorType normIt(normalization,normalization->GetLargestPossibleRegion());
                 FloatImageIteratorType img2It(probSegmentation,probSegmentation->GetLargestPossibleRegion());
-                
-                typename map<string, ImageInformation>::iterator atlasIterator;
-                for (atlasIterator=inputAtlasSegmentations.begin();atlasIterator!=inputAtlasSegmentations.end();++atlasIterator){
-                    string atlasID=atlasIterator->first;
-                    ImagePointerType atlasImage=inputImages[atlasID].img;
-                    DeformationFieldPointerType deformation= deformations[atlasID][id];
-                    ImagePointerType deformedAtlas=TransfUtils<ImageType>::warpImage(atlasImage,deformation);
-                    ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpSegmentationImage(atlasIterator->second.img,deformation);
-                    ImageIteratorType defSegIt(deformedAtlasSegmentation,deformedAtlasSegmentation->GetLargestPossibleRegion());
-                    if (SAD){
-                        ImageIteratorType imgIt(img,img->GetLargestPossibleRegion());
-                        ImageIteratorType defAtlasIt(deformedAtlas,deformedAtlas->GetLargestPossibleRegion());
-                        for (normIt.GoToBegin(),img2It.GoToBegin(),defAtlasIt.GoToBegin(),defSegIt.GoToBegin(),imgIt.GoToBegin();!imgIt.IsAtEnd();++imgIt,++defAtlasIt,++defSegIt,++img2It,++normIt)
-                            {
-                                float segmentationLabel=defSegIt.Get();
-                                double imageIntensity=imgIt.Get();
-                                double deformedAtlasIntensity=defAtlasIt.Get();
-                                double diff=imageIntensity-deformedAtlasIntensity;
-                                double weight=1;
-                                if (sigma>0){
-                                    if (!SSD)
-                                        weight=exp(-0.5*fabs(diff)/sigma);
-                                    else
-                                        weight=exp(-0.5*(diff*diff)/(sigma*sigma));
-                                }
 
-                                //LOGV(51)<<VAR(imageIntensity)<<" "<<VAR(deformedAtlasIntensity)<<" "<<VAR(weight)<<endl;
-                            
-                                img2It.Set(img2It.Get()+(weight)*segmentationLabel);
-                                normIt.Set(normIt.Get()+weight);
-                            }
-                    }else if (NCC){
-                        double sff,smm,sfmR;
-                        //NCCHelper(img,deformedAtlas,smm,sff,sfmR);
-                        ImageNeighborhoodIteratorPointerType tIt=new ImageNeighborhoodIteratorType(rNCC,img,img->GetLargestPossibleRegion());
-                        ImageNeighborhoodIteratorPointerType aIt=new ImageNeighborhoodIteratorType(rNCC,deformedAtlas,img->GetLargestPossibleRegion());
-                        for (img2It.GoToBegin(),aIt->GoToBegin(),defSegIt.GoToBegin(),tIt->GoToBegin();!tIt->IsAtEnd();++(*tIt),++(*aIt),++defSegIt,++img2It)  {
-                            PixelType segmentationLabel=defSegIt.Get()>0;
+                if (SAD){
+                    ImageIteratorType imgIt(img,img->GetLargestPossibleRegion());
+                    ImageIteratorType defAtlasIt(deformedAtlas,deformedAtlas->GetLargestPossibleRegion());
+                    for (normIt.GoToBegin(),img2It.GoToBegin(),defAtlasIt.GoToBegin(),defSegIt.GoToBegin(),imgIt.GoToBegin();!imgIt.IsAtEnd();++imgIt,++defAtlasIt,++defSegIt,++img2It,++normIt)
+                        {
+                            float segmentationLabel=defSegIt.Get();
+                            double imageIntensity=imgIt.Get();
+                            double deformedAtlasIntensity=defAtlasIt.Get();
+                            double diff=imageIntensity-deformedAtlasIntensity;
                             double weight=1;
-                            if (radius>0)
-                                NCCFunc(tIt,aIt,sigma);
-                            //weight=NCCFuncLoc(tIt,aIt,smm,sff,sfmR);
-                            img2It.Set( img2It.Get()+weight*segmentationLabel);
+                            if (sigma>0){
+                                if (!SSD)
+                                    weight=exp(-0.5*fabs(diff)/sigma);
+                                else
+                                    weight=exp(-0.5*(diff*diff)/(sigma*sigma));
+                            }
+
+                            //LOGV(51)<<VAR(imageIntensity)<<" "<<VAR(deformedAtlasIntensity)<<" "<<VAR(weight)<<endl;
+                            
+                            img2It.Set(img2It.Get()+(weight)*segmentationLabel);
+                            normIt.Set(normIt.Get()+weight);
                         }
-                        delete tIt;
-                        delete aIt;
+                }else if (NCC){
+                    double sff,smm,sfmR;
+                    //NCCHelper(img,deformedAtlas,smm,sff,sfmR);
+                    ImageNeighborhoodIteratorPointerType tIt=new ImageNeighborhoodIteratorType(rNCC,img,img->GetLargestPossibleRegion());
+                    ImageNeighborhoodIteratorPointerType aIt=new ImageNeighborhoodIteratorType(rNCC,deformedAtlas,img->GetLargestPossibleRegion());
+                    for (img2It.GoToBegin(),aIt->GoToBegin(),defSegIt.GoToBegin(),tIt->GoToBegin();!tIt->IsAtEnd();++(*tIt),++(*aIt),++defSegIt,++img2It)  {
+                        PixelType segmentationLabel=defSegIt.Get()>0;
+                        double weight=1;
+                        if (radius>0)
+                            NCCFunc(tIt,aIt,sigma);
+                        //weight=NCCFuncLoc(tIt,aIt,smm,sff,sfmR);
+                        img2It.Set( img2It.Get()+weight*segmentationLabel);
+                    }
+                    delete tIt;
+                    delete aIt;
+                }else if(DEF){
+                    DeformationIteratorType avgDefIt(avgDeformations[id],avgDeformations[id]->GetLargestPossibleRegion());
+                    DeformationIteratorType varDefIt(deformationVariances[id],avgDeformations[id]->GetLargestPossibleRegion());
+                    DeformationIteratorType defIt(deformation,deformation->GetLargestPossibleRegion());
+                    avgDefIt.GoToBegin();
+                    defIt.GoToBegin();
+                    varDefIt.GoToBegin();
+                    defSegIt.GoToBegin();
+                    for (defSegIt.GoToBegin();!defSegIt.IsAtEnd();++defSegIt,++avgDefIt,++defIt,++varDefIt,++img2It){
+                        double weight=0;
+                        PixelType segmentationLabel=defSegIt.Get()>0;
+                        DisplacementType t,avg,variance;
+                        t=defIt.Get();
+                        avg=avgDefIt.Get();
+                        variance=varDefIt.Get();
+                        for (unsigned int d=0;d<D;++d){
+                            double diff=t[d]-avg[d];
+                            LOGV(20)<<VAR(diff)<<" "<<VAR(weight)<<" "<<VAR(variance[d])<<endl;
+                            diff*=diff;
+                            //                            if (variance[d])
+                                //diff/=variance[d];
+
+                            weight+=diff;
+                        }
+                        weight=exp(-0.5*(weight/(sigma*sigma)));
+                        LOGV(19)<<VAR(weight)<<" "<<VAR(weight*segmentationLabel)<<endl;
+                        img2It.Set(weight*segmentationLabel);
+
                     }
                 }
-#if 1
+#if 0
                 //normalizing only makes sense with multiple atlas segmentations
                 img2It.GoToBegin();
                 normIt.GoToBegin();
@@ -455,21 +498,22 @@ public:
                 segmentations[n1]=probSegmentation;
             }
             else{
-                segmentations[n1]=FilterUtils<ImageType,FloatImageType>::cast(inputAtlasSegmentations[id].img);
+                segmentations[n1]=(atlasSegmentationImage);
             }
         }//finished zero-hop segmentation
         LOG<<"done"<<endl;
         LOGV(1)<<"Storing zero-hop segmentations."<<endl;
         for (unsigned int n1=0;n1<nImages;++n1){
             string id1=imageIDs[n1];
-            if (evalAtlas || inputAtlasSegmentations.find(id1)==inputAtlasSegmentations.end()){
+            if (evalAtlas || id1!=atlasID){
                 ImagePointerType outputImage=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(segmentations[n1]);
                 ImageIteratorType outIt(outputImage,outputImage->GetLargestPossibleRegion());
                 FloatImageIteratorType imgIt(segmentations[n1],segmentations[n1]->GetLargestPossibleRegion());
                 outIt.GoToBegin();
                 imgIt.GoToBegin();
                 for (;!imgIt.IsAtEnd();++imgIt,++outIt){
-                    outIt.Set(65535*(imgIt.Get()>0.5));
+                    outIt.Set(65535*imgIt.Get());
+                    LOGV(17)<<VAR(outIt.Get())<<endl;
                 }
                 ostringstream tmpSegmentationFilename;
                 tmpSegmentationFilename<<outputDir<<"/segmentation-"<<id1<<"-hop0"<<suffix;
@@ -483,7 +527,7 @@ public:
             std::vector<FloatImagePointerType> newSegmentations(nImages,NULL);
             for (unsigned int n1=0;n1<nImages;++n1){
                 string id1=imageIDs[n1];
-                if ( inputAtlasSegmentations.find(id1)==inputAtlasSegmentations.end()){
+                if ( id1!=atlasID){
                     ImagePointerType img1=inputImages[id1].img;
                     //create probabilistic segmentation
                     FloatImagePointerType probSeg=FilterUtils<ImageType,FloatImageType>::createEmptyFrom(img1);
@@ -509,6 +553,19 @@ public:
                                 ImageIteratorType img2It(deformedI2,deformedI2->GetLargestPossibleRegion());
                                 FloatImageIteratorType deformedSegmentationIt(deformedSegmentation,deformedSegmentation->GetLargestPossibleRegion());
                                 
+                                DeformationFieldPointerType composedDef;
+                                if (id2!=atlasID){
+                                    DeformationFieldPointerType def1=deformations[id2][id1];
+                                    DeformationFieldPointerType def2=deformations[atlasID][id2];
+                                    composedDef=TransfUtils<ImageType>::composeDeformations(def1,def2);
+                                }else{
+                                    composedDef=deformations[id2][id1];
+                                }
+                                DeformationIteratorType avgDefIt(avgDeformations[id1],avgDeformations[id1]->GetLargestPossibleRegion());
+                                DeformationIteratorType varDefIt(deformationVariances[id1],avgDeformations[id1]->GetLargestPossibleRegion());
+                                DeformationIteratorType defIt(composedDef,composedDef->GetLargestPossibleRegion());
+
+                                
                                 ImageNeighborhoodIteratorPointerType tIt=new ImageNeighborhoodIteratorType(rNCC,img1,img1->GetLargestPossibleRegion());
                                 ImageNeighborhoodIteratorPointerType aIt=new ImageNeighborhoodIteratorType(rNCC,img2,img2->GetLargestPossibleRegion());
              
@@ -519,21 +576,42 @@ public:
                                 aIt->GoToBegin();
                                 probIt.GoToBegin();
                                 normIt.GoToBegin();
+                                avgDefIt.GoToBegin();
+                                varDefIt.GoToBegin();
+                                defIt.GoToBegin();
                                 SizeType size2=img2->GetLargestPossibleRegion().GetSize();
                                 SizeType size1=img1->GetLargestPossibleRegion().GetSize();
-                                for (;!img1It.IsAtEnd();++img1It,++deformedSegmentationIt,++img2It,++(*tIt),++(*aIt),++probIt,++normIt){
+                                for (;!img1It.IsAtEnd();++img1It,++deformedSegmentationIt,++img2It,++(*tIt),++(*aIt),++probIt,++normIt,++defIt,++varDefIt,++avgDefIt){
                                 
                                     float weight=1;
                                     
                                     if (sigma>0 && SAD) {
                                         if (SSD){
-                                            weight=exp(-0.5*(img1It.Get()-img2It.Get())*(img1It.Get()-img2It.Get())/(sigma*sigma));
+                                             weight=exp(-0.5*(img1It.Get()-img2It.Get())*(img1It.Get()-img2It.Get())/(sigma*sigma));
                                         }else{
-                                            weight=exp(-0.5*fabs(img1It.Get()-img2It.Get())/sigma);
+                                             weight=exp(-0.5*fabs(img1It.Get()-img2It.Get())/sigma);
                                         }
                                     }
                                     else if (NCC) {
                                         if (radius>0)weight=NCCFunc(tIt,aIt);
+                                    }else if (DEF){
+                                        weight=0.0;
+                                        DisplacementType t,avg,variance;
+                                        t=defIt.Get();
+                                        avg=avgDefIt.Get();
+                                        variance=varDefIt.Get();
+                                        for (unsigned int d=0;d<D;++d){
+                                            double diff=t[d]-avg[d];
+                                            LOGV(20)<<VAR(diff)<<" "<<VAR(weight)<<" "<<VAR(variance[d])<<endl;
+                                            diff*=diff;
+                                            //  if (variance[d])
+                                            //  diff/=variance[d];
+                                            
+                                            weight+=diff;
+                                        }
+                                        weight=exp(-0.5*(weight/(sigma*sigma)));
+                                        //weight=exp(-0.5*weight);
+                                        
                                     }
                                     probIt.Set(probIt.Get()+weight*(deformedSegmentationIt.Get()));
                                     normIt.Set(normIt.Get()+weight);
@@ -564,7 +642,7 @@ public:
             LOG<<"Storing output. and checking convergence"<<endl;
             for (unsigned int n1=0;n1<nImages;++n1){
                 string id1=imageIDs[n1];
-                if (evalAtlas || inputAtlasSegmentations.find(id1)==inputAtlasSegmentations.end()){
+                if (evalAtlas || id1!=atlasID){
                     ImagePointerType outputImage=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(newSegmentations[n1]);
                     ImageIteratorType outIt(outputImage,outputImage->GetLargestPossibleRegion());
                     FloatImageIteratorType imgIt(newSegmentations[n1],newSegmentations[n1]->GetLargestPossibleRegion());
