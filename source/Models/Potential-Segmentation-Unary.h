@@ -623,7 +623,7 @@ namespace itk{
             m_classifier->train();
             std::vector<ImageConstPointerType> target;
             target.push_back(this->m_targetImage);
-            //target.push_back(this->m_targetGradient);
+            //            target.push_back(this->m_targetGradient);
             m_probabilityImages=m_classifier->evalImage(target);
         }
         

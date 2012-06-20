@@ -257,7 +257,7 @@ namespace itk{
             for (int d=0;d<ImageType::ImageDimension;++d)
                 nData*=inputImage[0]->GetLargestPossibleRegion().GetSize()[d];
             m_observations=std::vector<NEWMAT::Matrix>();
-            long int maxTrain=std::numeric_limits<long int>::max();
+            long int maxTrain=100000;//std::numeric_limits<long int>::max();
             maxTrain=maxTrain>nData?nData:maxTrain;
 
             if (labels){
@@ -317,7 +317,7 @@ namespace itk{
         virtual void train(){
             for ( int s=0;s<m_nSegmentationLabels;++s){
                 LOGV(1)<<"Training GMM for label :"<<s<<endl;
-                m_GMMs[s].estimate(2,m_observations[s]);
+                m_GMMs[s].estimate(4,m_observations[s]);
                 m_GMMs[s].display();
             }
         };
@@ -356,16 +356,23 @@ namespace itk{
             }
             std::string suff;
             if (ImageType::ImageDimension==2){
-                suff=".nii";
+                suff=".png";
+                for ( int s=0;s<m_nSegmentationLabels;++s){
+                    ostringstream probabilityfilename;
+                    probabilityfilename<<"prob-gauss-c"<<s<<suff;
+                    
+                    ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(result[s],255.0/11*255.0)));
+                }
             }
             if (ImageType::ImageDimension==3){
                 suff=".nii";
-            }
-            for ( int s=0;s<m_nSegmentationLabels;++s){
-                ostringstream probabilityfilename;
-                probabilityfilename<<"prob-gauss-c"<<s<<suff;
+                for ( int s=0;s<m_nSegmentationLabels;++s){
+                    ostringstream probabilityfilename;
+                    probabilityfilename<<"prob-gauss-c"<<s<<suff;
+                    
+                    ImageUtils<FloatImageType>::writeImage(probabilityfilename.str().c_str(),result[s]);
+                }
 
-                ImageUtils<FloatImageType>::writeImage(probabilityfilename.str().c_str(),result[s]);
             }
             return result;
         }

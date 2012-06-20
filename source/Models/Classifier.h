@@ -1109,6 +1109,7 @@ namespace itk{
                             int intens2=mapIntensity(intensities->GetPixel(idx+off));
                             data(i,0)=fabs(intens1-intens2);
                             data(i,1)=fabs(grad1-grad2);
+                    
                             labelVector[i]=label1!=label2;
                             this->m_counts[label1!=label2]++;
                             i++;                

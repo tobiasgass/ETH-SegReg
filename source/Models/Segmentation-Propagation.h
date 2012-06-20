@@ -187,7 +187,7 @@ public:
         bool evalAtlas=false;
         int nRandomSupportSamples=0;        
         int maxHops=10;
-
+        int nSegmentationLabels=2;
         (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images", true);
@@ -203,6 +203,7 @@ public:
         (*as) >> parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges (0 to disable)",false);
         (*as) >> option ("evalAtlas", evalAtlas,"also segment the atlas within the network");
         (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
+        (*as) >> parameter ("nSegmentationLabels", nSegmentationLabels,"number of segmentation labels",false);
 
         (*as) >> parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
         (*as) >> parameter ("nRandomSupportSamples",nRandomSupportSamples,"draw random target images as support samples.",false);
@@ -240,7 +241,6 @@ public:
                         LOGV(3)<<"Reading image "<<imageFileName<< " with ID "<<imageID<<endl;
                         img.img=ImageUtils<ImageType>::readImage(imageFileName);
                         if (D==2){
-
                             img.img=FilterUtils<ImageType>::binaryThresholdingLow(img.img,1);
                         }
                         img.imageSize=1;

@@ -301,6 +301,16 @@ public:
         }
 
     }
+    static  ImagePointerType multiplyImageOutOfPlace(ImagePointerType img, double scalar){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        ImagePointerType result=createEmpty(ConstImagePointerType(img));
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        IteratorType it2(result,img->GetLargestPossibleRegion());
+        for (it2.GoToBegin(),it1.GoToBegin();!it1.IsAtEnd();++it1,++it2){
+            it2.Set(it1.Get()*scalar);
+        }
+        return result;
+    }
     static ImagePointerType deformSegmentationImage(ConstImagePointerType segmentationImage, FloatVectorImagePointerType deformation){
             //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
             typedef  typename itk::ImageRegionIterator<FloatVectorImageType> LabelIterator;
@@ -379,5 +389,7 @@ public:
         }
         return withinImageIndex;
     }
+
+
 };
 #endif // IMAGE_UTILS

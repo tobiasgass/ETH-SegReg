@@ -6,6 +6,6 @@ find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
 
 
-SUBDIRS(Common External Models Applications )
+SUBDIRS(Common External Models Applications Tools)
 
 

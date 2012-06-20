@@ -22,15 +22,7 @@ LINK_DIRECTORIES(
 # Make sure the linker can find the Hello library once it is built. 
 link_directories (${SRS-MRF_BINARY_DIR}/Models) 
 
-#Tools
-ADD_EXECUTABLE(DeformImage3D DeformImage3D.cxx )
-TARGET_LINK_LIBRARIES(DeformImage3D  Utils   ${ITK_LIBRARIES}  )
-ADD_EXECUTABLE(DeformImage2D DeformImage2D.cxx )
-TARGET_LINK_LIBRARIES(DeformImage2D  Utils   ${ITK_LIBRARIES}  )
-ADD_EXECUTABLE(ComposeDeformations3D ComposeDeformations3D.cxx )
-TARGET_LINK_LIBRARIES(ComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
-ADD_EXECUTABLE(ComposeDeformations2D ComposeDeformations2D.cxx )
-TARGET_LINK_LIBRARIES(ComposeDeformations2D  Utils   ${ITK_LIBRARIES}  )
+
 
 #SRS
 ADD_EXECUTABLE(SRS3D Multiresolution-SRS3D.cxx )
@@ -43,17 +35,17 @@ TARGET_LINK_LIBRARIES(SRS3D-Bone maxflow  Utils TRWS FastPD SRSMRFModels   RF  x
 
 
 #ARS
-ADD_EXECUTABLE(AlternatingSegReg3D Alternating-JRS3D.cxx )
-TARGET_LINK_LIBRARIES(AlternatingSegReg3D maxflow  Utils TRWS FastPD SRSMRFModels   RF    xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
-ADD_EXECUTABLE(AlternatingSegReg2D Alternating-JRS.cxx )
-TARGET_LINK_LIBRARIES(AlternatingSegReg2D maxflow  Utils TRWS FastPD SRSMRFModels   RF    xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
+#ADD_EXECUTABLE(AlternatingSegReg3D Alternating-JRS3D.cxx )
+#TARGET_LINK_LIBRARIES(AlternatingSegReg3D maxflow  Utils TRWS FastPD SRSMRFModels   RF    xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
+#ADD_EXECUTABLE(AlternatingSegReg2D Alternating-JRS.cxx )
+#TARGET_LINK_LIBRARIES(AlternatingSegReg2D maxflow  Utils TRWS FastPD SRSMRFModels   RF    xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
 
 
 #Segmentation
-ADD_EXECUTABLE(Seg2D Segmentation2D.cxx )
-TARGET_LINK_LIBRARIES(Seg2D maxflow  Utils TRWS FastPD SRSMRFModels  ${ITK_LIBRARIES} RF xml2 /home/gasst/work/lib/libconfig++.a tcmalloc)
-ADD_EXECUTABLE(Seg3D Segmentation3D.cxx )
-TARGET_LINK_LIBRARIES(Seg3D maxflow  Utils TRWS FastPD SRSMRFModels  ${ITK_LIBRARIES} RF xml2 /home/gasst/work/lib/libconfig++.a tcmalloc)
+#ADD_EXECUTABLE(Seg2D Segmentation2D.cxx )
+#TARGET_LINK_LIBRARIES(Seg2D maxflow  Utils TRWS FastPD SRSMRFModels  ${ITK_LIBRARIES} RF xml2 /home/gasst/work/lib/libconfig++.a tcmalloc)
+#ADD_EXECUTABLE(Seg3D Segmentation3D.cxx )
+#TARGET_LINK_LIBRARIES(Seg3D maxflow  Utils TRWS FastPD SRSMRFModels  ${ITK_LIBRARIES} RF xml2 /home/gasst/work/lib/libconfig++.a tcmalloc)
 
 #seg-network
 ADD_EXECUTABLE(SegNetwork2D SegmentationNetwork-2D.cxx )

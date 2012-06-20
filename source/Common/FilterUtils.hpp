@@ -43,6 +43,8 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "ImageUtils.cxx"
 #include <algorithm> //max,min
+#include "Log.h"
+using namespace std;
 
 template<class InputImage, class OutputImage = InputImage>
 class FilterUtils {
