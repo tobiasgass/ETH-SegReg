@@ -36,7 +36,7 @@ public:
     typedef typename itk::AffineTransform<double,ImageType::ImageDimension> AffineTransformType;
     typedef typename AffineTransformType::Pointer AffineTransformPointerType;
     static const int D=ImageType::ImageDimension;
-    typedef itk::Vector<float,D> DisplacementType;
+    typedef itk::Vector<double,D> DisplacementType;
     typedef itk::Image<DisplacementType,D> DeformationFieldType;
     typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
     typedef typename DeformationFieldType::ConstPointer DeformationFieldConstPointerType;
@@ -345,6 +345,9 @@ public:
         return result.first;
     }
 
+    static std::pair<ImagePointerType,ImagePointerType> warpImageWithMask(ImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
+        return warpImageWithMask(ConstImagePointerType(image),deformation,nnInterpol);
+    }
     static std::pair<ImagePointerType,ImagePointerType> warpImageWithMask(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
         //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;

@@ -17,6 +17,8 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkImageRegionIteratorWithIndex.h"
 #include "itkImageRegionConstIterator.h"
+#include "itkNormalizeImageFilter.h"
+
 
 template<class ImageType>
 class ImageUtils {
@@ -67,8 +69,19 @@ public:
     typedef itk::Vector<float,D> FloatVectorType;
     typedef itk::Image<FloatVectorType,D> FloatVectorImageType;
     typedef typename FloatVectorImageType::Pointer FloatVectorImagePointerType;
+#if 0
+     typedef itk::NormalizeImageFilter<ImageType,ImageType> NormalizeImageFilterType;
+    typedef typename NormalizeImageFilterType::Pointer NormalizeImageFilterPointerType;
+#endif
 private:
-
+#if 0
+    static ImagePointerType normalizeImage(ImagePointerType input){
+        NormalizeImageFilterPointerType filter=NormalizeImageFilterType::New();
+        filter->SetInput(input);
+        filter->Update();
+        return filter->GetOutput();
+    }
+#endif
 	static void ITKImageToVTKImage(ImagePointerType image) {
 
 		// fix origin
