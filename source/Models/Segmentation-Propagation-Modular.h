@@ -160,7 +160,7 @@ public:
         LOG<<"Reading atlas segmentations."<<endl;
         inputAtlasSegmentations = readImageList( atlasSegmentationFileList );
         int nAtlases = inputAtlasSegmentations->size();
-        if (lateFusion && nAtlases>1){
+        if (lateFusion && nAtlases>1 && maxHops>0){
             LOG<<"WARNING: late fusion only uses the first atlas of the list for one-hop segmentation!"<<endl;
         }
         LOG<<"Reading input images."<<endl;
@@ -219,65 +219,64 @@ public:
     
         logSetStage("Zero Hop");
         LOG<<"Computing"<<std::endl;
-
         map<string,ProbabilisticVectorImagePointerType> probabilisticTargetSegmentations;
         for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){                //iterate over targets
-            string id= targetImageIterator->first;
-            if (inputAtlasSegmentations->find(id)==inputAtlasSegmentations->end()){ //do not calculate segmentation for atlas images
+            string targetID= targetImageIterator->first;
+            if (inputAtlasSegmentations->find(targetID)==inputAtlasSegmentations->end()){ //do not calculate segmentation for atlas images
+                probabilisticTargetSegmentations[targetID]=createEmptyProbImageFromImage( targetImageIterator->second);
                 
-                probabilisticTargetSegmentations[id]=createEmptyProbImageFromImage( targetImageIterator->second);
                 for (ImageListIteratorType atlasIterator=inputAtlasSegmentations->begin();atlasIterator!=inputAtlasSegmentations->end();++atlasIterator){//iterate over atlases
                     string atlasID=atlasIterator->first;
+                    LOGV(4)<<VAR(atlasID)<<" "<<VAR(targetID)<<endl;
                     DeformationFieldPointerType deformation;
                     if (dontCacheDeformations){
-                        deformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[atlasID][id]);
+                        deformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[atlasID][targetID]);
                     }else{
-                        deformation = deformationCache[atlasID][id];
+                        deformation = deformationCache[atlasID][targetID];
                     }
                     ImagePointerType atlasSegmentation=atlasIterator->second;
                     ProbabilisticVectorImagePointerType probAtlasSegmentation=segmentationToProbabilisticVector(atlasSegmentation);
-                    double weight=globalWeights[atlasID][id];
+                    double weight=globalWeights[atlasID][targetID];
                    
                     //update
-                    if (weighting==UNIFORM || metric == NONE){
-                        updateProbabilisticSegmentationUniform(probabilisticTargetSegmentations[id],probAtlasSegmentation,weight,deformation);
+                    if (weighting==UNIFORM || metric == NONE || (lateFusion && nAtlases==1)){
+                        updateProbabilisticSegmentationUniform(probabilisticTargetSegmentations[targetID],probAtlasSegmentation,weight,deformation);
                     }else{
                         ImagePointerType targetImage= targetImageIterator->second;
                         ImagePointerType atlasImage=(*inputImages)[atlasID];
                         if (weighting==GLOBAL){
-                            updateProbabilisticSegmentationGlobalMetric(probabilisticTargetSegmentations[id],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
+                            updateProbabilisticSegmentationGlobalMetric(probabilisticTargetSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
                         }else if (weighting==LOCAL){
-                            updateProbabilisticSegmentationLocalMetric(probabilisticTargetSegmentations[id],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
+                            updateProbabilisticSegmentationLocalMetric(probabilisticTargetSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
                         }
 
                     }
                 }
             }
             else{
-                probabilisticTargetSegmentations[id]=segmentationToProbabilisticVector((*inputAtlasSegmentations)[id]);
+                probabilisticTargetSegmentations[targetID]=segmentationToProbabilisticVector((*inputAtlasSegmentations)[targetID]);
             }
         }//finished zero-hop segmentation
         LOG<<"done"<<endl;
 
         LOGV(1)<<"Storing zero-hop segmentations."<<endl;
         for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){
-            string id= targetImageIterator->first;
-            ImagePointerType outputImage;
-            if (graphCut)
-                outputImage=probSegmentationToSegmentationGraphcut(probabilisticTargetSegmentations[id],smoothness*inputAtlasSegmentations->size());
-            else
-                outputImage=probSegmentationToSegmentationLocal(probabilisticTargetSegmentations[id]);
-            ostringstream tmpSegmentationFilename;
-            tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<id<<"-hop0"<<suffix;
-            ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
-          
+            string targetID= targetImageIterator->first;
+            if (inputAtlasSegmentations->find(targetID)==inputAtlasSegmentations->end()){ 
+                ImagePointerType outputImage;
+                if (graphCut)
+                    outputImage=probSegmentationToSegmentationGraphcut(probabilisticTargetSegmentations[targetID],smoothness*inputAtlasSegmentations->size());
+                else
+                    outputImage=probSegmentationToSegmentationLocal(probabilisticTargetSegmentations[targetID]);
+                ostringstream tmpSegmentationFilename;
+                tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<targetID<<"-hop0"<<suffix;
+                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
+            }
         }
 
 
-        bool converged=false;
+        bool converged=false; //no convergence check, yet
         logSetStage("Iterative improvement");
-       
-
         for (int n=1;n<=maxHops && !converged;++n){
             LOG<<"hop "<<n<<endl;
             //initialize new prob segmentations
@@ -297,10 +296,8 @@ public:
             //update!
             for (ImageListIteratorType atlasIterator=inputAtlasSegmentations->begin();atlasIterator!=inputAtlasSegmentations->end();++atlasIterator){//iterate over atlases
                 string atlasID=atlasIterator->first;
-                
                 for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){//iterate over intermediate images
                     string intermediateID= intermediateImageIterator->first;
-                    
                     //for late fusion, we do also need the deformation from the atlas to the intermediate image
                     DeformationFieldPointerType firstDeformation;
                     if (lateFusion){ 
@@ -388,15 +385,17 @@ public:
             LOG<<"Storing output. and checking convergence"<<endl;
             for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){
                 string id= targetImageIterator->first;
-                ImagePointerType outputImage;
-                if (graphCut)
-                    outputImage=probSegmentationToSegmentationGraphcut(newProbabilisticTargetSegmentations[id],smoothness*(nImages-nAtlases)*nAtlases);
-                else
-                    outputImage=probSegmentationToSegmentationLocal(newProbabilisticTargetSegmentations[id]);
-                ostringstream tmpSegmentationFilename;
-                tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<id<<"-hop"<<n<<suffix;
-
-                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
+                if (inputAtlasSegmentations->find(id)==inputAtlasSegmentations->end()){ 
+                    ImagePointerType outputImage;
+                    if (graphCut)
+                        outputImage=probSegmentationToSegmentationGraphcut(newProbabilisticTargetSegmentations[id],smoothness*(nImages-nAtlases)*nAtlases);
+                    else
+                        outputImage=probSegmentationToSegmentationLocal(newProbabilisticTargetSegmentations[id]);
+                    ostringstream tmpSegmentationFilename;
+                    tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<id<<"-hop"<<n<<suffix;
+                    
+                    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
+                }
             }
             probabilisticTargetSegmentations=newProbabilisticTargetSegmentations;
         }// hops
