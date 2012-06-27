@@ -298,80 +298,87 @@ public:
                 string atlasID=atlasIterator->first;
                 for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){//iterate over intermediate images
                     string intermediateID= intermediateImageIterator->first;
-                    //for late fusion, we do also need the deformation from the atlas to the intermediate image
-                    DeformationFieldPointerType firstDeformation;
-                    if (lateFusion){ 
-                        if (intermediateID != atlasID){
-                            if (dontCacheDeformations){
-                                LOGV(3)<<VAR(atlasID)<<" "<<VAR(intermediateID)<<" "<<VAR(deformationFilenames[atlasID][intermediateID])<<endl;
-                                firstDeformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[atlasID][intermediateID]);
-                            }else{
-                                LOGV(3)<<VAR(atlasID)<<" "<<VAR(intermediateID)<<endl;
-                                firstDeformation = deformationCache[atlasID][intermediateID];
-                            }
-                        }
-                    }
-
-                    for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){//iterate over target images
-                        string targetID= targetImageIterator->first;             
                     
-                        if ( targetID != atlasID){ //don't update atlas segmentations! :)
-                            if (targetID != intermediateID ){ // don't propagate segmentations to the intermediate image.. doesn't make sense, right?
-                                LOGV(3)<<"hop "<<n<<" "<<  VAR(atlasID) << " "<< VAR(intermediateID) <<" "<<VAR(targetID) << endl;
-
-                                //get deformation from intermediate to target image, cached or uncached
-                                DeformationFieldPointerType secondDeformation,deformation;
+                    if ( (intermediateID==atlasID) || (inputAtlasSegmentations->find(intermediateID) == inputAtlasSegmentations->end()) ){
+                        //for late fusion, we do also need the deformation from the atlas to the intermediate image
+                        DeformationFieldPointerType firstDeformation;
+                        if (lateFusion){ 
+                            if (intermediateID != atlasID){
                                 if (dontCacheDeformations){
-                                    LOGV(3)<<VAR(targetID)<<" "<<VAR(intermediateID)<<" "<<VAR(deformationFilenames[intermediateID][targetID])<<endl<<endl;
-                                    secondDeformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[intermediateID][targetID]);
+                                    LOGV(3)<<VAR(atlasID)<<" "<<VAR(intermediateID)<<" "<<VAR(deformationFilenames[atlasID][intermediateID])<<endl;
+                                    firstDeformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[atlasID][intermediateID]);
                                 }else{
-                                    LOGV(3)<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl<<endl;
-                                    secondDeformation = deformationCache[intermediateID][targetID];
-                                }
-
-                                ProbabilisticVectorImagePointerType probSeg;
-                                if (lateFusion) {
-                                    if ( intermediateID == atlasID ){
-                                        deformation = secondDeformation;
-                                    }else{
-                                        deformation = TransfUtils<ImageType>::composeDeformations(secondDeformation,firstDeformation);
-                                    }
-                                    probSeg = probabilisticTargetSegmentations[atlasID];
-                                }else{
-                                    deformation = secondDeformation;
-                                    probSeg = probabilisticTargetSegmentations[intermediateID];
-                                }
-                          
-                                //get auxiliary global weight
-                                double weight=globalWeights[intermediateID][targetID];
-
-                                //UPDATE
-                                if (weighting==UNIFORM || metric == NONE){
-                                    updateProbabilisticSegmentationUniform(newProbabilisticTargetSegmentations[targetID],probSeg,weight,deformation);
-                                }else{
-                                    ImagePointerType img1=targetImageIterator->second;
-                                    ImagePointerType img2;
-                                    if (lateFusion){
-                                        img2=(*inputImages)[atlasID];
-                                    }else{
-                                        img2=intermediateImageIterator->second;
-                                    }
-                                    if (weighting==GLOBAL){
-                                        updateProbabilisticSegmentationGlobalMetric(newProbabilisticTargetSegmentations[targetID],probSeg,weight,img1,img2,deformation,metric);
-                                    
-                                    }else if (weighting==LOCAL){
-                                        updateProbabilisticSegmentationLocalMetric(newProbabilisticTargetSegmentations[targetID],probSeg,weight,img1,img2,deformation,metric);
-                                    }
-                                }
-                                if (verbose>=8){
-                                    ImagePointerType outputIntermediateSegmentation = probSegmentationToSegmentationLocal(warpProbImage(probSeg,deformation));
-                                    ostringstream tmpSegmentationFilename;
-                                    tmpSegmentationFilename<<outputDir<<"/segmentation-intermediate-weighting"<<weightingName<<"-metric"<<metricName<<"-from-"<<atlasID<<"-over-"<<intermediateID<<"-to-"<<targetID<<"-hop"<<n<<suffix;
-                                    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputIntermediateSegmentation);
+                                    LOGV(3)<<VAR(atlasID)<<" "<<VAR(intermediateID)<<endl;
+                                    firstDeformation = deformationCache[atlasID][intermediateID];
                                 }
                             }
                         }
-                    }//for targetID
+
+                        for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){//iterate over target images
+                            string targetID= targetImageIterator->first;             
+                    
+                            if ( targetID != atlasID){ //don't update atlas segmentations! :)
+                                if (targetID != intermediateID ){ // don't propagate segmentations to the intermediate image.. doesn't make sense, right?
+                                    LOGV(3)<<"hop "<<n<<" "<<  VAR(atlasID) << " "<< VAR(intermediateID) <<" "<<VAR(targetID) << endl;
+
+
+                                    //get auxiliary global weight
+                                    double weight=globalWeights[intermediateID][targetID];
+
+                                    //get deformation from intermediate to target image, cached or uncached
+                                    DeformationFieldPointerType secondDeformation,deformation;
+                                    if (dontCacheDeformations){
+                                        LOGV(3)<<VAR(targetID)<<" "<<VAR(intermediateID)<<" "<<VAR(deformationFilenames[intermediateID][targetID])<<endl<<endl;
+                                        secondDeformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[intermediateID][targetID]);
+                                    }else{
+                                        LOGV(3)<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl<<endl;
+                                        secondDeformation = deformationCache[intermediateID][targetID];
+                                    }
+
+                                    ProbabilisticVectorImagePointerType probSeg;
+                                    if (lateFusion) {
+                                        if ( intermediateID == atlasID ){
+                                            deformation = secondDeformation;
+                                        }else{
+                                            deformation = TransfUtils<ImageType>::composeDeformations(secondDeformation,firstDeformation);
+                                            weight*=globalWeights[atlasID][intermediateID];
+                                        }
+                                        probSeg = probabilisticTargetSegmentations[atlasID];
+                                    }else{
+                                        deformation = secondDeformation;
+                                        probSeg = probabilisticTargetSegmentations[intermediateID];
+                                    }
+                          
+                              
+
+                                    //UPDATE
+                                    if (weighting==UNIFORM || metric == NONE){
+                                        updateProbabilisticSegmentationUniform(newProbabilisticTargetSegmentations[targetID],probSeg,weight,deformation);
+                                    }else{
+                                        ImagePointerType img1=targetImageIterator->second;
+                                        ImagePointerType img2;
+                                        if (lateFusion){
+                                            img2=(*inputImages)[atlasID];
+                                        }else{
+                                            img2=intermediateImageIterator->second;
+                                        }
+                                        if (weighting==GLOBAL){
+                                            updateProbabilisticSegmentationGlobalMetric(newProbabilisticTargetSegmentations[targetID],probSeg,weight,img1,img2,deformation,metric);
+                                    
+                                        }else if (weighting==LOCAL){
+                                            updateProbabilisticSegmentationLocalMetric(newProbabilisticTargetSegmentations[targetID],probSeg,weight,img1,img2,deformation,metric);
+                                        }
+                                    }
+                                    if (verbose>=8){
+                                        ImagePointerType outputIntermediateSegmentation = probSegmentationToSegmentationLocal(warpProbImage(probSeg,deformation));
+                                        ostringstream tmpSegmentationFilename;
+                                        tmpSegmentationFilename<<outputDir<<"/segmentation-intermediate-weighting"<<weightingName<<"-metric"<<metricName<<"-from-"<<atlasID<<"-over-"<<intermediateID<<"-to-"<<targetID<<"-hop"<<n<<suffix;
+                                        ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputIntermediateSegmentation);
+                                    }
+                                }
+                            }
+                        }//for targetID
+                    }//catch paths over intermediate atlases
                 }//for intermediateID
 
                 //iterating over atlases only makes sense for late fusion
