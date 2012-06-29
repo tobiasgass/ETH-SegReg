@@ -350,6 +350,7 @@ namespace itk{
                 }
                 for ( int s=0;s<m_nSegmentationLabels;++s){
                     double p=m_GMMs[s].likelihood(c);
+                    p=min(1.0,p);
                     resultIterators[s].Set(p);
                     ++resultIterators[s];
                 }

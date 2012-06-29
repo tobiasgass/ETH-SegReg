@@ -48,20 +48,20 @@ int main(int argc, char ** argv)
     //typedef     SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifier<ImageType> ClassifierType;
     //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
     //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     
     //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
-    typedef SegmentationGMMClassifier<ImageType> ClassifierType;
-    typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    //typedef SegmentationGMMClassifier<ImageType> ClassifierType;
+    //typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     //pairwise seg
     //    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
-    typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-    //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+     typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     //reg
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -181,8 +181,8 @@ int main(int argc, char ** argv)
     clock_t FULLend = clock();
     float t = (float) ((double)(FULLend - FULLstart) / CLOCKS_PER_SEC);
     LOG<<"Finished computation after "<<t<<" seconds"<<std::endl;
-    LOG<<"RegUnaries: "<<tUnary<<" Optimization: "<<tOpt<<std::endl;	
-    LOG<<"RegPairwise: "<<tPairwise<<std::endl;
+    LOG<<"Unaries: "<<tUnary<<" Optimization: "<<tOpt<<std::endl;	
+    LOG<<"Pairwise: "<<tPairwise<<std::endl;
 
     
     //process outputs
@@ -207,27 +207,33 @@ int main(int argc, char ** argv)
             //targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),scale));
         }
     }
-    LOG<<"Deforming Images.."<<endl;
 
-    if (filterConfig.defFilename!=""){
-        ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
+    if (finalDeformation ){
+        LOG<<"Deforming Images.."<<endl;
+        if (filterConfig.defFilename!="")
+            ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
+
+        ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
+        ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
+        if (ImageType::ImageDimension==2)
+            ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,filter->makePngFromDeformationField((ImageConstPointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+        if (ImageType::ImageDimension==3)
+            ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
+        LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
+
     }
-    ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
-    ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
     
-    ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
-    if (ImageType::ImageDimension==2){
-        if (targetSegmentationEstimate)
+   
+    if (targetSegmentationEstimate){
+        if (ImageType::ImageDimension==2){
             ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,filter->makePngFromDeformationField((ImageConstPointerType)targetSegmentationEstimate,LabelMapperType::nSegmentations));
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,filter->makePngFromDeformationField((ImageConstPointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
-    }
-    if (ImageType::ImageDimension==3){
-        if (targetSegmentationEstimate)
+        }
+        if (ImageType::ImageDimension==3){
             ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
+        }
     }
     
-    LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
   
     return 1;
 }

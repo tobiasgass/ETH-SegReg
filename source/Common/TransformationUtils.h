@@ -36,7 +36,7 @@ public:
     typedef typename itk::AffineTransform<double,ImageType::ImageDimension> AffineTransformType;
     typedef typename AffineTransformType::Pointer AffineTransformPointerType;
     static const int D=ImageType::ImageDimension;
-    typedef itk::Vector<double,D> DisplacementType;
+    typedef itk::Vector<float,D> DisplacementType;
     typedef itk::Image<DisplacementType,D> DeformationFieldType;
     typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
     typedef typename DeformationFieldType::ConstPointer DeformationFieldConstPointerType;

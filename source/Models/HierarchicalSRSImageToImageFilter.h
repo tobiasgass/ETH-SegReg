@@ -20,6 +20,7 @@
 #include "Graph.h"
 #include "BaseLabel.h"
 #include "MRF-TRW-S.h"
+#include "MRF-GC.h"
 #include "MRF-FAST-PD.h"
 #include <boost/lexical_cast.hpp>
 #include <itkNearestNeighborInterpolateImageFunction.h>
@@ -280,7 +281,7 @@ namespace itk{
                 m_config.nLevels=1;
                 m_config.iterationsPerLevel=1;
             }
-            bool computeLowResolutionBsplineIfPossible=true;
+            bool computeLowResolutionBsplineIfPossible=false;
             LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
             for (int l=0;l<m_config.nLevels;++l){
@@ -405,6 +406,19 @@ namespace itk{
                     //double linearDecreasingWeight=1-linearIncreasingWeight;
                     //double expDecreasingWeight=exp(-l);
                     //#define TRUNC
+                    LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
+                    
+                    if (false && segment && !coherence && !regist){
+                        typedef  GC_MRFSolverSeg<GraphModelType> MRFSolverType;
+                        MRFSolverType  *mrfSolver= new MRFSolverType(graph, m_config.unarySegmentationWeight,
+                                                                     m_config.pairwiseSegmentationWeight,m_config.verbose);
+                        
+                        mrfSolver->createGraph();   
+                        mrfSolver->optimize(1);
+                        segmentation=graph->getSegmentationImage(mrfSolver->getLabels());
+                        delete mrfSolver;
+
+                    }else
                     {
 
                         if (ImageType::ImageDimension==2){
