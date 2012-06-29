@@ -63,7 +63,7 @@ namespace itk{
     public:
         /** Standard part of every itk Object. */
         itkTypeMacro(SegmentationRandomForestClassifier, Object);
-        itkNewMacro(Self);
+       itkNewMacro(Self);
 
         SegmentationRandomForestClassifier(){
             LOGV(5)<<"Initializing intensity based segmentation classifier" << endl;

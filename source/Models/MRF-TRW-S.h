@@ -44,7 +44,7 @@ protected:
 	double m_unarySegmentationWeight,m_pairwiseSegmentationWeight;
 	double m_unaryRegistrationWeight,m_pairwiseRegistrationWeight;
 	double m_pairwiseSegmentationRegistrationWeight;
-	bool verbose;
+	int verbose;
     GraphModelPointerType m_GraphModel;
     int nNodes, nRegNodes, nSegNodes, nEdges;
     vector<NodeType> segNodes;
@@ -60,7 +60,7 @@ public:
                       double unarySegWeight=1.0, 
                       double pairwiseSegWeight=1.0, 
                       double pairwiseSegRegWeight=1.0,
-                      bool vverbose=false)
+                      int vverbose=false)
         :m_optimizer(TRWType::GlobalSize()),m_GraphModel(graphModel)
 	{
 		verbose=vverbose;
@@ -272,9 +272,9 @@ public:
         TRWType::REAL energy=-1, lowerBound=-1;
         options.m_iterMax = maxIter; // maximum number of iterations
         options.m_printMinIter=1;
-        options.m_printIter=1;
+        options.m_printIter=verbose==0?1000:10/verbose;
         options.verbose=verbose;
-        options.m_eps=-1;
+        options.m_eps=1e-6;
         logSetStage("Optimizer");
         clock_t opt_start=clock();
         m_optimizer.Minimize_TRW_S(options, lowerBound, energy);
@@ -366,7 +366,7 @@ protected:
 	double m_unarySegmentationWeight,m_pairwiseSegmentationWeight;
 	double m_unaryRegistrationWeight,m_pairwiseRegistrationWeight;
 	double m_pairwiseSegmentationRegistrationWeight;
-	bool verbose;
+	int verbose;
     GraphModelType * m_GraphModel;
     int nNodes, nRegNodes, nSegNodes, nEdges;
     vector<NodeType> segNodes;
@@ -382,7 +382,7 @@ public:
                                     double unarySegWeight=1.0, 
                                     double pairwiseSegWeight=1.0, 
                                     double pairwiseSegRegWeight=1.0,
-                                    bool vverbose=false)
+                                    int vverbose=false)
         :m_optimizer(TRWType::GlobalSize(2*LabelMapperType::nDisplacementSamples+1,2*LabelMapperType::nDisplacementSamples+1)),m_GraphModel(graphModel)
     {
         verbose=vverbose;
@@ -581,7 +581,7 @@ protected:
 	double m_unarySegmentationWeight,m_pairwiseSegmentationWeight;
 	double m_unaryRegistrationWeight,m_pairwiseRegistrationWeight;
 	double m_pairwiseSegmentationRegistrationWeight;
-	bool verbose;
+	int verbose;
     GraphModelType * m_GraphModel;
     int nNodes, nRegNodes, nSegNodes, nEdges;
     vector<NodeType> segNodes;
@@ -597,7 +597,7 @@ public:
                                     double unarySegWeight=1.0, 
                                     double pairwiseSegWeight=1.0, 
                                     double pairwiseSegRegWeight=1.0,
-                                    bool vverbose=false)
+                                    int vverbose=false)
         :m_optimizer(TRWType::GlobalSize(2*LabelMapperType::nDisplacementSamples+1,2*LabelMapperType::nDisplacementSamples+1,2*LabelMapperType::nDisplacementSamples+1)),m_GraphModel(graphModel)
     {
         verbose=vverbose;
