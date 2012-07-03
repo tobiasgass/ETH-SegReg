@@ -18,6 +18,7 @@ class SRSConfig{
 public:
 	std::string targetFilename,atlasFilename,targetGradientFilename, outputDeformedSegmentationFilename,atlasSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, atlasGradientFilename;
 	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename,affineBulkTransform,bulkTransformationField;
+    std::string logFileName;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
 	int displacementSampling;
@@ -76,6 +77,7 @@ public:
         scale=0.5;
         asymmetry=0;
         downScale=1;
+            exit(0);
         pairwiseContrastWeight=1;
         nSubsamples=-1;
         alpha=0;
@@ -94,6 +96,7 @@ public:
         log_PairwiseReg=true;
         displacementScaling=1.0;
         evalContinuously=false;
+        logFileName="";
 
 	}
     ~SRSConfig(){
@@ -237,6 +240,7 @@ public:
         (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
         (*as) >> parameter ("alpha",alpha ,"generic weight (0)", false);
+        (*as) >> parameter ("log",logFileName ,"cache output and flush to file at the end of the program", false);
         (*as) >> parameter ("verbose", verbose,"get verbose output",false);
         std::list<int> bla;
 //		(*as) >> values<int> (back_inserter(bla),"descr",nLevels);

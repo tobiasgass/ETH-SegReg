@@ -140,7 +140,7 @@ public:
                     {
                         this->m_GraphModel->cacheRegistrationPotentials(l1);
                         for (int d=0;d<nRegNodes;++d){
-                            m_optimizer.SetNodeData(regNodes[d],l1,m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1));
+                            m_optimizer.SetNodeDataPos(regNodes[d],l1,m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1));
                         }
                     }
             }

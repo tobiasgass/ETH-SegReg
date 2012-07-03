@@ -26,8 +26,11 @@ int main(int argc, char ** argv)
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
+    if (filterConfig.logFileName!=""){
+        //mylog.setCachedLogging();
+    }
+    
 	//define types.
-	
     typedef unsigned short PixelType;
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
@@ -227,6 +230,8 @@ int main(int argc, char ** argv)
     }
     
     LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
-  
+    if (filterConfig.logFileName!=""){
+        //mylog.flushLog(filterConfig.logFileName);
+    }
     return 1;
 }
