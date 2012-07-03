@@ -77,7 +77,6 @@ public:
         scale=0.5;
         asymmetry=0;
         downScale=1;
-            exit(0);
         pairwiseContrastWeight=1;
         nSubsamples=-1;
         alpha=0;
