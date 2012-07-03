@@ -317,7 +317,7 @@ namespace itk{
         virtual void train(){
             for ( int s=0;s<m_nSegmentationLabels;++s){
                 LOGV(1)<<"Training GMM for label :"<<s<<endl;
-                m_GMMs[s].estimate(4,m_observations[s]);
+                m_GMMs[s].estimate(2,m_observations[s]);
                 m_GMMs[s].display();
             }
         };

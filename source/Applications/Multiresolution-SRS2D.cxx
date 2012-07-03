@@ -28,7 +28,7 @@ int main(int argc, char ** argv)
 	filterConfig.parseParams(argc,argv);
 	//define types.
 	
-    typedef unsigned char PixelType;
+    typedef unsigned short PixelType;
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -100,6 +100,8 @@ int main(int argc, char ** argv)
     if (!atlasImage) {LOG<<"failed!"<<endl; exit(0);
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
+    atlasSegmentation=filter->fixSegmentationImage(atlasSegmentation,filterConfig.nSegmentations);
+
     if (!atlasSegmentation) {LOG<<"failed!"<<endl; exit(0);}
     logSetStage("Preprocessing");
     //preprocessing 1: gradients
@@ -133,11 +135,7 @@ int main(int argc, char ** argv)
   
     ImagePointerType originalTargetImage=targetImage,originalAtlasImage=atlasImage,originalAtlasSegmentation=atlasSegmentation;
     //preprocessing 3: downscaling
-    if (D==2){
-        atlasSegmentation=filter->fixSegmentationImage(atlasSegmentation,filterConfig.nSegmentations);
-        //        ImageUtils<ImageType>::writeImage("fixedSegmentation.png",atlasSegmentation);
-    }
-    if (filterConfig.downScale<1){
+     if (filterConfig.downScale<1){
         double sigma=1;
         double scale=filterConfig.downScale;
         LOG<<"Resampling images from "<< targetImage->GetLargestPossibleRegion().GetSize()<<" by a factor of"<<scale<<endl;

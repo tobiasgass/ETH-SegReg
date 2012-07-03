@@ -233,6 +233,9 @@ public:
 		img->Allocate();
 		return img;
 	};
+	static ImagePointerType createEmpty(ImagePointerType refImg) {
+		return createEmpty((ConstImagePointerType)refImg);
+	};
 	/*
     Get the region representing the bounding box which is in @offset pixels
     distance from @region boundary.

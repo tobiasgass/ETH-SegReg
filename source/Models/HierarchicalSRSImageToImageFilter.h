@@ -421,36 +421,10 @@ namespace itk{
                     }else
                     {
 
-                        if (ImageType::ImageDimension==2){
-#ifdef TRUNC
-                            typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
-#else
+                            //typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-                            //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
-#endif
-
-                            MRFSolverType  *mrfSolver= new MRFSolverType(graph,
-                                                                         m_config.unaryRegistrationWeight,
-                                                                         m_config.pairwiseRegistrationWeight,// * (l>0 || i>0 ) ,
-                                                                         m_config.unarySegmentationWeight,
-                                                                         m_config.pairwiseSegmentationWeight,
-                                                                         m_config.pairwiseCoherenceWeight,
-                                                                         m_config.verbose);
-                            mrfSolver->createGraph();
-                            newEnergy=mrfSolver->optimize(m_config.optIter);
-                            if (regist || coherence){
-                                deformation=graph->getDeformationImage(mrfSolver->getDeformationLabels());
-                            }
-                            segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
-                              
-                            delete mrfSolver;
-
-                        }else{
-#ifdef TRUNC
-                            typedef TRWS_SRSMRFSolverTruncQuadrat3D<GraphModelType> MRFSolverType;
-#else
-                            typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-#endif
+                             //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+                            
                             MRFSolverType  *mrfSolver= new MRFSolverType(graph,
                                                                          m_config.unaryRegistrationWeight,
                                                                          m_config.pairwiseRegistrationWeight, 
@@ -459,18 +433,46 @@ namespace itk{
                                                                          m_config.pairwiseCoherenceWeight,
                                                                          m_config.verbose);
                             mrfSolver->createGraph();
-                            newEnergy=mrfSolver->optimize(m_config.optIter);
-                            if (regist || coherence){
-                                deformation=graph->getDeformationImage(mrfSolver->getDeformationLabels());
+                            
+                            std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
+                            if (!m_config.evalContinuously){
+                                newEnergy=mrfSolver->optimize(m_config.optIter);
+                                defLabels=mrfSolver->getDeformationLabels();
+                                segLabels=mrfSolver->getSegmentationLabels();
+                            }else{
+                                double tmpOldEng=10;                     newEnergy=10000000;
+                                bool optimization_converged=false;
+                                for (int o=0;o<m_config.optIter && ! optimization_converged;++o){
+                                        tmpOldEng=newEnergy;
+                                        optimization_converged=mrfSolver->optimizeOneStep(o);
+                                        if (regist || coherence){
+                                            oldDefLabels=defLabels;
+                                            defLabels=mrfSolver->getDeformationLabels();
+                                            if (o>1){
+                                                LOGV(3)<<"Deformation labels changed :"<<computeLabelChange(oldDefLabels,defLabels)<<" ";
+                                            }
+                                        }
+                                        if (segment || coherence){
+                                            oldSegLabels=segLabels;
+                                            segLabels=mrfSolver->getSegmentationLabels();
+                                            if (o>1){
+                                                LOGV(3)<<" Segmentation labels changed :"<<computeLabelChange(oldSegLabels,segLabels)<<" ";
+                                            }
+                                        }
+                                        LOGV(3)<<endl;
+                                    }
                             }
-                            segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
+                            if (regist || coherence){
+                                deformation=graph->getDeformationImage(defLabels);
+                            }
+                            if (segment || coherence)
+                                segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
+
                             delete mrfSolver;
 
-                        }
-
-
-
                     }
+
+
                     converged=fabs(newEnergy-oldEnergy)/fabs(oldEnergy) <0.01 ; 
                     LOGV(3)<<"Convergence ratio " <<100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy)<<"%"<<endl;
                     //initialise interpolator
@@ -502,7 +504,7 @@ namespace itk{
 
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config.displacementRescalingFactor;
-                    if (m_config.verbose){
+                    if (m_config.verbose>5){
                         std::string suff;
                         if (ImageType::ImageDimension==2){
                             suff=".png";
@@ -583,6 +585,19 @@ namespace itk{
             }
 
             return (ImagePointerType)newImage;
+        }
+        double computeLabelChange(std::vector<int> & ref, std::vector<int> & comp){
+            int countDiff=0;
+            if (ref.size()==0 || comp.size()!=ref.size()){
+                bool notEq=(comp.size()!=ref.size());
+                LOG<<VAR(ref.size())<<" "<<VAR(notEq)<<endl;
+                exit(0);
+            }
+                
+            for (unsigned int s=0;s<ref.size();++s){
+                countDiff+=(ref[s]!=comp[s]);
+            }
+            return 1.0*countDiff/ref.size();
         }
     }; //class
 } //namespace

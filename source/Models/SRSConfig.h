@@ -47,6 +47,7 @@ public:
     double thresh_UnaryReg,thresh_PairwiseReg;
     bool log_UnaryReg,log_PairwiseReg;
     double displacementScaling;
+    bool evalContinuously;
 private:
 	argstream * as;
 public:
@@ -92,6 +93,7 @@ public:
         log_UnaryReg=true;
         log_PairwiseReg=true;
         displacementScaling=1.0;
+        evalContinuously=false;
 
 	}
     ~SRSConfig(){
@@ -229,6 +231,8 @@ public:
         (*as) >> parameter ("downScale", downScale,"downSample ALL  images by an isotropic factor",false);
         (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=2)", false);
         (*as) >> option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");
+
+        (*as) >> option ("evalContinuously",evalContinuously ,"evaluate optimization at each step. slower, but also returns actual energy and changes in labellings during each iteration.");
 
         (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);

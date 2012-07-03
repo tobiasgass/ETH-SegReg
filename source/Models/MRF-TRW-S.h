@@ -53,6 +53,7 @@ protected:
     int nRegLabels;
     int nSegLabels;
     bool m_segmented, m_registered;
+    double m_lastLowerBound;
 public:
 	TRWS_SRSMRFSolver(GraphModelPointerType  graphModel,
                       double unaryRegWeight=1.0, 
@@ -272,7 +273,7 @@ public:
         TRWType::REAL energy=-1, lowerBound=-1;
         options.m_iterMax = maxIter; // maximum number of iterations
         options.m_printMinIter=1;
-        options.m_printIter=verbose==0?1000:10/verbose;
+        options.m_printIter=1;
         options.verbose=verbose;
         options.m_eps=1e-6;
         logSetStage("Optimizer");
@@ -283,11 +284,36 @@ public:
         tOpt+=((double)(finish-opt_start)/CLOCKS_PER_SEC);
         float t = (float) ((double)(finish - m_start) / CLOCKS_PER_SEC);
         LOG<<"Finished optimization after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound <<std::endl;
-        
+       
         return energy;
 
     }
+    virtual bool optimizeOneStep(int currentIter){
+        LOGV(1)<<"Total number of MRF edges: " <<nEdges<<endl;
+        //m_optimizer.SetAutomaticOrdering();
+        MRFEnergy<TRWType>::Options options;
+        TRWType::REAL energy=-1, lowerBound=-1;
+        options.m_iterMax = 1; // maximum number of iterations
+        options.m_printMinIter=0;
+        options.m_printIter=0;
+        options.verbose=0;
+        options.m_eps=1e-6;
+        logSetStage("Optimizer");
+        clock_t opt_start=clock();
+        m_optimizer.Minimize_TRW_S(options, lowerBound, energy);
+        clock_t finish = clock();
+        logResetStage;         
+        tOpt+=((double)(finish-opt_start)/CLOCKS_PER_SEC);
+        float t = (float) ((double)(finish -  opt_start) / CLOCKS_PER_SEC);
+        LOG<<"Finished optimization after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound <<std::endl;
+        bool converged=(energy==lowerBound);
+        if (currentIter>0){
+            converged=converged || lowerBound-m_lastLowerBound < 1e-6 * m_lastLowerBound;
+        }
+        m_lastLowerBound=lowerBound;
+        return converged;
 
+    }
     virtual std::vector<int> getDeformationLabels(){
         std::vector<int> labels(nRegNodes,0);
         if (m_registered){

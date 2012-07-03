@@ -52,7 +52,7 @@ int main(int argc, char ** argv)
     //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     
     //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
-    //typedef SegmentationGMMClassifier<ImageType> ClassifierType;
+    typedef SegmentationGMMClassifier<ImageType> ClassifierType;
     //typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     //pairwise seg
