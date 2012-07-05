@@ -20,8 +20,9 @@
 #include "Graph.h"
 #include "BaseLabel.h"
 #include "MRF-TRW-S.h"
+#include "MRF-GCO.h"
 #include "MRF-GC.h"
-#include "MRF-FAST-PD.h"
+//#include "MRF-FAST-PD.h"
 #include <boost/lexical_cast.hpp>
 #include <itkNearestNeighborInterpolateImageFunction.h>
 #include <itkLinearInterpolateImageFunction.h>
@@ -189,7 +190,7 @@ namespace itk{
             else{
                 LOG<<"Switching off coherence module"<<std::endl;
             }
-          //define input images
+            //define input images
             ConstImagePointerType targetImage = this->GetInput(0);
             ConstImagePointerType atlasImage = this->GetInput(1);
             ConstImagePointerType atlasSegmentationImage;
@@ -351,7 +352,7 @@ namespace itk{
 
                 if (regist){
                     if (computeLowResolutionBsplineIfPossible && !coherence){
-                    //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
+                        //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
                         previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
                     }else{
                         previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, targetImage);
@@ -373,9 +374,9 @@ namespace itk{
                 LOGV(1)<<"Current grid size :"<<graph->getGridSize()<<std::endl;
                 LOGV(1)<<"Current grid spacing :"<<graph->getSpacing()<<std::endl;
                 
-                //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+               
                 bool converged=false;
-                double oldEnergy,newEnergy=DBL_EPSILON;
+                double oldEnergy,newEnergy=01;
                 for (int i=0;!converged && i<m_config.iterationsPerLevel;++i,++iterationCount){
                     logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":"+boost::lexical_cast<std::string>(i));
                     oldEnergy=newEnergy;
@@ -394,8 +395,8 @@ namespace itk{
                         pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                     }
                     if (coherence){
-                            pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
-                            //if ( l || i ) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                        pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
+                        //if ( l || i ) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
                     }
                     //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
                     
@@ -409,72 +410,73 @@ namespace itk{
                     LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
                     
                     if (false && segment && !coherence && !regist){
-                        typedef  GC_MRFSolverSeg<GraphModelType> MRFSolverType;
-                        MRFSolverType  *mrfSolver= new MRFSolverType(graph, m_config.unarySegmentationWeight,
-                                                                     m_config.pairwiseSegmentationWeight,m_config.verbose);
+                        typedef  GC_MRFSolverSeg<GraphModelType> SolverType;
+                        SolverType  *mrfSolverGC= new SolverType(graph, m_config.unarySegmentationWeight,
+                                                                 m_config.pairwiseSegmentationWeight,m_config.verbose);
                         
-                        mrfSolver->createGraph();   
-                        mrfSolver->optimize(1);
-                        segmentation=graph->getSegmentationImage(mrfSolver->getLabels());
+                        mrfSolverGC->createGraph();   
+                        mrfSolverGC->optimize(1);
+                        segmentation=graph->getSegmentationImage(mrfSolverGC->getLabels());
+                        delete mrfSolverGC;
+
+                    }else{
+                        //typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
+                        //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                        typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
+                        //typedef Incremental_TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                        //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+                        
+                        MRFSolverType  *mrfSolver= new MRFSolverType(graph,
+                                                                     m_config.unaryRegistrationWeight,
+                                                                     m_config.pairwiseRegistrationWeight, 
+                                                                     m_config.unarySegmentationWeight,
+                                                                     m_config.pairwiseSegmentationWeight,
+                                                                     m_config.pairwiseCoherenceWeight,
+                                                                     m_config.verbose);
+
+                        //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                        mrfSolver->createGraph();
+                        std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
+                        if (!m_config.evalContinuously){
+                            newEnergy=mrfSolver->optimize(m_config.optIter);
+                            defLabels=mrfSolver->getDeformationLabels();
+                            segLabels=mrfSolver->getSegmentationLabels();
+                        }else{
+                            double tmpOldEng=10; newEnergy=10000000;
+                            bool optimization_converged=false;
+                            for (int o=0;o<m_config.optIter && ! optimization_converged;++o){
+                                tmpOldEng=newEnergy;
+                                newEnergy=mrfSolver->optimizeOneStep(o, optimization_converged);
+                                if (regist || coherence){
+                                    oldDefLabels=defLabels;
+                                    defLabels=mrfSolver->getDeformationLabels();
+                                    if (o>0){
+                                        LOGV(2)<<"Deformation labels changed :"<<computeLabelChange(oldDefLabels,defLabels)<<" ";
+                                    }
+                                }
+                                if (segment || coherence){
+                                    oldSegLabels=segLabels;
+                                    segLabels=mrfSolver->getSegmentationLabels();
+                                    if (o>0){
+                                        LOGV(2)<<" Segmentation labels changed :"<<computeLabelChange(oldSegLabels,segLabels)<<" ";
+                                    }
+                                }
+                                LOGV(3)<<endl;
+                            }
+                        }
+                        if (regist || coherence){
+                            deformation=graph->getDeformationImage(defLabels);
+                        }
+                        if (segment || coherence)
+                            segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
+
                         delete mrfSolver;
 
-                    }else
-                    {
-
-                            //typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
-                            typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-                             //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
-                            
-                            MRFSolverType  *mrfSolver= new MRFSolverType(graph,
-                                                                         m_config.unaryRegistrationWeight,
-                                                                         m_config.pairwiseRegistrationWeight, 
-                                                                         m_config.unarySegmentationWeight,
-                                                                         m_config.pairwiseSegmentationWeight,
-                                                                         m_config.pairwiseCoherenceWeight,
-                                                                         m_config.verbose);
-                            mrfSolver->createGraph();
-                            
-                            std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
-                            if (!m_config.evalContinuously){
-                                newEnergy=mrfSolver->optimize(m_config.optIter);
-                                defLabels=mrfSolver->getDeformationLabels();
-                                segLabels=mrfSolver->getSegmentationLabels();
-                            }else{
-                                double tmpOldEng=10;                     newEnergy=10000000;
-                                bool optimization_converged=false;
-                                for (int o=0;o<m_config.optIter && ! optimization_converged;++o){
-                                        tmpOldEng=newEnergy;
-                                        optimization_converged=mrfSolver->optimizeOneStep(o);
-                                        if (regist || coherence){
-                                            oldDefLabels=defLabels;
-                                            defLabels=mrfSolver->getDeformationLabels();
-                                            if (o>1){
-                                                LOGV(3)<<"Deformation labels changed :"<<computeLabelChange(oldDefLabels,defLabels)<<" ";
-                                            }
-                                        }
-                                        if (segment || coherence){
-                                            oldSegLabels=segLabels;
-                                            segLabels=mrfSolver->getSegmentationLabels();
-                                            if (o>1){
-                                                LOGV(3)<<" Segmentation labels changed :"<<computeLabelChange(oldSegLabels,segLabels)<<" ";
-                                            }
-                                        }
-                                        LOGV(3)<<endl;
-                                    }
-                            }
-                            if (regist || coherence){
-                                deformation=graph->getDeformationImage(defLabels);
-                            }
-                            if (segment || coherence)
-                                segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
-
-                            delete mrfSolver;
-
                     }
-
-
-                    converged=fabs(newEnergy-oldEnergy)/fabs(oldEnergy) <0.01 ; 
-                    LOGV(3)<<"Convergence ratio " <<100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy)<<"%"<<endl;
+                    
+                    //convergence check after second iteration
+                    converged=(i>0) && ((oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) < 1e-4 ); 
+                    LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<endl;
                     //initialise interpolator
                     //deformation
                     DeformationFieldPointerType composedDeformation;
@@ -520,8 +522,8 @@ namespace itk{
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
                         if (ImageType::ImageDimension==2){
-                            if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromDeformationField((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
-                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromDeformationField((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+                            if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
+                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
                         }
                         if (ImageType::ImageDimension==3){
                             if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
@@ -543,17 +545,19 @@ namespace itk{
                     
                     
 
-                }
-            }
+                }//iter
+
+
+            }//level
 
             if (regist || coherence)
                 m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, targetImage);
             m_finalSegmentation=(segmentation);
             delete labelmapper;
 	
-        }
+        }//run
       
-        ConstImagePointerType makePngFromDeformationField(ConstImagePointerType segmentationImage, int nSegmentations){
+        ConstImagePointerType makePngFromLabelImage(ConstImagePointerType segmentationImage, int nSegmentations){
             ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
             typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
             typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;

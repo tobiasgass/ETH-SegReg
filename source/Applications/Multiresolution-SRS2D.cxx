@@ -27,7 +27,7 @@ int main(int argc, char ** argv)
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
     if (filterConfig.logFileName!=""){
-        //mylog.setCachedLogging();
+        mylog.setCachedLogging();
     }
     
 	//define types.
@@ -80,7 +80,7 @@ int main(int argc, char ** argv)
     //typedef FastRegistrationGraphModel<
     //    typedef SortedSubsamplingGraphModel<
     typedef FastGraphModel<
-    //typedef GraphModel<
+        //typedef GraphModel<
         ImageType,
         RegistrationUnaryPotentialType,
         RegistrationPairwisePotentialType,
@@ -138,7 +138,7 @@ int main(int argc, char ** argv)
   
     ImagePointerType originalTargetImage=targetImage,originalAtlasImage=atlasImage,originalAtlasSegmentation=atlasSegmentation;
     //preprocessing 3: downscaling
-     if (filterConfig.downScale<1){
+    if (filterConfig.downScale<1){
         double sigma=1;
         double scale=filterConfig.downScale;
         LOG<<"Resampling images from "<< targetImage->GetLargestPossibleRegion().GetSize()<<" by a factor of"<<scale<<endl;
@@ -213,25 +213,22 @@ int main(int argc, char ** argv)
     if (filterConfig.defFilename!=""){
         ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
     }
-    ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpSegmentationImage(originalAtlasSegmentation,finalDeformation);
-    ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage(originalAtlasImage,finalDeformation);
     
-    ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
-    if (ImageType::ImageDimension==2){
-        if (targetSegmentationEstimate)
-            ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,filter->makePngFromDeformationField((ImageConstPointerType)targetSegmentationEstimate,LabelMapperType::nSegmentations));
-        //ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,filter->makePngFromDeformationField((ImageConstPointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,(ImageConstPointerType)deformedAtlasSegmentation);
-
-    }    else if (ImageType::ImageDimension==3){ 
-        if (targetSegmentationEstimate)
-            ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
+    if (filterConfig.regist){
+        ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpSegmentationImage(originalAtlasSegmentation,finalDeformation);
+        ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage(originalAtlasImage,finalDeformation);
+        
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,filter->makePngFromLabelImage((ImageConstPointerType)(ImageConstPointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+        LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
+    }
+    if (filterConfig.segment){
+        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,filter->makePngFromLabelImage((ImageConstPointerType)targetSegmentationEstimate,LabelMapperType::nSegmentations));
     }
     
-    LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
+
     if (filterConfig.logFileName!=""){
-        //mylog.flushLog(filterConfig.logFileName);
+        mylog.flushLog(filterConfig.logFileName);
     }
     return 1;
 }

@@ -158,14 +158,14 @@ namespace itk{
                 caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
                 caster->SetInput(horiz);
                 caster->Update();
-                ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
+                LOGI(10,ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput()););
                 caster->SetInput(vert);
                 caster->Update();
-                ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
+                LOGI(10,ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput()););
             }else{
-                ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
+                LOGI(10,ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
                 ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
-                ImageUtils<FloatImageType>::writeImage("smooth-sum.nii",(FloatImageConstPointerType)sum);
+                     ImageUtils<FloatImageType>::writeImage("smooth-sum.nii",(FloatImageConstPointerType)sum); );
                 
             }
         }
@@ -301,7 +301,12 @@ namespace itk{
             if (prob<=0.000000001) prob=0.00000000001;
             //LOG<<"Pairwise: "<<(label1!=label2)<<" "<<gradientDiff<<" "<<intensityDiff<<" "<<prob<<" "<<-log(prob)<<endl;
             //return 1+100*(-log(prob));
+            if (prob>1){
+                LOG<<VAR(prob)<<endl;
+            }
+                
             return (-log(prob));
+            //return 1.0-prob;
         }
       
     };//class

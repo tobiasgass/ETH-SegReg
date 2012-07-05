@@ -88,11 +88,12 @@ namespace itk{
             //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
             //LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
 
-            displacement1+=oldl1;
-			displacement2+=oldl2;
+            //displacement1+=oldl1;
+			//displacement2+=oldl2;
 #if 1
             LabelType diff=displacement1-displacement2;
-            result=diff.GetSquaredNorm();
+            //result=diff.GetSquaredNorm();
+            result=diff.GetNorm();
             //LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
 #else
             double axisPositionDifference;
@@ -102,7 +103,8 @@ namespace itk{
 				d2=displacement2[d];
 				//delta=(pt2[d]-pt1[d]);
                 axisPositionDifference=1.0*(d2-d1);//(m_gridSpacing[d]);
-                result+=(axisPositionDifference)*(axisPositionDifference);
+                //result+=(axisPositionDifference)*(axisPositionDifference);
+                result+=fabs(axisPositionDifference);
 			}
 #endif
 			//			if (false){
@@ -110,7 +112,7 @@ namespace itk{
             if (m_threshold<numeric_limits<double>::max()){
                 result=min(m_maxDist*m_threshold,(result));
             }
-            return result;
+            return (result);
         }
             
         virtual inline double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){

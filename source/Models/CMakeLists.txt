@@ -13,6 +13,7 @@ SET(SRSMRFModels_SRC
   Classifier.h
   BaseLabel.h
   MRF-TRW-S.h
+  MRF-GCO.h
   Graph.h
   SubsamplingGraph.h
   FastRegistrationGraph.h
@@ -29,6 +30,6 @@ SET(SRSMRFModels_SRC
 
 ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )
 #TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters FastPD )
-TARGET_LINK_LIBRARIES (SRSMRFModels ugmix RF  FastPD tcmalloc)
+TARGET_LINK_LIBRARIES (SRSMRFModels TRWS GCO ugmix RF   tcmalloc)
 #INSTALL(TARGETS SRSMRFModels)
 #TARGET_LINK_LIBRARIES(ITKAlgorithms ITKStatistics ITKNumerics)

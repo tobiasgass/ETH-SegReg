@@ -27,7 +27,11 @@ int main(int argc, char ** argv)
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
-	//define types.
+    if (filterConfig.logFileName!=""){
+        mylog.setCachedLogging();
+    }
+
+      //define types.
 	
     typedef short int PixelType;
 	const unsigned int D=3;
@@ -61,7 +65,7 @@ int main(int argc, char ** argv)
     //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
     //typedef PairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-     typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
+    typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     //reg
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -108,13 +112,14 @@ int main(int argc, char ** argv)
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
         }else{
             targetGradient=Preprocessing<ImageType>::computeSheetness(targetImage);
-            ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient);
+            LOGI(10,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));
+                 
         }
         if (filterConfig.atlasGradientFilename!=""){
             atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
         }else{
             atlasGradient=Preprocessing<ImageType>::computeSheetness(atlasImage);
-            ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient);
+            LOGI(10,ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient));
         }
         
         if (filterConfig.useTissuePrior){
@@ -216,24 +221,18 @@ int main(int argc, char ** argv)
         ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
         ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
         ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
-        if (ImageType::ImageDimension==2)
-            ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,filter->makePngFromDeformationField((ImageConstPointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
-        if (ImageType::ImageDimension==3)
-            ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
         LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
 
     }
     
    
     if (targetSegmentationEstimate){
-        if (ImageType::ImageDimension==2){
-            ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,filter->makePngFromDeformationField((ImageConstPointerType)targetSegmentationEstimate,LabelMapperType::nSegmentations));
-        }
-        if (ImageType::ImageDimension==3){
-            ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
-        }
+        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
     }
-    
+    if (filterConfig.logFileName!=""){
+        mylog.flushLog(filterConfig.logFileName);
+    }
   
     return 1;
 }
