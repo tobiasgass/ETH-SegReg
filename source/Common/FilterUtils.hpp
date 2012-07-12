@@ -44,6 +44,8 @@
 #include "ImageUtils.cxx"
 #include <algorithm> //max,min
 #include "Log.h"
+#include "itkStatisticsImageFilter.h"
+
 using namespace std;
 
 template<class InputImage, class OutputImage = InputImage>
@@ -109,6 +111,7 @@ class FilterUtils {
     typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
     typedef typename itk::ResampleImageFilter< InputImage , OutputImage>	ResampleFilterType;
     typedef typename ResampleFilterType::Pointer ResampleFilterPointerType;
+    typedef typename itk::StatisticsImageFilter<InputImage > StatisticsFilterType;
 
 
 
@@ -663,7 +666,13 @@ public:
     }
 
     
+    static InputImagePixelType getMax(InputImagePointer img){
+        typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+        filter->SetInput(img);
+        filter->Update();
+        return filter->GetMaximumOutput()->Get();
 
+    }
 
 
 };

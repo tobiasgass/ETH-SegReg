@@ -87,9 +87,10 @@ namespace itk{
 			//double delta;
             //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
             //LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
-
-            //displacement1+=oldl1;
-			//displacement2+=oldl2;
+#if 0
+            displacement1+=oldl1;
+			displacement2+=oldl2;
+#endif
 #if 1
             LabelType diff=displacement1-displacement2;
             //result=diff.GetSquaredNorm();

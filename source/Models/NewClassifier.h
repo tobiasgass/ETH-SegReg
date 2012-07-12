@@ -291,9 +291,10 @@ namespace itk{
                 {
                     int label=0;
                     if (labels)
-                        label=labels->GetPixel(iterators[0].GetIndex())>0;
+                        label= (labels->GetPixel(iterators[0].GetIndex()) > 0 );
+                    
+                    // LOGV(10)<<i<<" "<<VAR(label)<<" "<<VAR(counts[label])<<" "<<nFeatures<<endl;
                     if ( counts[label] <maxTrain){
-                        //LOGV(10)<<i<<" "<<label<<" "<<nFeatures<<endl;
                         for (unsigned int f=0;f<nFeatures;++f){
                             int intens=(iterators[f].Get());
                             m_observations[label].element(f,counts[label])=intens;
@@ -317,7 +318,7 @@ namespace itk{
         virtual void train(){
             for ( int s=0;s<m_nSegmentationLabels;++s){
                 LOGV(1)<<"Training GMM for label :"<<s<<endl;
-                m_GMMs[s].estimate(2,m_observations[s]);
+                m_GMMs[s].estimate(1,m_observations[s]);
                 m_GMMs[s].display();
             }
         };

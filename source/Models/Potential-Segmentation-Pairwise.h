@@ -401,5 +401,67 @@ namespace itk{
         }
     };//class
 
+
+     template<class TImage, class TSmoothnessClassifier>
+     class CachingPairwisePotentialSegmentationClassifier: public PairwisePotentialSegmentationClassifier<TImage,TSmoothnessClassifier >{
+    public:
+        //itk declarations
+        typedef CachingPairwisePotentialSegmentationClassifier            Self;
+        typedef PairwisePotentialSegmentationClassifier<TImage,TSmoothnessClassifier> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef TSmoothnessClassifier ClassifierType;
+        typedef typename ClassifierType::Pointer ClassifierPointerType;
+    private:
+        ClassifierPointerType m_classifier;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(CachingPairwisePotentialSegmentationClassifier, Object);
+        virtual void Init(){
+            assert(this->m_targetImage);
+            assert(this->m_gradientImage);
+            assert(this->m_atlasSegmentation);
+            assert(this->m_atlasGradient);
+            assert(this->m_atlasImage);
+            m_classifier=ClassifierType::New();
+            m_classifier->setNIntensities(3000);
+            m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
+            this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
+            m_classifier->train();
+            m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
+            
+        }
+        virtual void Init(string filename){
+            assert(false);
+            assert(this->m_targetImage);
+            assert(this->m_gradientImage);
+            if (m_classifier) delete m_classifier;
+            m_classifier=ClassifierType::New();
+        }
+        virtual void SetClassifier(ClassifierPointerType c){ m_classifier=c;}
+        virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){
+            
+        }
+        ClassifierPointerType GetClassifier(){return m_classifier;}
+        virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
+            if (label1==label2)
+                return 0;
+            double prob=m_classifier->getCachedPotential(idx1,idx2);
+            return prob;
+            //return 1.0-prob;
+        }
+      
+    };//class
+
 }//namespace
 #endif /* POTENTIALS_H_ */

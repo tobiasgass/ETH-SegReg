@@ -255,7 +255,7 @@ namespace itk{
                 pairwiseSegmentationPot->SetAtlasImage(atlasImage);
                 pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)atlasGradientImage);
                 pairwiseSegmentationPot->SetAtlasSegmentation(atlasSegmentationImage);
-                pairwiseSegmentationPot->SetNSegmentationLabels(m_config.nSegmentations);
+                pairwiseSegmentationPot->SetNSegmentationLabels(2);//m_config.nSegmentations);
                 pairwiseSegmentationPot->Init();
                 pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)targetGradientImage);
                 
@@ -583,7 +583,7 @@ namespace itk{
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
 
             nSegmentations=nSegmentations>0?nSegmentations:2;
-            double divisor=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
+            double divisor=FilterUtils<ImageType>::getMax(segmentationImage)/(nSegmentations-1);
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
                 imageIt2.Set(floor(1.0*imageIt.Get()/divisor+0.51));
             }
