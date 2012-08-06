@@ -402,12 +402,15 @@ namespace itk{
             //compute distance between center index and patch index
             double weight=1.0;
             //#ifdef MULTISEGREGNEIGHBORS
-#if 0
-            IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
+#if 1
+            PointType imagePoint,graphPoint;
+            this->m_targetImage->TransformIndexToPhysicalPoint(imageIndex,imagePoint);
+            IndexType graphIndex=getGraphIndex(nodeIndex1);
+            this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex,graphPoint);
             double dist=1;
             for (unsigned int d=0;d<m_dim;++d){
                 //            LOG<<dist<<" "<<graphIndex[d]-imageIndex[d]<<" "<<std::endl;
-                dist*=1.0-fabs((1.0*graphIndex[d]-imageIndex[d])/(m_gridPixelSpacing[d]));
+                dist*=1.0-fabs((graphPoint[d]-imagePoint[d])/(m_gridSpacing[d]));
             }
             //       if (dist<0.1) dist=0.1;
             weight=dist;
@@ -696,7 +699,7 @@ namespace itk{
 #ifdef moarcaching
             std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
             for (int n=0;n<this->m_nDisplacementLabels;++n){
-                LOGV(5)<<"Caching unary registration potentials for label "<<n<<endl;
+                LOGV(25)<<"Caching unary registration potentials for label "<<n<<endl;
                 displacementList[n]=LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(n),this->getDisplacementFactor());
             }
             this->m_unaryRegFunction->setDisplacements(displacementList);
@@ -705,7 +708,7 @@ namespace itk{
         }
         virtual void cacheRegistrationPotentials(int labelIndex){
 #ifndef moarcaching
-            LOGV(5)<<"Caching unary registration function for label " << labelIndex<<endl;
+            LOGV(25)<<"Caching unary registration function for label " << labelIndex<<endl;
             this->m_unaryRegFunction->cachePotentials(LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(labelIndex),this->getDisplacementFactor()));
 #endif
         }

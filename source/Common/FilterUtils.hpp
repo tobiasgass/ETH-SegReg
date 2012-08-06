@@ -199,7 +199,7 @@ public:
             origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
         LOGV(7)<<"full parameters : "<<spacing<<" "<<size<<" "<<origin<<endl;
-        LOGV(3)<<"Resampling to isotropic isotropic spacing "<<spacing<<" with resolution "<<size<<endl;
+        LOGV(3)<<"Resampling to isotropic  spacing "<<spacing<<" with resolution "<<size<<endl;
         resampler->SetOutputOrigin(origin);
 		resampler->SetOutputSpacing ( spacing );
 		resampler->SetOutputDirection ( input->GetDirection() );

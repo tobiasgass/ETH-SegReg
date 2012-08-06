@@ -22,8 +22,11 @@
 //#include "malloc.c"
 using namespace std;
 
+
+
+
 template<class TGraphModel>
-class TRWS_SRSMRFSolver {
+class TRWS_SRSMRFSolver : public BaseMRFSolver<TGraphModel> {
 public:
 
 

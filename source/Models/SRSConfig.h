@@ -49,6 +49,7 @@ public:
     bool log_UnaryReg,log_PairwiseReg;
     double displacementScaling;
     bool evalContinuously;
+    bool TRW,GCO;
 private:
 	argstream * as;
 public:
@@ -96,7 +97,8 @@ public:
         displacementScaling=1.0;
         evalContinuously=false;
         logFileName="";
-
+        TRW=true;
+        GCO=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -235,7 +237,8 @@ public:
         (*as) >> option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");
 
         (*as) >> option ("evalContinuously",evalContinuously ,"evaluate optimization at each step. slower, but also returns actual energy and changes in labellings during each iteration.");
-
+        (*as) >> option ("GCO",GCO ,"Use (alpha expansion) graph cuts instead of TRW-S for optimization.");
+         
         (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
         (*as) >> parameter ("alpha",alpha ,"generic weight (0)", false);
@@ -261,7 +264,7 @@ public:
 				levels[i]=tmp_levels[i];
 			}
 		}
-           
+        TRW=!GCO;
         coherence= (pairwiseCoherenceWeight>0);
         segment=pairwiseSegmentationWeight>0 ||  unarySegmentationWeight>0 || coherence;
         regist= pairwiseRegistrationWeight>0||  unaryRegistrationWeight>0|| coherence;

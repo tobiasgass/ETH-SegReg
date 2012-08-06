@@ -421,18 +421,31 @@ namespace itk{
 
                     }else{
                         //typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
-                        //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-                        typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
+                        //typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
                         //typedef Incremental_TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                         //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
                         
-                        MRFSolverType  *mrfSolver= new MRFSolverType(graph,
-                                                                     m_config.unaryRegistrationWeight,
-                                                                     m_config.pairwiseRegistrationWeight, 
-                                                                     m_config.unarySegmentationWeight,
-                                                                     m_config.pairwiseSegmentationWeight,
-                                                                     m_config.pairwiseCoherenceWeight,
-                                                                     m_config.verbose);
+                        BaseMRFSolver<GraphModelType>  *mrfSolver;
+
+                        if (m_config.TRW){
+                            typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                            mrfSolver = new MRFSolverType(graph,
+                                                          m_config.unaryRegistrationWeight,
+                                                          m_config.pairwiseRegistrationWeight, 
+                                                          m_config.unarySegmentationWeight,
+                                                          m_config.pairwiseSegmentationWeight,
+                                                          m_config.pairwiseCoherenceWeight,
+                                                          m_config.verbose);
+                        }else if (m_config.GCO){
+                            typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
+                            mrfSolver = new MRFSolverType(graph,
+                                                          m_config.unaryRegistrationWeight,
+                                                          m_config.pairwiseRegistrationWeight, 
+                                                          m_config.unarySegmentationWeight,
+                                                          m_config.pairwiseSegmentationWeight,
+                                                          m_config.pairwiseCoherenceWeight,
+                                                          m_config.verbose);
+                        }
 
                         //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                         mrfSolver->createGraph();
@@ -470,7 +483,13 @@ namespace itk{
                         if (segment || coherence)
                             segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
 
-                        delete mrfSolver;
+                        if (m_config.TRW){
+                            typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                            delete static_cast<MRFSolverType * >(mrfSolver);
+                        }else if (m_config.GCO){
+                            typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
+                            delete static_cast<MRFSolverType * >(mrfSolver);
+                        }
 
                     }
                     
