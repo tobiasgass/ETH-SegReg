@@ -395,6 +395,7 @@ namespace itk{
             return m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
         }
+
         //#define MULTISEGREGNEIGHBORS
         virtual inline double getPairwiseRegSegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
     
@@ -421,7 +422,32 @@ namespace itk{
             return weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
         }
-
+        
+        virtual inline double getPairwiseRegSegPotential(int nodeIndex2, int labelIndex1, int segmentationLabel){
+    
+            IndexType imageIndex=getImageIndex(nodeIndex2);
+            //compute distance between center index and patch index
+            double weight=1.0;
+            //#ifdef MULTISEGREGNEIGHBORS
+#if 1
+            PointType imagePoint,graphPoint;
+            this->m_targetImage->TransformIndexToPhysicalPoint(imageIndex,imagePoint);
+            IndexType graphIndex=getClosestGraphIndex(imageIndex);
+            this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex,graphPoint);
+            double dist=1;
+            for (unsigned int d=0;d<m_dim;++d){
+                //            LOG<<dist<<" "<<graphIndex[d]-imageIndex[d]<<" "<<std::endl;
+                dist*=1.0-fabs((graphPoint[d]-imagePoint[d])/(m_gridSpacing[d]));
+            }
+            //       if (dist<0.1) dist=0.1;
+            weight=dist;
+#endif
+            //        if (true){ LOG<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
+            RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
+            registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
+            return weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+            //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+        }
         
         virtual inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
@@ -524,7 +550,7 @@ namespace itk{
 
             IndexType position=getClosestGraphIndex(idx);
             neighbours.push_back(getGraphIntegerIndex(position));
-
+ 
 #endif
             return neighbours;
         }

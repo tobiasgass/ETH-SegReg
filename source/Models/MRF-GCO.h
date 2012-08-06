@@ -9,61 +9,7 @@
 //#include "malloc.c"
 using namespace std;
 
-//ugly globals instead of ugly static members because of GCO
-vector<vector<vector<map<int,float> > > > (*regPairwise)=NULL;//,(*segPairwise);//(*srsPairwise);
-vector<vector<vector<float > > > *srsPairwise=NULL;
-vector<vector<vector<vector<float> > > > *segPairwise=NULL;
-int S0,S1;
-int GLOBALnRegNodes,GLOBALnSegNodes,GLOBALnSegLabels,GLOBALnRegLabels;
 
-//returns the neighbor direction. 
-//idx1= d0 + d1*S0 + d2*S0*S1 
-//idx2 is either
-//1 d0+1 +  d1   *S0 +  d2   *S0*S1
-//2 d0   + (d1+1)*S0 +  d2   *S0*S1
-//3 d0   +  d1   *S0 + (d2+1)*S0*S1
-int getRelativeNodeIndex(int idx1,int idx2, int S0, int S1=-1 ){
-	int diff =  idx2-idx1;
-	if (diff == 1	)		return 0;
-	if (diff == S0	)	return 1;
-	if (diff ==	S0*S1)	return 2;	
-	std::cerr<<"Error! idx difference doesn make sense : "<<VAR(diff)<<std::endl;
-	return -1;
-}
-
-
-float GLOBALsmoothFunction(int node1, int node2, int label1, int label2){
-    float pot=-1;
-    if (node1>node2){
-        int tmp=node1;        node1=node2; node2=tmp;
-        tmp=label1; label1=label2; label2=tmp;
-    }
-    if (node1>=GLOBALnRegNodes && node2>=GLOBALnRegNodes){
-        //segmentation pairwise!
-        if ( (label1<GLOBALnRegLabels) || (label2<GLOBALnRegLabels) ){
-            pot=0.0;
-        }else{
-            pot=(*segPairwise)[label1-GLOBALnRegLabels][label2-GLOBALnRegLabels][node1-GLOBALnRegNodes][getRelativeNodeIndex(node1-GLOBALnRegNodes,node2-GLOBALnRegNodes,S0,S1)];
-        }
-    }else if (node1<GLOBALnRegNodes && node2<GLOBALnRegNodes){
-        //registration pairwise!
-        if (label2>=GLOBALnRegLabels || label1>=GLOBALnRegLabels){
-            pot=0.0;
-        }else{
-            pot=(*regPairwise)[label1][label2][node1][node2];
-        }
-    }else{
-        //srs pairwise
-        if (label2<GLOBALnRegLabels || label1>=GLOBALnRegLabels){
-            //impossible labelling, either regnode getting assigned a seglabel, or vice versa
-            pot=100000;
-        }else {
-            pot=(*srsPairwise)[label2-GLOBALnRegLabels][label1][node2-GLOBALnRegNodes];
-        }
-    }
-    //LOGV(25)<<VAR(pot)<<" "<<VAR(node1)<<" "<<VAR(label1)<<" " <<VAR(node2)<<" "<<VAR(label2)<<endl;
-    return pot;
-}
 
 
 template<class Solver>
@@ -95,9 +41,9 @@ protected:
     MRFType * m_optimizer;
 	double m_unarySegmentationWeight,m_pairwiseSegmentationWeight;
 	double m_unaryRegistrationWeight,m_pairwiseRegistrationWeight;
-	double m_pairwiseSegmentationRegistrationWeight;
+	static double m_pairwiseSegmentationRegistrationWeight;
 	int verbose;
-    GraphModelPointerType m_GraphModel;
+    
     int nNodes, nRegNodes, nSegNodes, nEdges;
     clock_t m_start;
     int nRegLabels;
@@ -105,6 +51,73 @@ protected:
     bool m_segmented, m_registered;
     double m_lastLowerBound;
     Functor * smoothCostFunctor;
+
+
+    //ugly globals instead of ugly static members because of GCO
+    static vector<vector<vector<map<int,float> > > > (*regPairwise);//,(*segPairwise);//(*srsPairwise);
+    static vector<vector<vector<float > > > *srsPairwise;
+    static vector<vector<vector<vector<float> > > > *segPairwise;
+    static int S0,S1;
+    static int GLOBALnRegNodes,GLOBALnSegNodes,GLOBALnSegLabels,GLOBALnRegLabels;
+    static GraphModelPointerType m_GraphModel;
+    //returns the neighbor direction. 
+    //idx1= d0 + d1*S0 + d2*S0*S1 
+    //idx2 is either
+    //1 d0+1 +  d1   *S0 +  d2   *S0*S1
+    //2 d0   + (d1+1)*S0 +  d2   *S0*S1
+    //3 d0   +  d1   *S0 + (d2+1)*S0*S1
+    static int getRelativeNodeIndex(int idx1,int idx2, int S0, int S1=-1 ){
+        int diff =  idx2-idx1;
+        if (diff == 1	)		return 0;
+        if (diff == S0	)	return 1;
+        if (diff ==	S0*S1)	return 2;	
+        std::cerr<<"Error! idx difference doesn make sense : "<<VAR(diff)<<std::endl;
+        return -1;
+    }
+    //#define CACHESRS
+public:
+    static float GLOBALsmoothFunction(int node1, int node2, int label1, int label2){
+        float pot=-1;
+        if (node1>node2){
+            int tmp=node1;        node1=node2; node2=tmp;
+            tmp=label1; label1=label2; label2=tmp;
+        }
+        if (node1>=GLOBALnRegNodes && node2>=GLOBALnRegNodes){
+            //segmentation pairwise!
+            if ( (label1<GLOBALnRegLabels) || (label2<GLOBALnRegLabels) ){
+                pot=0.0;
+            }else{
+                pot=(*segPairwise)[label1-GLOBALnRegLabels][label2-GLOBALnRegLabels][node1-GLOBALnRegNodes][getRelativeNodeIndex(node1-GLOBALnRegNodes,node2-GLOBALnRegNodes,S0,S1)];
+            }
+        }else if (node1<GLOBALnRegNodes && node2<GLOBALnRegNodes){
+            //registration pairwise!
+            if (label2>=GLOBALnRegLabels || label1>=GLOBALnRegLabels){
+                pot=0.0;
+            }else{
+                pot=(*regPairwise)[label1][label2][node1][node2];
+            }
+        }else{
+            //srs pairwise
+            if (label2<GLOBALnRegLabels || label1>=GLOBALnRegLabels){
+                //impossible labelling, either regnode getting assigned a seglabel, or vice versa
+                pot=100000;
+            }else {
+#ifdef CACHESRS
+                pot=(*srsPairwise)[label2-GLOBALnRegLabels][label1][node2-GLOBALnRegNodes];
+
+#else
+                //           this->m_GraphModel->getPairwiseRegSegPotential(segRegNeighbors[i],d,l2,l1);
+                pot=m_pairwiseSegmentationRegistrationWeight*m_GraphModel->getPairwiseRegSegPotential(node2-GLOBALnRegNodes,label1,label2-GLOBALnRegLabels);
+                //LOG<<VAR(pot)<<" "<<VAR(node2-GLOBALnRegNodes)<<" "<<VAR(label1)<<" "<<VAR(label2-GLOBALnRegLabels)<<endl;
+
+#endif
+                
+            }
+        }
+        //LOGV(25)<<VAR(pot)<<" "<<VAR(node1)<<" "<<VAR(label1)<<" " <<VAR(node2)<<" "<<VAR(label2)<<endl;
+        return pot;
+    }
+
 public:
     GCO_SRSMRFSolver(GraphModelPointerType  graphModel,
                      double unaryRegWeight=1.0, 
@@ -113,8 +126,9 @@ public:
                      double pairwiseSegWeight=1.0, 
                      double pairwiseSegRegWeight=1.0,
                      int vverbose=false)
-        :m_GraphModel(graphModel)
+        
 	{
+        m_GraphModel=graphModel;
 		verbose=vverbose;
 		m_unarySegmentationWeight=unarySegWeight;
 		m_pairwiseSegmentationWeight=pairwiseSegWeight;
@@ -123,10 +137,10 @@ public:
         m_pairwiseSegmentationRegistrationWeight=pairwiseSegRegWeight;
         //createGraph();
         //init();
-	m_optimizer=NULL;
-	srsPairwise = NULL;
-	segPairwise = NULL;
-	regPairwise = NULL;
+        m_optimizer=NULL;
+
+      
+      
     }
     GCO_SRSMRFSolver()  {
         
@@ -172,7 +186,7 @@ public:
         GLOBALnSegLabels=m_segmented*nSegLabels;
         LOGV(5)<<VAR(GLOBALnRegNodes)<<" "<<VAR(GLOBALnRegLabels)<<" "<<VAR(GLOBALnSegNodes)<<" "<<VAR(GLOBALnSegLabels)<<endl;
         
-	if (m_optimizer) delete m_optimizer;
+        if (m_optimizer) delete m_optimizer;
         m_optimizer= new MRFType(GLOBALnSegNodes+GLOBALnRegNodes,GLOBALnRegLabels+GLOBALnSegLabels);
 		
 		//set global size variables :(
@@ -207,7 +221,7 @@ public:
             LOGV(1)<<"Registration Unaries took "<<t<<" seconds."<<endl;
             tUnary+=t;
             // Pairwise potentials
-	    if (regPairwise) delete regPairwise;
+            //if (regPairwise!=NULL) delete regPairwise;
             regPairwise= new vector<vector<vector<map<int,float> > > > (nRegLabels,vector<vector<map<int,float> > >(nRegLabels,vector<map<int,float> > (nRegNodes) ) );
             for (int d=0;d<nRegNodes;++d){
                 m_optimizer->setLabel(d,GLOBALnRegLabels/2);
@@ -247,10 +261,10 @@ public:
 
                     LOGV(4)<<"Allocating seg unaries for label "<<l1<<", using "<<1.0*nSegNodes*sizeof( GCoptimization::SparseDataCost ) /(1024*1024)<<" mb memory"<<std::endl;
 		    
-		    std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
+                    std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
                     //GCoptimization::SparseDataCost costas[nSegNodes];
                     LOGV(4)<<"did it :O" <<endl;
-		    //GCoptimization::SparseDataCost costs[nSegNodes];
+                    //GCoptimization::SparseDataCost costs[nSegNodes];
                     for (int d=0;d<nSegNodes;++d){
                         costas[d].cost=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1);
                         costas[d].site=d+GLOBALnRegNodes;
@@ -265,17 +279,19 @@ public:
 
             int nSegEdges=0,nSegRegEdges=0;
             //Segmentation smoothness cache
-	    //LOGV(4)<<"Allocation seg pairwise, rough theroetical size :"<<GLOBALnSegLabels*GLOBALnSegLabels*GLOBALnSegNodes*sizeof(map<int,float>)*D*(sizeof(int)+sizeof(float))/(1024*1024)<<"Mb"<<std::endl;
-	    //LOGV(4)<<"Allocation seg pairwise, rough theroetical size after reararanging"<<GLOBALnSegNodes*sizeof(map<int,float>)*( D*(sizeof(int)+GLOBALnSegLabels*GLOBALnSegLabels*sizeof(float)))/(1024*1024)<<"Mb"<<std::endl;
+            //LOGV(4)<<"Allocation seg pairwise, rough theroetical size :"<<GLOBALnSegLabels*GLOBALnSegLabels*GLOBALnSegNodes*sizeof(map<int,float>)*D*(sizeof(int)+sizeof(float))/(1024*1024)<<"Mb"<<std::endl;
+            //LOGV(4)<<"Allocation seg pairwise, rough theroetical size after reararanging"<<GLOBALnSegNodes*sizeof(map<int,float>)*( D*(sizeof(int)+GLOBALnSegLabels*GLOBALnSegLabels*sizeof(float)))/(1024*1024)<<"Mb"<<std::endl;
             //segPairwise= new vector<vector<vector<map<int,float> > > > (GLOBALnSegLabels,vector<vector<map<int,float> > >(GLOBALnSegLabels,vector<map<int,float> > (GLOBALnSegNodes) ) );
-	    if (segPairwise) delete segPairwise;
-	    segPairwise= new vector<vector<vector<vector<float> > > > (GLOBALnSegLabels,vector<vector<vector<float> > >(GLOBALnSegLabels,vector< vector<float> > (GLOBALnSegNodes,vector<float> (D)) ) );
-	    //LOGV(4)<<"Allocated, "<<VAR(segPairwise)<<endl;
+            //if (segPairwise!=NULL) delete segPairwise;
+            segPairwise= new vector<vector<vector<vector<float> > > > (GLOBALnSegLabels,vector<vector<vector<float> > >(GLOBALnSegLabels,vector< vector<float> > (GLOBALnSegNodes,vector<float> (D)) ) );
+            //LOGV(4)<<"Allocated, "<<VAR(segPairwise)<<endl;
             
             //SRS potential cache
             //srsPairwise= new vector<vector<vector<map<int,float> > > > (GLOBALnSegLabels,vector<vector<map<int,float> > >(GLOBALnRegLabels,vector<map<int,float> > (GLOBALnSegNodes) ) );
-	    if (srsPairwise) delete srsPairwise;
-	    srsPairwise= new vector<vector<vector<float > > > (GLOBALnSegLabels,vector<vector<float > >(GLOBALnRegLabels,vector<float>(GLOBALnSegNodes) ) );
+            //if (srsPairwise!=NULL) delete srsPairwise;
+#ifdef CACHESRS
+            srsPairwise= new vector<vector<vector<float > > > (GLOBALnSegLabels,vector<vector<float > >(GLOBALnRegLabels,vector<float>(GLOBALnSegNodes) ) );
+#endif
             for (int d=0;d<nSegNodes;++d){   
                 m_optimizer->setLabel(d+GLOBALnRegNodes,0+GLOBALnRegLabels);
                 //pure Segmentation
@@ -301,9 +317,12 @@ public:
                     std::vector<int> segRegNeighbors=this->m_GraphModel->getSegRegNeighbors(d);
                     nNeighbours=segRegNeighbors.size();
                     if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
+
                     for (int i=0;i<nNeighbours;++i){
                         m_optimizer->setNeighbors(d+GLOBALnRegNodes,segRegNeighbors[i],1);
                         edgeCount++;
+#ifdef CACHESRS
+
                         nSegRegEdges++;
                         for (int l1=0;l1<nSegLabels;++l1){
                             for (int l2=0;l2<nRegLabels;++l2){
@@ -317,9 +336,11 @@ public:
                                 }
                             }
                         }
+#endif
+
                     }
+
                 }
-                
             }
             clock_t endPairwise = clock();
             t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
@@ -416,3 +437,21 @@ public:
     }
 
 };
+
+template<class T> vector<vector<vector<map<int,float> > > >  * GCO_SRSMRFSolver<T>::regPairwise = NULL;
+template<class T> vector<vector<vector<vector<float> > > >   * GCO_SRSMRFSolver<T>::segPairwise = NULL;
+template<class T> vector<vector<vector<float > > >  * GCO_SRSMRFSolver<T>::srsPairwise = NULL;
+template<class T>  typename GCO_SRSMRFSolver<T>::GraphModelPointerType   GCO_SRSMRFSolver<T>::m_GraphModel=NULL;
+
+template<class T> int  GCO_SRSMRFSolver<T>::S0=0;
+template<class T> int  GCO_SRSMRFSolver<T>::S1=0;
+template<class T> int  GCO_SRSMRFSolver<T>::GLOBALnRegNodes=0;
+template<class T> int  GCO_SRSMRFSolver<T>::GLOBALnSegNodes=0;
+template<class T> int  GCO_SRSMRFSolver<T>::GLOBALnRegLabels=0;
+template<class T> int  GCO_SRSMRFSolver<T>::GLOBALnSegLabels=0;
+template<class T>  double GCO_SRSMRFSolver<T>::m_pairwiseSegmentationRegistrationWeight=0;
+
+// vector<vector<vector<float > > > *srsPairwise = NULL;
+// vector<vector<vector<vector<float> > > > *segPairwise = NULL;
+// int S0=0,S1=0;
+// int GLOBALnRegNodes=0,GLOBALnSegNodes=0,GLOBALnSegLabels=0,GLOBALnRegLabels=0;  
