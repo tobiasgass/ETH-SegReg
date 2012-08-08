@@ -125,6 +125,16 @@ namespace itk{
         DeformationFieldPointerType m_finalDeformation,m_bulkTransform;
         bool m_useBulkTransform;
         ImagePointerType m_finalSegmentation;
+        ConstImagePointerType m_targetImage;
+        ConstImagePointerType m_atlasImage;
+        ConstImagePointerType m_atlasSegmentationImage;
+        ConstImagePointerType m_targetGradientImage;
+        ConstImagePointerType m_atlasGradientImage;
+        UnaryRegistrationPotentialPointerType m_unaryRegistrationPot;
+        UnarySegmentationPotentialPointerType m_unarySegmentationPot;
+        PairwiseSegmentationPotentialPointerType m_pairwiseSegmentationPot;
+        PairwiseRegistrationPotentialPointerType m_pairwiseRegistrationPot;
+        PairwiseCoherencePotentialPointerType m_pairwiseCoherencePot;
     public:
         HierarchicalSRSImageToImageFilter(){
             this->SetNumberOfRequiredInputs(5);
@@ -157,7 +167,7 @@ namespace itk{
             m_bulkTransform=transf;
             m_useBulkTransform=true;
         }
-        DeformationFieldPointerType affineRegistration(ConstImagePointerType targetImage, ConstImagePointerType atlasImage){
+        DeformationFieldPointerType affineRegistration(ConstImagePointerType m_targetImage, ConstImagePointerType m_atlasImage){
         }
 
         DeformationFieldPointerType getFinalDeformation(){
@@ -166,12 +176,10 @@ namespace itk{
         ImagePointerType getTargetSegmentationEstimate(){
             return m_finalSegmentation;
         }
-        virtual void Update(){
-            
+        virtual void Init(){
             bool coherence= (m_config.coherence);
             bool segment=m_config.segment;
             bool regist= m_config.regist;
-
             if (segment){
                 LOG<<"Switching on segmentation module"<<std::endl;
             }
@@ -190,16 +198,53 @@ namespace itk{
             else{
                 LOG<<"Switching off coherence module"<<std::endl;
             }
-            //define input images
-            ConstImagePointerType targetImage = this->GetInput(0);
-            ConstImagePointerType atlasImage = this->GetInput(1);
-            ConstImagePointerType atlasSegmentationImage;
+            m_atlasImage = this->GetInput(1);
+            m_atlasSegmentationImage = (this->GetInput(2));
+            m_targetImage = this->GetInput(0);
+            m_targetGradientImage = this->GetInput(3);
+            m_atlasGradientImage=this->GetInput(4);
+
+            //instantiate potentials
+            m_unaryRegistrationPot=UnaryRegistrationPotentialType::New();
+            m_unarySegmentationPot=UnarySegmentationPotentialType::New();
+            m_pairwiseSegmentationPot=PairwiseSegmentationPotentialType::New();
+            m_pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
+            m_pairwiseCoherencePot=PairwiseCoherencePotentialType::New();
+
+            if (regist || coherence){
+                m_unaryRegistrationPot->setThreshold(m_config.thresh_UnaryReg);
+                m_unaryRegistrationPot->setLogPotential(m_config.log_UnaryReg);
+                m_pairwiseRegistrationPot->setThreshold(m_config.thresh_PairwiseReg);
+                
+            }
+            if (segment){
+                m_unarySegmentationPot->SetTargetImage(m_targetImage);
+                m_unarySegmentationPot->SetTargetGradient((ConstImagePointerType)m_targetGradientImage);
+                m_unarySegmentationPot->SetAtlasImage(m_atlasImage);
+                m_unarySegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
+                m_unarySegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
+                m_unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
+                if (m_config.useTissuePrior){
+                    m_unarySegmentationPot->SetTissuePrior(this->GetInput(5));
+                    m_unarySegmentationPot->SetUseTissuePrior(m_config.useTissuePrior);
+                }
+                m_unarySegmentationPot->Init();
+                m_pairwiseSegmentationPot->SetTargetImage(m_targetImage);
+                m_pairwiseSegmentationPot->SetTargetGradient((ConstImagePointerType)m_targetGradientImage);
+                m_pairwiseSegmentationPot->SetAtlasImage(m_atlasImage);
+                m_pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
+                m_pairwiseSegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
+                m_pairwiseSegmentationPot->SetNSegmentationLabels(2);//m_config.nSegmentations);
+                m_pairwiseSegmentationPot->Init();
+                m_pairwiseSegmentationPot->evalImage(m_targetImage,(ConstImagePointerType)m_targetGradientImage);
+            }
             
-            atlasSegmentationImage = (this->GetInput(2));
+        }
+        virtual void Update(){
             
-            ConstImagePointerType targetGradientImage = this->GetInput(3);
-            ConstImagePointerType atlasGradientImage=this->GetInput(4);
-            
+            bool coherence= (m_config.coherence);
+            bool segment=m_config.segment;
+            bool regist= m_config.regist;
             //results
             ConstImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
             DeformationFieldPointerType fullDeformation,previousFullDeformation;
@@ -210,62 +255,21 @@ namespace itk{
                 }else{
                     //allocate memory
                     previousFullDeformation=DeformationFieldType::New();
-                    previousFullDeformation->SetRegions(targetImage->GetLargestPossibleRegion());
-                    previousFullDeformation->SetOrigin(targetImage->GetOrigin());
-                    previousFullDeformation->SetSpacing(targetImage->GetSpacing());
-                    previousFullDeformation->SetDirection(targetImage->GetDirection());
+                    previousFullDeformation->SetRegions(m_targetImage->GetLargestPossibleRegion());
+                    previousFullDeformation->SetOrigin(m_targetImage->GetOrigin());
+                    previousFullDeformation->SetSpacing(m_targetImage->GetSpacing());
+                    previousFullDeformation->SetDirection(m_targetImage->GetDirection());
                     LOGV(1)<<"Initializing registration with identity transform." <<endl;
                     previousFullDeformation->Allocate();
                     Vector<float, D> tmpVox(0.0);
                     previousFullDeformation->FillBuffer(tmpVox);
                 }
-                deformedAtlasImage=TransfUtils<ImageType>::warpImage(atlasImage,previousFullDeformation);
+                deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,previousFullDeformation);
             }
 
-            //instantiate potentials
-            UnaryRegistrationPotentialPointerType unaryRegistrationPot=UnaryRegistrationPotentialType::New();
-            UnarySegmentationPotentialPointerType unarySegmentationPot=UnarySegmentationPotentialType::New();
-            PairwiseSegmentationPotentialPointerType pairwiseSegmentationPot=PairwiseSegmentationPotentialType::New();
-            PairwiseRegistrationPotentialPointerType pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
-            PairwiseCoherencePotentialPointerType pairwiseCoherencePot=PairwiseCoherencePotentialType::New();
-
-            //instantiate interpolators
-            ImageInterpolatorPointerType atlasInterpolator=ImageInterpolatorType::New();
-            if (regist || coherence){
-                unaryRegistrationPot->setThreshold(m_config.thresh_UnaryReg);
-                unaryRegistrationPot->setLogPotential(m_config.log_UnaryReg);
-                pairwiseRegistrationPot->setThreshold(m_config.thresh_PairwiseReg);
-
-            }
-            if (segment){
-                unarySegmentationPot->SetTargetImage(targetImage);
-                unarySegmentationPot->SetTargetGradient((ConstImagePointerType)targetGradientImage);
-                unarySegmentationPot->SetAtlasImage(atlasImage);
-                unarySegmentationPot->SetAtlasGradient((ConstImagePointerType)atlasGradientImage);
-                unarySegmentationPot->SetAtlasSegmentation(atlasSegmentationImage);
-                unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
-                if (m_config.useTissuePrior){
-                    unarySegmentationPot->SetTissuePrior(this->GetInput(5));
-                    unarySegmentationPot->SetUseTissuePrior(m_config.useTissuePrior);
-                }
-                unarySegmentationPot->Init();
-                
-                pairwiseSegmentationPot->SetTargetImage(targetImage);
-                pairwiseSegmentationPot->SetTargetGradient((ConstImagePointerType)targetGradientImage);
-                pairwiseSegmentationPot->SetAtlasImage(atlasImage);
-                pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)atlasGradientImage);
-                pairwiseSegmentationPot->SetAtlasSegmentation(atlasSegmentationImage);
-                pairwiseSegmentationPot->SetNSegmentationLabels(2);//m_config.nSegmentations);
-                pairwiseSegmentationPot->Init();
-                pairwiseSegmentationPot->evalImage(targetImage,(ConstImagePointerType)targetGradientImage);
-                
-            }
+           
             LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
-        
-         
             int iterationCount=0; 
-
-            
             int level;
 
             //start pyramid
@@ -273,9 +277,9 @@ namespace itk{
             DeformationFieldPointerType deformation;
             ImagePointerType segmentation;
             if (coherence){
-                deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(atlasSegmentationImage,previousFullDeformation,true);
-                pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
-                pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)atlasSegmentationImage);//deformedAtlasSegmentation);
+                deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
+                m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
+                m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)m_atlasSegmentationImage);//deformedAtlasSegmentation);
             }
 
             if (!coherence && !regist){
@@ -296,7 +300,7 @@ namespace itk{
                 }
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
-                //unaryRegistrationPot->SetScale(7.0*level/targetImage->GetLargestPossibleRegion().GetSize()[0]);
+                //unaryRegistrationPot->SetScale(7.0*level/m_targetImage->GetLargestPossibleRegion().GetSize()[0]);
                 LOGV(1)<<"Image downsampling factor for registration unary computation : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
 
                 level=m_config.levels[l];
@@ -305,65 +309,60 @@ namespace itk{
                 //init graph
                 LOG<<"Initializing graph structure."<<std::endl;
                 graph->setConfig(m_config);
-                graph->setTargetImage(targetImage);
+                graph->setTargetImage(m_targetImage);
                 graph->setDisplacementFactor(labelScalingFactor);
                 graph->initGraph(level);
 
-            
-                atlasInterpolator->SetInputImage(atlasImage);
-                
-
                 if (regist||coherence){
                     //setup registration potentials
-                    unaryRegistrationPot->SetScale(scaling);
-                    unaryRegistrationPot->SetTargetImage(targetImage);
-                    unaryRegistrationPot->SetAtlasImage(atlasImage);
-                    unaryRegistrationPot->SetRadius(graph->getSpacing());
+                    m_unaryRegistrationPot->SetScale(scaling);
+                    m_unaryRegistrationPot->SetTargetImage(m_targetImage);
+                    m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
+                    m_unaryRegistrationPot->SetRadius(graph->getSpacing());
 #if 0
-                    unaryRegistrationPot->SetAtlasSegmentation(atlasSegmentationImage);
-                    unaryRegistrationPot->SetAlpha(m_config.alpha);
-                    unaryRegistrationPot->SetTargetGradient(targetImageGradient);
+                    m_unaryRegistrationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
+                    m_unaryRegistrationPot->SetAlpha(m_config.alpha);
+                    m_unaryRegistrationPot->SetTargetGradient(m_targetImageGradient);
 #endif          
-                    unaryRegistrationPot->Init();
+                    m_unaryRegistrationPot->Init();
             
-                    pairwiseRegistrationPot->SetTargetImage(targetImage);
-                    pairwiseRegistrationPot->SetSpacing(graph->getSpacing());
+                    m_pairwiseRegistrationPot->SetTargetImage(m_targetImage);
+                    m_pairwiseRegistrationPot->SetSpacing(graph->getSpacing());
                     
                 }
 
                 if (segment){
                     //setup segmentation potentials
-                    unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
+                    m_unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
                 }
                 if (coherence){
                     //setup segreg potentials
-                    //pairwiseCoherencePot->SetAtlasInterpolator(atlasInterpolator);
-                    pairwiseCoherencePot->SetAtlasImage(atlasImage);
-                    pairwiseCoherencePot->SetTargetImage(targetImage);
-                    pairwiseCoherencePot->SetAsymmetryWeight(m_config.asymmetry);
+                    m_pairwiseCoherencePot->SetAtlasImage(m_atlasImage);
+                    m_pairwiseCoherencePot->SetTargetImage(m_targetImage);
+                    m_pairwiseCoherencePot->SetAsymmetryWeight(m_config.asymmetry);
                 }
 
                 //register images and potentials
-                graph->setUnaryRegistrationFunction(unaryRegistrationPot);
-                graph->setPairwiseRegistrationFunction(pairwiseRegistrationPot);
-                graph->setUnarySegmentationFunction(unarySegmentationPot);
-                graph->setPairwiseCoherenceFunction(pairwiseCoherencePot);
-                graph->setPairwiseSegmentationFunction(pairwiseSegmentationPot);
+                graph->setUnaryRegistrationFunction(m_unaryRegistrationPot);
+                graph->setPairwiseRegistrationFunction(m_pairwiseRegistrationPot);
+                graph->setUnarySegmentationFunction(m_unarySegmentationPot);
+                graph->setPairwiseCoherenceFunction(m_pairwiseCoherencePot);
+                graph->setPairwiseSegmentationFunction(m_pairwiseSegmentationPot);
 
                 if (regist){
                     if (computeLowResolutionBsplineIfPossible && !coherence){
                         //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
-                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
+                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
                     }else{
-                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, targetImage);
+                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_targetImage);
                     }
                 }
 
                 if (regist){
                     if (computeLowResolutionBsplineIfPossible && !coherence){
-                        unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                     }else{
-                        unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
+                        m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
                     }
                 }
 
@@ -388,15 +387,15 @@ namespace itk{
                     //register deformation from previous iteration
                     if (regist){
                         if (computeLowResolutionBsplineIfPossible && !coherence){
-                            unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                            m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                         }else{
-                            unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
+                            m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
                         }
-                        pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        m_pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
                     }
                     if (coherence){
-                        pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
-                        //if ( l || i ) pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                        m_pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
+                        //if ( l || i ) m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
                     }
                     //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
                     
@@ -503,24 +502,24 @@ namespace itk{
                     if (regist){
                         if (computeLowResolutionBsplineIfPossible && !coherence){
                             //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
-                            fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, (ConstImagePointerType)unaryRegistrationPot->GetTargetImage());
+                            fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
                         }else{
-                            fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, targetImage);
+                            fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, m_targetImage);
                         }
                     }   //fullDeformation=scaleDeformationField(fullDeformation,graph->getDisplacementFactor());
    
                     //apply deformation to atlas image
                     if (regist || coherence){
                         composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
-                        deformedAtlasImage=TransfUtils<ImageType>::warpImage(atlasImage,composedDeformation);
-                        deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(atlasSegmentationImage,composedDeformation,true);
+                        deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,composedDeformation);
+                        deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
                     }
                     
       
-                    //pairwiseCoherencePot->SetThreshold(13);
-                    //pairwiseCoherencePot->SetThreshold(max(10.0,10*graph->getMaxDisplacementFactor()));
-                    pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config.iterationsPerLevel-i)));
-                    //pairwiseCoherencePot->SetThreshold(1000000);
+                    //m_pairwiseCoherencePot->SetThreshold(13);
+                    //m_pairwiseCoherencePot->SetThreshold(max(10.0,10*graph->getMaxDisplacementFactor()));
+                    m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config.iterationsPerLevel-i)));
+                    //m_pairwiseCoherencePot->SetThreshold(1000000);
                     
 
                     previousFullDeformation=composedDeformation;
@@ -570,7 +569,7 @@ namespace itk{
             }//level
 
             if (regist || coherence)
-                m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, targetImage);
+                m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_targetImage);
             m_finalSegmentation=(segmentation);
             delete labelmapper;
 	

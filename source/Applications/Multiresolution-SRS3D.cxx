@@ -181,6 +181,7 @@ int main(int argc, char ** argv)
     
     // compute SRS
     clock_t FULLstart = clock();
+    filter->Init();
     filter->Update();
     logSetStage("Finalizing");
     clock_t FULLend = clock();

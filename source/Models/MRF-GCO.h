@@ -74,7 +74,7 @@ protected:
         std::cerr<<"Error! idx difference doesn make sense : "<<VAR(diff)<<std::endl;
         return -1;
     }
-    //#define CACHESRS
+#define CACHESRS
 public:
     static float GLOBALsmoothFunction(int node1, int node2, int label1, int label2){
         float pot=-1;
