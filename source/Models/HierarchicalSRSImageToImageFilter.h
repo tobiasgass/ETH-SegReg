@@ -121,7 +121,7 @@ namespace itk{
         //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
     
     private:
-        SRSConfig m_config;
+        SRSConfig * m_config;
         DeformationFieldPointerType m_finalDeformation,m_bulkTransform;
         bool m_useBulkTransform;
         ImagePointerType m_finalSegmentation;
@@ -130,18 +130,21 @@ namespace itk{
         ConstImagePointerType m_atlasSegmentationImage;
         ConstImagePointerType m_targetGradientImage;
         ConstImagePointerType m_atlasGradientImage;
+        ConstImagePointerType m_targetSegmentationImage;
         UnaryRegistrationPotentialPointerType m_unaryRegistrationPot;
         UnarySegmentationPotentialPointerType m_unarySegmentationPot;
         PairwiseSegmentationPotentialPointerType m_pairwiseSegmentationPot;
         PairwiseRegistrationPotentialPointerType m_pairwiseRegistrationPot;
         PairwiseCoherencePotentialPointerType m_pairwiseCoherencePot;
+        double lastEnergy;
     public:
         HierarchicalSRSImageToImageFilter(){
             this->SetNumberOfRequiredInputs(5);
             m_useBulkTransform=false;
+            m_targetSegmentationImage=NULL;
         }
-    
-        void setConfig(SRSConfig c){
+        virtual double getEnergy(){return lastEnergy;}
+        void setConfig(SRSConfig * c){
             m_config=c;
         }
 
@@ -165,7 +168,10 @@ namespace itk{
         }
         void setBulkTransform(DeformationFieldPointerType transf){
             m_bulkTransform=transf;
-            m_useBulkTransform=true;
+            m_useBulkTransform=transf.IsNotNull();
+        }
+        void setTargetSegmentation(ImagePointerType seg){
+            m_targetSegmentationImage=seg;
         }
         DeformationFieldPointerType affineRegistration(ConstImagePointerType m_targetImage, ConstImagePointerType m_atlasImage){
         }
@@ -177,9 +183,9 @@ namespace itk{
             return m_finalSegmentation;
         }
         virtual void Init(){
-            bool coherence= (m_config.coherence);
-            bool segment=m_config.segment;
-            bool regist= m_config.regist;
+            bool coherence= (m_config->coherence);
+            bool segment=m_config->segment;
+            bool regist= m_config->regist;
             if (segment){
                 LOG<<"Switching on segmentation module"<<std::endl;
             }
@@ -212,9 +218,10 @@ namespace itk{
             m_pairwiseCoherencePot=PairwiseCoherencePotentialType::New();
 
             if (regist || coherence){
-                m_unaryRegistrationPot->setThreshold(m_config.thresh_UnaryReg);
-                m_unaryRegistrationPot->setLogPotential(m_config.log_UnaryReg);
-                m_pairwiseRegistrationPot->setThreshold(m_config.thresh_PairwiseReg);
+                m_unaryRegistrationPot->setThreshold(m_config->thresh_UnaryReg);
+                m_unaryRegistrationPot->setLogPotential(m_config->log_UnaryReg);
+                m_pairwiseRegistrationPot->setThreshold(m_config->thresh_PairwiseReg);
+                m_pairwiseRegistrationPot->setFullRegularization(m_config->fullRegPairwise);
                 
             }
             if (segment){
@@ -223,10 +230,10 @@ namespace itk{
                 m_unarySegmentationPot->SetAtlasImage(m_atlasImage);
                 m_unarySegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
                 m_unarySegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
-                m_unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
-                if (m_config.useTissuePrior){
+                m_unarySegmentationPot->SetGradientScaling(m_config->pairwiseSegmentationWeight);
+                if (m_config->useTissuePrior){
                     m_unarySegmentationPot->SetTissuePrior(this->GetInput(5));
-                    m_unarySegmentationPot->SetUseTissuePrior(m_config.useTissuePrior);
+                    m_unarySegmentationPot->SetUseTissuePrior(m_config->useTissuePrior);
                 }
                 m_unarySegmentationPot->Init();
                 m_pairwiseSegmentationPot->SetTargetImage(m_targetImage);
@@ -234,17 +241,16 @@ namespace itk{
                 m_pairwiseSegmentationPot->SetAtlasImage(m_atlasImage);
                 m_pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
                 m_pairwiseSegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
-                m_pairwiseSegmentationPot->SetNSegmentationLabels(2);//m_config.nSegmentations);
+                m_pairwiseSegmentationPot->SetNSegmentationLabels(2);//m_config->nSegmentations);
                 m_pairwiseSegmentationPot->Init();
                 m_pairwiseSegmentationPot->evalImage(m_targetImage,(ConstImagePointerType)m_targetGradientImage);
             }
             
         }
         virtual void Update(){
-            
-            bool coherence= (m_config.coherence);
-            bool segment=m_config.segment;
-            bool regist= m_config.regist;
+            bool coherence= (m_config->coherence);
+            bool segment=m_config->segment;
+            bool regist= m_config->regist;
             //results
             ConstImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
             DeformationFieldPointerType fullDeformation,previousFullDeformation;
@@ -268,7 +274,8 @@ namespace itk{
             }
 
            
-            LabelMapperType * labelmapper=new LabelMapperType(m_config.nSegmentations,m_config.maxDisplacement);
+            LabelMapperType * labelmapper=new LabelMapperType(m_config->nSegmentations,m_config->maxDisplacement);
+            LOGV(5)<<VAR(m_config->nSegmentations)<<" "<<VAR(LabelMapperType::nSegmentations)<<endl;
             int iterationCount=0; 
             int level;
 
@@ -278,41 +285,43 @@ namespace itk{
             ImagePointerType segmentation;
             if (coherence){
                 deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
-                m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config.nSegmentations);
+                //m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config->nSegmentations);
                 m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)m_atlasSegmentationImage);//deformedAtlasSegmentation);
             }
 
             if (!coherence && !regist){
-                m_config.nLevels=1;
-                m_config.iterationsPerLevel=1;
+                m_config->nLevels=1;
+                m_config->iterationsPerLevel=1;
             }
             bool computeLowResolutionBsplineIfPossible=false;
             LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
-            for (int l=0;l<m_config.nLevels;++l){
+            int l=0;
+            if (LabelMapperType::nDisplacementSamples == 0 ) l=m_config->nLevels-1;
+            for (;l<m_config->nLevels;++l){
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":0");
                 //compute scaling factor for downsampling the images in the registration potential
-                double mantisse=(1/m_config.scale);
-                int exponent=max(0,m_config.nLevels-l-1);
+                double mantisse=(1/m_config->scale);
+                int exponent=max(0,m_config->nLevels-l-1);
                
-                if (m_config.imageLevels>0){
-                    exponent=max(0,m_config.imageLevels-l-1);
+                if (m_config->imageLevels>0){
+                    exponent=max(0,m_config->imageLevels-l-1);
                 }
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1/reductionFactor;
                 //unaryRegistrationPot->SetScale(7.0*level/m_targetImage->GetLargestPossibleRegion().GetSize()[0]);
                 LOGV(1)<<"Image downsampling factor for registration unary computation : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
 
-                level=m_config.levels[l];
-                double labelScalingFactor=m_config.displacementScaling;
+                level=m_config->levels[l];
+                double labelScalingFactor=m_config->displacementScaling;
 
                 //init graph
                 LOG<<"Initializing graph structure."<<std::endl;
-                graph->setConfig(m_config);
+                graph->setConfig(*m_config);
                 graph->setTargetImage(m_targetImage);
                 graph->setDisplacementFactor(labelScalingFactor);
                 graph->initGraph(level);
-
+                graph->SetTargetSegmentation(m_targetSegmentationImage);
                 if (regist||coherence){
                     //setup registration potentials
                     m_unaryRegistrationPot->SetScale(scaling);
@@ -321,7 +330,7 @@ namespace itk{
                     m_unaryRegistrationPot->SetRadius(graph->getSpacing());
 #if 0
                     m_unaryRegistrationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
-                    m_unaryRegistrationPot->SetAlpha(m_config.alpha);
+                    m_unaryRegistrationPot->SetAlpha(m_config->alpha);
                     m_unaryRegistrationPot->SetTargetGradient(m_targetImageGradient);
 #endif          
                     m_unaryRegistrationPot->Init();
@@ -333,13 +342,13 @@ namespace itk{
 
                 if (segment){
                     //setup segmentation potentials
-                    m_unarySegmentationPot->SetGradientScaling(m_config.pairwiseSegmentationWeight);
+                    m_unarySegmentationPot->SetGradientScaling(m_config->pairwiseSegmentationWeight);
                 }
                 if (coherence){
                     //setup segreg potentials
                     m_pairwiseCoherencePot->SetAtlasImage(m_atlasImage);
                     m_pairwiseCoherencePot->SetTargetImage(m_targetImage);
-                    m_pairwiseCoherencePot->SetAsymmetryWeight(m_config.asymmetry);
+                    m_pairwiseCoherencePot->SetAsymmetryWeight(m_config->asymmetry);
                 }
 
                 //register images and potentials
@@ -376,7 +385,10 @@ namespace itk{
                
                 bool converged=false;
                 double oldEnergy,newEnergy=01;
-                for (int i=0;!converged && i<m_config.iterationsPerLevel;++i,++iterationCount){
+                int i=0;
+                if (LabelMapperType::nDisplacementSamples == 0 ) i=m_config->iterationsPerLevel-1;
+
+                for (;!converged && i<m_config->iterationsPerLevel;++i,++iterationCount){
                     logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":"+boost::lexical_cast<std::string>(i));
                     oldEnergy=newEnergy;
                     LOGV(7)<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl;
@@ -395,14 +407,14 @@ namespace itk{
                     }
                     if (coherence){
                         m_pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
-                        //if ( l || i ) m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                        m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
                     }
                     //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
                     
 
                     //	ok what now: create graph! solve graph! save result!Z
-                    //double linearIncreasingWeight=1.0/(m_config.nLevels-l);
-                    //double expIncreasingWeight=exp(-(m_config.nLevels-l-1));
+                    //double linearIncreasingWeight=1.0/(m_config->nLevels-l);
+                    //double expIncreasingWeight=exp(-(m_config->nLevels-l-1));
                     //double linearDecreasingWeight=1-linearIncreasingWeight;
                     //double expDecreasingWeight=exp(-l);
                     //#define TRUNC
@@ -410,8 +422,8 @@ namespace itk{
                     
                     if (false && segment && !coherence && !regist){
                         typedef  GC_MRFSolverSeg<GraphModelType> SolverType;
-                        SolverType  *mrfSolverGC= new SolverType(graph, m_config.unarySegmentationWeight,
-                                                                 m_config.pairwiseSegmentationWeight,m_config.verbose);
+                        SolverType  *mrfSolverGC= new SolverType(graph, m_config->unarySegmentationWeight,
+                                                                 m_config->pairwiseSegmentationWeight,m_config->verbose);
                         
                         mrfSolverGC->createGraph();   
                         mrfSolverGC->optimize(1);
@@ -426,37 +438,37 @@ namespace itk{
                         
                         BaseMRFSolver<GraphModelType>  *mrfSolver;
 
-                        if (m_config.TRW){
+                        if (m_config->TRW){
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                             mrfSolver = new MRFSolverType(graph,
-                                                          m_config.unaryRegistrationWeight,
-                                                          m_config.pairwiseRegistrationWeight, 
-                                                          m_config.unarySegmentationWeight,
-                                                          m_config.pairwiseSegmentationWeight,
-                                                          m_config.pairwiseCoherenceWeight,
-                                                          m_config.verbose);
-                        }else if (m_config.GCO){
+                                                          m_config->unaryRegistrationWeight,
+                                                          m_config->pairwiseRegistrationWeight, 
+                                                          m_config->unarySegmentationWeight,
+                                                          m_config->pairwiseSegmentationWeight,
+                                                          m_config->pairwiseCoherenceWeight,
+                                                          m_config->verbose);
+                        }else if (m_config->GCO){
                             typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
                             mrfSolver = new MRFSolverType(graph,
-                                                          m_config.unaryRegistrationWeight,
-                                                          m_config.pairwiseRegistrationWeight, 
-                                                          m_config.unarySegmentationWeight,
-                                                          m_config.pairwiseSegmentationWeight,
-                                                          m_config.pairwiseCoherenceWeight,
-                                                          m_config.verbose);
+                                                          m_config->unaryRegistrationWeight,
+                                                          m_config->pairwiseRegistrationWeight, 
+                                                          m_config->unarySegmentationWeight,
+                                                          m_config->pairwiseSegmentationWeight,
+                                                          m_config->pairwiseCoherenceWeight,
+                                                          m_config->verbose);
                         }
 
                         //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                         mrfSolver->createGraph();
                         std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
-                        if (!m_config.evalContinuously){
-                            newEnergy=mrfSolver->optimize(m_config.optIter);
+                        if (!m_config->evalContinuously){
+                            newEnergy=mrfSolver->optimize(m_config->optIter);
                             defLabels=mrfSolver->getDeformationLabels();
                             segLabels=mrfSolver->getSegmentationLabels();
                         }else{
                             double tmpOldEng=10; newEnergy=10000000;
                             bool optimization_converged=false;
-                            for (int o=0;o<m_config.optIter && ! optimization_converged;++o){
+                            for (int o=0;o<m_config->optIter && ! optimization_converged;++o){
                                 tmpOldEng=newEnergy;
                                 newEnergy=mrfSolver->optimizeOneStep(o, optimization_converged);
                                 if (regist || coherence){
@@ -476,16 +488,17 @@ namespace itk{
                                 LOGV(3)<<endl;
                             }
                         }
+                        lastEnergy=newEnergy;
                         if (regist || coherence){
                             deformation=graph->getDeformationImage(defLabels);
                         }
                         if (segment || coherence)
                             segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
 
-                        if (m_config.TRW){
+                        if (m_config->TRW){
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                             delete static_cast<MRFSolverType * >(mrfSolver);
-                        }else if (m_config.GCO){
+                        }else if (m_config->GCO){
                             typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
                             delete static_cast<MRFSolverType * >(mrfSolver);
                         }
@@ -493,7 +506,7 @@ namespace itk{
                     }
                     
                     //convergence check after second iteration
-                    converged=(i>0) && ((oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) < 1e-4 ); 
+                    converged=(i>0) && (fabs(oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) < 1e-4 ); 
                     LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<endl;
                     //initialise interpolator
                     //deformation
@@ -518,13 +531,13 @@ namespace itk{
       
                     //m_pairwiseCoherencePot->SetThreshold(13);
                     //m_pairwiseCoherencePot->SetThreshold(max(10.0,10*graph->getMaxDisplacementFactor()));
-                    m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config.iterationsPerLevel-i)));
+                    m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
                     //m_pairwiseCoherencePot->SetThreshold(1000000);
                     
 
                     previousFullDeformation=composedDeformation;
-                    labelScalingFactor*=m_config.displacementRescalingFactor;
-                    if (m_config.verbose>5){
+                    labelScalingFactor*=m_config->displacementRescalingFactor;
+                    if (m_config->verbose>6){
                         std::string suff;
                         if (ImageType::ImageDimension==2){
                             suff=".png";
@@ -533,12 +546,12 @@ namespace itk{
                             suff=".nii";
                         }
                         ostringstream deformedFilename;
-                        deformedFilename<<m_config.outputDeformedFilename<<"-l"<<l<<"-i"<<i<<suff;
+                        deformedFilename<<m_config->outputDeformedFilename<<"-l"<<l<<"-i"<<i<<suff;
                         ostringstream deformedSegmentationFilename;
-                        deformedSegmentationFilename<<m_config.outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
+                        deformedSegmentationFilename<<m_config->outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
                         if (regist) ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedAtlasImage);
                         ostringstream tmpSegmentationFilename;
-                        tmpSegmentationFilename<<m_config.segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
+                        tmpSegmentationFilename<<m_config->segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
                         if (ImageType::ImageDimension==2){
                             if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
                             if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
@@ -549,9 +562,9 @@ namespace itk{
                         }
                         //deformation
                         if (regist){
-                            if (m_config.defFilename!=""){
+                            if (m_config->defFilename!=""){
                                 ostringstream tmpDeformationFilename;
-                                tmpDeformationFilename<<m_config.defFilename<<"-l"<<l<<"-i"<<i<<".mha";
+                                tmpDeformationFilename<<m_config->defFilename<<"-l"<<l<<"-i"<<i<<".mha";
                                 //		ImageUtils<DeformationFieldType>::writeImage(defFilename,deformation);
                                 ImageUtils<DeformationFieldType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
                                 //					ImageUtils<DeformationFieldType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
@@ -572,10 +585,12 @@ namespace itk{
                 m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_targetImage);
             m_finalSegmentation=(segmentation);
             delete labelmapper;
-	
         }//run
       
-        ConstImagePointerType makePngFromLabelImage(ConstImagePointerType segmentationImage, int nSegmentations){
+        ImagePointerType makePngFromLabelImage(ImagePointerType segmentationImage, int nSegmentations){
+            return makePngFromLabelImage(ConstImagePointerType(segmentationImage),nSegmentations);
+        }
+        ImagePointerType makePngFromLabelImage(ConstImagePointerType segmentationImage, int nSegmentations){
             ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
             typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
             typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
@@ -589,7 +604,7 @@ namespace itk{
                 //LOG<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
                 imageIt2.Set(imageIt.Get()*multiplier);
             }
-            return (ConstImagePointerType)newImage;
+            return newImage;
         }
         
         

@@ -109,12 +109,14 @@ public:
         int edgeCount=0;
         nRegLabels=this->m_GraphModel->nRegLabels();
         nSegLabels=this->m_GraphModel->nSegLabels();
+        m_registered=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0));
+        m_segmented=(m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  ;
+        
         logSetStage("Potential Functions");
 		//		traverse grid
-        if ( (m_pairwiseSegmentationRegistrationWeight || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels){
+        if ( m_registered){
             //RegUnaries
             clock_t startUnary = clock();
-            m_registered=true;
             //#define moarcaching
 #ifdef moarcaching
             for (int d=0;d<nRegNodes;++d){
@@ -190,8 +192,7 @@ public:
 
             tPairwise+=t;
         }
-        if ( (m_pairwiseSegmentationRegistrationWeight || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight) && nSegLabels){
-            m_segmented=true;
+        if ( m_segmented){
             //SegUnaries
             clock_t startUnary = clock();
             TRWType::REAL D2[nSegLabels];
@@ -232,7 +233,7 @@ public:
                     edgeCount++;
                     
                 }
-                if (m_pairwiseSegmentationRegistrationWeight>0 && (nRegLabels>1)){
+                if (m_registered){
                     std::vector<int> segRegNeighbors=this->m_GraphModel->getSegRegNeighbors(d);
                     nNeighbours=segRegNeighbors.size();
                     if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}

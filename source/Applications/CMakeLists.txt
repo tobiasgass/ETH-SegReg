@@ -36,6 +36,11 @@ TARGET_LINK_LIBRARIES(SRS3D-Bone maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /h
 
 
 #ARS
+ADD_EXECUTABLE(ARS2D Multiresolution-ARS2D.cxx )
+TARGET_LINK_LIBRARIES(ARS2D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(ARS3D Multiresolution-ARS3D.cxx )
+TARGET_LINK_LIBRARIES(ARS3D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+
 #ADD_EXECUTABLE(AlternatingSegReg3D Alternating-JRS3D.cxx )
 #TARGET_LINK_LIBRARIES(AlternatingSegReg3D maxflow  Utils TRWS  SRSMRFModels   RF    xml2 /home/gasst/work/lib/libconfig++.a tcmalloc )
 #ADD_EXECUTABLE(AlternatingSegReg2D Alternating-JRS.cxx )

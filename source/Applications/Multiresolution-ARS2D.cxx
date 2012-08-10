@@ -94,7 +94,7 @@ int main(int argc, char ** argv)
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(&filterConfig);
     logSetStage("IO");
-    logSetVerbosity(filterConfig.verbose);
+    logSetVerbosity(filterConfig.verbose>0?filterConfig.verbose:-1);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
@@ -166,26 +166,97 @@ int main(int argc, char ** argv)
     if (filterConfig.useTissuePrior){
         filter->setTissuePrior(tissuePrior);
     }
+    DeformationFieldPointerType transf=NULL;
     if (filterConfig.affineBulkTransform!=""){
         TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig.affineBulkTransform);
         ImageUtils<ImageType>::writeImage("def.png",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage));
-        DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
+        transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
         ImageUtils<ImageType>::writeImage("def2.png",TransfUtils<ImageType>::warpImage((ImageType::ConstPointer)originalAtlasImage,transf));
         filter->setBulkTransform(transf);
     }
     else if (filterConfig.bulkTransformationField!=""){
-        filter->setBulkTransform(ImageUtils<DeformationFieldType>::readImage(filterConfig.bulkTransformationField));
+        transf=(ImageUtils<DeformationFieldType>::readImage(filterConfig.bulkTransformationField));
     }else{
         LOG<<"Computing transform to move image centers on top of each other.."<<std::endl;
-        DeformationFieldPointerType transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
-        filter->setBulkTransform(transf);
-       
+         transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
+      
     }
     
     // compute SRS
     clock_t FULLstart = clock();
     filter->Init();
-    filter->Update();
+    double tmpSegU,tmpSegP,tmpCoh;
+    int tmpSegL,tmpRegL;
+    DeformationFieldPointerType intermediateDeformation;
+    ImagePointerType intermediateSegmentation;
+    double lastSegEnergy=10000;
+    double lastRegEnergy=10000;
+    logSetStage("ARS iteration");
+    for (int iteration=0;iteration<10;++iteration){    
+        filter->setBulkTransform(transf);
+        if (iteration == 0){
+            //start with pure registration by setting seg and coh weights to zero
+            tmpSegU=filterConfig.unarySegmentationWeight;
+            filterConfig.unarySegmentationWeight=0;
+            tmpSegP=filterConfig.pairwiseSegmentationWeight;
+            filterConfig.pairwiseSegmentationWeight=0;
+            tmpCoh=filterConfig.pairwiseCoherenceWeight;
+            filterConfig.pairwiseCoherenceWeight=0;
+        }else{
+            filter->setTargetSegmentation(intermediateSegmentation);
+        }
+        tmpSegL=filterConfig.nSegmentations;
+        filterConfig.nSegmentations=1;
+        filter->Update();
+        double regEnergy=filter->getEnergy();
+        intermediateDeformation=filter->getFinalDeformation();
+        filterConfig.nSegmentations=tmpSegL;
+        if (iteration == 0){
+            //reset weights
+            filterConfig.unarySegmentationWeight= tmpSegU;
+            filterConfig.pairwiseSegmentationWeight=tmpSegP;
+            filterConfig.pairwiseCoherenceWeight=tmpCoh;
+        }
+        filter->setTargetSegmentation(NULL);
+        filter->setBulkTransform(intermediateDeformation);
+        tmpRegL=filterConfig.maxDisplacement;
+        filterConfig.maxDisplacement=0;
+        filter->Update();
+        double segEnergy=filter->getEnergy();
+        intermediateSegmentation=filter->getTargetSegmentationEstimate();
+        filterConfig.maxDisplacement= tmpRegL;
+        LOGV(-1)<<" Iteration :"<<iteration<<" "<<VAR(regEnergy)<<" "<<VAR(segEnergy)<<endl;          
+        bool converged=false;
+        if (fabs(lastSegEnergy-segEnergy)/lastSegEnergy< 1e-4 && fabs (lastRegEnergy-regEnergy)/lastRegEnergy < 1e-4){
+            converged=true;
+        }
+        lastSegEnergy=segEnergy;
+        lastRegEnergy=regEnergy;
+        if (filterConfig.verbose>=5){
+            //store intermediate results
+            std::string suff;
+            if (ImageType::ImageDimension==2){
+                suff=".png";
+            }
+            if (ImageType::ImageDimension==3){
+                suff=".nii";
+            }
+            ostringstream deformedSegmentationFilename;
+            deformedSegmentationFilename<<filterConfig.outputDeformedSegmentationFilename<<"-arsIter"<<iteration<<suff;
+            ostringstream tmpSegmentationFilename;
+            tmpSegmentationFilename<<filterConfig.segmentationOutputFilename<<"-arsIter"<<iteration<<suff;
+            ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(originalAtlasSegmentation,intermediateDeformation,true);
+            ImagePointerType tmpSeg=intermediateSegmentation;
+            if (ImageType::ImageDimension==2){
+                tmpSeg=filter->makePngFromLabelImage(tmpSeg, tmpSegL);
+                deformedAtlasSegmentation=filter->makePngFromLabelImage(deformedAtlasSegmentation,tmpSegL);
+            }
+            ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
+            ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),tmpSeg);
+
+        }
+        if (converged) break;
+    }
     logSetStage("Finalizing");
     clock_t FULLend = clock();
     float t = (float) ((double)(FULLend - FULLstart) / CLOCKS_PER_SEC);

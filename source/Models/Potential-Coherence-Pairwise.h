@@ -137,6 +137,14 @@ namespace itk{
             m_atlasSegmentationInterpolator= SegmentationInterpolatorType::New();
             m_atlasSegmentationInterpolator->SetInputImage(segImage);
             m_atlasSegmentationImage=segImage;
+            typename itk::StatisticsImageFilter< ImageType >::Pointer maxFilter= itk::StatisticsImageFilter< ImageType >::New() ;
+
+            maxFilter->SetInput(segImage);
+            maxFilter->Update();
+            m_nSegmentationLabels=maxFilter->GetMaximumOutput()->Get()+1;
+            if (m_nSegmentationLabels>3){
+                LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(m_nSegmentationLabels)<<endl;
+            }
             m_distanceTransforms= std::vector<FloatImagePointerType>( m_nSegmentationLabels ,NULL);
             m_atlasDistanceTransformInterpolators = std::vector<FloatImageInterpolatorPointerType>( m_nSegmentationLabels ,NULL);
             m_minDists=std::vector<double> ( m_nSegmentationLabels ,-1);;
@@ -162,10 +170,10 @@ namespace itk{
                         caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
                         caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
                         
-                        caster->SetInput(thresholdFilter->GetOutput());
+                        caster->SetInput(dt1);//thresholdFilter->GetOutput());
                         caster->Update();
                         ImagePointerType output=caster->GetOutput();
-                        //ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",(output)););
                     }
                     if (ImageType::ImageDimension==3){
                         ostringstream dtFilename;
@@ -245,7 +253,7 @@ namespace itk{
 
             typename ImageType::PointType p;
             this->m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,p);
-            p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
+            p +=disp;//+this->m_baseLabelMap->GetPixel(targetIndex1);
             this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p,idx2);
             int deformedAtlasSegmentation=-1;
             if (!m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){

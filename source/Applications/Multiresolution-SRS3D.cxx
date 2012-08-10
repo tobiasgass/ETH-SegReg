@@ -91,7 +91,7 @@ int main(int argc, char ** argv)
 	typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
 	//create filter
     FilterType::Pointer filter=FilterType::New();
-    filter->setConfig(filterConfig);
+    filter->setConfig(&filterConfig);
     logSetStage("IO");
     logSetVerbosity(filterConfig.verbose);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;

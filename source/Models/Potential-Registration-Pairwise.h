@@ -46,6 +46,7 @@ namespace itk{
         SpacingType m_gridSpacing;
         double m_maxDist;
         double m_threshold;
+        bool m_fullRegPairwise;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -55,6 +56,7 @@ namespace itk{
         PairwisePotentialRegistration(){
             m_haveLabelMap=false;
             m_threshold=std::numeric_limits<double>::max();
+            m_fullRegPairwise=false;
         }
         virtual void freeMemory(){
         }
@@ -72,6 +74,7 @@ namespace itk{
                 m_maxDist+=sp[d]*sp[d];
             }
         }
+        virtual void setFullRegularization(bool b){ m_fullRegPairwise = b; }
         virtual inline double getPotential(PointType pt1, PointType pt2,LabelType displacement1, LabelType displacement2){
             assert(m_haveLabelMap);
             double result=0;
@@ -87,10 +90,10 @@ namespace itk{
 			//double delta;
             //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
             //LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
-#if 0
-            displacement1+=oldl1;
-			displacement2+=oldl2;
-#endif
+            if (m_fullRegPairwise){
+                displacement1+=oldl1;
+                displacement2+=oldl2;
+            }
 #if 1
             LabelType diff=displacement1-displacement2;
             //result=diff.GetSquaredNorm();

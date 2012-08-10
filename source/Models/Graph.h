@@ -97,7 +97,7 @@ namespace itk{
         //PairwiseFunctionPointerType m_pairwiseFunction;
         bool verbose;
         bool m_haveLabelMap;
-        ConstImagePointerType m_targetImage;
+        ConstImagePointerType m_targetImage,m_targetSegmentationImage;
         ConstImageNeighborhoodIteratorType m_targetNeighborhoodIterator;
         SRSConfig m_config;
     public:
@@ -262,7 +262,7 @@ namespace itk{
         }
     
 
-
+        void SetTargetSegmentation(ConstImagePointerType seg){m_targetSegmentationImage=seg;}
      
         //return position index in coarse graph from coarse graph node index
         virtual IndexType  getGraphIndex(int nodeIndex){
@@ -355,6 +355,9 @@ namespace itk{
         }
         virtual double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndex(nodeIndex);
+            if (m_targetSegmentationImage.IsNotNull()){
+                labelIndex=m_targetSegmentationImage->GetPixel(imageIndex);
+            }
             //Segmentation:labelIndex==segmentationlabel
             double result=m_unarySegFunction->getPotential(imageIndex,labelIndex)/m_nSegmentationNodes;
             if (result<0){
@@ -400,6 +403,9 @@ namespace itk{
         virtual inline double getPairwiseRegSegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
     
             IndexType imageIndex=getImageIndex(nodeIndex2);
+            if (m_targetSegmentationImage.IsNotNull()){
+                segmentationLabel=m_targetSegmentationImage->GetPixel(imageIndex);
+            }
             //compute distance between center index and patch index
             double weight=1.0;
             //#ifdef MULTISEGREGNEIGHBORS
@@ -426,6 +432,9 @@ namespace itk{
         virtual inline double getPairwiseRegSegPotential(int nodeIndex2, int labelIndex1, int segmentationLabel){
     
             IndexType imageIndex=getImageIndex(nodeIndex2);
+            if (m_targetSegmentationImage.IsNotNull()){
+                segmentationLabel=m_targetSegmentationImage->GetPixel(imageIndex);
+            }
             //compute distance between center index and patch index
             double weight=1.0;
             //#ifdef MULTISEGREGNEIGHBORS
@@ -452,6 +461,11 @@ namespace itk{
         virtual inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);
+            if (m_targetSegmentationImage.IsNotNull()){
+                label1=m_targetSegmentationImage->GetPixel(imageIndex1);
+                label2=m_targetSegmentationImage->GetPixel(imageIndex2);
+            }
+
             double result=m_pairwiseSegFunction->getPotential(imageIndex1,imageIndex2,label1, label2)/m_nSegEdges;
             return result;
         }
@@ -618,7 +632,7 @@ namespace itk{
             LOGV(10)<<"target segmentation image: "<<result->GetLargestPossibleRegion()<<" "<<labels.size()<<" "<<m_nSegmentationLabels<<endl;
             typename itk::ImageRegionIterator<ImageType> it(result,result->GetLargestPossibleRegion());
             unsigned int i=0;
-            if (m_nSegmentationLabels){
+            if (m_nSegmentationLabels && labels.size()==m_targetImage->GetBufferedRegion().GetNumberOfPixels()){
                 for (it.GoToBegin();!it.IsAtEnd();++it,++i){
                     assert(i<labels.size());
                     it.Set(labels[i]);

@@ -178,8 +178,8 @@ public:
         
         nRegLabels=this->m_GraphModel->nRegLabels();
         nSegLabels=this->m_GraphModel->nSegLabels();
-        m_registered=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels);
-        m_segmented=(m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight) && nSegLabels ;
+        m_registered=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0));
+        m_segmented=(m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  ;
         GLOBALnRegNodes= m_registered*nRegNodes;
         GLOBALnSegNodes= m_segmented*nSegNodes;
         GLOBALnRegLabels=m_registered*nRegLabels;

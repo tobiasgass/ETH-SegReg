@@ -50,6 +50,7 @@ public:
     double displacementScaling;
     bool evalContinuously;
     bool TRW,GCO;
+    bool fullRegPairwise;
 private:
 	argstream * as;
 public:
@@ -99,6 +100,7 @@ public:
         logFileName="";
         TRW=true;
         GCO=false;
+        fullRegPairwise=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -201,6 +203,8 @@ public:
 		(*as) >> parameter ("cp", pairwiseCoherenceWeight,"weight for coherence potential", false);
 		(*as) >> parameter ("ru", unaryRegistrationWeight,"weight for registration unary", false);
 		(*as) >> parameter ("su", unarySegmentationWeight,"weight for segmentation unary", false);
+        (*as) >> option ("fullRegistrationSmoothing",fullRegPairwise ,"Regularise composed deformation instead of regularizing just the current update. Leads to non-submodular function, and is thus not usable with GC optimization.");
+
         //thresholds
         (*as) >> parameter ("tru", thresh_UnaryReg,"threshold for unary registration potential.", false);
         (*as) >> parameter ("trp", thresh_PairwiseReg,"threshold for pairwise registration potential (factor of max distance).", false);
