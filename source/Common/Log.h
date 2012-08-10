@@ -17,20 +17,21 @@ public:
     ostream * mOut;
 private:
     boost::timer m_timer;
-    std::string m_stage,m_oldStage;
+    std::string m_stage;
     std::stack<std::string> m_stages;
+   
     int m_verb;
     bool m_cachedOutput;
 public:
     MyLog(){
-        m_stages.push("void");
+        m_stages.push("");
         m_verb=0;
         mOut=&std::cout;
         m_cachedOutput=false;
     }
     boost::format  getStatus(){
         unsigned int elapsed = m_timer.elapsed();
-        boost::format logLine("%2d:%02d [%25s] - ");
+        boost::format logLine("%2d:%02d [%-50s] - ");
         logLine % (elapsed / 60);
         logLine % (elapsed % 60);
         if (m_stages.size()){
@@ -39,13 +40,13 @@ public:
         return logLine;
     }
     void setStage(std::string stage) {
-        m_oldStage=m_stage;
-        m_stage = stage;
-        m_stages.push(stage);
+        
+        m_stage = m_stage + stage+":";
+        m_stages.push( m_stage);
     }
     void resetStage(){
-        m_stage=m_oldStage;
         m_stages.pop();
+        m_stage=m_stages.top();
     }
     void setVerbosity(int v){
         m_verb=v;

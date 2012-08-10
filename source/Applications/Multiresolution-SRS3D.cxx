@@ -30,6 +30,7 @@ int main(int argc, char ** argv)
     if (filterConfig.logFileName!=""){
         mylog.setCachedLogging();
     }
+    logSetStage("Init");
 
       //define types.
 	
@@ -103,6 +104,7 @@ int main(int argc, char ** argv)
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
     if (!atlasSegmentation) {LOG<<"failed!"<<endl; exit(0);}
+    logResetStage;
     logSetStage("Preprocessing");
     //preprocessing 1: gradients
     ImagePointerType targetGradient, atlasGradient;
@@ -131,7 +133,8 @@ int main(int argc, char ** argv)
             filterConfig.nSegmentations=5;//TODO!!!!
         }
     }
-  
+    logResetStage;
+
     ImagePointerType originalTargetImage=targetImage,originalAtlasImage=atlasImage,originalAtlasSegmentation=atlasSegmentation;
     //preprocessing 3: downscaling
     
@@ -163,6 +166,8 @@ int main(int argc, char ** argv)
     if (filterConfig.useTissuePrior){
         filter->setTissuePrior(tissuePrior);
     }
+    logSetStage("Bulk transforms");
+
     if (filterConfig.affineBulkTransform!=""){
         TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig.affineBulkTransform);
         ImageUtils<ImageType>::writeImage("def.nii",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage));
@@ -178,10 +183,13 @@ int main(int argc, char ** argv)
         filter->setBulkTransform(transf);
        
     }
-    
+        logResetStage;//bulk transforms
+
     // compute SRS
     clock_t FULLstart = clock();
     filter->Init();
+    logResetStage; //init
+
     filter->Update();
     logSetStage("Finalizing");
     clock_t FULLend = clock();

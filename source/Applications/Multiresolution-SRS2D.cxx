@@ -29,10 +29,10 @@ int main(int argc, char ** argv)
     if (filterConfig.logFileName!=""){
         mylog.setCachedLogging();
     }
-    
+    logSetStage("Init");
 	//define types.
     typedef unsigned short PixelType;
-	const unsigned int D=2;
+	const   unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
@@ -44,20 +44,23 @@ int main(int argc, char ** argv)
 
 
 
-    //unary seg
+    //unary segmentation potential choices
+
     //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
-    //    typedef SegmentationGenerativeClassifierGradient<ImageType> ClassifierType;
+    //typedef SegmentationGenerativeClassifierGradient<ImageType> ClassifierType;
     //typedef     SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifier<ImageType> ClassifierType;
     //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     //typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
     //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-    
     //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
+    
     typedef SegmentationGMMClassifier<ImageType> ClassifierType;
     typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
-    //pairwise seg
+
+    //pairwise segmentation potential choices
+
     //    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
@@ -65,7 +68,7 @@ int main(int argc, char ** argv)
     typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
     //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
-    //reg
+    //registration unary potential
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -73,12 +76,15 @@ int main(int argc, char ** argv)
     //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+
+    //Registration pairwise potential
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
+    //Coherence potential
     typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
-    //typedef FastRegistrationGraphModel<
-    //    typedef SortedSubsamplingGraphModel<
+
+    //Graph
     typedef FastGraphModel<
         //typedef GraphModel<
         ImageType,
@@ -89,6 +95,7 @@ int main(int argc, char ** argv)
         CoherencePairwisePotentialType,
         LabelMapperType>        GraphType;
     
+    //Final filter
 	typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
 	//create filter
     FilterType::Pointer filter=FilterType::New();
@@ -104,7 +111,7 @@ int main(int argc, char ** argv)
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
     atlasSegmentation=filter->fixSegmentationImage(atlasSegmentation,filterConfig.nSegmentations);
-
+    logResetStage;
     if (!atlasSegmentation) {LOG<<"failed!"<<endl; exit(0);}
     logSetStage("Preprocessing");
     //preprocessing 1: gradients
@@ -155,8 +162,6 @@ int main(int argc, char ** argv)
             }
         }
     }
-   
-
     logResetStage;
     filter->setTargetImage(targetImage);
     filter->setTargetGradient(targetGradient);
@@ -166,6 +171,7 @@ int main(int argc, char ** argv)
     if (filterConfig.useTissuePrior){
         filter->setTissuePrior(tissuePrior);
     }
+    logSetStage("Bulk transforms");
     if (filterConfig.affineBulkTransform!=""){
         TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig.affineBulkTransform);
         ImageUtils<ImageType>::writeImage("def.png",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage));
@@ -181,10 +187,12 @@ int main(int argc, char ** argv)
         filter->setBulkTransform(transf);
        
     }
+    logResetStage;//bulk transforms
     
     // compute SRS
     clock_t FULLstart = clock();
     filter->Init();
+    logResetStage; //init
     filter->Update();
     logSetStage("Finalizing");
     clock_t FULLend = clock();
@@ -198,6 +206,7 @@ int main(int argc, char ** argv)
     ImagePointerType targetSegmentationEstimate=filter->getTargetSegmentationEstimate();
     DeformationFieldPointerType finalDeformation=filter->getFinalDeformation();
     
+    logSetStage("Finalizing");
     //upsample?
     if (filterConfig.downScale<1){
         LOG<<"Upsampling Images.."<<endl;

@@ -112,7 +112,7 @@ public:
         m_registered=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0));
         m_segmented=(m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  ;
         
-        logSetStage("Potential Functions");
+        logSetStage("Potential functions caching");
 		//		traverse grid
         if ( m_registered){
             //RegUnaries

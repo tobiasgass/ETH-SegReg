@@ -387,7 +387,7 @@ namespace itk{
                 double oldEnergy,newEnergy=01;
                 int i=0;
                 if (LabelMapperType::nDisplacementSamples == 0 ) i=m_config->iterationsPerLevel-1;
-
+                logResetStage;
                 for (;!converged && i<m_config->iterationsPerLevel;++i,++iterationCount){
                     logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":"+boost::lexical_cast<std::string>(i));
                     oldEnergy=newEnergy;
@@ -575,9 +575,9 @@ namespace itk{
                     }
                     
                     
-
+                    logResetStage;
                 }//iter
-
+                logResetStage;
 
             }//level
 
