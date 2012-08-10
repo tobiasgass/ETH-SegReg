@@ -111,7 +111,7 @@ int main(int argc, char ** argv)
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
     atlasSegmentation=filter->fixSegmentationImage(atlasSegmentation,filterConfig.nSegmentations);
-    logResetStage;
+    logResetStage;//IO
     if (!atlasSegmentation) {LOG<<"failed!"<<endl; exit(0);}
     logSetStage("Preprocessing");
     //preprocessing 1: gradients
@@ -162,7 +162,7 @@ int main(int argc, char ** argv)
             }
         }
     }
-    logResetStage;
+    logResetStage;//Preprocessing
     filter->setTargetImage(targetImage);
     filter->setTargetGradient(targetGradient);
     filter->setAtlasImage(atlasImage);

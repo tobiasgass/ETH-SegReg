@@ -506,7 +506,7 @@ namespace itk{
                     }
                     
                     //convergence check after second iteration
-                    converged=(i>0) && (fabs(oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) < 1e-4 ); 
+                    converged=(i>0) && ((oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) < 1e-4 ); 
                     LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<endl;
                     //initialise interpolator
                     //deformation

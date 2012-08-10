@@ -6,12 +6,17 @@
 #include <fstream>
 #include <sstream>
 #include <stdio.h>
+#include <cstring>
 #include <stack>
+using namespace std;
+
 #define logSetStage(stage) mylog.setStage(stage)
+//#define logResetStage std::cout<<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] ";mylog.resetStage()
 #define logResetStage mylog.resetStage()
 #define logSetVerbosity(level) mylog.setVerbosity(level)
+#define VAR(x)  #x " = " << x 
 
-using namespace std;
+
 class MyLog {
 public:
     ostream * mOut;
@@ -24,7 +29,7 @@ private:
     bool m_cachedOutput;
 public:
     MyLog(){
-        m_stages.push("");
+        m_stage="";
         m_verb=0;
         mOut=&std::cout;
         m_cachedOutput=false;
@@ -34,19 +39,21 @@ public:
         boost::format logLine("%2d:%02d [%-50s] - ");
         logLine % (elapsed / 60);
         logLine % (elapsed % 60);
-        if (m_stages.size()){
-            logLine % m_stages.top();
-        }
+        logLine % m_stage;
+        
         return logLine;
     }
     void setStage(std::string stage) {
-        
+        m_stages.push(m_stage);
         m_stage = m_stage + stage+":";
-        m_stages.push( m_stage);
     }
     void resetStage(){
-        m_stages.pop();
-        m_stage=m_stages.top();
+        //std::cout<<"old stage : "<<VAR(m_stage)<<endl;
+        if (!m_stages.empty()){
+            m_stage=m_stages.top();
+            m_stages.pop();
+        }
+        //std::cout<<"new stage : "<<VAR(m_stage)<<endl;
     }
     void setVerbosity(int v){
         m_verb=v;
@@ -69,10 +76,9 @@ public:
         }
     }
 };
-MyLog mylog;
-#define VAR(x)  #x " = " << x 
 
-#if 1
+
+MyLog mylog;
 
 #define LOG \
     if (mylog.getVerbosity()>=30)                                        \
@@ -90,25 +96,9 @@ MyLog mylog;
     if (mylog.getVerbosity()>=level)  \
         instruction
 
-#else
-#define LOG \
-    if (mylog.getVerbosity()>=30)                                        \
-        std::cout <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
-    if (mylog.getVerbosity()>=0 )                                        \
-        std::cout << mylog.getStatus()<<" "
-
-#define LOGV(level) \
-    if (mylog.getVerbosity()>=level && mylog.getVerbosity()>=30) \
-        std::cout <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
-    if (mylog.getVerbosity()>=level)                                    \
-        std::cout<<mylog.getStatus()<<" ["<<level<<"] "
-
-#define LOGI(level, instruction) \
-    if (mylog.getVerbosity()>=level)  \
-        instruction
 
 
-#endif
+
 
 double tOpt=0;
 double tUnary=0;
