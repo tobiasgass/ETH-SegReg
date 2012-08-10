@@ -3,7 +3,6 @@ INCLUDE_DIRECTORIES(
     /usr/include/libxml2
     ../External/RF
     ../External/c-ugmix
-    ../External/fastPD
     ../Common
  )
 
