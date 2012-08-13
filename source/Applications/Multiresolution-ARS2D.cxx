@@ -187,6 +187,13 @@ int main(int argc, char ** argv)
     filter->Init();
     double tmpSegU,tmpSegP,tmpCoh;
     int tmpSegL,tmpRegL;
+    //store original parameters
+    tmpSegU=filterConfig.unarySegmentationWeight;
+    tmpSegP=filterConfig.pairwiseSegmentationWeight;
+    tmpCoh=filterConfig.pairwiseCoherenceWeight;
+    tmpRegL=filterConfig.maxDisplacement;
+    tmpSegL=filterConfig.nSegmentations;
+
     DeformationFieldPointerType intermediateDeformation;
     ImagePointerType intermediateSegmentation;
     double lastSegEnergy=10000;
@@ -196,30 +203,24 @@ int main(int argc, char ** argv)
         filter->setBulkTransform(transf);
         if (iteration == 0){
             //start with pure registration by setting seg and coh weights to zero
-            tmpSegU=filterConfig.unarySegmentationWeight;
             filterConfig.unarySegmentationWeight=0;
-            tmpSegP=filterConfig.pairwiseSegmentationWeight;
             filterConfig.pairwiseSegmentationWeight=0;
-            tmpCoh=filterConfig.pairwiseCoherenceWeight;
             filterConfig.pairwiseCoherenceWeight=0;
         }else{
             filter->setTargetSegmentation(intermediateSegmentation);
         }
-        tmpSegL=filterConfig.nSegmentations;
         filterConfig.nSegmentations=1;
         filter->Update();
         double regEnergy=filter->getEnergy();
         intermediateDeformation=filter->getFinalDeformation();
         filterConfig.nSegmentations=tmpSegL;
-        if (iteration == 0){
-            //reset weights
-            filterConfig.unarySegmentationWeight= tmpSegU;
-            filterConfig.pairwiseSegmentationWeight=tmpSegP;
-            filterConfig.pairwiseCoherenceWeight=tmpCoh;
-        }
+        //reset weights
+        filterConfig.unarySegmentationWeight= tmpSegU;
+        filterConfig.pairwiseSegmentationWeight=tmpSegP;
+        filterConfig.pairwiseCoherenceWeight=tmpCoh*pow(filterConfig.coherenceMultiplier,iteration);
+
         filter->setTargetSegmentation(NULL);
         filter->setBulkTransform(intermediateDeformation);
-        tmpRegL=filterConfig.maxDisplacement;
         filterConfig.maxDisplacement=0;
         filter->Update();
         double segEnergy=filter->getEnergy();

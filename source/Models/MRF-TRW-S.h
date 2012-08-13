@@ -133,18 +133,21 @@ public:
                     for (int d=0;d<nRegNodes;++d){
                         double pot=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1);
                         //in case of coherence weight, but no direct segmentation optimization, add coherence potential to registration unaries
-                        if (false && m_coherence && !m_segment){
+                        if (m_coherence && !m_segment){
                             //pretty inefficient as the reg neighbors are recomputed #registrationLabels times for each registration node.
                             std::vector<int> regSegNeighbors=this->m_GraphModel->getRegSegNeighbors(d);
                             int nNeighbours=regSegNeighbors.size();
                             if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
                             for (int i=0;i<nNeighbours;++i){
-                                pot+=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],l1,0);
+                               double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],l1,0);
+                               LOGV(10)<<VAR(d)<<" "<<VAR(l1)<<" "<<VAR(pot)<<" "<<VAR(coherencePot)<<endl;
+                               pot+=coherencePot;
                                 
                             }
-                            m_optimizer.SetNodeDataPos(regNodes[d],l1,pot);
-                            
+                          
                         }
+                        m_optimizer.SetNodeDataPos(regNodes[d],l1,pot);
+                        
                     }
                 }
             

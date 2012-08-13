@@ -445,7 +445,7 @@ namespace itk{
                                                           m_config->pairwiseRegistrationWeight, 
                                                           m_config->unarySegmentationWeight,
                                                           m_config->pairwiseSegmentationWeight,
-                                                          m_config->pairwiseCoherenceWeight,
+                                                          m_config->pairwiseCoherenceWeight*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
                         }else if (m_config->GCO){
                             typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
@@ -454,7 +454,7 @@ namespace itk{
                                                           m_config->pairwiseRegistrationWeight, 
                                                           m_config->unarySegmentationWeight,
                                                           m_config->pairwiseSegmentationWeight,
-                                                          m_config->pairwiseCoherenceWeight,
+                                                          m_config->pairwiseCoherenceWeight*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
                         }
 
@@ -596,7 +596,7 @@ namespace itk{
             typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
             ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-            nSegmentations=FilterUtils<ImageType>::getMax(segmentationImage);
+            //nSegmentations=FilterUtils<ImageType>::getMax(segmentationImage);
             double multiplier;
             if (nSegmentations<=1){
                 multiplier=std::numeric_limits<PixelType>::max();
