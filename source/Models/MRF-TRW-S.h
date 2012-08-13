@@ -52,7 +52,7 @@ protected:
     clock_t m_start;
     int nRegLabels;
     int nSegLabels;
-    bool m_segmented, m_registered;
+    bool m_segment, m_register,m_coherence;
     double m_lastLowerBound;
 public:
 	TRWS_SRSMRFSolver(GraphModelPointerType  graphModel,
@@ -84,10 +84,10 @@ public:
 	virtual void createGraph(){
         clock_t start = clock();
         {
-            m_segmented=false; 
-            m_registered=false;
-            m_segmented=0;
-            m_registered=0;
+            m_segment=false; 
+            m_register=false;
+            m_segment=0;
+            m_register=0;
         }
         LOGV(1)<<"starting graph init"<<std::endl;
         m_optimizer=MRFType(TRWType::GlobalSize());
@@ -109,26 +109,15 @@ public:
         int edgeCount=0;
         nRegLabels=this->m_GraphModel->nRegLabels();
         nSegLabels=this->m_GraphModel->nSegLabels();
-        m_registered=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0));
-        m_segmented=(m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  ;
-        
+        m_register=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels>1);
+        m_segment=((m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  && nSegLabels>1);
+        m_coherence=m_pairwiseSegmentationRegistrationWeight>0;
         logSetStage("Potential functions caching");
 		//		traverse grid
-        if ( m_registered){
+        if (m_register){
             //RegUnaries
             clock_t startUnary = clock();
-            //#define moarcaching
-#ifdef moarcaching
-            for (int d=0;d<nRegNodes;++d){
-                TRWType::REAL D1[nRegLabels];
-                for (int l1=0;l1<nRegLabels;++l1)
-                    {
-                        D1[l1]=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1);
-                    }
-                regNodes[d] = m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
-            }
 
-#else
             TRWType::REAL D1[nRegLabels];
             //
             for (int l1=0;l1<nRegLabels;++l1) D1[l1]=0;
@@ -138,16 +127,27 @@ public:
                     m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
             }
             //now compute&set all potentials
-            if (m_unaryRegistrationWeight>0){
-                for (int l1=0;l1<nRegLabels;++l1)
-                    {
-                        this->m_GraphModel->cacheRegistrationPotentials(l1);
-                        for (int d=0;d<nRegNodes;++d){
-                            m_optimizer.SetNodeDataPos(regNodes[d],l1,m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1));
+            for (int l1=0;l1<nRegLabels;++l1)
+                {
+                    this->m_GraphModel->cacheRegistrationPotentials(l1);
+                    for (int d=0;d<nRegNodes;++d){
+                        double pot=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1);
+                        //in case of coherence weight, but no direct segmentation optimization, add coherence potential to registration unaries
+                        if (false && m_coherence && !m_segment){
+                            //pretty inefficient as the reg neighbors are recomputed #registrationLabels times for each registration node.
+                            std::vector<int> regSegNeighbors=this->m_GraphModel->getRegSegNeighbors(d);
+                            int nNeighbours=regSegNeighbors.size();
+                            if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
+                            for (int i=0;i<nNeighbours;++i){
+                                pot+=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],l1,0);
+                                
+                            }
+                            m_optimizer.SetNodeDataPos(regNodes[d],l1,pot);
+                            
                         }
                     }
-            }
-#endif
+                }
+            
             TRWType::REAL Vreg[nRegLabels*nRegLabels];
             for (int l1=0;l1<nRegLabels;++l1){
                 for (int l2=0;l2<nRegLabels;++l2){
@@ -192,15 +192,21 @@ public:
 
             tPairwise+=t;
         }
-        if ( m_segmented){
+        if (m_segment){
             //SegUnaries
             clock_t startUnary = clock();
             TRWType::REAL D2[nSegLabels];
             for (int d=0;d<nSegNodes;++d){
+                std::vector<int> segRegNeighbors=this->m_GraphModel->getSegRegNeighbors(d);
                 for (int l1=0;l1<nSegLabels;++l1)
                     {
                         D2[l1]=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1);
-                        //  LOG<<d<<" "<< D2[l1] <<std::endl;
+                        //in case of coherence weight, but no direct registration optimization, add coherence potential to registration unaries
+                        if (m_coherence && !m_register){
+                            for (int i=0;i<segRegNeighbors.size();++i){
+                                D2[l1]+=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(segRegNeighbors[i],d,0,l1);
+                            }
+                        }
                     }
                 segNodes[d] = 
                     m_optimizer.AddNode(TRWType::LocalSize(nSegLabels), TRWType::NodeData(D2));
@@ -233,7 +239,7 @@ public:
                     edgeCount++;
                     
                 }
-                if (m_registered){
+                if (m_register && m_coherence){
                     std::vector<int> segRegNeighbors=this->m_GraphModel->getSegRegNeighbors(d);
                     nNeighbours=segRegNeighbors.size();
                     if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
@@ -322,9 +328,8 @@ public:
     }
     virtual std::vector<int> getDeformationLabels(){
         std::vector<int> labels(nRegNodes,0);
-        if (m_registered){
+        if (m_register){
             for (int i=0;i<nRegNodes;++i){
-
                 labels[i]=m_optimizer.GetSolution(regNodes[i]);
             }
         }
@@ -332,7 +337,7 @@ public:
     }
     virtual std::vector<int> getSegmentationLabels(){
         std::vector<int> labels(nSegNodes,0);
-        if (m_segmented){
+        if (m_segment){
             for (int i=0;i<nSegNodes;++i){
                 labels[i]=m_optimizer.GetSolution(segNodes[i]);
                 //labels[i]=this->m_GraphModel->getUnarySegmentationPotential(i,1)*nSegNodes;//m_optimizer.GetSolution(segNodes[i]);
@@ -415,10 +420,10 @@ public:
         }else{
             clock_t start = clock();
             {
-                this->m_segmented=false; 
-                this->m_registered=false;
-                this->m_segmented=0;
-                this->m_registered=0;
+                this->m_segment=false; 
+                this->m_register=false;
+                this->m_segment=0;
+                this->m_register=0;
             }
             LOGV(1)<<"starting graph init"<<std::endl;
             
@@ -439,7 +444,7 @@ public:
             if ( (this->m_pairwiseSegmentationRegistrationWeight || this->m_unaryRegistrationWeight>0 || this->m_pairwiseRegistrationWeight>0) && this->nRegLabels){
                 //RegUnaries
                 clock_t startUnary = clock();
-                this->m_registered=true;
+                this->m_register=true;
                 TRWType::REAL D1[this->nRegLabels];
 
                 //now compute&set all potentials
@@ -497,7 +502,7 @@ public:
                 tPairwise+=t;
             }
             if ( (this->m_pairwiseSegmentationRegistrationWeight || this->m_unarySegmentationWeight>0 || this->m_pairwiseSegmentationWeight) && this->nSegLabels){
-                this->m_segmented=true;
+                this->m_segment=true;
                 //SegUnaries
                 clock_t startUnary = clock();
               
@@ -569,7 +574,7 @@ protected:
     clock_t m_start;
     int nRegLabels;
     int nSegLabels;
-    bool m_segmented, m_registered;
+    bool m_segment, m_register;
 public:
 	TRWS_SRSMRFSolverTruncQuadrat2D(GraphModelType * graphModel,
                                     double unaryRegWeight=1.0, 
@@ -600,10 +605,10 @@ public:
     virtual void createGraph(){
         clock_t start = clock();
         {
-            m_segmented=false; 
-            m_registered=false;
-            m_segmented=0;
-            m_registered=0;
+            m_segment=false; 
+            m_register=false;
+            m_segment=0;
+            m_register=0;
         }
         LOGV(1)<<"starting graph init"<<std::endl;
         this->m_GraphModel->Init();
@@ -627,7 +632,7 @@ public:
         //		traverse grid
         if ( (m_pairwiseSegmentationRegistrationWeight || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels){
             //RegUnaries
-            m_registered=true;
+            m_register=true;
             clock_t startUnary = clock();
 
             TRWType::REAL D1[nRegLabels];
@@ -700,7 +705,7 @@ public:
 
     virtual std::vector<int> getDeformationLabels(){
         std::vector<int> labels(nRegNodes,0);
-        if (m_registered){
+        if (m_register){
             for (int i=0;i<nRegNodes;++i){
                 TRWType::Label l=m_optimizer.GetSolution(regNodes[i]);
                 labels[i]=l.m_kx+l.m_ky*(2*LabelMapperType::nDisplacementSamples+1);
@@ -710,7 +715,7 @@ public:
     }
     virtual std::vector<int> getSegmentationLabels(){
         std::vector<int> labels(nSegNodes,0);
-        if (m_segmented){
+        if (m_segment){
             for (int i=0;i<nSegNodes;++i){
                 //labels[i]=m_optimizer.GetSolution(segNodes[i]);
                 //labels[i]=this->m_GraphModel->getUnarySegmentationPotential(i,1)*nSegNodes;//m_optimizer.GetSolution(segNodes[i]);
@@ -784,7 +789,7 @@ protected:
     clock_t m_start;
     int nRegLabels;
     int nSegLabels;
-    bool m_segmented, m_registered;
+    bool m_segment, m_register;
 public:
 	TRWS_SRSMRFSolverTruncQuadrat3D(GraphModelType * graphModel,
                                     double unaryRegWeight=1.0, 
@@ -815,10 +820,10 @@ public:
     virtual void createGraph(){
         clock_t start = clock();
         {
-            m_segmented=false; 
-            m_registered=false;
-            m_segmented=0;
-            m_registered=0;
+            m_segment=false; 
+            m_register=false;
+            m_segment=0;
+            m_register=0;
         }
         LOGV(1)<<"Computing potential functions and setting up MRF."<<std::endl;
         this->m_GraphModel->Init();
@@ -842,7 +847,7 @@ public:
         //		traverse grid
         if ( (m_pairwiseSegmentationRegistrationWeight || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels){
             //RegUnaries
-            m_registered=true;
+            m_register=true;
             clock_t startUnary = clock();
 
             TRWType::REAL D1[nRegLabels];
@@ -878,7 +883,7 @@ public:
             
         }
         if ( (m_pairwiseSegmentationRegistrationWeight || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight) && nSegLabels){
-            m_segmented=true;
+            m_segment=true;
             //SegUnaries
             TRWType::REAL D2[nSegLabels];
             for (int d=0;d<nSegNodes;++d){
@@ -971,7 +976,7 @@ public:
     virtual std::vector<int> getDeformationLabels(){
         std::vector<int> labels(nRegNodes,0);
         int fac=2*LabelMapperType::nDisplacementSamples+1;
-        if (m_registered){
+        if (m_register){
             for (int i=0;i<nRegNodes;++i){
                 TRWType::Label l=m_optimizer.GetSolution(regNodes[i]);
                 labels[i]=l.m_kx+l.m_ky*(fac)+l.m_kz*fac*fac;
@@ -981,7 +986,7 @@ public:
     }
     virtual std::vector<int> getSegmentationLabels(){
         std::vector<int> labels(nSegNodes,0);
-        if (m_segmented){
+        if (m_segment){
             for (int i=0;i<nSegNodes;++i){
                 //labels[i]=m_optimizer.GetSolution(segNodes[i]);
                 //labels[i]=this->m_GraphModel->getUnarySegmentationPotential(i,1)*nSegNodes;//m_optimizer.GetSolution(segNodes[i]);

@@ -667,6 +667,9 @@ public:
 
     
     static InputImagePixelType getMax(InputImagePointer img){
+        return getMax(ConstInputImagePointer(img));
+    }
+    static InputImagePixelType getMax(ConstInputImagePointer img){
         typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
         filter->SetInput(img);
         filter->Update();

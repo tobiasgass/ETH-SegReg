@@ -508,7 +508,7 @@ namespace itk{
             }
             return neighbours;
         }
-        std::vector<int>  getForwardSegRegNeighbours(int index){            
+        std::vector<int>  getRegSegNeighbors(int index){            
             IndexType imagePosition=getImageIndexFromCoarseGraphIndex(index);
             std::vector<int> neighbours;
             m_targetNeighborhoodIterator.SetLocation(imagePosition);
@@ -764,6 +764,8 @@ namespace itk{
 
 
     };
+
+    
 }//namespace
 
 #endif /* GRIm_dim_H_ */

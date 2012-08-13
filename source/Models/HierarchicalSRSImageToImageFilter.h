@@ -282,7 +282,7 @@ namespace itk{
             //start pyramid
             //asm volatile("" ::: "memory");
             DeformationFieldPointerType deformation;
-            ImagePointerType segmentation;
+            ImagePointerType segmentation=NULL;
             if (coherence){
                 deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
                 //m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config->nSegmentations);
@@ -553,11 +553,11 @@ namespace itk{
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<m_config->segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
                         if (ImageType::ImageDimension==2){
-                            if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
+                            if (segment && segmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
                             if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
                         }
                         if (ImageType::ImageDimension==3){
-                            if (segment) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
+                            if (segment  && segmentation.IsNotNull() ) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
                             if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
                         }
                         //deformation
@@ -596,10 +596,14 @@ namespace itk{
             typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
             ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-            double multiplier=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
-            if (!nSegmentations){
+            nSegmentations=FilterUtils<ImageType>::getMax(segmentationImage);
+            double multiplier;
+            if (nSegmentations<=1){
                 multiplier=std::numeric_limits<PixelType>::max();
+            }else{
+                multiplier=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
             }
+
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
                 //LOG<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
                 imageIt2.Set(imageIt.Get()*multiplier);
