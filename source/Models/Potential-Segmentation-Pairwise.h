@@ -209,7 +209,7 @@ namespace itk{
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
 #if 1
             m_classifier->train();
-            m_classifier->saveProbs("segmentationPairwise.probs");
+            //m_classifier->saveProbs("segmentationPairwise.probs");
 #else
             //m_classifier->loadProbs("segmentationPairwise.probs");
 #endif
@@ -271,8 +271,10 @@ namespace itk{
                 caster->Update();
                 ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
             }else{
+                if (false){
                 ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
                 ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
+                }
             }
         }
 #endif

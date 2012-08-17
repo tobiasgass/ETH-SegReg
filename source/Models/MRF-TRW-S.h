@@ -54,6 +54,7 @@ protected:
     int nSegLabels;
     bool m_segment, m_register,m_coherence;
     double m_lastLowerBound;
+    vector<int> m_labelOrder;
 public:
 	TRWS_SRSMRFSolver(GraphModelPointerType  graphModel,
                       double unaryRegWeight=1.0, 
@@ -70,6 +71,14 @@ public:
         m_unaryRegistrationWeight=unaryRegWeight;
         m_pairwiseRegistrationWeight=pairwiseRegWeight;
         m_pairwiseSegmentationRegistrationWeight=pairwiseSegRegWeight;
+        m_labelOrder=vector<int>(this->m_GraphModel->nRegLabels());
+        m_labelOrder[0]=(this->m_GraphModel->nRegLabels())/2;
+        for (int l=0;l<(this->m_GraphModel->nRegLabels());++l){
+            if (l < m_labelOrder[0])
+                m_labelOrder[l+1]=l;
+            else if (l>m_labelOrder[0])
+                m_labelOrder[l]=l;
+        }
         //createGraph();
         //init();
     }
@@ -112,6 +121,7 @@ public:
         m_register=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels>1);
         m_segment=((m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  && nSegLabels>1);
         m_coherence=m_pairwiseSegmentationRegistrationWeight>0;
+        LOGV(6)<<VAR(m_register)<<" "<<VAR(m_segment)<<" "<<VAR(m_coherence)<<endl;
         logSetStage("Potential functions caching");
 		//		traverse grid
         if (m_register){
@@ -129,9 +139,13 @@ public:
             //now compute&set all potentials
             for (int l1=0;l1<nRegLabels;++l1)
                 {
-                    this->m_GraphModel->cacheRegistrationPotentials(l1);
+                    int regLabel=m_labelOrder[l1];
+                    LOGV(9)<<VAR(regLabel)<<" "<<VAR(l1)<<endl;
+                    this->m_GraphModel->cacheRegistrationPotentials(regLabel);
                     for (int d=0;d<nRegNodes;++d){
-                        double pot=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1);
+                        double pot=this->m_GraphModel->getUnaryRegistrationPotential(d,regLabel);
+                        LOGV(10)<<VAR(pot)<<" "<<VAR(m_unaryRegistrationWeight)<<endl;
+                        pot*=m_unaryRegistrationWeight;
                         //in case of coherence weight, but no direct segmentation optimization, add coherence potential to registration unaries
                         if (m_coherence && !m_segment){
                             //pretty inefficient as the reg neighbors are recomputed #registrationLabels times for each registration node.
@@ -139,14 +153,14 @@ public:
                             int nNeighbours=regSegNeighbors.size();
                             if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
                             for (int i=0;i<nNeighbours;++i){
-                               double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],l1,0);
-                               LOGV(10)<<VAR(d)<<" "<<VAR(l1)<<" "<<VAR(pot)<<" "<<VAR(coherencePot)<<endl;
+                               double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],regLabel,0);
+                               LOGV(10)<<VAR(d)<<" "<<VAR(regLabel)<<" "<<VAR(pot)<<" "<<VAR(coherencePot)<<endl;
                                pot+=coherencePot;
                                 
                             }
                           
                         }
-                        m_optimizer.SetNodeDataPos(regNodes[d],l1,pot);
+                        m_optimizer.SetNodeDataPos(regNodes[d],regLabel,pot);
                         
                     }
                 }

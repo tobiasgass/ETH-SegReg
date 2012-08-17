@@ -404,6 +404,9 @@ namespace itk{
                             m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
                         }
                         m_pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+
+                        //when switching levels of multiresolution, compute normalization factor to equalize the effect of smaller patches in the reg unary.
+                        m_unaryRegistrationPot->setNormalize(i==0 && l>0);
                     }
                     if (coherence){
                         m_pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
@@ -441,11 +444,11 @@ namespace itk{
                         if (m_config->TRW){
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                             mrfSolver = new MRFSolverType(graph,
-                                                          m_config->unaryRegistrationWeight,
+                                                          m_config->unaryRegistrationWeight,///pow(sqrt(2.0),l),
                                                           m_config->pairwiseRegistrationWeight, 
                                                           m_config->unarySegmentationWeight,
                                                           m_config->pairwiseSegmentationWeight,
-                                                          m_config->pairwiseCoherenceWeight*pow( m_config->coherenceMultiplier,l),
+                                                          m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
                         }else if (m_config->GCO){
                             typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
@@ -454,7 +457,7 @@ namespace itk{
                                                           m_config->pairwiseRegistrationWeight, 
                                                           m_config->unarySegmentationWeight,
                                                           m_config->pairwiseSegmentationWeight,
-                                                          m_config->pairwiseCoherenceWeight*pow( m_config->coherenceMultiplier,l),
+                                                          m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
                         }
 

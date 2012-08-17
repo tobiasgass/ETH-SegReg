@@ -1033,6 +1033,7 @@ namespace itk{
         typedef FastUnaryPotentialRegistrationNCC            Self;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
+        typedef UnaryPotentialRegistrationNCC<TLabelMapper,TImage> Superclass;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -1068,15 +1069,24 @@ namespace itk{
         LabelType currentActiveDisplacement;
         FloatImagePointerType currentCachedPotentials;
         ImagePointerType m_coarseImage;
+        double m_averageFixedPotential,m_oldAveragePotential;
+        double m_normalizationFactor;
+        bool m_normalize;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(FastRegistrationUnaryPotentialNCC, Object);
         
+        FastUnaryPotentialRegistrationNCC():Superclass(){
+            m_normalizationFactor=1.0;
+            m_normalize=false;
+            
+        }
         virtual void compute(){
             //LOG<<"DEPRECATED, too memory intensive!!"<<endl;
             m_potentials=std::vector<FloatImagePointerType>(m_displacements.size(),NULL);
+            m_averageFixedPotential=0;
             for (unsigned int n=0;n<m_displacements.size();++n){
                 LOGV(9)<<"cachhing unary registrationpotentials for label " <<n<<endl;
                 FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(m_coarseImage);
@@ -1090,20 +1100,33 @@ namespace itk{
                 m_atlasNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedAtlas,deformedAtlas->GetLargestPossibleRegion());
                 m_maskNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedMask,deformedMask->GetLargestPossibleRegion());
                 FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
-                for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator){
+                for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator)
+                    {
                     IndexType coarseIndex=coarseIterator.GetIndex();
                     PointType point;
                     m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
                     IndexType targetIndex;
                     this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
-                    coarseIterator.Set(getLocalPotential(targetIndex));
+                    double localPot=getLocalPotential(targetIndex);
+                    coarseIterator.Set(localPot);
+                    if (n==m_displacements.size()/2){
+                        m_averageFixedPotential+=localPot;
+                    }
 
                 }
                 m_potentials[n]=pot;
-                            
             }
+           
         }
+        void setNormalize(bool b){m_normalize=b;}
+
         void cachePotentials(LabelType displacement){
+            LabelType zeroDisp;
+            zeroDisp.Fill(0.0);
+            //compute average potential for zero displacement.
+            bool computeAverage=(displacement == zeroDisp);
+            m_averageFixedPotential=computeAverage?0.0:m_averageFixedPotential;
+
             FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(m_coarseImage);
             LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
             translation->FillBuffer( displacement);
@@ -1121,11 +1144,23 @@ namespace itk{
                 m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
                 IndexType targetIndex;
                 this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
-                coarseIterator.Set(getLocalPotential(targetIndex));
-                
+                double localPot=getLocalPotential(targetIndex);
+                coarseIterator.Set(localPot);
+                if (computeAverage)
+                    m_averageFixedPotential+=localPot;
+               
             }
             currentCachedPotentials=pot;
             currentActiveDisplacement=displacement;
+
+            if (computeAverage){
+                m_averageFixedPotential/= m_coarseImage->GetBufferedRegion().GetNumberOfPixels();
+                if (m_normalize){
+                    m_normalizationFactor= m_normalizationFactor*m_oldAveragePotential/m_averageFixedPotential;
+                }
+                LOGV(3)<<VAR(m_normalizationFactor)<<endl;
+                m_oldAveragePotential=m_averageFixedPotential;
+            }
         }
         void setDisplacements(std::vector<LabelType> displacements){
             m_displacements=displacements;
@@ -1138,7 +1173,7 @@ namespace itk{
         }
         virtual double getPotential(IndexType coarseIndex){
             //LOG<<"NEW BEHAVIOUR!"<<endl;
-            return currentCachedPotentials->GetPixel(coarseIndex);
+            return  m_normalizationFactor*currentCachedPotentials->GetPixel(coarseIndex);
         }
         virtual double getPotential(IndexType coarseIndex, LabelType l){
             LOG<<"ERROR NEVER CALL THIS"<<endl;
@@ -1250,7 +1285,7 @@ namespace itk{
                 bool inBounds;
                 double m=this->m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
                 insideCount+=inBounds;
-                bool inside=true;//this->m_maskNeighborhoodIterator.GetPixel(i);
+                bool inside=this->m_maskNeighborhoodIterator.GetPixel(i);
                 if (inside && inBounds){
                     double f=this->nIt.GetPixel(i);
                     this->m_scaledTargetImage->TransformIndexToPhysicalPoint(this->nIt.GetIndex(i),neighborPoint);
