@@ -272,9 +272,78 @@ namespace itk{
                 result=dist/m_minDists[segmentationLabel];
             }
             result*=result;
+            if (segmentationLabel && segmentationLabel<this->m_nSegmentationLabels-1){
+                result=min(1.0,result);
+                //                result*=0.25;
+            }
             return result;
         }
     };//class
+    template<class TImage>
+    class PairwisePotentialSigmoidCoherence :public PairwisePotentialCoherence<TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialSigmoidCoherence            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        
+        typedef typename  itk::Vector<float,ImageType::ImageDimension>  LabelType;
+        typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
+        typedef typename LabelImageType::Pointer LabelImagePointerType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
+        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
+
+        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
+        typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
+        
+        typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
+ 
+    public:
+        itkNewMacro(Self);
+
+  //edge from registration to segmentation
+        inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
+            double result=0;
+            ContinuousIndexType idx2(targetIndex2);
+            itk::Vector<float,ImageType::ImageDimension> disp=displacement;
+
+            typename ImageType::PointType p;
+            this->m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,p);
+            p +=disp;//+this->m_baseLabelMap->GetPixel(targetIndex1);
+            this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p,idx2);
+            int deformedAtlasSegmentation=-1;
+            if (!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
+                for (int d=0;d<ImageType::ImageDimension;++d){
+                    if (idx2[d]>=this->m_atlasSegmentationInterpolator->GetEndContinuousIndex()[d]){
+                        idx2[d]=this->m_atlasSegmentationInterpolator->GetEndContinuousIndex()[d]-0.5;
+                    }
+                    else if (idx2[d]<this->m_atlasSegmentationInterpolator->GetStartContinuousIndex()[d]){
+                        idx2[d]=this->m_atlasSegmentationInterpolator->GetStartContinuousIndex()[d]+0.5;
+                    }
+                }
+            }
+            deformedAtlasSegmentation=int(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+            if (segmentationLabel!=deformedAtlasSegmentation){ 
+                double dist=this->m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);
+                result=dist-this->m_minDists[segmentationLabel];
+            }
+            
+            return 4.0/(1.0+exp(-result));
+        }
+    };//class
+
 
     template<class TImage>
     class PairwisePotentialBoneCoherence :public PairwisePotentialCoherence<TImage>{

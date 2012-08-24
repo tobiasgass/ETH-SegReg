@@ -340,11 +340,9 @@ namespace itk{
             if (label1==label2) return 0;
             //always penalize secondary-to-primary label
             double gradientCost;
-            double factor=5.0;
+            double factor=1.0;
             if (  ((label1==2 &&label2 ) || (label2 == 2 && label1)) ) {
-                factor=2.0;
-            }else if (label1==1 || label2 ==1){
-                factor = 0;
+                factor=0.25;
             }
                 
             {
@@ -372,7 +370,7 @@ namespace itk{
                 //LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
             }
             //return 1.0+1000.0*factor*gradientCost;
-            return gradientCost;
+            return factor*gradientCost;
         }
     };//class
   template<class TImage>

@@ -48,7 +48,7 @@ protected:
     clock_t m_start;
     int nRegLabels;
     int nSegLabels;
-    bool m_segmented, m_registered;
+    bool m_segment, m_register,m_coherence;
     double m_lastLowerBound;
     Functor * smoothCostFunctor;
 
@@ -156,10 +156,10 @@ public:
 	virtual void createGraph(){
         clock_t start = clock();
         {
-            m_segmented=false; 
-            m_registered=false;
-            m_segmented=0;
-            m_registered=0;
+            m_segment=false; 
+            m_register=false;
+            m_segment=0;
+            m_register=0;
         }
         LOGV(1)<<"starting graph init"<<std::endl;
         this->m_GraphModel->Init();
@@ -178,12 +178,13 @@ public:
         
         nRegLabels=this->m_GraphModel->nRegLabels();
         nSegLabels=this->m_GraphModel->nSegLabels();
-        m_registered=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0));
-        m_segmented=(m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  ;
-        GLOBALnRegNodes= m_registered*nRegNodes;
-        GLOBALnSegNodes= m_segmented*nSegNodes;
-        GLOBALnRegLabels=m_registered*nRegLabels;
-        GLOBALnSegLabels=m_segmented*nSegLabels;
+        m_register=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels>1);
+        m_segment=((m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  && nSegLabels>1);
+        m_coherence=m_pairwiseSegmentationRegistrationWeight>0;
+        GLOBALnRegNodes= m_register*nRegNodes;
+        GLOBALnSegNodes= m_segment*nSegNodes;
+        GLOBALnRegLabels=m_register*nRegLabels;
+        GLOBALnSegLabels=m_segment*nSegLabels;
         LOGV(5)<<VAR(GLOBALnRegNodes)<<" "<<VAR(GLOBALnRegLabels)<<" "<<VAR(GLOBALnSegNodes)<<" "<<VAR(GLOBALnSegLabels)<<endl;
         
         if (m_optimizer) delete m_optimizer;
@@ -197,7 +198,7 @@ public:
 
         logSetStage("Potential Functions");
 		//		traverse grid
-        if ( m_registered){
+        if ( m_register){
             //RegUnaries
             clock_t startUnary = clock();
             
@@ -210,6 +211,16 @@ public:
                         for (int d=0;d<nRegNodes;++d){
                             costs[d].site=d;
                             costs[d].cost=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1);
+                            if (m_coherence && !m_segment){
+                                //pretty inefficient as the reg neighbors are recomputed #registrationLabels times for each registration node.
+                                std::vector<int> regSegNeighbors=this->m_GraphModel->getRegSegNeighbors(d);
+                                int nNeighbours=regSegNeighbors.size();
+                                if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
+                                for (int i=0;i<nNeighbours;++i){
+                                    double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],l1,0);
+                                    costs[d].cost+=coherencePot;
+                                }
+                            }
                         }
                         m_optimizer->setDataCost(l1,costs,nRegNodes);
                     }
@@ -253,7 +264,7 @@ public:
 
             tPairwise+=t;
         }
-        if (m_segmented){
+        if (m_segment){
             //SegUnaries
             clock_t startUnary = clock();
             for (int l1=0;l1<nSegLabels;++l1)
@@ -268,6 +279,9 @@ public:
                     for (int d=0;d<nSegNodes;++d){
                         costas[d].cost=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1);
                         costas[d].site=d+GLOBALnRegNodes;
+                        if (m_coherence && !m_register){
+                            costas[d].cost+=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
+                        }
                     }
                     m_optimizer->setDataCost(l1+GLOBALnRegLabels,&costas[0],GLOBALnSegNodes);
                 }
@@ -313,7 +327,7 @@ public:
                     }
                     
                 }
-                if (m_registered){
+                if (m_register && m_coherence){
                     std::vector<int> segRegNeighbors=this->m_GraphModel->getSegRegNeighbors(d);
                     nNeighbours=segRegNeighbors.size();
                     if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
@@ -413,7 +427,7 @@ public:
     }
     virtual std::vector<int> getDeformationLabels(){
         std::vector<int> Labels(GLOBALnRegNodes,0);
-        if (m_registered){
+        if (m_register){
             for (int i=0;i<GLOBALnRegNodes;++i){
                 Labels[i]=m_optimizer->whatLabel(i);
                 LOGV(20)<<"DEF "<<VAR(i)<<" "<<VAR(Labels[i])<<endl;
@@ -423,7 +437,7 @@ public:
     }
     virtual std::vector<int> getSegmentationLabels(){
         std::vector<int> Labels(GLOBALnSegNodes,0);
-        if (m_segmented){
+        if (m_segment){
             for (int i=0;i<GLOBALnSegNodes;++i){
                 Labels[i]=max(0,m_optimizer->whatLabel(i+GLOBALnRegNodes)-GLOBALnRegLabels);
                 LOGV(20)<<"SEG "<<VAR(i)<<" "<<VAR(Labels[i])<<endl;
