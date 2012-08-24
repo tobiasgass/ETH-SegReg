@@ -848,8 +848,17 @@ namespace itk{
         itkNewMacro(Self);
 
         HandcraftedBoneSegmentationClassifierMarcel(){
-            bone=(100+1000)*255.0/2000;
-            tissue=(-500+1000)*255.0/2000;
+            bone=(300);//+1000)*255.0/2000;
+            tissue=(-500);//+1000)*255.0/2000;
+            if (numeric_limits<PixelType>::min() == 0){
+                bone+=1000;
+                tissue+=1000;
+            }
+            if (numeric_limits<PixelType>::max() == 256){
+                bone=255.0*bone/2000;
+                tissue=255.0*tissue/2000;
+            }
+            
         };
         virtual void setNIntensities(int n){
             m_nIntensities=n;
@@ -874,8 +883,8 @@ namespace itk{
             return intensity;
         }
         virtual double px_l(float imageIntensity,int segmentationLabel, int s){
-            int bone=(300+1000)*255.0/2000;
-            int tissue=(-500+1000)*255.0/2000;
+            //int bone=(300+1000)*255.0/2000;
+            //int tissue=(-500+1000)*255.0/2000;
             double segmentationProb=1;
             if (segmentationLabel>0) {
                 if (imageIntensity < tissue)
@@ -1106,10 +1115,10 @@ namespace itk{
                             off[d]+=1;
                             //    LOG<<d<<" "<<i<<" "<<idx+off<<" "<<intensities->GetLargestPossibleRegion().GetSize()<<endl;
                             int grad1=gradient->GetPixel(idx);
-                            int label1=labels->GetPixel(idx)>0;
+                            int label1=labels->GetPixel(idx);
                             int intens1=mapIntensity(ImageIterator.Get());
                             int grad2=gradient->GetPixel(idx+off);
-                            int label2=labels->GetPixel(idx+off)>0;
+                            int label2=labels->GetPixel(idx+off);
                             int intens2=mapIntensity(intensities->GetPixel(idx+off));
                             data(i,0)=fabs(intens1-intens2);
                             data(i,1)=fabs(grad1-grad2);
@@ -1185,6 +1194,9 @@ namespace itk{
             return prob;
         }
         virtual void evalImage(ImageConstPointerType im, ImageConstPointerType gradient){
+#if 0
+
+            //this code was used in conjunction with the old probability caching
             ImagePointerType result0=ImageUtils<ImageType>::createEmpty(im);
             ImagePointerType result1=ImageUtils<ImageType>::createEmpty(im);
             typename itk::ImageRegionConstIterator<ImageType> it(im,im->GetLargestPossibleRegion());
@@ -1211,7 +1223,7 @@ namespace itk{
                     ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1);
      
                 }}
-            
+#endif
         }
          virtual void cachePotentials(ImageConstPointerType im,ImageConstPointerType grad){
 
@@ -1323,7 +1335,7 @@ namespace itk{
             myFile.write ((char*)(&this->m_probs[0]),2*this->m_nIntensities*this->m_nIntensities*sizeof(float) );
         }
 
-        virtual void train(){
+        virtual void train(string filename, bool train){
             LOG<<"reading config"<<std::endl;
             string confFile("/home/gasst/work/progs/rf/randomForest.conf");///home/gasst/work/progs/rf/src/randomForest.conf");
             HyperParameters hp;
@@ -1356,12 +1368,19 @@ namespace itk{
             hp.useSoftVoting = configFile.lookup("Forest.useSoftVoting");
             hp.saveForest = configFile.lookup("Forest.saveForest");
 
-            LOG<<"creating forest"<<std::endl;
-            m_Forest= new Forest(hp);
-            LOG<<"training forest"<<std::endl;
-            m_Forest->train(m_TrainData.getData(),m_TrainData.getLabels(),m_weights);
-            LOG<<"done"<<std::endl;
-            computeProbabilities();
+            if (train){
+                LOG<<"creating forest"<<std::endl;
+                m_Forest= new Forest(hp);
+                LOG<<"training forest"<<std::endl;
+                m_Forest->train(m_TrainData.getData(),m_TrainData.getLabels(),m_weights);
+                LOG<<"done"<<std::endl;
+                computeProbabilities();
+                m_Forest->save(filename);
+            }else{
+                m_Forest=new Forest(hp);
+                m_Forest->load(filename);
+                computeProbabilities();
+            }
         };
 
 

@@ -52,12 +52,13 @@ int main(int argc, char ** argv)
     //    typedef SegmentationGenerativeClassifierGradient<ImageType> ClassifierType;
     //typedef     SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifier<ImageType> ClassifierType;
+    //typedef HandcraftedBoneSegmentationClassifierMarcel<ImageType> ClassifierType;
     //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
     //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     
     //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
-    typedef SegmentationGMMClassifier<ImageType> ClassifierType;
+    //typedef SegmentationGMMClassifier<ImageType> ClassifierType;
     //typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     //pairwise seg
@@ -65,8 +66,8 @@ int main(int argc, char ** argv)
     typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
-    typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-    //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
+    //typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     //reg
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -114,14 +115,12 @@ int main(int argc, char ** argv)
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
         }else{
             targetGradient=Preprocessing<ImageType>::computeSheetness(targetImage);
-            LOGI(10,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));
                  
         }
         if (filterConfig.atlasGradientFilename!=""){
             atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
         }else{
             atlasGradient=Preprocessing<ImageType>::computeSheetness(atlasImage);
-            LOGI(10,ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient));
         }
         
         if (filterConfig.useTissuePrior){
@@ -155,7 +154,9 @@ int main(int argc, char ** argv)
             }
         }
     }
-   
+    LOGI(10,ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient));
+    LOGI(10,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));
+
 
     logResetStage;
     filter->setTargetImage(targetImage);

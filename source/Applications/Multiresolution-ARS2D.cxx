@@ -113,7 +113,7 @@ int main(int argc, char ** argv)
     if (filterConfig.segment){
         if (filterConfig.targetGradientFilename!=""){
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
-        }else{
+         }else{
             targetGradient=targetImage;
             ImageUtils<ImageType>::writeImage("targetsheetness.png",targetGradient);
         }
@@ -217,7 +217,7 @@ int main(int argc, char ** argv)
         //reset weights
         filterConfig.unarySegmentationWeight= tmpSegU;
         filterConfig.pairwiseSegmentationWeight=tmpSegP;
-        filterConfig.pairwiseCoherenceWeight=tmpCoh*pow(filterConfig.coherenceMultiplier,iteration);
+        filterConfig.pairwiseCoherenceWeight=tmpCoh;//*pow(filterConfig.coherenceMultiplier,iteration);
 
         filter->setTargetSegmentation(NULL);
         filter->setBulkTransform(intermediateDeformation);

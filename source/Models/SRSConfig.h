@@ -52,6 +52,7 @@ public:
     bool TRW,GCO;
     bool fullRegPairwise;
     double coherenceMultiplier;
+    bool dontNormalizeRegUnaries;
 private:
 	argstream * as;
 public:
@@ -103,6 +104,7 @@ public:
         GCO=false;
         fullRegPairwise=false;
         coherenceMultiplier=1.0;
+        dontNormalizeRegUnaries=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -204,7 +206,10 @@ public:
 		(*as) >> parameter ("sp", pairwiseSegmentationWeight,"weight for pairwise segmentation potentials", false);
 		(*as) >> parameter ("cp", pairwiseCoherenceWeight,"weight for coherence potential", false);
         (*as) >> parameter ("cm", coherenceMultiplier,"multiplier for increasing the coherence weight after one ars or srs iteration", false);
+
+
 		(*as) >> parameter ("ru", unaryRegistrationWeight,"weight for registration unary", false);
+        (*as) >> option ("dontNormRegUn", dontNormalizeRegUnaries,"deactivate normalization of registration unary potentials across multiresolution hirarchies");
 		(*as) >> parameter ("su", unarySegmentationWeight,"weight for segmentation unary", false);
         (*as) >> option ("fullRegistrationSmoothing",fullRegPairwise ,"Regularise composed deformation instead of regularizing just the current update. Leads to non-submodular function, and is thus not usable with GC optimization.");
 

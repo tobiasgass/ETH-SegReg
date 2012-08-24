@@ -242,7 +242,7 @@ namespace itk{
                 m_pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
                 m_pairwiseSegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
                 m_pairwiseSegmentationPot->SetNSegmentationLabels(2);//m_config->nSegmentations);
-                m_pairwiseSegmentationPot->Init();
+                m_pairwiseSegmentationPot->Init();//m_config->pairWiseProbsFilename,m_config->train);
                 m_pairwiseSegmentationPot->evalImage(m_targetImage,(ConstImagePointerType)m_targetGradientImage);
             }
             
@@ -406,7 +406,7 @@ namespace itk{
                         m_pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
 
                         //when switching levels of multiresolution, compute normalization factor to equalize the effect of smaller patches in the reg unary.
-                        m_unaryRegistrationPot->setNormalize(i==0 && l>0);
+                        if (! m_config->dontNormalizeRegUnaries) m_unaryRegistrationPot->setNormalize( i==0 && l>0);
                     }
                     if (coherence){
                         m_pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);

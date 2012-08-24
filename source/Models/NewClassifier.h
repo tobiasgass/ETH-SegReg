@@ -205,6 +205,7 @@ namespace itk{
         };
 
 
+
     };//class
      template<class ImageType>
     class SegmentationGMMClassifier: public itk::Object{

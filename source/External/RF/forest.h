@@ -47,8 +47,8 @@ public:
     std::vector<int> getPredictions() const { return m_predictions; };
     matrix<float> getConfidences() const { return m_confidences; };
 
-    void save(const std::string &name = "default");
-    void load(const std::string &name = "default");
+    void save(const std::string &name );
+    void load(const std::string &name );
 
     double oobe() const;
 

@@ -197,7 +197,7 @@ namespace itk{
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(PairwisePotentialSegmentationClassifier, Object);
-        virtual void Init(){
+        virtual void Init(string filename, bool train){
             assert(this->m_targetImage);
             assert(this->m_gradientImage);
             assert(this->m_atlasSegmentation);
@@ -208,7 +208,7 @@ namespace itk{
             m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
 #if 1
-            m_classifier->train();
+            m_classifier->train(filename, train);
             //m_classifier->saveProbs("segmentationPairwise.probs");
 #else
             //m_classifier->loadProbs("segmentationPairwise.probs");
@@ -429,7 +429,7 @@ namespace itk{
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(CachingPairwisePotentialSegmentationClassifier, Object);
-        virtual void Init(){
+         virtual void Init(string filename, bool train){
             assert(this->m_targetImage);
             assert(this->m_gradientImage);
             assert(this->m_atlasSegmentation);
@@ -439,7 +439,7 @@ namespace itk{
             m_classifier->setNIntensities(3000);
             m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
-            m_classifier->train();
+            m_classifier->train(filename, train);
             m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
             
         }
@@ -456,10 +456,15 @@ namespace itk{
         }
         ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
-            if (label1==label2)
+            double prob=1-m_classifier->getCachedPotential(idx1,idx2);
+            if (label1==label2){
                 return 0;
-            double prob=m_classifier->getCachedPotential(idx1,idx2);
-            return prob;
+                //prob=1-prob;
+            }
+            if (prob<std::numeric_limits<double>::epsilon()){
+                prob=std::numeric_limits<double>::epsilon();
+            }
+            return -log(prob);
             //return 1.0-prob;
         }
       

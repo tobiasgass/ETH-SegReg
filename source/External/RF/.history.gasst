@@ -8,3 +8,18 @@
 2011-02-14.15-04-02 ccmake ./
 2011-02-14.15-05-30 ccmake ./
 2011-03-03.13-07-55 grep refine *
+2012-08-17.18-38-39 grep randPr *
+2012-08-17.18-38-52 grep useRandPr *
+2012-08-17.18-49-44 less node*.h
+2012-08-17.18-50-06 grep useHyper *
+2012-08-17.18-50-12 grep nodehyper *
+2012-08-17.18-50-30 grep hyperpla *
+2012-08-19.11-24-18 la
+2012-08-19.11-25-03 tar -cfz rf-modified.tar.gz *
+2012-08-19.11-25-08 la
+2012-08-19.11-25-14 rm z
+2012-08-19.11-25-24 tar -cf rf-modified.tar *
+2012-08-19.11-25-26 la
+2012-08-19.11-25-33 gzip rf-modified.tar 
+2012-08-19.11-25-34 la
+2012-08-19.11-25-44 mv rf-modified.tar.gz ~/work/Dropbox/

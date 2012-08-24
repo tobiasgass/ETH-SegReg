@@ -4,6 +4,8 @@
 #include "utilities.h"
 #include <boost/foreach.hpp>
 #include <algorithm>
+#include <boost/lexical_cast.hpp>
+
 #ifdef WIN32
 inline double round(double x)
 {
@@ -44,7 +46,15 @@ NodeHyperPlane::NodeHyperPlane(const HyperParameters &hp, int reset, const xmlNo
 		{
 			if ( xmlStrcmp( cur->name, reinterpret_cast<const xmlChar*>( "feature" ) ) == 0 )
 			{
-				//m_bestFeature = readIntProp( cur, "feat", 0 );
+                for (int i=0;i<m_hp.numRandomFeatures;++i){
+                    string s = "feat"+boost::lexical_cast<string>( i );
+                    int tmp = readIntProp( cur, s.c_str(), 0 );
+                    m_bestFeatures[i]=tmp;
+                    string s2 = "weight"+boost::lexical_cast<string>( i );
+                    double tmpW=(float)readDoubleProp(cur,s2.c_str(), 0);
+                    m_bestWeights[i]=tmpW;
+                }
+				
 				m_bestThreshold = (float)readDoubleProp( cur, "threshold", 0 );
 			}
 			else if ( xmlStrcmp( cur->name, reinterpret_cast<const xmlChar*>( "node" ) ) == 0 )
@@ -83,7 +93,13 @@ NodeHyperPlane::NodeHyperPlane(const HyperParameters &hp, int reset, const xmlNo
 xmlNodePtr NodeHyperPlane::saveFeature() const
 {
 	xmlNodePtr node = xmlNewNode( NULL, reinterpret_cast<const xmlChar*>( "feature" ) );
-	//addIntProp(node, "feat", m_bestFeature);
+    //std::cout<<m_hp.numRandomFeatures<<" "<< m_bestFeatures.size()<<std::endl;
+    for (int i=0;i<m_hp. numRandomFeatures;++i){
+        string s = "feat"+boost::lexical_cast<string>( i );
+        addIntProp(node, s.c_str(), m_bestFeatures[i]);
+        string s2 = "weight"+boost::lexical_cast<string>( i );
+        addDoubleProp(node, s2.c_str(), m_bestWeights[i]);
+    }
 	addDoubleProp(node, "threshold", m_bestThreshold);
 
 	return node;

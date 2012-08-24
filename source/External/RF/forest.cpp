@@ -3,6 +3,9 @@
 #include <fstream>
 #include <boost/foreach.hpp>
 #include "time.h"
+#include <libxml/tree.h>
+#include <libxml/parser.h>
+
 Forest::Forest(const HyperParameters &hp)
 {
     m_hp = hp;
@@ -144,6 +147,11 @@ void Forest::save(const std::string &name)
     std::string saveName;
     saveName = (name == "default") ? m_hp.saveName : name;
 
+    const xmlNodePtr rootNode = this->save();
+    xmlDocPtr doc = xmlNewDoc( reinterpret_cast<const xmlChar*>( "1.0" ) );
+    xmlDocSetRootElement( doc, rootNode );
+    xmlSaveFormatFileEnc( saveName.c_str(), doc, "UTF-8", 1 );
+    xmlFreeDoc( doc );
     // now save that stuff
 
 }
@@ -154,7 +162,39 @@ void Forest::load(const std::string &name)
     loadName = (name == "default") ? m_hp.loadName : name;
 
     // now load that stuff
+    xmlDocPtr forestDoc = xmlParseFile( loadName.c_str() );
+    if ( !forestDoc )
+    {
+        cout << "ERROR: no forest.xml file or wrong filename" << endl;
+        return;
+    }
 
+    xmlNodePtr root = xmlDocGetRootElement( forestDoc );
+    if ( !root )
+    {
+        xmlFreeDoc( forestDoc );
+        cout << "ERROR: no forest.xml file or wrong filename" << endl;
+        return;
+    }
+
+    if ( xmlStrcmp( root->name, reinterpret_cast<const xmlChar*>( "randomforest" ) ) != 0 )
+    {
+        cout << "ERROR: no forest.xml file or wrong filename" << endl;
+        cerr << "This doesn't seem to be classifier file..." << endl;
+        xmlFreeDoc( forestDoc );
+        return;
+    }
+
+    xmlNodePtr cur = root->xmlChildrenNode;
+    while ( cur != 0 )
+    {
+        if ( xmlStrcmp( cur->name, reinterpret_cast<const xmlChar*>( "tree" ) ) == 0 )
+        {
+            m_trees.push_back( Tree( m_hp, cur ) );
+        }
+        cur = cur->next;
+    }
+    xmlFreeDoc( forestDoc );
 }
 
 #ifdef USE_CUDA
