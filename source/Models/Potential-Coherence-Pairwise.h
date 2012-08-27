@@ -178,7 +178,7 @@ namespace itk{
                     if (ImageType::ImageDimension==3){
                         ostringstream dtFilename;
                         dtFilename<<"dt"<<l<<".nii";
-                        //                        ImageUtils<FloatImageType>::writeImage(dtFilename.str().c_str(),FloatImageConstPointerType(dt1));
+                        LOGI(6,                        ImageUtils<FloatImageType>::writeImage(dtFilename.str().c_str(),FloatImageConstPointerType(dt1)));
                     }
                 }
                 m_distanceTransforms[l]=dt1;
@@ -269,19 +269,31 @@ namespace itk{
             deformedAtlasSegmentation=int(m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
             if (segmentationLabel!=deformedAtlasSegmentation){ 
                 double dist=m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);
-                result=dist;///this->m_threshold;//m_minDists[segmentationLabel];
+                result=dist;
             }
-            if (result>m_threshold){
-                result=99999999;
+#if 1
+            if (result>m_threshold ){
+                if (segmentationLabel==this->m_nSegmentationLabels-1){
+                    result=99999999;
+                }else if (segmentationLabel)
+                    result=1.0;
             }else{
                 result/=m_minDists[segmentationLabel];
                 result*=result;
             }
+#elif 0
             if (deformedAtlasSegmentation!=this->m_nSegmentationLabels-1 &&  segmentationLabel && segmentationLabel<this->m_nSegmentationLabels-1){
-                //result=0;
+                if (m_atlasDistanceTransformInterpolators[this->m_nSegmentationLabels-1]->EvaluateAtContinuousIndex(idx2)/m_threshold>1)//result=0;
                 //result=min(1.0,result);
-                result*=0.25;
+                    result=std::numeric_limits<float>::epsilon();
             }
+#else
+            if (segmentationLabel && segmentationLabel<this->m_nSegmentationLabels-1)
+                result=1.0/(1.0+exp(- 10.0/this->m_threshold *(result-this->m_threshold)));
+            else if (segmentationLabel){
+                result=0.5*pow(result/this->m_threshold,4.0);
+            }
+#endif
             return result;
         }
     };//class
@@ -343,10 +355,10 @@ namespace itk{
             deformedAtlasSegmentation=int(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
             if (segmentationLabel!=deformedAtlasSegmentation){ 
                 double dist=this->m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);
-                result=dist-this->m_minDists[segmentationLabel];
+                result=dist;//-this->m_minDists[segmentationLabel];
             }
             
-            return 4.0/(1.0+exp(-result));
+            return 1.0/(1.0+exp(-(result-this->m_threshold)));
         }
     };//class
 

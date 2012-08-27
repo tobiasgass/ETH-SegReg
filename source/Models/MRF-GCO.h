@@ -138,7 +138,10 @@ public:
         //createGraph();
         //init();
         m_optimizer=NULL;
-
+        regPairwise=NULL;
+        segPairwise=NULL;
+        srsPairwise=NULL;
+        
       
       
     }

@@ -154,7 +154,7 @@ public:
                             if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
                             for (int i=0;i<nNeighbours;++i){
                                double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],regLabel,0);
-                               LOGV(10)<<VAR(d)<<" "<<VAR(regLabel)<<" "<<VAR(pot)<<" "<<VAR(coherencePot)<<endl;
+                               //LOGV(10)<<VAR(d)<<" "<<VAR(regLabel)<<" "<<VAR(pot)<<" "<<VAR(coherencePot)<<endl;
                                pot+=coherencePot;
                                 
                             }

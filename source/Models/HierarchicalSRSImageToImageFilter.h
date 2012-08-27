@@ -383,17 +383,18 @@ namespace itk{
                 LOGV(1)<<"Current grid spacing :"<<graph->getSpacing()<<std::endl;
                 
                 //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
-                m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getSpacing()[0]/2));//*(m_config->iterationsPerLevel-i)));
+                m_pairwiseCoherencePot->SetThreshold(max(1.0,sqrt(graph->getSpacing()[0])));//*(m_config->iterationsPerLevel-i)));
+                //m_pairwiseCoherencePot->SetThreshold(max(1.0,(graph->getSpacing()[0])/2));//*(m_config->iterationsPerLevel-i)));
 
                 bool converged=false;
-                double oldEnergy,newEnergy=01;
+                double oldEnergy=1,newEnergy=01;
                 int i=0;
                 std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
                 if (LabelMapperType::nDisplacementSamples == 0 ) i=m_config->iterationsPerLevel-1;
                 logResetStage;
                 for (;!converged && i<m_config->iterationsPerLevel;++i,++iterationCount){
                     logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":"+boost::lexical_cast<std::string>(i));
-                    oldEnergy=newEnergy;
+
                     LOGV(7)<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl;
                     // displacementfactor decreases with iterations
                     LOGV(2)<<VAR(labelScalingFactor)<<endl;
@@ -514,7 +515,10 @@ namespace itk{
                     
                     //convergence check after second iteration
 #if 1
-                    converged=(i>0) && ((oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) < 1e-4 ); 
+                    //if energy difference is large, and greater than the threshold, skip this iteration and start over
+                    if (i>0 && newEnergy>oldEnergy &&  fabs(oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) > 1e-3  ) continue;
+                    //else converge if energy difference is lower than the threshold
+                    converged=(i>0) && ((oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) < 1e-3 ); 
                     LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<endl;
 #else
                     if (i>0){
@@ -539,6 +543,7 @@ namespace itk{
                     oldSegLabels=segLabels;
                     oldDefLabels=defLabels;
 #endif
+                    oldEnergy=newEnergy;
                     //initialise interpolator
                     //deformation
                     DeformationFieldPointerType composedDeformation;
