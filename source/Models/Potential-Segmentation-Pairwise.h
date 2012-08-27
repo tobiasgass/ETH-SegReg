@@ -208,7 +208,7 @@ namespace itk{
             m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
 #if 1
-            m_classifier->train(filename, train);
+            m_classifier->train( train,filename);
             //m_classifier->saveProbs("segmentationPairwise.probs");
 #else
             //m_classifier->loadProbs("segmentationPairwise.probs");
@@ -341,8 +341,9 @@ namespace itk{
             //always penalize secondary-to-primary label
             double gradientCost;
             double factor=1.0;
+
             if (  ((label1==2 &&label2 ) || (label2 == 2 && label1)) ) {
-                factor=0.25;
+                factor=0.5;
             }
                 
             {
@@ -355,17 +356,11 @@ namespace itk{
                 }
 #endif       
 
-#if 0
-                double s1=1-1.0*this->m_gradientImage->GetPixel(idx1)/127;
-                double s2=1-1.0*this->m_gradientImage->GetPixel(idx2)/127;
-                double gradientDiff=fabs(s1-s2);
 
-#else
                 double s1=1.0*this->m_gradientImage->GetPixel(idx1);
                 double s2=1.0*this->m_gradientImage->GetPixel(idx2);
                 double gradientDiff=fabs(s1-s2)/100;
                                 
-#endif
                 gradientCost=(s1>s2)?1:exp(-5*gradientDiff);
                 //LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
             }
@@ -437,10 +432,23 @@ namespace itk{
             m_classifier->setNIntensities(3000);
             m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
-            m_classifier->train(filename, train);
+            m_classifier->train(train,filename);
             m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
             
         }
+         virtual  void Init(){
+             assert(this->m_targetImage);
+            assert(this->m_gradientImage);
+            assert(this->m_atlasSegmentation);
+            assert(this->m_atlasGradient);
+            assert(this->m_atlasImage);
+            m_classifier=ClassifierType::New();
+            m_classifier->setNIntensities(3000);
+            m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
+            this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
+            m_classifier->train(true);
+            m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
+         }
         virtual void Init(string filename){
             assert(false);
             assert(this->m_targetImage);

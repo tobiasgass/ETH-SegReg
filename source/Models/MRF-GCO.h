@@ -147,9 +147,9 @@ public:
     }
 	~GCO_SRSMRFSolver()
     {
-        delete regPairwise;
-        delete segPairwise;
-        delete srsPairwise;
+        if (m_register) delete regPairwise;
+        if (m_segment) delete segPairwise;
+        if (m_coherence) delete srsPairwise;
         delete m_optimizer;
 
     }
@@ -270,11 +270,9 @@ public:
             for (int l1=0;l1<nSegLabels;++l1)
                 {
 
-                    LOGV(4)<<"Allocating seg unaries for label "<<l1<<", using "<<1.0*nSegNodes*sizeof( GCoptimization::SparseDataCost ) /(1024*1024)<<" mb memory"<<std::endl;
-		    
-                    std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
+                    //LOGV(4)<<"Allocating seg unaries for label "<<l1<<", using "<<1.0*nSegNodes*sizeof( GCoptimization::SparseDataCost ) /(1024*1024)<<" mb memory"<<std::endl;
+		            std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
                     //GCoptimization::SparseDataCost costas[nSegNodes];
-                    LOGV(4)<<"did it :O" <<endl;
                     //GCoptimization::SparseDataCost costs[nSegNodes];
                     for (int d=0;d<nSegNodes;++d){
                         costas[d].cost=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1);
@@ -426,9 +424,9 @@ public:
 
     }
     virtual std::vector<int> getDeformationLabels(){
-        std::vector<int> Labels(GLOBALnRegNodes,0);
+        std::vector<int> Labels(nRegNodes,0);
         if (m_register){
-            for (int i=0;i<GLOBALnRegNodes;++i){
+            for (int i=0;i<nRegNodes;++i){
                 Labels[i]=m_optimizer->whatLabel(i);
                 LOGV(20)<<"DEF "<<VAR(i)<<" "<<VAR(Labels[i])<<endl;
             }
@@ -436,9 +434,9 @@ public:
         return Labels;
     }
     virtual std::vector<int> getSegmentationLabels(){
-        std::vector<int> Labels(GLOBALnSegNodes,0);
+        std::vector<int> Labels(nSegNodes,0);
         if (m_segment){
-            for (int i=0;i<GLOBALnSegNodes;++i){
+            for (int i=0;i<nSegNodes;++i){
                 Labels[i]=max(0,m_optimizer->whatLabel(i+GLOBALnRegNodes)-GLOBALnRegLabels);
                 LOGV(20)<<"SEG "<<VAR(i)<<" "<<VAR(Labels[i])<<endl;
             }

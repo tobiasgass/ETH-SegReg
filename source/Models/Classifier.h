@@ -1335,7 +1335,7 @@ namespace itk{
             myFile.write ((char*)(&this->m_probs[0]),2*this->m_nIntensities*this->m_nIntensities*sizeof(float) );
         }
 
-        virtual void train(string filename, bool train){
+        virtual void train( bool train,string filename=""){
             LOG<<"reading config"<<std::endl;
             string confFile("/home/gasst/work/progs/rf/randomForest.conf");///home/gasst/work/progs/rf/src/randomForest.conf");
             HyperParameters hp;
@@ -1375,10 +1375,16 @@ namespace itk{
                 m_Forest->train(m_TrainData.getData(),m_TrainData.getLabels(),m_weights);
                 LOG<<"done"<<std::endl;
                 computeProbabilities();
-                m_Forest->save(filename);
+                if ((filename!=""))
+                    m_Forest->save(filename);
             }else{
                 m_Forest=new Forest(hp);
-                m_Forest->load(filename);
+                if ((filename!=""))
+                    m_Forest->load(filename);
+                else{
+                    LOG<<"NO FILENAME GIVEN FOR RF, aborting"<<endl;
+                    exit(0);
+                }
                 computeProbabilities();
             }
         };

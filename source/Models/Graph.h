@@ -641,7 +641,7 @@ namespace itk{
                     it.Set(0);
                 }
             }
-            assert(i==(labels.size()));
+            //assert(i==(labels.size()-1));
             return result;
         }
         SizeType getImageSize() const

@@ -382,10 +382,13 @@ namespace itk{
                 LOGV(1)<<"Current grid size :"<<graph->getGridSize()<<std::endl;
                 LOGV(1)<<"Current grid spacing :"<<graph->getSpacing()<<std::endl;
                 
-               
+                //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
+                m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getSpacing()[0]/2));//*(m_config->iterationsPerLevel-i)));
+
                 bool converged=false;
                 double oldEnergy,newEnergy=01;
                 int i=0;
+                std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
                 if (LabelMapperType::nDisplacementSamples == 0 ) i=m_config->iterationsPerLevel-1;
                 logResetStage;
                 for (;!converged && i<m_config->iterationsPerLevel;++i,++iterationCount){
@@ -395,7 +398,9 @@ namespace itk{
                     // displacementfactor decreases with iterations
                     LOGV(2)<<VAR(labelScalingFactor)<<endl;
                     graph->setDisplacementFactor(labelScalingFactor);
-                    
+
+
+                    LOGV(2)<<VAR(graph->getMaxDisplacementFactor())<<endl;
                     //register deformation from previous iteration
                     if (regist){
                         if (computeLowResolutionBsplineIfPossible && !coherence){
@@ -463,7 +468,6 @@ namespace itk{
 
                         //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                         mrfSolver->createGraph();
-                        std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
                         if (!m_config->evalContinuously){
                             newEnergy=mrfSolver->optimize(m_config->optIter);
                             defLabels=mrfSolver->getDeformationLabels();
@@ -509,8 +513,32 @@ namespace itk{
                     }
                     
                     //convergence check after second iteration
+#if 1
                     converged=(i>0) && ((oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) < 1e-4 ); 
                     LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<endl;
+#else
+                    if (i>0){
+                        //check convergence
+                        //count unchanged registration labels
+                        double count=0.0;
+                        for (int s=0;s<defLabels.size();++s){
+                            count+=(defLabels[s]==LabelMapperType::nDisplacements/2);
+                        }
+                        bool registrationConverged = !regist || count/defLabels.size() > 0.99;                    
+                        //LOGV(1)<<VAR(registrationConverged)<<" " <<VAR(count/defLabels.size())<<endl;
+                        
+                        count=0.0; int targetStructureCount=0;
+                        for (int s=0;s<segLabels.size();++s){
+                            count+=(segLabels[s]== (m_config->nSegmentations-1))&&(segLabels[s]==oldSegLabels[s]);
+                            targetStructureCount+=oldSegLabels[s]==m_config->nSegmentations-1;
+                        }
+                        bool segmentationConverged= !segment || count/targetStructureCount>0.99;
+                        //LOGV(1)<<VAR(segmentationConverged)<<" "<<VAR(count/targetStructureCount)<<std::endl;
+                        converged = regist * registrationConverged || segment * segmentationConverged;
+                    }
+                    oldSegLabels=segLabels;
+                    oldDefLabels=defLabels;
+#endif
                     //initialise interpolator
                     //deformation
                     DeformationFieldPointerType composedDeformation;
@@ -534,7 +562,7 @@ namespace itk{
       
                     //m_pairwiseCoherencePot->SetThreshold(13);
                     //m_pairwiseCoherencePot->SetThreshold(max(10.0,10*graph->getMaxDisplacementFactor()));
-                    m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
+
                     //m_pairwiseCoherencePot->SetThreshold(1000000);
                     
 
