@@ -32,7 +32,7 @@ LabelImagePointerType selectLabel(LabelImagePointerType img, Label l){
     IteratorType it1(img,img->GetLargestPossibleRegion());
     IteratorType it2(result,img->GetLargestPossibleRegion());
     for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2){
-        it2.Set(it1.Get()==l);
+        it2.Set(it1.Get()==1);
     }
     return result;
 }
