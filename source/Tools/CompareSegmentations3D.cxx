@@ -44,7 +44,7 @@ int main(int argc, char * argv [])
     argstream as(argc, argv);
 	string groundTruth,segmentationFilename,outputFilename="";
     bool hausdorff=false;
-    double threshold=-9999999;
+    double threshold=1;
     int evalLabel=-1;
     bool connectedComponent=false;
 	as >> parameter ("g", groundTruth, "groundtruth image (file name)", true);
@@ -85,11 +85,8 @@ int main(int argc, char * argv [])
         segmentedImg==selectLabel(segmentedImg,evalLabel);
     }
     else{
-        if (threshold!=-9999999){
-            segmentedImg= FilterUtils<LabelImage>::binaryThresholdingLow(segmentedImg, threshold);         
-        }else{
-            segmentedImg= FilterUtils<LabelImage>::binaryThresholdingLow(segmentedImg, 1);
-        }
+        segmentedImg= FilterUtils<LabelImage>::binaryThresholdingLow(segmentedImg, threshold);         
+        groundTruthImg= FilterUtils<LabelImage>::binaryThresholdingLow(groundTruthImg, threshold);         
     }    
     typedef LabelImage::ConstPointer ConstType;
     if (connectedComponent){  

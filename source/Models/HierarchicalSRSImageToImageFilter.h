@@ -385,9 +385,9 @@ namespace itk{
                 
                 //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
                 double threshold;
-                threshold=max(1.0,2.0*sqrt(graph->getSpacing()[0]));
+                threshold=max(1.0,0.5*(graph->getSpacing()[0]));
                 if (m_config->ARSWeight!=0.0){
-                    threshold=max(1.0,m_config->ARSWeight*2.0*sqrt(graph->getSpacing()[0]));
+                    threshold=max(1.0,m_config->ARSWeight*0.5*(graph->getSpacing()[0]));
                     LOGV(4)<<VAR(threshold)<<endl;
                 }                
                 m_pairwiseCoherencePot->SetThreshold(threshold);
