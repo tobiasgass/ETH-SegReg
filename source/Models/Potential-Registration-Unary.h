@@ -1119,6 +1119,10 @@ namespace itk{
            
         }
         void setNormalize(bool b){m_normalize=b;}
+        void resetNormalize(){
+            m_normalize=false;
+            m_normalizationFactor=1.0;
+        }
 
         void cachePotentials(LabelType displacement){
             LabelType zeroDisp;

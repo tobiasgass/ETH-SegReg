@@ -53,6 +53,7 @@ public:
     bool fullRegPairwise;
     double coherenceMultiplier;
     bool dontNormalizeRegUnaries;
+    double ARSWeight;
 private:
 	argstream * as;
 public:
@@ -105,6 +106,7 @@ public:
         fullRegPairwise=false;
         coherenceMultiplier=1.0;
         dontNormalizeRegUnaries=false;
+        ARSWeight=0.0;
 	}
     ~SRSConfig(){
 		//delete as;

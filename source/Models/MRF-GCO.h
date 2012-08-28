@@ -51,6 +51,7 @@ protected:
     bool m_segment, m_register,m_coherence;
     double m_lastLowerBound;
     Functor * smoothCostFunctor;
+    vector<int> m_labelOrder;
 
 
     //ugly globals instead of ugly static members because of GCO
@@ -141,7 +142,14 @@ public:
         regPairwise=NULL;
         segPairwise=NULL;
         srsPairwise=NULL;
-        
+        m_labelOrder=vector<int>(this->m_GraphModel->nRegLabels());
+        m_labelOrder[0]=(this->m_GraphModel->nRegLabels())/2;
+        for (int l=0;l<(this->m_GraphModel->nRegLabels());++l){
+            if (l < m_labelOrder[0])
+                m_labelOrder[l+1]=l;
+            else if (l>m_labelOrder[0])
+                m_labelOrder[l]=l;
+        }
       
       
     }
@@ -209,23 +217,24 @@ public:
             if (m_unaryRegistrationWeight>0){
                 for (int l1=0;l1<nRegLabels;++l1)
                     {
+                        int regLabel=m_labelOrder[l1];
                         GCoptimization::SparseDataCost costs[nRegNodes];
-                        this->m_GraphModel->cacheRegistrationPotentials(l1);
+                        this->m_GraphModel->cacheRegistrationPotentials(regLabel);
                         for (int d=0;d<nRegNodes;++d){
                             costs[d].site=d;
-                            costs[d].cost=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,l1);
+                            costs[d].cost=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,regLabel);
                             if (m_coherence && !m_segment){
                                 //pretty inefficient as the reg neighbors are recomputed #registrationLabels times for each registration node.
                                 std::vector<int> regSegNeighbors=this->m_GraphModel->getRegSegNeighbors(d);
                                 int nNeighbours=regSegNeighbors.size();
                                 if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
                                 for (int i=0;i<nNeighbours;++i){
-                                    double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],l1,0);
+                                    double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],regLabel,0);
                                     costs[d].cost+=coherencePot;
                                 }
                             }
                         }
-                        m_optimizer->setDataCost(l1,costs,nRegNodes);
+                        m_optimizer->setDataCost(regLabel,costs,nRegNodes);
                     }
             }
 

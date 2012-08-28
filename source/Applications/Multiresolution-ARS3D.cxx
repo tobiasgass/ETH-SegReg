@@ -154,7 +154,7 @@ int main(int argc, char ** argv)
     }
    
 
-    logResetStage;
+    logResetStage;//prepro
     filter->setTargetImage(targetImage);
     filter->setTargetGradient(targetGradient);
     filter->setAtlasImage(atlasImage);
@@ -193,6 +193,7 @@ int main(int argc, char ** argv)
     ImagePointerType intermediateSegmentation;
     double lastSegEnergy=10000;
     double lastRegEnergy=10000;
+    logResetStage;//IO
     logSetStage("ARS iteration");
     for (int iteration=0;iteration<10;++iteration){    
         filter->setBulkTransform(transf);

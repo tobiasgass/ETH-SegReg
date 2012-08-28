@@ -140,11 +140,10 @@ public:
             for (int l1=0;l1<nRegLabels;++l1)
                 {
                     int regLabel=m_labelOrder[l1];
-                    LOGV(9)<<VAR(regLabel)<<" "<<VAR(l1)<<endl;
                     this->m_GraphModel->cacheRegistrationPotentials(regLabel);
                     for (int d=0;d<nRegNodes;++d){
                         double pot=this->m_GraphModel->getUnaryRegistrationPotential(d,regLabel);
-                        LOGV(10)<<VAR(pot)<<" "<<VAR(m_unaryRegistrationWeight)<<endl;
+                        //LOGV(10)<<VAR(pot)<<" "<<VAR(m_unaryRegistrationWeight)<<endl;
                         pot*=m_unaryRegistrationWeight;
                         //in case of coherence weight, but no direct segmentation optimization, add coherence potential to registration unaries
                         if (m_coherence && !m_segment){

@@ -198,8 +198,10 @@ int main(int argc, char ** argv)
     ImagePointerType intermediateSegmentation;
     double lastSegEnergy=10000;
     double lastRegEnergy=10000;
+    logResetStage;
     logSetStage("ARS iteration");
     for (int iteration=0;iteration<10;++iteration){    
+        filterConfig.ARSWeight= 1.0+exp(-iteration+2.0);
         filter->setBulkTransform(transf);
         if (iteration == 0){
             //start with pure registration by setting seg and coh weights to zero
@@ -258,6 +260,7 @@ int main(int argc, char ** argv)
         }
         if (converged) break;
     }
+    logResetStage;
     logSetStage("Finalizing");
     clock_t FULLend = clock();
     float t = (float) ((double)(FULLend - FULLstart) / CLOCKS_PER_SEC);
