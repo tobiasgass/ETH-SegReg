@@ -423,7 +423,7 @@ namespace itk{
                     }
                     if (coherence){
                         m_pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
-                        m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                        TIME(m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation));
                     }
                     //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
                     
@@ -475,9 +475,9 @@ namespace itk{
                         }
 
                         //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-                        mrfSolver->createGraph();
+                        TIME(mrfSolver->createGraph());
                         if (!m_config->evalContinuously){
-                            newEnergy=mrfSolver->optimize(m_config->optIter);
+                            TIME(newEnergy=mrfSolver->optimize(m_config->optIter));
                             defLabels=mrfSolver->getDeformationLabels();
                             segLabels=mrfSolver->getSegmentationLabels();
                         }else{
@@ -566,7 +566,7 @@ namespace itk{
                             //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
                             fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
                         }else{
-                            fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, m_targetImage);
+                            TIME(fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, m_targetImage));
                         }
                     }   //fullDeformation=scaleDeformationField(fullDeformation,graph->getDisplacementFactor());
    

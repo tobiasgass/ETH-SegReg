@@ -241,6 +241,8 @@ int main(int argc, char ** argv)
     if (targetSegmentationEstimate){
         ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
     }
+    
+    OUTPUTTIMER;
     if (filterConfig.logFileName!=""){
         mylog.flushLog(filterConfig.logFileName);
     }

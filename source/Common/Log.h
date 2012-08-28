@@ -7,6 +7,8 @@
 #include <sstream>
 #include <stdio.h>
 #include <cstring>
+#include <map>
+#include <utility>
 #include <stack>
 using namespace std;
 
@@ -78,6 +80,8 @@ public:
 };
 
 
+
+
 MyLog mylog;
 
 #define LOG \
@@ -96,9 +100,43 @@ MyLog mylog;
     if (mylog.getVerbosity()>=level)  \
         instruction
 
+class MyTimer{
+private:
+    std::map<std::string, boost::timer> m_timers;
+    std::map<std::string, double> m_timings;
+    std::map<std::string,int> m_calls;
+    
+public:
+    void time(){};
+    void start(std::string tag){
+        m_timers.insert(std::pair<std::string,boost::timer>(tag,boost::timer()));
+        std::map<std::string,double>::iterator it = m_timings.find(tag);
+        if (it == m_timings.end()){
+            m_timings.insert(std::pair<std::string,double>(tag,0.0));
+            m_calls.insert(std::pair<std::string,int>(tag,0));
+            
+        }
 
+    }
+    void end(std::string tag){
+        m_timings[tag]+=m_timers[tag].elapsed();
+        m_calls[tag]+=1;
+        m_timers.erase(tag);
+    }
+    void print(){
+        for (std::map<std::string, double>::iterator it = m_timings.begin(); it != m_timings.end(); ++it){
+            LOG<<m_calls[it->first]<<" calls to "<<it->first<<", total run time "<<it->second<<" seconds."<<std::endl;
+        }
+    }
+};
 
+MyTimer timeLOG;
+#define TIME(instruction) \
+    timeLOG.start(#instruction);                  \
+    instruction;                                \
+    timeLOG.end(#instruction);
 
+#define OUTPUTTIMER   timeLOG.print()
 
 double tOpt=0;
 double tUnary=0;

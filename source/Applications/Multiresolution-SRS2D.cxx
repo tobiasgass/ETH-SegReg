@@ -237,7 +237,7 @@ int main(int argc, char ** argv)
         ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,filter->makePngFromLabelImage((ImageConstPointerType)targetSegmentationEstimate,LabelMapperType::nSegmentations));
     }
     
-
+    OUTPUTTIMER;
     if (filterConfig.logFileName!=""){
         mylog.flushLog(filterConfig.logFileName);
     }

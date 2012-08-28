@@ -587,7 +587,7 @@ namespace itk{
                 it.Set(l);
             }
             assert(i==(labels.size()));
-            LOGV(8)<<"git "<<labels.size()<<" registration labels which were transformed into a deformation field with parameters : "<<result<<endl;
+            //LOGV(8)<<"git "<<labels.size()<<" registration labels which were transformed into a deformation field with parameters : "<<result<<endl;
             return result;
         }
         

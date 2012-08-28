@@ -31,7 +31,7 @@ LabelImagePointerType selectLabel(LabelImagePointerType img, Label l){
     IteratorType it1(img,img->GetLargestPossibleRegion());
     IteratorType it2(result,img->GetLargestPossibleRegion());
     for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2){
-        it2.Set(it1.Get()==1);
+        it2.Set(it1.Get()==l);
     }
     return result;
 }
@@ -82,7 +82,7 @@ int main(int argc, char * argv [])
  
     if (evalLabel>-1){
         groundTruthImg=selectLabel(groundTruthImg,evalLabel);   
-        segmentedImg==selectLabel(segmentedImg,evalLabel);
+        segmentedImg=selectLabel(segmentedImg,evalLabel);
     }
     else{
         segmentedImg= FilterUtils<LabelImage>::binaryThresholdingLow(segmentedImg, threshold);         
@@ -105,7 +105,7 @@ int main(int argc, char * argv [])
         labelShapeKeepNObjectsImageFilter->SetNumberOfObjects( 1);
         labelShapeKeepNObjectsImageFilter->SetAttribute( LabelShapeKeepNObjectsImageFilterType::LabelObjectType::NUMBER_OF_PIXELS);
         labelShapeKeepNObjectsImageFilter->Update();
-        segmentedImg =  FilterUtils<LabelImage>::binaryThresholdingLow(labelShapeKeepNObjectsImageFilter->GetOutput(), 0.1);     //;//f->GetOutput();// FilterUtils<LabelImage>::binaryThresholding(labelShapeKeepNObjectsImageFilter->GetOutput(),1,10000);//filter->GetOutput(),1,1);
+        segmentedImg =  FilterUtils<LabelImage>::binaryThresholdingLow(labelShapeKeepNObjectsImageFilter->GetOutput(), 1);     //;//f->GetOutput();// FilterUtils<LabelImage>::binaryThresholding(labelShapeKeepNObjectsImageFilter->GetOutput(),1,10000);//filter->GetOutput(),1,1);
     }
    
    
