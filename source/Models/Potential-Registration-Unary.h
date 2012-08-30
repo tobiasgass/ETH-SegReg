@@ -1311,6 +1311,86 @@ namespace itk{
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationSAD
+ template<class TLabelMapper,class TImage>
+    class FastUnaryPotentialRegistrationSSD: public FastUnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
+    public:
+        //itk declarations
+        typedef FastUnaryPotentialRegistrationSSD            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::PointType PointType;
+
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+
+        typedef typename LabelMapperType::LabelImageType LabelImageType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        
+        typedef itk::TranslationTransform<double,ImageType::ImageDimension> TranslationTransformType;
+        typedef typename TranslationTransformType::Pointer TranslationTransformPointerType;
+        typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleImageFilterType;
+        
+        typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        typedef typename itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
+  public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(FastRegistrationUnaryPotentialSSD, Object);
+        
+    
+        virtual double getLocalPotential(IndexType targetIndex){
+
+            double result;
+            this->nIt.SetLocation(targetIndex);
+            this->m_atlasNeighborhoodIterator.SetLocation(targetIndex);
+            this->m_maskNeighborhoodIterator.SetLocation(targetIndex);
+            double insideCount=0.0;
+            double count=0;
+            double sum=0.0;
+            PointType centerPoint,neighborPoint;
+            this->m_scaledTargetImage->TransformIndexToPhysicalPoint(targetIndex,centerPoint);
+            double maxNorm=this->m_coarseImageSpacing.GetNorm();
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double m=this->m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
+                insideCount+=inBounds;
+                bool inside=this->m_maskNeighborhoodIterator.GetPixel(i);
+                if (inside && inBounds){
+                    double f=this->nIt.GetPixel(i);
+                    this->m_scaledTargetImage->TransformIndexToPhysicalPoint(this->nIt.GetIndex(i),neighborPoint);
+                    double weight=1.0-(centerPoint-neighborPoint).GetNorm()/maxNorm;
+                    sum+=weight*fabs(f-m)*fabs(f-m);
+                    count+=weight;
+                }
+            }
+            if (count>0){
+                sum/=count;
+            }//else          sum=this->nIt.Size();
+            //result=result>0.5?0.5:result; 
+            if (this->LOGPOTENTIAL){
+            }else{
+                result=sum;
+            }
+            result=min(this->m_threshold,result);
+            
+            return result*insideCount/this->nIt.Size();
+        }
+    };//FastUnaryPotentialRegistrationSSD
 
 
 #define NMI

@@ -196,6 +196,8 @@ int main(int argc, char ** argv)
     logResetStage;//IO
     logSetStage("ARS iteration");
     for (int iteration=0;iteration<10;++iteration){    
+        filterConfig.ARSWeight= 1.0+exp(-iteration+2.0);
+
         filter->setBulkTransform(transf);
         if (iteration == 0){
             //start with pure registration by setting seg and coh weights to zero
@@ -303,6 +305,7 @@ int main(int argc, char ** argv)
     if (targetSegmentationEstimate){
         ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
     }
+    OUTPUTTIMER;
     if (filterConfig.logFileName!=""){
         mylog.flushLog(filterConfig.logFileName);
     }

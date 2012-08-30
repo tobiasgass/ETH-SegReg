@@ -319,7 +319,7 @@ namespace itk{
         virtual void train(){
             for ( int s=0;s<m_nSegmentationLabels;++s){
                 LOGV(1)<<"Training GMM for label :"<<s<<endl;
-                m_GMMs[s].estimate(1,m_observations[s]);
+                m_GMMs[s].estimate(2,m_observations[s]);
                 m_GMMs[s].display();
             }
         };
@@ -364,7 +364,7 @@ namespace itk{
                     ostringstream probabilityfilename;
                     probabilityfilename<<"prob-gauss-c"<<s<<suff;
                     
-                    ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(result[s],255.0/11*255.0)));
+                    ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(result[s],255.0*255.0)));
                 }
             }
             if (ImageType::ImageDimension==3){

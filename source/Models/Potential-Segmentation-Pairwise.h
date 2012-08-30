@@ -470,8 +470,8 @@ namespace itk{
             if (prob<std::numeric_limits<double>::epsilon()){
                 prob=std::numeric_limits<double>::epsilon();
             }
-            return -log(prob);
-            //return 1.0-prob;
+            //return -log(prob);
+            return 1.0-prob;
         }
       
     };//class

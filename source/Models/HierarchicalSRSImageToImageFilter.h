@@ -388,8 +388,9 @@ namespace itk{
                 threshold=max(1.0,0.5*(graph->getSpacing()[0]));
                 if (m_config->ARSWeight!=0.0){
                     threshold=max(1.0,m_config->ARSWeight*0.5*(graph->getSpacing()[0]));
-                    LOGV(4)<<VAR(threshold)<<endl;
+
                 }                
+                LOGV(4)<<VAR(threshold)<<endl;
                 m_pairwiseCoherencePot->SetThreshold(threshold);
                 //m_pairwiseCoherencePot->SetThreshold(max(1.0,(graph->getSpacing()[0])/2));//*(m_config->iterationsPerLevel-i)));
 
@@ -523,7 +524,7 @@ namespace itk{
                     //convergence check after second iteration
 #if 1
                     //if energy difference is large, and greater than the threshold, skip this iteration and start over
-                    if (i>0 && newEnergy>oldEnergy &&  fabs(oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) > 1e-4  ){
+                    if (i>0 && newEnergy>oldEnergy &&  fabs(oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) > 1e-3  ){
                         logResetStage;
                         if ( fabs(oldWorseEnergy-newEnergy)/fabs(oldWorseEnergy+DBL_EPSILON) <1e-4)
                             break;

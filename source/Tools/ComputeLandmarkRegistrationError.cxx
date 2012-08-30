@@ -86,7 +86,7 @@ int main(int argc, char ** argv)
    
     if (argc>6){
         ImageUtils<ImageType>::writeImage(argv[5],  (ImageConstPointerType) TransfUtils<ImageType>::warpImage((ImageConstPointerType)lmImage,deformation) );
-        ImageUtils<ImageType>::writeImage(argv[6],  (ImageConstPointerType) lmImage2 );
+        ImageUtils<ImageType>::writeImage(argvq[6],  (ImageConstPointerType) lmImage2 );
     }
 
 	return 1;

@@ -6,6 +6,8 @@
 #include <google/heap-profiler.h>
 #include "ordering.cpp"
 #include <limits.h>
+#include <time.h>
+
 //#include "malloc.c"
 using namespace std;
 
@@ -143,6 +145,7 @@ public:
         segPairwise=NULL;
         srsPairwise=NULL;
         m_labelOrder=vector<int>(this->m_GraphModel->nRegLabels());
+        //order registration labels such that they start with zero displacement
         m_labelOrder[0]=(this->m_GraphModel->nRegLabels())/2;
         for (int l=0;l<(this->m_GraphModel->nRegLabels());++l){
             if (l < m_labelOrder[0])
@@ -150,7 +153,7 @@ public:
             else if (l>m_labelOrder[0])
                 m_labelOrder[l]=l;
         }
-      
+        srand ( time(NULL) );
       
     }
     GCO_SRSMRFSolver()  {
@@ -388,7 +391,12 @@ public:
         for (int l=0;l<GLOBALnRegLabels;++l){
             order[l+GLOBALnSegLabels]=l;
         }
+#if 1
         m_optimizer->setLabelOrder(order,GLOBALnRegLabels+GLOBALnSegLabels);
+#else
+        bool random = true;
+        m_optimizer->setLabelOrder(random);
+#endif
         m_optimizer->setVerbosity(verbose>15);
     }
     

@@ -369,9 +369,9 @@ namespace itk{
             double prob=m_classifier->px_l(imageIntensity,(segmentationLabel>0),s);
             if (prob<=0) prob=0.00000000001;
             //if (segmentationLabel && prob<0.5) prob=0.5;
-            //return -log(prob);
+            return -log(prob);
             //LOG<<segmentationLabel<<" "<<imageIntensity<<" "<<prob<<endl;
-            return (1-prob);
+            //return (1-prob);
 
         }
 

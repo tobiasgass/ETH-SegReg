@@ -193,7 +193,8 @@ int main(int argc, char ** argv)
     tmpCoh=filterConfig.pairwiseCoherenceWeight;
     tmpRegL=filterConfig.maxDisplacement;
     tmpSegL=filterConfig.nSegmentations;
-
+    double coherenceMultiplier=filterConfig.coherenceMultiplier;
+    filterConfig.coherenceMultiplier=1.0;
     DeformationFieldPointerType intermediateDeformation;
     ImagePointerType intermediateSegmentation;
     double lastSegEnergy=10000;
@@ -201,7 +202,7 @@ int main(int argc, char ** argv)
     logResetStage;
     logSetStage("ARS iteration");
     for (int iteration=0;iteration<10;++iteration){    
-        filterConfig.ARSWeight= 1;//1.0+exp(-iteration+2.0);
+        filterConfig.ARSWeight= 1.0+exp(-iteration+2.0);
         filter->setBulkTransform(transf);
         if (iteration == 0){
             //start with pure registration by setting seg and coh weights to zero
@@ -222,7 +223,7 @@ int main(int argc, char ** argv)
         //reset weights
         filterConfig.unarySegmentationWeight= tmpSegU;
         filterConfig.pairwiseSegmentationWeight=tmpSegP;
-        filterConfig.pairwiseCoherenceWeight=tmpCoh;//*pow(filterConfig.coherenceMultiplier,iteration);
+        filterConfig.pairwiseCoherenceWeight=tmpCoh*pow(coherenceMultiplier,iteration);
 
         filter->setTargetSegmentation(NULL);
         filter->setBulkTransform(intermediateDeformation);
@@ -305,7 +306,7 @@ int main(int argc, char ** argv)
         ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,filter->makePngFromLabelImage((ImageConstPointerType)targetSegmentationEstimate,LabelMapperType::nSegmentations));
     }
     
-
+    OUTPUTTIMER;
     if (filterConfig.logFileName!=""){
         mylog.flushLog(filterConfig.logFileName);
     }

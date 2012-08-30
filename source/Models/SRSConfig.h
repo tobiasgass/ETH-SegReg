@@ -96,8 +96,8 @@ public:
         optIter=10;
         thresh_UnaryReg=numeric_limits<double>::max();
         thresh_PairwiseReg=numeric_limits<double>::max();;
-        log_UnaryReg=true;
-        log_PairwiseReg=true;
+        log_UnaryReg=false;
+        log_PairwiseReg=false;
         displacementScaling=1.0;
         evalContinuously=false;
         logFileName="";
