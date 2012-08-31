@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
     }
     logSetStage("Init");
 	//define types.
-    typedef unsigned short PixelType;
+    typedef unsigned char PixelType;
 	const   unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -70,9 +70,9 @@ int main(int argc, char ** argv)
     
     //registration unary potential
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationNMI< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -106,6 +106,10 @@ int main(int argc, char ** argv)
     logSetVerbosity(filterConfig.verbose);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
+    if (filterConfig.ROIFilename  != ""){
+        ImagePointerType roi=ImageUtils<ImageType>::readImage(filterConfig.ROIFilename);
+        targetImage=FilterUtils<ImageType>::NNResample(targetImage,roi);
+    }
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
@@ -183,10 +187,10 @@ int main(int argc, char ** argv)
     }
     else if (filterConfig.bulkTransformationField!=""){
         filter->setBulkTransform(ImageUtils<DeformationFieldType>::readImage(filterConfig.bulkTransformationField));
-    }else{
+    }else if (filterConfig.centerImages){
         LOG<<"Computing transform to move image centers on top of each other.."<<std::endl;
         DeformationFieldPointerType transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
-        filter->setBulkTransform(transf);
+        //filter->setBulkTransform(transf);
        
     }
     logResetStage;//bulk transforms
@@ -222,7 +226,7 @@ int main(int argc, char ** argv)
     }
     LOG<<"Deforming Images.."<<endl;
 
-    if (filterConfig.defFilename!=""){
+    if (filterConfig.regist && filterConfig.defFilename!=""){
         ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
     }
     

@@ -164,7 +164,7 @@ namespace itk{
                 LOGI(10,ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput()););
             }else{
                 LOGI(10,ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
-                ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
+                     ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
                      ImageUtils<FloatImageType>::writeImage("smooth-sum.nii",(FloatImageConstPointerType)sum); );
                 
             }
@@ -272,8 +272,8 @@ namespace itk{
                 ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
             }else{
                 if (false){
-                ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
-                ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
+                    ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
+                    ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
                 }
             }
         }
@@ -368,7 +368,7 @@ namespace itk{
             return factor*gradientCost;
         }
     };//class
-  template<class TImage>
+    template<class TImage>
     class PairwisePotentialSegmentationUniform: public PairwisePotentialSegmentation<TImage>{
     public:
         //itk declarations
@@ -397,8 +397,8 @@ namespace itk{
     };//class
 
 
-     template<class TImage, class TSmoothnessClassifier>
-     class CachingPairwisePotentialSegmentationClassifier: public PairwisePotentialSegmentationClassifier<TImage,TSmoothnessClassifier >{
+    template<class TImage, class TSmoothnessClassifier>
+    class CachingPairwisePotentialSegmentationClassifier: public PairwisePotentialSegmentationClassifier<TImage,TSmoothnessClassifier >{
     public:
         //itk declarations
         typedef CachingPairwisePotentialSegmentationClassifier            Self;
@@ -417,12 +417,13 @@ namespace itk{
         typedef typename ClassifierType::Pointer ClassifierPointerType;
     private:
         ClassifierPointerType m_classifier;
+        bool m_trainOnTargetROI;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(CachingPairwisePotentialSegmentationClassifier, Object);
-         virtual void Init(string filename, bool train){
+        virtual void Init(string filename, bool train){
             assert(this->m_targetImage);
             assert(this->m_gradientImage);
             assert(this->m_atlasSegmentation);
@@ -431,24 +432,32 @@ namespace itk{
             m_classifier=ClassifierType::New();
             m_classifier->setNIntensities(3000);
             m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
+            
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
             m_classifier->train(train,filename);
             m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
             
         }
-         virtual  void Init(){
-             assert(this->m_targetImage);
+        virtual  void Init(){
+            m_trainOnTargetROI=true;
+
+            assert(this->m_targetImage);
             assert(this->m_gradientImage);
             assert(this->m_atlasSegmentation);
             assert(this->m_atlasGradient);
             assert(this->m_atlasImage);
+            if (m_trainOnTargetROI){
+                this->m_atlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_targetImage);
+                this->m_atlasSegmentation=FilterUtils<ImageType>::NNResample(this->m_atlasSegmentation,this->m_targetImage);
+                this->m_atlasGradient=FilterUtils<ImageType>::NNResample(this->m_atlasGradient,this->m_targetImage);
+            }
             m_classifier=ClassifierType::New();
             m_classifier->setNIntensities(3000);
             m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
             m_classifier->train(true);
             m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
-         }
+        }
         virtual void Init(string filename){
             assert(false);
             assert(this->m_targetImage);
@@ -462,11 +471,14 @@ namespace itk{
         }
         ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
-            double prob=1-m_classifier->getCachedPotential(idx1,idx2);
+         
             if (label1==label2){
                 return 0;
                 //prob=1-prob;
             }
+            //            return m_classifier->getCachedPotential(idx1,idx2);
+            double prob=1-m_classifier->getCachedPotential(idx1,idx2);
+            return prob;
             if (prob<std::numeric_limits<double>::epsilon()){
                 prob=std::numeric_limits<double>::epsilon();
             }

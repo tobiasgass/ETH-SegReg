@@ -274,10 +274,11 @@ namespace itk{
 #if 1
             if (result>m_threshold ){
                 if (segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 ){
-                    result=99999999;
+                    result=99999;
                 }else if (segmentationLabel || deformedAtlasSegmentation )
-                    result=1.0;
-            }else{
+                    result=m_threshold;//1.0;
+            }
+            {
                 result/=m_minDists[segmentationLabel];
                 result*=result;
             }

@@ -17,7 +17,7 @@
 class SRSConfig{
 public:
 	std::string targetFilename,atlasFilename,targetGradientFilename, outputDeformedSegmentationFilename,atlasSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, atlasGradientFilename;
-	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename,affineBulkTransform,bulkTransformationField;
+	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename,affineBulkTransform,bulkTransformationField,ROIFilename;
     std::string logFileName;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
@@ -54,6 +54,7 @@ public:
     double coherenceMultiplier;
     bool dontNormalizeRegUnaries;
     double ARSWeight;
+    bool centerImages;
 private:
 	argstream * as;
 public:
@@ -107,6 +108,7 @@ public:
         coherenceMultiplier=1.0;
         dontNormalizeRegUnaries=false;
         ARSWeight=0.0;
+        centerImages=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -190,6 +192,7 @@ public:
         //input filenames
         //mandatory
 		(*as) >> parameter ("t", targetFilename, "target image (file name)", false);
+		(*as) >> parameter ("roi", ROIFilename, " image to set target ROI from (file name)", false);
 		(*as) >> parameter ("a", atlasFilename, "atlas image (file name)", false);
 		(*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", false);
         //optional

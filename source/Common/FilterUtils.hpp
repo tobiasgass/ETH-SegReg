@@ -45,6 +45,7 @@
 #include <algorithm> //max,min
 #include "Log.h"
 #include "itkStatisticsImageFilter.h"
+#include "itkRescaleIntensityImageFilter.h"
 
 using namespace std;
 
@@ -112,6 +113,8 @@ class FilterUtils {
     typedef typename itk::ResampleImageFilter< InputImage , OutputImage>	ResampleFilterType;
     typedef typename ResampleFilterType::Pointer ResampleFilterPointerType;
     typedef typename itk::StatisticsImageFilter<InputImage > StatisticsFilterType;
+    
+    typedef typename itk::RescaleIntensityImageFilter<    InputImage, OutputImage >  RescaleFilterType;
 
 
 
@@ -677,5 +680,12 @@ public:
 
     }
 
-
+    static OutputImagePointer normalize(InputImagePointer img){
+        typename RescaleFilterType::Pointer    rescaleFilter    = RescaleFilterType::New();
+        rescaleFilter->SetInput(img);
+        rescaleFilter->SetOutputMinimum(std::numeric_limits<OutputImagePixelType>::min());
+        rescaleFilter->SetOutputMaximum(std::numeric_limits<OutputImagePixelType>::max());
+        rescaleFilter->Update();
+        return rescaleFilter->GetOutput();
+    }
 };

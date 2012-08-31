@@ -380,6 +380,7 @@ public:
 
             PointType p;
             deformed->TransformIndexToPhysicalPoint(index,p);
+            //            LOG<<VAR(p)<<" "<<VAR(displacement)<<endl;
             p+=displacement;
             image->TransformPhysicalPointToContinuousIndex(p,idx);
 

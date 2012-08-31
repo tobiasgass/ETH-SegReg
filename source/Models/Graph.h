@@ -120,7 +120,7 @@ namespace itk{
         void setTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
         }
-        
+     
         void initGraph(int nGraphNodesPerEdge){
             assert(m_targetImage);
             logSetStage("Graph initialization");

@@ -607,6 +607,7 @@ namespace itk{
     protected:
       ClassifierPointerType m_classifier;
       std::vector<FloatImagePointerType> m_probabilityImages;
+      bool m_trainOnTargetROI;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -614,9 +615,15 @@ namespace itk{
         itkTypeMacro(UnaryPotentialNewSegmentationClassifier, Object);
           
         virtual void Init(){
+            m_trainOnTargetROI=true;
+            LOG<<VAR(m_trainOnTargetROI)<<std::endl;
             m_classifier=  ClassifierType::New();
             m_classifier->setNSegmentationLabels(2);
             std::vector<ImageConstPointerType> atlas;
+            if (m_trainOnTargetROI){
+                this->m_atlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_targetImage);
+                this->m_atlasSegmentation=FilterUtils<ImageType>::NNResample(this->m_atlasSegmentation,this->m_targetImage);
+            }
             atlas.push_back(this->m_atlasImage);
             //atlas.push_back(this->m_atlasGradient);
             m_classifier->setData(atlas,this->m_atlasSegmentation);
@@ -629,6 +636,7 @@ namespace itk{
         
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
             double prob= m_probabilityImages[segmentationLabel>0]->GetPixel(targetIndex);
+            return prob;
             if (prob<=0) prob=0.00000000001;
             return -log(prob);
         }

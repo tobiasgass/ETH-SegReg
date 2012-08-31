@@ -1283,7 +1283,7 @@ namespace itk{
              c=0;
              for (iterator.GoToBegin(),iterator2.GoToBegin();!iterator.IsAtEnd();++iterator,++iterator2){
                  for (unsigned int d=0;d<ImageType::ImageDimension;++d){
-                     potentialIterators[d]->Set(conf(c,0));
+                     potentialIterators[d]->Set((conf(c,0)));
                      ++c;
                      ++(*potentialIterators[d]);
                  }

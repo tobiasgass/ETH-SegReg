@@ -147,7 +147,7 @@ namespace itk{
             
             for (int i=0;!iterators[0].IsAtEnd() ; ++i){
                  for ( int s=0;s<m_nSegmentationLabels;++s){
-                     iterators[s].Set(conf(i,s));
+                     iterators[s].Set((conf(i,s)));
                      ++iterators[s];
                  }
             }
@@ -311,7 +311,10 @@ namespace itk{
             m_nData=i;
             LOG<<"done adding data. "<<std::endl;
             LOG<<"stored "<<m_nData<<" samples "<<std::endl;
-          
+            for ( int s=0;s<m_nSegmentationLabels;++s){
+                LOG<<VAR(counts[s])<<endl;
+            }
+
         };
 
    
@@ -353,7 +356,7 @@ namespace itk{
                 for ( int s=0;s<m_nSegmentationLabels;++s){
                     double p=m_GMMs[s].likelihood(c);
                     p=min(1.0,p);
-                    resultIterators[s].Set(p);
+                    resultIterators[s].Set(-log(p));
                     ++resultIterators[s];
                 }
             }
@@ -363,8 +366,8 @@ namespace itk{
                 for ( int s=0;s<m_nSegmentationLabels;++s){
                     ostringstream probabilityfilename;
                     probabilityfilename<<"prob-gauss-c"<<s<<suff;
-                    
-                    ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(result[s],255.0*255.0)));
+                    ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::normalize(result[s]));
+                      //ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(result[s],255.0*255.0)));
                 }
             }
             if (ImageType::ImageDimension==3){
