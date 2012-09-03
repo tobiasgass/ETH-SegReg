@@ -236,6 +236,7 @@ namespace itk{
         typedef TLabelMapper LabelMapperType;
         typedef typename LabelMapperType::LabelType LabelType;
         typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::PointType PointType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
@@ -252,18 +253,21 @@ namespace itk{
 
    
         
-        virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
+        virtual inline double getPotential(PointType pt1, PointType pt2,LabelType displacement1, LabelType displacement2){
             assert(this->m_haveLabelMap);
             double leftCost=0, rightCost=0;
             double controlPointDistance=0.0;
             double delta;
-
+            IndexType targetIndex1, targetIndex2;
+            this->m_baseLabelMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
+            this->m_baseLabelMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
+            
             //get neighboring axis, and make sure Index1<index2
             IndexType rightNeighbor=targetIndex2, leftNeighbor=targetIndex1;
             int neighbAxis=-1;
             bool leftNeighb=false,rightNeighb=false;
 			for (unsigned int d=0;d<D;++d){
-                delta=(targetIndex2[d]-targetIndex1[d]);
+                delta=(pt1[d]-pt2[d]);
                 if (delta<0) {
                     //swap
                     IndexType tmp=targetIndex1;
@@ -271,6 +275,9 @@ namespace itk{
                     targetIndex2=targetIndex1;
                     rightNeighbor=targetIndex2;
                     leftNeighbor=targetIndex1;
+                    PointType f=pt1;
+                    pt1=pt2;
+                    pt2=f;
                 }
                 if (delta!=0.0) {
                     neighbAxis=d;

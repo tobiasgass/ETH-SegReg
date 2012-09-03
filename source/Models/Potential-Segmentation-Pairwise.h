@@ -477,8 +477,8 @@ namespace itk{
                 //prob=1-prob;
             }
             //            return m_classifier->getCachedPotential(idx1,idx2);
-            double prob=1-m_classifier->getCachedPotential(idx1,idx2);
-            return prob;
+            double prob=m_classifier->getCachedPotential(idx1,idx2);
+            return -log(prob);
             if (prob<std::numeric_limits<double>::epsilon()){
                 prob=std::numeric_limits<double>::epsilon();
             }

@@ -274,7 +274,8 @@ namespace itk{
                 m_unaryRegistrationPot->resetNormalize();
             }
 
-           
+            ConstImagePointerType m_inputTargetImage=m_targetImage;
+            
             LabelMapperType * labelmapper=new LabelMapperType(m_config->nSegmentations,m_config->maxDisplacement);
             LOGV(5)<<VAR(m_config->nSegmentations)<<" "<<VAR(LabelMapperType::nSegmentations)<<endl;
             int iterationCount=0; 
@@ -309,13 +310,17 @@ namespace itk{
                     exponent=max(0,m_config->imageLevels-l-1);
                 }
                 double reductionFactor=pow(mantisse,exponent);
-                double scaling=1/reductionFactor;
+                double scaling=1.0/reductionFactor;
                 //unaryRegistrationPot->SetScale(7.0*level/m_targetImage->GetLargestPossibleRegion().GetSize()[0]);
                 LOGV(1)<<"Image downsampling factor for registration unary computation : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
 
                 level=m_config->levels[l];
                 double labelScalingFactor=m_config->displacementScaling;
-
+                
+                //downsampling target image is not that easy since potentials are cached already.
+                m_targetImage=m_inputTargetImage;//FilterUtils<ImageType>::LinearResample(m_inputTargetImage,1.0/pow(1.5,exponent));
+                LOGV(4)<<VAR(1.0/pow(1.5,exponent))<<endl;
+                                                                     
                 //init graph
                 LOG<<"Initializing graph structure."<<std::endl;
                 graph->setConfig(*m_config);
@@ -326,7 +331,7 @@ namespace itk{
                 if (regist||coherence){
                     //setup registration potentials
                     m_unaryRegistrationPot->SetScale(scaling);
-                    m_unaryRegistrationPot->SetTargetImage(m_targetImage);
+                    m_unaryRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
                     m_unaryRegistrationPot->SetRadius(graph->getSpacing());
 #if 0
@@ -336,7 +341,7 @@ namespace itk{
 #endif          
                     m_unaryRegistrationPot->Init();
             
-                    m_pairwiseRegistrationPot->SetTargetImage(m_targetImage);
+                    m_pairwiseRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_pairwiseRegistrationPot->SetSpacing(graph->getSpacing());
                     
                 }
@@ -632,7 +637,7 @@ namespace itk{
             }//level
 
             if (regist || coherence)
-                m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_targetImage);
+                m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_inputTargetImage);
             m_finalSegmentation=(segmentation);
             delete labelmapper;
         }//run
