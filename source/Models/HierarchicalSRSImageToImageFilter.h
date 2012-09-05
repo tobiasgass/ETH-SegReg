@@ -529,7 +529,7 @@ namespace itk{
                     //convergence check after second iteration
 #if 1
                     //if energy difference is large, and greater than the threshold, skip this iteration and start over
-                    if (i>0 && newEnergy>oldEnergy &&  fabs(oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) > 1e-3  ){
+                    if (false && i>0 && newEnergy>oldEnergy &&  fabs(oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) > 1e-3  ){
                         logResetStage;
                         if ( fabs(oldWorseEnergy-newEnergy)/fabs(oldWorseEnergy+DBL_EPSILON) <1e-4)
                             break;

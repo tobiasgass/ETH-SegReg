@@ -72,14 +72,14 @@ int main(int argc, char ** argv)
     //reg
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
-    typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+    //typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
-    //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
+    typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
     //typedef FastRegistrationGraphModel<
     //    typedef SortedSubsamplingGraphModel<

@@ -132,7 +132,7 @@ namespace itk{
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
 #endif        
 
-        void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
+        virtual void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             logSetStage("Coherence setup");
             m_atlasSegmentationInterpolator= SegmentationInterpolatorType::New();
             m_atlasSegmentationInterpolator->SetInputImage(segImage);
@@ -271,28 +271,31 @@ namespace itk{
                 double dist=m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);
                 result=dist;
             }
-#if 1
-            if (result>m_threshold ){
-                if (segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 ){
-                    result=99999;
-                }else if (segmentationLabel || deformedAtlasSegmentation )
-                    result=m_threshold;//1.0;
+
+            bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
+            bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
+#if 0
+            if (segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 ){
+                if (result>m_threshold ){
+                    result=9999999;
+                }else  {
+                    result/=m_minDists[segmentationLabel];
+                    result*=result;
+                }
+            }else if (segmentationLabel || deformedAtlasSegmentation ){
+                if (result>m_threshold ){
+                    result=1;
+                }else  {
+                    result/=m_minDists[segmentationLabel];
+                    result*=result;
+                } //result=1.0;
             }
-            {
-                result/=m_minDists[segmentationLabel];
-                result*=result;
-            }
-#elif 0
-            if (deformedAtlasSegmentation!=this->m_nSegmentationLabels-1 &&  segmentationLabel && segmentationLabel<this->m_nSegmentationLabels-1){
-                if (m_atlasDistanceTransformInterpolators[this->m_nSegmentationLabels-1]->EvaluateAtContinuousIndex(idx2)/m_threshold>1)//result=0;
-                //result=min(1.0,result);
-                    result=std::numeric_limits<float>::epsilon();
-            }
-#else
-            if (segmentationLabel && segmentationLabel<this->m_nSegmentationLabels-1)
-                result=1.0/(1.0+exp(- 10.0/this->m_threshold *(result-this->m_threshold)));
-            else if (segmentationLabel){
-                result=0.5*pow(result/this->m_threshold,4.0);
+          
+#else 
+            result/=m_threshold;
+            result*=result;
+            if (auxiliarySegmentation){
+                result=min(result,1.0);
             }
 #endif
             return result;
@@ -566,30 +569,32 @@ namespace itk{
     public:
         itkNewMacro(Self);
 
-        void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
-            if (scale !=1.0 ){
-                segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
+         virtual void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
+            logSetStage("Coherence setup");
+            this->m_atlasSegmentationInterpolator= SegmentationInterpolatorType::New();
+            this->m_atlasSegmentationInterpolator->SetInputImage(segImage);
+            this->m_atlasSegmentationImage=segImage;
+            typename itk::StatisticsImageFilter< ImageType >::Pointer maxFilter= itk::StatisticsImageFilter< ImageType >::New() ;
+
+            maxFilter->SetInput(segImage);
+            maxFilter->Update();
+            this->m_nSegmentationLabels=maxFilter->GetMaximumOutput()->Get()+1;
+            LOGV(3)<<VAR( this->m_nSegmentationLabels)<<endl;
+            if (this->m_nSegmentationLabels>3){
+                LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(this->m_nSegmentationLabels)<<endl;
             }
           
+            logResetStage;
         }
-
         inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
-            ContinuousIndexType idx2(targetIndex2);
+             ContinuousIndexType idx2(targetIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
-#ifdef PIXELTRANSFORM
-           
-            idx2+= disp;
-            if (m_baseLabelMap){
-                itk::Vector<float,ImageType::ImageDimension> baseDisp=m_baseLabelMap->GetPixel(targetIndex2);
-                idx2+=baseDisp;
-            }
-#else
+
             typename ImageType::PointType p;
-            this->m_baseLabelMap->TransformIndexToPhysicalPoint(targetIndex1,p);
-            p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
-            this->m_baseLabelMap->TransformPhysicalPointToContinuousIndex(p,idx2);
-#endif
+            this->m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,p);
+            p +=disp;//+this->m_baseLabelMap->GetPixel(targetIndex1);
+            this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p,idx2);
             int deformedAtlasSegmentation=-1;
             if (!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
@@ -600,25 +605,20 @@ namespace itk{
                         idx2[d]=this->m_atlasSegmentationInterpolator->GetStartContinuousIndex()[d]+0.5;
                     }
                 }
-            } 
-            deformedAtlasSegmentation=int(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
-         
-            if (deformedAtlasSegmentation>0){
-                if (segmentationLabel!=deformedAtlasSegmentation){
-                    result=1;
-                    if (segmentationLabel==this->m_nSegmentationLabels - 1)
-                        result=2;
-                }
-            }else{
-                //atlas is not segmented...
-                if (segmentationLabel== this->m_nSegmentationLabels - 1){
-                    //if we want to label foreground, cost is proportional to distance to atlas foreground
-                    result=2;
-                }else if (segmentationLabel ){
-                    result=1;
-                }
             }
-            return 1000*result;
+            deformedAtlasSegmentation=int(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+            if (segmentationLabel!=deformedAtlasSegmentation){ 
+                result=1;
+            }
+
+            bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
+            bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
+
+            if (targetSegmentation){
+                result*=2;
+            }
+
+            return result;
         }
     };//class
    

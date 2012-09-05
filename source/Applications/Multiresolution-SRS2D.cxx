@@ -81,9 +81,9 @@ int main(int argc, char ** argv)
     //Registration pairwise potential
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     //Coherence potential
-    typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+    //typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
-    //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
+    typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
 
     //Graph
