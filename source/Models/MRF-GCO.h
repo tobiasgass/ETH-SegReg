@@ -391,7 +391,7 @@ public:
         for (int l=0;l<GLOBALnRegLabels;++l){
             order[l+GLOBALnSegLabels]=l;
         }
-#if 1
+#if 0
         m_optimizer->setLabelOrder(order,GLOBALnRegLabels+GLOBALnSegLabels);
 #else
         bool random = true;
