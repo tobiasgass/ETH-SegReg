@@ -317,8 +317,10 @@ namespace itk{
                 level=m_config->levels[l];
                 double labelScalingFactor=m_config->displacementScaling;
                 
-                //downsampling target image is not that easy since potentials are cached already.
-                m_targetImage=m_inputTargetImage;//FilterUtils<ImageType>::LinearResample(m_inputTargetImage,1.0/pow(1.5,exponent));
+                //downsampling target image by a factor of m_config->segmentationScalingFactor for each level.
+                double segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent);
+                m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor);
+                
                 LOGV(4)<<VAR(1.0/pow(1.5,exponent))<<endl;
                                                                      
                 //init graph
@@ -349,6 +351,8 @@ namespace itk{
                 if (segment){
                     //setup segmentation potentials
                     m_unarySegmentationPot->SetGradientScaling(m_config->pairwiseSegmentationWeight);
+                    m_unarySegmentationPot->ResamplePotentials(segmentationScalingFactor);
+                    m_pairwiseSegmentationPot->ResamplePotentials(segmentationScalingFactor);
                 }
                 if (coherence){
                     //setup segreg potentials

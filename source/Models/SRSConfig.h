@@ -36,6 +36,7 @@ public:
 	bool train;
     double displacementRescalingFactor;
     double scale,asymmetry;
+    double segmentationScalingFactor;
     int optIter;
     double downScale;
     double pairwiseContrastWeight;
@@ -109,6 +110,7 @@ public:
         dontNormalizeRegUnaries=false;
         ARSWeight=0.0;
         centerImages=false;
+        segmentationScalingFactor=1.0;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -250,7 +252,8 @@ public:
 		(*as) >> parameter ("l3", tmp_levels[3],"divisor for level 3", false);
 		(*as) >> parameter ("l4", tmp_levels[4],"divisor for level 4", false);
 		(*as) >> parameter ("l5", tmp_levels[5],"divisor for level 5", false);
-        (*as) >> parameter ("scale", scale,"scaling factor for registration potential", false);
+        (*as) >> parameter ("scale", scale,"downscaling factor for images in the registration multiresolution pyramid ", false);
+        (*as) >> parameter ("segmentationScalingFactor", segmentationScalingFactor,"downsampling factor for segmentation multiresolution pyramid", false);
         (*as) >> parameter ("downScale", downScale,"downSample ALL  images by an isotropic factor",false);
         (*as) >> parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=2)", false);
         (*as) >> option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");

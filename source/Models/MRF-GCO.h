@@ -54,7 +54,7 @@ protected:
     double m_lastLowerBound;
     Functor * smoothCostFunctor;
     vector<int> m_labelOrder;
-
+    int m_zeroDisplacementLabel;
 
     //ugly globals instead of ugly static members because of GCO
     static vector<vector<vector<map<int,float> > > > (*regPairwise);//,(*segPairwise);//(*srsPairwise);
@@ -146,7 +146,9 @@ public:
         srsPairwise=NULL;
         m_labelOrder=vector<int>(this->m_GraphModel->nRegLabels());
         //order registration labels such that they start with zero displacement
-        m_labelOrder[0]=(this->m_GraphModel->nRegLabels())/2;
+        typedef typename GraphModelType::LabelMapperType LMType;
+        m_zeroDisplacementLabel=LMType::getZeroDisplacementIndex();
+        m_labelOrder[0]=m_zeroDisplacementLabel;
         for (int l=0;l<(this->m_GraphModel->nRegLabels());++l){
             if (l < m_labelOrder[0])
                 m_labelOrder[l+1]=l;
@@ -250,7 +252,7 @@ public:
             //if (regPairwise!=NULL) delete regPairwise;
             regPairwise= new vector<vector<vector<map<int,float> > > > (nRegLabels,vector<vector<map<int,float> > >(nRegLabels,vector<map<int,float> > (nRegNodes) ) );
             for (int d=0;d<nRegNodes;++d){
-                m_optimizer->setLabel(d,GLOBALnRegLabels/2);
+                m_optimizer->setLabel(d,m_zeroDisplacementLabel);
 
                 {//pure Registration
                     std::vector<int> neighbours= this->m_GraphModel->getForwardRegistrationNeighbours(d);
@@ -391,7 +393,7 @@ public:
         for (int l=0;l<GLOBALnRegLabels;++l){
             order[l+GLOBALnSegLabels]=l;
         }
-#if 0
+#if 1
         m_optimizer->setLabelOrder(order,GLOBALnRegLabels+GLOBALnSegLabels);
 #else
         bool random = true;

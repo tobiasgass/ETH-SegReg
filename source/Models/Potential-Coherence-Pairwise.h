@@ -274,7 +274,16 @@ namespace itk{
 
             bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
             bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
+
 #if 0
+            result/=m_threshold;
+            result*=result;
+            if (targetSegmentation){
+                result=result>1.0?99999.0:result;
+            }else if (auxiliarySegmentation){
+                result=min(result,1.0);
+            }
+#elif 1
             if (segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 ){
                 if (result>m_threshold ){
                     result=9999999;
@@ -615,7 +624,7 @@ namespace itk{
             bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
 
             if (targetSegmentation){
-                result*=2;
+                result*=1.0+exp(max(1.0,40.0/this->m_threshold)-1.0);
             }
 
             return result;

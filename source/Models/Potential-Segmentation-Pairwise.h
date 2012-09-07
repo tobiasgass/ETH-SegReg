@@ -35,6 +35,8 @@ namespace itk{
         typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
         ConstImagePointerType m_targetImage, m_gradientImage;
+        ConstImagePointerType m_scaledTargetImage, m_scaledTargetGradient;
+
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
@@ -69,6 +71,30 @@ namespace itk{
             this->m_Sigma=filter->GetSigma();
             this->m_Sigma*=this->m_Sigma;	  
             LOGV(5)<<"Target image  variance: "<<m_Sigma<<std::endl;
+            m_scaledTargetImage=m_targetImage;
+            m_scaledTargetGradient=m_gradientImage;
+        }
+        void ResamplePotentials(double segmentationScalingFactor){
+            if (m_targetImage.IsNull()){
+                LOG<<"Target image not allocated, aborting"<<endl;
+                exit(0);
+            }
+            if (m_gradientImage.IsNull()){
+                LOG<<"Target gradient image not allocated, aborting"<<endl;
+                exit(0);
+            }
+            m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor);
+            m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_gradientImage,segmentationScalingFactor);
+            if (m_scaledTargetImage.IsNull()){
+                LOG<<"Target image rescaling failed, aborting"<<endl;
+                exit(0);
+            }
+            if (m_scaledTargetGradient.IsNull()){
+                LOG<<"Target gradient image rescaling failed, aborting"<<endl;
+                exit(0);
+            }
+            
+            
         }
         void SetGradientScaling(double s){m_gradientScaling=s;}
         void SetTargetImage(ConstImagePointerType targetImage){
@@ -357,8 +383,8 @@ namespace itk{
 #endif       
 
 
-                double s1=1.0*this->m_gradientImage->GetPixel(idx1);
-                double s2=1.0*this->m_gradientImage->GetPixel(idx2);
+                double s1=1.0*this->m_scaledTargetGradient->GetPixel(idx1);
+                double s2=1.0*this->m_scaledTargetGradient->GetPixel(idx2);
                 double gradientDiff=fabs(s1-s2)/100;
                                 
                 gradientCost=(s1>s2)?1:exp(-5*gradientDiff);
@@ -415,9 +441,14 @@ namespace itk{
         typedef typename ImageType::SpacingType SpacingType;
         typedef TSmoothnessClassifier ClassifierType;
         typedef typename ClassifierType::Pointer ClassifierPointerType;
+        typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
+        typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+
     private:
         ClassifierPointerType m_classifier;
         bool m_trainOnTargetROI;
+        std::vector<FloatImagePointerType> m_probabilityImages,m_resampledProbImages;
+
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -435,8 +466,9 @@ namespace itk{
             
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
             m_classifier->train(train,filename);
-            m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
+            // m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
             
+            m_probabilityImages=     m_classifier->getProbabilities(this->m_targetImage,this->m_gradientImage);
         }
         virtual  void Init(){
             m_trainOnTargetROI=true;
@@ -456,7 +488,9 @@ namespace itk{
             m_classifier->setNSegmentationLabels(this->m_nSegmentationLabels);
             this->m_classifier->setData( this->m_atlasImage,(ConstImagePointerType)this->m_atlasSegmentation,(ConstImagePointerType)this->m_atlasGradient);
             m_classifier->train(true);
-            m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
+            //            m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
+            m_probabilityImages=     m_classifier->getProbabilities(this->m_targetImage,this->m_gradientImage);
+
         }
         virtual void Init(string filename){
             assert(false);
@@ -469,6 +503,12 @@ namespace itk{
         virtual void evalImage(ConstImagePointerType im,ConstImagePointerType grad){
             
         }
+        void ResamplePotentials(double scale){
+            m_resampledProbImages= std::vector<FloatImagePointerType>(m_probabilityImages.size());
+            for (int i=0;i<m_probabilityImages.size();++i){
+                m_resampledProbImages[i]=FilterUtils<FloatImageType>::LinearResample(m_probabilityImages[i],scale);
+            }
+        }
         ClassifierPointerType GetClassifier(){return m_classifier;}
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
          
@@ -476,14 +516,27 @@ namespace itk{
                 return 0;
                 //prob=1-prob;
             }
-            //            return m_classifier->getCachedPotential(idx1,idx2);
-            double prob=m_classifier->getCachedPotential(idx1,idx2);
-            return -log(prob);
+            double prob;
+#if 1
+            //get probability from own cache
+            for (unsigned int d=0;d<ImageType::ImageDimension;++d){
+                int diff= idx1[d]-idx2[d];
+                if (diff>0){
+                    prob= m_resampledProbImages[d]->GetPixel(idx1);
+                }else if (diff<0){
+                    prob= m_resampledProbImages[d]->GetPixel(idx2);
+                }
+            }
+#else
+            //use cache of classifier, doesnt work with resampling
+            prob=m_classifier->getCachedPotential(idx1,idx2);
+#endif
+          
             if (prob<std::numeric_limits<double>::epsilon()){
                 prob=std::numeric_limits<double>::epsilon();
             }
-            //return -log(prob);
-            return 1.0-prob;
+            return -log(prob);
+            //return 1.0-prob;
         }
       
     };//class

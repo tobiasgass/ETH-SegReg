@@ -35,9 +35,10 @@ namespace itk{
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         SizeType m_targetSize;
-       typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
+        typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
         ImageConstPointerType m_targetImage, m_targetGradient,m_atlasImage, m_atlasGradient;
+        ImageConstPointerType m_scaledTargetImage, m_scaledTargetGradient;
         ImageConstPointerType m_atlasSegmentation;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
@@ -82,6 +83,11 @@ namespace itk{
             this->m_Sigma=filter->GetSigma();
             this->m_Sigma*=this->m_Sigma;
                                     
+        }
+        void ResamplePotentials(double segmentationScalingFactor){
+            m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor);
+            m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor);
+            
         }
         virtual void SetAtlasSegmentation(ImageConstPointerType im){
             m_atlasSegmentation=im;
@@ -520,10 +526,10 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentationBoneMarcel, Object);
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
-            int s=this->m_targetGradient->GetPixel(targetIndex);
+            int s=this->m_scaledTargetGradient->GetPixel(targetIndex);
             int bone=(300);
             int tissue=(-500);
-            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
+            double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
             double totalCost=1;
             bool tissuePrior=false;
             if (this->m_useTissuePrior){
@@ -587,7 +593,7 @@ namespace itk{
         }
     };//class
 
-  template<class TImage, class TClassifier>
+    template<class TImage, class TClassifier>
     class UnaryPotentialNewSegmentationClassifier: public UnaryPotentialSegmentation<TImage> {
     public:
         //itk declarations
@@ -602,12 +608,13 @@ namespace itk{
 
         typedef TClassifier ClassifierType;
         typedef typename ClassifierType::Pointer ClassifierPointerType;
-      typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
+        typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
+        typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
         
     protected:
-      ClassifierPointerType m_classifier;
-      std::vector<FloatImagePointerType> m_probabilityImages;
-      bool m_trainOnTargetROI;
+        ClassifierPointerType m_classifier;
+        std::vector<FloatImagePointerType> m_probabilityImages,m_resampledProbImages;
+        bool m_trainOnTargetROI;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -633,9 +640,14 @@ namespace itk{
             //            target.push_back(this->m_targetGradient);
             m_probabilityImages=m_classifier->evalImage(target);
         }
-        
+        void ResamplePotentials(double scale){
+            m_resampledProbImages= std::vector<FloatImagePointerType>(m_probabilityImages.size());
+            for (int i=0;i<m_probabilityImages.size();++i){
+                m_resampledProbImages[i]=FilterUtils<FloatImageType>::LinearResample(m_probabilityImages[i],scale);
+            }
+        }
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
-            double prob= m_probabilityImages[segmentationLabel>0]->GetPixel(targetIndex);
+            double prob= m_resampledProbImages[segmentationLabel>0]->GetPixel(targetIndex);
             return prob;
             if (prob<=0) prob=0.00000000001;
             return -log(prob);

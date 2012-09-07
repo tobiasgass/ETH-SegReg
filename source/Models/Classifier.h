@@ -1038,7 +1038,8 @@ namespace itk{
         typedef typename ImageType::ConstPointer ImageConstPointerType;
         typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
         typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
-        typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
+        typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;    
+        typedef typename FloatImageType::ConstPointer FloatImageConstPointerType;
     protected:
     
         FileData m_TrainData;
@@ -1305,7 +1306,84 @@ namespace itk{
                  delete  potentialIterators[d];
              }
          }
+        virtual std::vector<FloatImagePointerType> getProbabilities(ImageConstPointerType im,ImageConstPointerType grad){
 
+            typedef typename itk::ImageRegionConstIterator< ImageType > IteratorType;
+             typedef typename itk::ImageRegionIterator< FloatImageType > NewIteratorType;
+             IteratorType iterator(im, im->GetLargestPossibleRegion());
+             IteratorType iterator2(grad, grad->GetLargestPossibleRegion());
+             
+             int nPixels=1;
+             for (unsigned int d=0;d<ImageType::ImageDimension;++d){
+                 nPixels*=im->GetLargestPossibleRegion().GetSize()[d];
+             }
+             matrix<float> data(nPixels*ImageType::ImageDimension,2);
+             std::vector<int> labelVector(nPixels*ImageType::ImageDimension,0);
+             int c=0;
+             //store observations
+             typedef typename ImageType::OffsetType OffsetType;
+             for (iterator.GoToBegin(),iterator2.GoToBegin();!iterator.IsAtEnd();++iterator,++iterator2){
+                 typename ImageType::IndexType idx1=iterator.GetIndex();
+                 
+                 for (unsigned int d=0;d<ImageType::ImageDimension;++d){
+                     OffsetType off;
+                     off.Fill(0);
+                     float val11=iterator.Get();
+                     float val21=iterator2.Get();
+                     float val12=0;
+                     float val22=0;
+                     if (idx1[d]<(int)im->GetLargestPossibleRegion().GetSize()[d]-1){
+                         off[d]+=1;
+                         typename ImageType::IndexType idx2=idx1+off;
+                         val12=im->GetPixel(idx2);
+                         val22=grad->GetPixel(idx2);
+                     }
+                     float absDiff1=fabs(val11-val12);
+                     float absDiff2=fabs(val21-val22);
+                     data(c,0)=absDiff1;
+                     data(c,1)=absDiff2;
+                     c++;
+                 }
+             }
+
+             //eval observations
+             this->m_Forest->eval(data,labelVector,false);
+             matrix<float> conf = this->m_Forest->getConfidences();
+
+             //store result in images
+             potentials=std::vector<FloatImagePointerType>(ImageType::ImageDimension);
+             std::vector<NewIteratorType *> potentialIterators(ImageType::ImageDimension);
+             for (unsigned int d=0;d<ImageType::ImageDimension;++d){
+                 potentials[d]=FilterUtils<ImageType,FloatImageType>::createEmpty(im);
+                 potentialIterators[d] = new   NewIteratorType( potentials[d],  potentials[d]->GetLargestPossibleRegion());
+                 potentialIterators[d]->GoToBegin();
+             }
+             c=0;
+             for (iterator.GoToBegin(),iterator2.GoToBegin();!iterator.IsAtEnd();++iterator,++iterator2){
+                 for (unsigned int d=0;d<ImageType::ImageDimension;++d){
+                     potentialIterators[d]->Set((conf(c,0)));
+                     ++c;
+                     ++(*potentialIterators[d]);
+                 }
+             }
+             for (unsigned int d=0;d<ImageType::ImageDimension;++d){
+                      typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+                      typename CasterType::Pointer caster=CasterType::New();
+                      caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+                      caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+                      caster->SetInput(potentials[d]);
+                      caster->Update();
+                      ostringstream smoothFilename;
+                      smoothFilename<<"smoothRF-d"<<d;
+                      if (ImageType::ImageDimension == 2){
+                          smoothFilename<<".png";}
+                      else{
+                          smoothFilename<<".nii";}
+                      ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput());
+                 delete  potentialIterators[d];
+             }
+             return potentials;
+         }
         virtual double getCachedPotential(IndexType idx1,IndexType idx2){
           
             for (unsigned int d=0;d<ImageType::ImageDimension;++d){
