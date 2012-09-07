@@ -1,4 +1,5 @@
 #include "unsupervised.h"
+
 using namespace NEWMAT;
 
 void unsupervised::init(){

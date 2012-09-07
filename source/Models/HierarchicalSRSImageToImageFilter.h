@@ -319,9 +319,10 @@ namespace itk{
                 
                 //downsampling target image by a factor of m_config->segmentationScalingFactor for each level.
                 double segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent);
+                LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
                 m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor);
                 
-                LOGV(4)<<VAR(1.0/pow(1.5,exponent))<<endl;
+               
                                                                      
                 //init graph
                 LOG<<"Initializing graph structure."<<std::endl;
@@ -394,7 +395,8 @@ namespace itk{
                 
                 //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
                 double threshold;
-                threshold=max(1.0,0.5*(graph->getSpacing()[0]));
+                //threshold=max(1.0,0.5*(graph->getSpacing()[0]));
+                threshold=pow(2,exponent+1);
                 if (m_config->ARSWeight!=0.0){
                     threshold=max(1.0,m_config->ARSWeight*0.5*(graph->getSpacing()[0]));
 

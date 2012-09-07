@@ -283,15 +283,15 @@ namespace itk{
             }else if (auxiliarySegmentation){
                 result=min(result,1.0);
             }
-#elif 1
-            if (segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 ){
+#elif 0
+            if (targetSegmentation){
                 if (result>m_threshold ){
                     result=9999999;
                 }else  {
                     result/=m_minDists[segmentationLabel];
                     result*=result;
                 }
-            }else if (segmentationLabel || deformedAtlasSegmentation ){
+            }else if (auxiliarySegmentation ){
                 if (result>m_threshold ){
                     result=1;
                 }else  {
@@ -302,11 +302,13 @@ namespace itk{
           
 #else 
             result/=m_threshold;
-            result*=result;
+            result=0.5*result*result;//exp(result)-1;
             if (auxiliarySegmentation){
                 result=min(result,1.0);
             }
+            result=min(999999.0,result);
 #endif
+            
             return result;
         }
     };//class
