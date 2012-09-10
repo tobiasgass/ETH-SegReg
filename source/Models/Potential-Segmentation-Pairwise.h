@@ -514,28 +514,29 @@ namespace itk{
          
             if (label1==label2){
                 return 0;
-                //prob=1-prob;
             }
-            double prob;
+            double probabilityEqualLabel;
 #if 1
             //get probability from own cache
             for (unsigned int d=0;d<ImageType::ImageDimension;++d){
                 int diff= idx1[d]-idx2[d];
                 if (diff>0){
-                    prob= m_resampledProbImages[d]->GetPixel(idx1);
+                    probabilityEqualLabel=m_resampledProbImages[d]->GetPixel(idx1);
+                    break;
                 }else if (diff<0){
-                    prob= m_resampledProbImages[d]->GetPixel(idx2);
+                    probabilityEqualLabel=m_resampledProbImages[d]->GetPixel(idx2);
+                    break;
                 }
             }
 #else
             //use cache of classifier, doesnt work with resampling
-            prob=m_classifier->getCachedPotential(idx1,idx2);
+            probabilityEqualLabel=m_classifier->getCachedPotential(idx1,idx2);
 #endif
           
-            if (prob<std::numeric_limits<double>::epsilon()){
-                prob=std::numeric_limits<double>::epsilon();
+            if (probabilityEqualLabel<std::numeric_limits<double>::epsilon()){
+                probabilityEqualLabel=std::numeric_limits<double>::epsilon();
             }
-            return -log(prob);
+            return -log(probabilityEqualLabel);
             //return 1.0-prob;
         }
       

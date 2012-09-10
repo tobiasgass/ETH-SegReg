@@ -322,7 +322,11 @@ namespace itk{
                 LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
                 m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor);
                 
-               
+                if (l>0 && D==3){
+                    LOG<<endl;
+                    LOG<<"WARNING: REDUCING NUMBER OF DISPLACEMENTSAMPLES!!"<<endl;                    LOG<<endl;
+                    labelmapper->setDisplacementSamples(max(1,LabelMapperType::nDisplacementSamples-1));
+                }
                                                                      
                 //init graph
                 LOG<<"Initializing graph structure."<<std::endl;
@@ -394,15 +398,16 @@ namespace itk{
                 LOGV(1)<<"Current grid spacing :"<<graph->getSpacing()<<std::endl;
                 
                 //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
-                double threshold;
-                //threshold=max(1.0,0.5*(graph->getSpacing()[0]));
-                threshold=pow(2,exponent+1);
-                if (m_config->ARSWeight!=0.0){
-                    threshold=max(1.0,m_config->ARSWeight*0.5*(graph->getSpacing()[0]));
+                double tolerance;
+                //tolerance=max(1.0,0.5*(graph->getSpacing()[0]));
+                tolerance=pow(2,exponent+1);
+                if (m_config->ARSTolerance>0.0){
+                    tolerance=m_config->ARSTolerance;
 
                 }                
-                LOGV(4)<<VAR(threshold)<<endl;
-                m_pairwiseCoherencePot->SetThreshold(threshold);
+               
+                LOGV(4)<<VAR(tolerance)<<endl;
+                m_pairwiseCoherencePot->SetTolerance(tolerance);
                 //m_pairwiseCoherencePot->SetThreshold(max(1.0,(graph->getSpacing()[0])/2));//*(m_config->iterationsPerLevel-i)));
 
                 bool converged=false;

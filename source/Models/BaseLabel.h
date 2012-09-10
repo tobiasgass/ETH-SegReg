@@ -433,7 +433,7 @@ public:
 	SemiSparseRegistrationLabelMapper(int NSegmentations, int NDisplacementSamples){
 		nSegmentations=NSegmentations;
 		nDisplacementSamples=NDisplacementSamples;
-		nDisplacements=(double(2*nDisplacementSamples)*TImage::ImageDimension)+1;
+		nDisplacements=(pow(3,int(TImage::ImageDimension))-1)*nDisplacementSamples+1;
 		nLabels=nSegmentations+nDisplacements;
 		k=TImage::ImageDimension;
         populateLabelMap();
@@ -446,41 +446,62 @@ protected:
         }
         m_labelMap=new LabelMapType();
         m_labelList=new LabelListType();
+       
+
+#if 0
+        //1-axis displacements
         LabelType label;
         label.Fill(0.0);
+        LabelType zeroLabel=label;
         int increment=0;
         m_labelMap->insert(std::make_pair(label,increment));
         m_labelList->push_back(label);
-        //1-axis displacements
         for (int d=0;d<Dimension;++d){
-            for (int n=0;n<nDisplacements;++n){
-                label.Fill(0.0);
-                label[d]=n+1;
-                m_labelMap->insert(std::make_pair(label,increment));
-                m_labelList->push_back(label);
-                increment++;
-                label[d]=-label[d];
-                m_labelMap->insert(std::make_pair(label,increment));
-                m_labelList->push_back(label);
-                increment++;
+            for (int n=-nDisplacementSamples;n<=nDisplacementSamples;++n){
+                if (n != 0){
+                    label.Fill(0.0);
+                    label[d]=n+1;
+                    m_labelMap->insert(std::make_pair(label,increment));
+                    m_labelList->push_back(label);
+                    increment++;
+                }
             }
         }
-        //2-axis displacements
-        for (int n=0;n<nDisplacements;++n){
-            for (int d=0;d<Dimension;++d){
-                for (int d=0;d<Dimension;++d){
+#endif
+        LabelType zeroLabel;
+        zeroLabel.Fill(0.0);
+        LabelType label;
+        label.Fill(-1.0);
+        int i=0;
+        for (;i<pow(3,int(TImage::ImageDimension));++i){
+            m_labelMap->insert(std::make_pair(label,i));
+            m_labelList->push_back(label);
+            label[0]+=1;
+            for (unsigned int d=0;d<TImage::ImageDimension-1;++d){
+                if (label[d]>1){
+                    label[d+1]+=1;
+                    label[d]=-1;
                 }
-            }        
-
+            }
         }
-        
+        for (int n=2;n<nDisplacementSamples+1;++n){
+            for (int d=0;d<pow(3,int(TImage::ImageDimension));++d){
+                const LabelType l= (*m_labelList)[d];
+                LabelType label= scaleDisplacement( l , n );
+                if (label!=zeroLabel){
+                    m_labelMap->insert(std::make_pair(label,i));
+                    m_labelList->push_back(label);
+                    ++i;
+                }
+            }
+        }
     }
 public:
-    static inline int getZeroDisplacementIndex(){return 0;}
+    static inline int getZeroDisplacementIndex(){return pow(3,int(TImage::ImageDimension))/2;}
 
 	void setDisplacementSamples(int nSamples){
 		nDisplacementSamples=nSamples;
-		nDisplacements=(double(2*nDisplacementSamples)*TImage::ImageDimension)+1;
+			nDisplacements=(pow(3,int(TImage::ImageDimension))-1)*nDisplacementSamples+1;
 		nLabels=nSegmentations*nDisplacements;
         populateLabelMap();
 
@@ -495,6 +516,13 @@ public:
 		LabelType result(label);
 		for (int d=0;d<TImage::ImageDimension;++d){
 			result[d]=result[d]*scaling[d];
+		}
+		return result;
+	}
+	static inline const LabelType scaleDisplacement( const LabelType & label,const int & s){
+		LabelType result(label);
+		for (int d=0;d<TImage::ImageDimension;++d){
+			result[d]=result[d]*s;
 		}
 		return result;
 	}

@@ -66,7 +66,7 @@ namespace itk{
         bool m_haveLabelMap;
         double m_asymm;
       
-        double sigma1, sigma2, mean1, mean2, m_threshold,maxDist,minDist, mDistTarget,mDistSecondary;
+        double sigma1, sigma2, mean1, mean2, m_tolerance,maxDist,minDist, mDistTarget,mDistSecondary;
         int m_nSegmentationLabels;
     public:
         /** Method for creation through the object factory. */
@@ -77,7 +77,7 @@ namespace itk{
         PairwisePotentialCoherence(){
             m_haveLabelMap=false;
             m_asymm=1;
-            m_threshold=9999999999.0;
+            m_tolerance=9999999999.0;
         }
         virtual void freeMemory(){
         }
@@ -242,7 +242,7 @@ namespace itk{
             return caster->GetOutput();
         }
 #endif
-        void SetThreshold(double t){m_threshold=t;}
+        void SetTolerance(double t){m_tolerance=t;}
 
 
         //edge from registration to segmentation
@@ -276,7 +276,7 @@ namespace itk{
             bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
 
 #if 0
-            result/=m_threshold;
+            result/=m_tolerance;
             result*=result;
             if (targetSegmentation){
                 result=result>1.0?99999.0:result;
@@ -285,14 +285,14 @@ namespace itk{
             }
 #elif 0
             if (targetSegmentation){
-                if (result>m_threshold ){
+                if (result>m_tolerance ){
                     result=9999999;
                 }else  {
                     result/=m_minDists[segmentationLabel];
                     result*=result;
                 }
             }else if (auxiliarySegmentation ){
-                if (result>m_threshold ){
+                if (result>m_tolerance ){
                     result=1;
                 }else  {
                     result/=m_minDists[segmentationLabel];
@@ -301,7 +301,7 @@ namespace itk{
             }
           
 #else 
-            result/=m_threshold;
+            result/=m_tolerance;
             result=0.5*result*result;//exp(result)-1;
             if (auxiliarySegmentation){
                 result=min(result,1.0);
@@ -373,7 +373,7 @@ namespace itk{
                 result=dist;//-this->m_minDists[segmentationLabel];
             }
             
-            return 1.0/(1.0+exp(-(result-this->m_threshold)));
+            return 1.0/(1.0+exp(-(result-this->m_tolerance)));
         }
     };//class
 
@@ -510,7 +510,7 @@ namespace itk{
                     //if we want to label foreground, cost is proportional to distance to atlas foreground
                     distanceToDeformedSegmentation=fabs(this->m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2));
 #if 1       
-                    if (distanceToDeformedSegmentation>this->m_threshold){
+                    if (distanceToDeformedSegmentation>this->m_tolerance){
                         result=1000;
                     }
                     else
@@ -626,7 +626,7 @@ namespace itk{
             bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
 
             if (targetSegmentation){
-                result*=1.0+exp(max(1.0,40.0/this->m_threshold)-1.0);
+                result*=1.0+exp(max(1.0,40.0/this->m_tolerance)-1.0);
             }
 
             return result;
