@@ -322,7 +322,7 @@ namespace itk{
                 LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
                 m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor);
                 
-                if (l>0 && D==3){
+                if (false && l>0 && D==3){
                     LOG<<endl;
                     LOG<<"WARNING: REDUCING NUMBER OF DISPLACEMENTSAMPLES!!"<<endl;                    LOG<<endl;
                     labelmapper->setDisplacementSamples(max(1,LabelMapperType::nDisplacementSamples-1));

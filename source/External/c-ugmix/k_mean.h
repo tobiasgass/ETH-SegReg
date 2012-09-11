@@ -24,5 +24,5 @@ int update_cluster(Cluster *cl, int cluster_no,int dim);
   
   
 /*--------------- Clustering by K-Mean Method ----------------------*/
-void k_Mean(int cluster_no, Double2D obs, int* obs_c, int dim, int pattern_no);
+bool k_Mean(int cluster_no, Double2D obs, int* obs_c, int dim, int pattern_no);
   

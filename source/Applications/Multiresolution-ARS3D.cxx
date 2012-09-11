@@ -173,7 +173,7 @@ int main(int argc, char ** argv)
     }
     else if (filterConfig.bulkTransformationField!=""){
         transf=(ImageUtils<DeformationFieldType>::readImage(filterConfig.bulkTransformationField));
-    }else{
+    }else  if (filterConfig.centerImages){
         LOG<<"Computing transform to move image centers on top of each other.."<<std::endl;
         transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
     }    

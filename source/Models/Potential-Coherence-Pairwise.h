@@ -141,7 +141,7 @@ namespace itk{
 
             maxFilter->SetInput(segImage);
             maxFilter->Update();
-            m_nSegmentationLabels=maxFilter->GetMaximumOutput()->Get()+1;
+            m_nSegmentationLabels=max( m_nSegmentationLabels,maxFilter->GetMaximumOutput()->Get()+1);
             if (m_nSegmentationLabels>3){
                 LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(m_nSegmentationLabels)<<endl;
             }
@@ -626,7 +626,7 @@ namespace itk{
             bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
 
             if (targetSegmentation){
-                result*=1.0+exp(max(1.0,40.0/this->m_tolerance)-1.0);
+                result*=2;//1.0+exp(max(1.0,40.0/this->m_tolerance)-1.0);
             }
 
             return result;

@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
     }
     
 	//define types.
-    typedef unsigned short PixelType;
+    typedef unsigned char PixelType;
 	const unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -98,6 +98,10 @@ int main(int argc, char ** argv)
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
+    if (filterConfig.ROIFilename  != ""){
+        ImagePointerType roi=ImageUtils<ImageType>::readImage(filterConfig.ROIFilename);
+        targetImage=FilterUtils<ImageType>::NNResample(targetImage,roi);
+    }
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
     if (!atlasImage) {LOG<<"failed!"<<endl; exit(0);
@@ -176,7 +180,7 @@ int main(int argc, char ** argv)
     }
     else if (filterConfig.bulkTransformationField!=""){
         transf=(ImageUtils<DeformationFieldType>::readImage(filterConfig.bulkTransformationField));
-    }else{
+    }else if (filterConfig.centerImages){
         LOG<<"Computing transform to move image centers on top of each other.."<<std::endl;
          transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
       

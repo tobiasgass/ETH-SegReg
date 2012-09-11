@@ -1,5 +1,6 @@
 #include "unsupervised.h"
-
+#include <iostream>
+#include <cmath>
 using namespace NEWMAT;
 
 void unsupervised::init(){
@@ -124,8 +125,9 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
 		}
 		tmp5[j] = 0;
 	}
-    
-	k_Mean(k_max,tmp4,tmp5,Dim,n);
+
+    //initial estimate. reestimate in case a cluster is empty, and reduce maximum number of clusters
+    k_Mean(k_max,tmp4,tmp5,Dim,n);
     
 	int r,roop;
 	Double2D tmp_vectors = AllocDouble_2D(n,Dim);
@@ -160,12 +162,13 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
 		}
 	
 		best_alpha[j] = alpha[j] = (double) r / n;
-		mu[j] /= r;
+        //std::cout<<"j "<<j<<" "<<alpha[j]<<std::endl;
+		if (r) mu[j] /= r;
 		for(int k=0;k<Dim;k++){
 			for(int l=0;l<Dim;l++){
-				for(int m=0;m<r;m++) sigma[j].element(k,l) += (tmp_vectors[m][k] - mu[j].element(k)) * 
-					(tmp_vectors[m][l] - mu[j].element(l));
-				sigma[j].element(k,l) /= r;
+				for(int m=0;m<r;m++) 
+                    sigma[j].element(k,l) += (tmp_vectors[m][k] - mu[j].element(k)) * 	(tmp_vectors[m][l] - mu[j].element(l));
+				if (r) sigma[j].element(k,l) /= r;
 				sigma[j].element(k,l) *= 2;
 			}
 		}
@@ -220,16 +223,28 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
 			t += 1;
 	    
 			for(int m=0;m<k_max;m++){
+                //std::cout<<"m "<<m<<" "<<alpha[m]<<std::endl;
 				if(!alpha[m]) flag = true;
 				for(int i=0;i<n;i++){
 					tmp = 0.0;
-					for(int j=0;j<k_max;j++) tmp += alpha[j]*u[i][j];
-					if(tmp) w[i][m] = alpha[m] * u[i][m] / tmp;
+					for(int j=0;j<k_max;j++) {
+                        tmp += alpha[j]*u[i][j];
+                        //std::cout<<j<<" "<<tmp<<" "<<alpha[j]<<" "<<u[i][j]<<std::endl;
+                    }
+					if(tmp) {
+                        //std::cout<<"tmp2 "<<tmp<<" "<< alpha[m] * u[i][m] / tmp<<std::endl;
+                        w[i][m] = alpha[m] * u[i][m] / tmp;
+                    }else{
+                        w[i][m]=0;
+                    }
 				}
 		
 				if(!flag){
 					alpha[m] = 0.0;
-					for(int i=0;i<n;i++) alpha[m] += w[i][m];
+					for(int i=0;i<n;i++) {
+                        alpha[m] += w[i][m];
+                        //std::cout<<i<<" "<<alpha[m]<<" "<<w[i][m]<<std::endl;
+                    }
 					alpha[m] = max(0.0, alpha[m] - (double) N / 2.0);
 					tmp = 0.0;
 					for(int j=0;j<k_max;j++){
@@ -237,7 +252,8 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
 						for(int i=0;i<n;i++) tmp2 += w[i][j];
 						tmp += max(0.0, tmp2 - (double) N / 2.0);
 					}
-					if(tmp) alpha[m] = alpha[m] / tmp;
+                    //std::cout<<"tmp "<<tmp<<" "<<alpha[m]<<std::endl;
+					if(tmp && !isnan(tmp)) alpha[m] = alpha[m] / tmp;
 					else alpha[m] = 0.0;
 				}
 		
@@ -273,8 +289,10 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
 			flag = false;
 			criterion = (double) k_nz*log((double) n/12.0) / 2.0 + (double) k_nz*(N+1)/2.0;
 			for(int m=0;m<k_max;m++){
+                //std::cout<<tmp<<" "<<alpha[m]<<" "<<n<<" "<<log((double) n*alpha[m] / 12.0) << std::endl;
 				if(alpha[m]) tmp += log((double) n*alpha[m] / 12.0);
 			}
+            //std::cout<<tmp<<" "<<criterion<<std::endl;
 			criterion += (double) N * tmp / 2.0;
 			tmp = 0.0;
 			for(int i=0;i<n;i++){
