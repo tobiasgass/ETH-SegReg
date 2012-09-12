@@ -3,6 +3,7 @@
 // found in the LICENCE file.
 
 #include "mem.h"
+#include <algorithm>
 
 void nrerror(char *error_text){
   fprintf(stderr,"Numerical Recipes run-time error...\n");
@@ -64,6 +65,7 @@ Double2D AllocDouble_2D(int nr, int nc)
 
   for(int i=0; i<nr; i++) {
     m[i] = new double [nc];
+    std::fill_n(m[i],0.0,nc);
     if (!m[i]) nrerror("allocation failure 2 in dmatrix()");
   }
   return m;

@@ -19,12 +19,13 @@
 #include    "newmatrm.h"
 #include    "precisio.h"
 #include    "k_mean.h"
-
+#include    "include.h"
 #define THRESHOLD 1.0e-5
 #define UNDER_PROB 1.0e-300
 #define L_MAX 1.0e100
-
+#ifdef use_namespace
 using namespace NEWMAT;
+#endif
 class unsupervised{
  private:
   bool FLAG;

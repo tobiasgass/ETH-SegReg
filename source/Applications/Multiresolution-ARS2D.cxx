@@ -39,6 +39,7 @@ int main(int argc, char ** argv)
 	typedef TransfUtils<ImageType>::DisplacementType DisplacementType;
     //typedef SparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
     typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
+
     typedef TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef DeformationFieldType::Pointer DeformationFieldPointerType;
 
@@ -119,13 +120,13 @@ int main(int argc, char ** argv)
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
          }else{
             targetGradient=targetImage;
-            ImageUtils<ImageType>::writeImage("targetsheetness.png",targetGradient);
+            //ImageUtils<ImageType>::writeImage("targetsheetness.png",targetGradient);
         }
         if (filterConfig.atlasGradientFilename!=""){
             atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
         }else{
             atlasGradient=atlasImage;
-            ImageUtils<ImageType>::writeImage("atlassheetness.png",atlasGradient);
+            //ImageUtils<ImageType>::writeImage("atlassheetness.png",atlasGradient);
         }
         
         if (filterConfig.useTissuePrior){
@@ -206,7 +207,7 @@ int main(int argc, char ** argv)
     logResetStage;
     logSetStage("ARS iteration");
     for (int iteration=0;iteration<10;++iteration){    
-        filterConfig.ARSTolerance= pow(2,max(0,10-iteration-1)+1);
+        filterConfig.ARSTolerance= pow(2,max(0,4-iteration-1)+1);
         filter->setBulkTransform(transf);
         if (iteration == 0){
             //start with pure registration by setting seg and coh weights to zero

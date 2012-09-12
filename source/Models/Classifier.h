@@ -1302,7 +1302,7 @@ namespace itk{
                           smoothFilename<<".png";}
                       else{
                           smoothFilename<<".nii";}
-                      ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput());
+                      //ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput());
                  delete  potentialIterators[d];
              }
          }
@@ -1379,7 +1379,7 @@ namespace itk{
                           smoothFilename<<".png";}
                       else{
                           smoothFilename<<".nii";}
-                      ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput());
+                      //ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput());
                  delete  potentialIterators[d];
              }
              return potentials;

@@ -361,12 +361,13 @@ namespace itk{
                 }
             }
             std::string suff;
+            if (true){
             if (ImageType::ImageDimension==2){
                 suff=".png";
                 for ( int s=0;s<m_nSegmentationLabels;++s){
                     ostringstream probabilityfilename;
                     probabilityfilename<<"prob-gauss-c"<<s<<suff;
-                    ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::normalize(result[s]));
+                    LOGI(10,ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::normalize(result[s])));
                       //ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(result[s],255.0*255.0)));
                 }
             }
@@ -376,10 +377,10 @@ namespace itk{
                     ostringstream probabilityfilename;
                     probabilityfilename<<"prob-gauss-c"<<s<<suff;
                     
-                    ImageUtils<FloatImageType>::writeImage(probabilityfilename.str().c_str(),result[s]);
+                    LOGI(10,ImageUtils<FloatImageType>::writeImage(probabilityfilename.str().c_str(),result[s]));
                 }
 
-            }
+            }}
             return result;
         }
 

@@ -82,9 +82,9 @@ int main(int argc, char ** argv)
     //Registration pairwise potential
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     //Coherence potential
-    //typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+    typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
-    typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
+    //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
 
     //Graph
@@ -129,13 +129,13 @@ int main(int argc, char ** argv)
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
         }else{
             targetGradient=targetImage;
-            ImageUtils<ImageType>::writeImage("targetsheetness.png",targetGradient);
+            //ImageUtils<ImageType>::writeImage("targetsheetness.png",targetGradient);
         }
         if (filterConfig.atlasGradientFilename!=""){
             atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
         }else{
             atlasGradient=atlasImage;
-            ImageUtils<ImageType>::writeImage("atlassheetness.png",atlasGradient);
+            //ImageUtils<ImageType>::writeImage("atlassheetness.png",atlasGradient);
         }
         
         if (filterConfig.useTissuePrior){

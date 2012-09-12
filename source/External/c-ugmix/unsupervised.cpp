@@ -1,8 +1,9 @@
 #include "unsupervised.h"
 #include <iostream>
 #include <cmath>
+#ifdef use_namespaces
 using namespace NEWMAT;
-
+#endif
 void unsupervised::init(){
 	FLAG=false;
 	best_k_nz=0;
@@ -38,7 +39,7 @@ void unsupervised::display(){
 		fprintf(stderr, "Dim:%d  Num-of-components:%d\n", Dim, best_k_nz);
 		for(int i=0;i<best_k_nz;i++){
 			fprintf(stderr, 
-				"For %d-th component, \nmixture coefficient\n%lf\naverage\n",i, best_alpha[i]);
+                    "For %d-th component, \nmixture coefficient\n%lf\naverage\n",i, best_alpha[i]);
 			for(int j=0;j<Dim;j++) fprintf(stderr, "%lf ", mu[i].element(j));
 			fprintf(stderr, "\nvariance\n");
 			for(int j=0;j<Dim;j++){
@@ -64,7 +65,7 @@ double unsupervised::gaussian(int k, const ColumnVector& ob){
 	ColumnVector tmp(Dim);
 	tmp = ob-mu[k];
 	double x = (tmp.t() * sigma[k].i() * tmp).AsScalar();
-	if(x<0.0) x = 0.0; //for avoiding the failure from calculation error of newmat library.
+	if( x<0.0 || isnan(x) ) x = 0.0; //for avoiding the failure from calculation error of newmat library.
     
 	tmp.CleanUp();
 	return (exp(x*(-0.5)) / (pow(2.0*M_PI,ob.Nrows()*0.5)*pow(sigma[k].Determinant(),0.5)));
@@ -173,7 +174,7 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
 			}
 		}
 		/*previous routine is not perfect scheme, 
-		finally we check if the covariance is positive definite*/
+          finally we check if the covariance is positive definite*/
 		if(sigma[j].Determinant()<=0){
 			for(int k=0;k<Dim;k++){
 				for(int l=0;l<Dim;l++){
@@ -206,9 +207,10 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
 		for(int m=0;m<k_max;m++){
 			u[i][m] = gaussian(m, obs.Column(i+1));
 			if(u[i][m]<UNDER_PROB) u[i][m] = UNDER_PROB;
+            w[i][m]=0.0;
 		}
 	}
-    
+#if 0  
 	do{
 		if(!t) criterion = L_MAX;
 		first_flag = true;
@@ -231,153 +233,154 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
                         tmp += alpha[j]*u[i][j];
                         //std::cout<<j<<" "<<tmp<<" "<<alpha[j]<<" "<<u[i][j]<<std::endl;
                     }
-					if(tmp) {
+					if(tmp  ) {
                         //std::cout<<"tmp2 "<<tmp<<" "<< alpha[m] * u[i][m] / tmp<<std::endl;
                         w[i][m] = alpha[m] * u[i][m] / tmp;
                     }else{
                         w[i][m]=0;
                     }
-				}
+                }
 		
-				if(!flag){
-					alpha[m] = 0.0;
-					for(int i=0;i<n;i++) {
+                if(!flag){
+                    alpha[m] = 0.0;
+                    for(int i=0;i<n;i++) {
                         alpha[m] += w[i][m];
                         //std::cout<<i<<" "<<alpha[m]<<" "<<w[i][m]<<std::endl;
                     }
-					alpha[m] = max(0.0, alpha[m] - (double) N / 2.0);
-					tmp = 0.0;
-					for(int j=0;j<k_max;j++){
-						tmp2 = 0.0;
-						for(int i=0;i<n;i++) tmp2 += w[i][j];
-						tmp += max(0.0, tmp2 - (double) N / 2.0);
-					}
+                    alpha[m] = max(0.0, alpha[m] - (double) N / 2.0);
+                    tmp = 0.0;
+                    for(int j=0;j<k_max;j++){
+                        tmp2 = 0.0;
+                        for(int i=0;i<n;i++) tmp2 += w[i][j];
+                        //std::cout<<j<<" "<<tmp2<<" "<<N<<std::endl;
+                        tmp += max(0.0, tmp2 - (double) N / 2.0);
+                    }
                     //std::cout<<"tmp "<<tmp<<" "<<alpha[m]<<std::endl;
-					if(tmp && !isnan(tmp)) alpha[m] = alpha[m] / tmp;
-					else alpha[m] = 0.0;
-				}
+                    if(tmp ) alpha[m] = alpha[m] / tmp;
+                    else alpha[m] = 0.0;
+                }
+                
+                tmp = 0.0;
+                for(int l=0;l<k_max;l++) tmp += alpha[l];
+                for(int l=0;l<k_max;l++) alpha[l] /= tmp;
 		
-				tmp = 0.0;
-				for(int l=0;l<k_max;l++) tmp += alpha[l];
-				for(int l=0;l<k_max;l++) alpha[l] /= tmp;
-		
-				if(alpha[m]){
-					mix_mu[m] = 0.0;
-					mix_sigma[m] = 0.0;
-					tmp = 0.0;
+                if(alpha[m] ){
+                    mix_mu[m] = 0.0;
+                    mix_sigma[m] = 0.0;
+                    tmp = 0.0;
 		    
-					for(int i=0;i<n;i++){
-						tmp += w[i][m];
-						mix_mu[m] += w[i][m] * obs.Column(i+1);
-					}
-					mix_mu[m] /= tmp;
-					for(int i=0;i<n;i++)
-						mix_sigma[m] += w[i][m] * (obs.Column(i+1)-mix_mu[m])*(obs.Column(i+1)-mix_mu[m]).t();
-					mix_sigma[m] /= tmp;
+                    for(int i=0;i<n;i++){
+                        tmp += w[i][m];
+                        mix_mu[m] += w[i][m] * obs.Column(i+1);
+                    }
+                    if(tmp  ) mix_mu[m] /= tmp;
+                    for(int i=0;i<n;i++)
+                        mix_sigma[m] += w[i][m] * (obs.Column(i+1)-mix_mu[m])*(obs.Column(i+1)-mix_mu[m]).t();
+                    if(tmp  ) mix_sigma[m] /= tmp;
 		    
-					for(int i=0;i<n;i++){
-						u[i][m] = gaussian(obs.Column(i+1), mix_mu[m], mix_sigma[m]);
-						if(u[i][m]<UNDER_PROB) u[i][m] = UNDER_PROB;
-					}
-				}
-				else{
-					if(!flag) k_nz--;
-				}
-			}
+                    for(int i=0;i<n;i++){
+                        u[i][m] = gaussian(obs.Column(i+1), mix_mu[m], mix_sigma[m]);
+                        if(u[i][m]<UNDER_PROB) u[i][m] = UNDER_PROB;
+                    }
+                }
+                else{
+                    if(!flag) k_nz--;
+                }
+            }
 	    
-			tmp = 0.0;
-			flag = false;
-			criterion = (double) k_nz*log((double) n/12.0) / 2.0 + (double) k_nz*(N+1)/2.0;
-			for(int m=0;m<k_max;m++){
+            tmp = 0.0;
+            flag = false;
+            criterion = (double) k_nz*log((double) n/12.0) / 2.0 + (double) k_nz*(N+1)/2.0;
+            for(int m=0;m<k_max;m++){
                 //std::cout<<tmp<<" "<<alpha[m]<<" "<<n<<" "<<log((double) n*alpha[m] / 12.0) << std::endl;
-				if(alpha[m]) tmp += log((double) n*alpha[m] / 12.0);
-			}
+                if(alpha[m]) tmp += log((double) n*alpha[m] / 12.0);
+            }
             //std::cout<<tmp<<" "<<criterion<<std::endl;
-			criterion += (double) N * tmp / 2.0;
-			tmp = 0.0;
-			for(int i=0;i<n;i++){
-				tmp2 = 0.0;
-				for(int m=0;m<k_max;m++) tmp2 += alpha[m]*u[i][m];
-				if(tmp2>UNDER_PROB) tmp += log(tmp2);
-				else flag = true;
-			}
-			if(flag) criterion = previous; 
-			else criterion -= tmp;
+            criterion += (double) N * tmp / 2.0;
+            tmp = 0.0;
+            for(int i=0;i<n;i++){
+                tmp2 = 0.0;
+                for(int m=0;m<k_max;m++) tmp2 += alpha[m]*u[i][m];
+                if(tmp2>UNDER_PROB ) tmp += log(tmp2);
+                else flag = true;
+            }
+            if(flag) criterion = previous; 
+            else criterion -= tmp;
 	    
-			/*output the progression
-			if(criterion==L_MAX) fprintf(stderr,"%d L_MAX(%d)\n",t, best_k_nz);
-			else if(criterion<L_min) fprintf(stderr,"%d %lf(%d)\n",t, criterion, best_k_nz);
-			else fprintf(stderr,"%d %lf(%d)\n",t, L_min, best_k_nz);
-			*/
+            /*output the progression
+              if(criterion==L_MAX) fprintf(stderr,"%d L_MAX(%d)\n",t, best_k_nz);
+              else if(criterion<L_min) fprintf(stderr,"%d %lf(%d)\n",t, criterion, best_k_nz);
+              else fprintf(stderr,"%d %lf(%d)\n",t, L_min, best_k_nz);
+            */
 
-			fprintf(stderr,"%d %lf(%d)\n",t, criterion, k_nz);
+            fprintf(stderr,"%d %lf(%d)\n",t, criterion, k_nz);
 	    
-		}while((previous - criterion > THRESHOLD*fabs(previous)));
+        }while((previous - criterion > THRESHOLD*fabs(previous)));
 	
 	
-		if(criterion < L_min){
-			L_min = criterion;
+        if(criterion < L_min){
+            L_min = criterion;
 	    
-			for(int k=0;k<best_k_nz;k++){
-				mu[k].CleanUp();
-				sigma[k].CleanUp();
-			}
-			delete [] mu;
-			delete [] sigma;
-			FreeDouble_1D(best_alpha);
+            for(int k=0;k<best_k_nz;k++){
+                mu[k].CleanUp();
+                sigma[k].CleanUp();
+            }
+            delete [] mu;
+            delete [] sigma;
+            FreeDouble_1D(best_alpha);
 	    
-			best_alpha = AllocDouble_1D(k_nz);
-			mu = new ColumnVector [k_nz];
-			sigma = new Matrix [k_nz];
-			for(int k=0, l=0;k<k_max;k++){
-				if(alpha[k]){
-					best_alpha[l] = alpha[k];
-					mu[l].ReSize(Dim);
-					sigma[l].ReSize(Dim,Dim);
-					mu[l] = mix_mu[k];
-					sigma[l] = mix_sigma[k];
-					l++;
-				}
-			}
-			best_k_nz = k_nz;
-		}
+            best_alpha = AllocDouble_1D(k_nz);
+            mu = new ColumnVector [k_nz];
+            sigma = new Matrix [k_nz];
+            for(int k=0, l=0;k<k_max;k++){
+                if(alpha[k] ){
+                    best_alpha[l] = alpha[k];
+                    mu[l].ReSize(Dim);
+                    sigma[l].ReSize(Dim,Dim);
+                    mu[l] = mix_mu[k];
+                    sigma[l] = mix_sigma[k];
+                    l++;
+                }
+            }
+            best_k_nz = k_nz;
+        }
 	
-		tmp = 100.0;
-		tmp2 = 0.0;
-		tmp_int = 0;
-		for(int m=0;m<k_max;m++){
-			if(alpha[m]){
-				tmp2 += alpha[m];
-				if(tmp>alpha[m]){
-					tmp = alpha[m];
-					tmp_int = m;
-				}
-			}
-		}
-		alpha[tmp_int] = 0.0;
-		k_nz = 0;
-		tmp2 -= tmp;
-		if(tmp2){
-			for(int m=0;m<k_max;m++){
-				if(alpha[m]){
-					alpha[m] /= tmp2;
-					k_nz++;
-				}
-			}
-		}
-	}while(k_nz>=k_min);
+        tmp = 1e306;
+        tmp2 = 0.0;
+        tmp_int = 0;
+        for(int m=0;m<k_max;m++){
+            if(alpha[m] ){
+                tmp2 += alpha[m];
+                if(tmp>alpha[m]){
+                    tmp = alpha[m];
+                    tmp_int = m;
+                }
+            }
+        }
+        alpha[tmp_int] = 0.0;
+        k_nz = 0;
+        tmp2 -= tmp;
+        if(tmp2  ){
+            for(int m=0;m<k_max;m++){
+                if(alpha[m]){
+                    alpha[m] /= tmp2;
+                    k_nz++;
+                }
+            }
+        }
+    }while(k_nz>=k_min);
     
     
-	FreeDouble_2D(u, n, k_max);
-	FreeDouble_2D(w, n, k_max);
-	FreeDouble_1D(alpha);
-	for(int m=0;m<k_max;m++){
-		mix_mu[m].CleanUp();
-		mix_sigma[m].CleanUp();
-	}
-	delete [] mix_mu;
-	delete [] mix_sigma;
-    
-	FLAG = true;  //estimation is done.
-	return best_k_nz;
+    FreeDouble_2D(u, n, k_max);
+    FreeDouble_2D(w, n, k_max);
+    FreeDouble_1D(alpha);
+    for(int m=0;m<k_max;m++){
+        mix_mu[m].CleanUp();
+        mix_sigma[m].CleanUp();
+    }
+    delete [] mix_mu;
+    delete [] mix_sigma;
+#endif    
+    FLAG = true;  //estimation is done.
+    return best_k_nz;
 }

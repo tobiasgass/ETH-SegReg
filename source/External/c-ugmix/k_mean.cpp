@@ -21,7 +21,7 @@ int update_cluster(Cluster *cl, int cluster_no, int dim)
     flag = 1;
     for(int i=0; i<cluster_no; i++){
         for(int j=0; j<dim; j++){
-            mean = cl[i].acc[j]/(double)cl[i].patterns;
+            if (cl[i].patterns) mean = cl[i].acc[j]/(double)cl[i].patterns;
             if(mean != cl[i].vec[j]){
                 flag = 0;
                 cl[i].vec[j] = mean;

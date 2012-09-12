@@ -536,7 +536,7 @@ namespace itk{
             if (probabilityEqualLabel<std::numeric_limits<double>::epsilon()){
                 probabilityEqualLabel=std::numeric_limits<double>::epsilon();
             }
-            return -log(probabilityEqualLabel);
+            return -log(1-probabilityEqualLabel);
             //return 1.0-prob;
         }
       
