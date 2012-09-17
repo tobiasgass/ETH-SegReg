@@ -1379,7 +1379,7 @@ namespace itk{
                           smoothFilename<<".png";}
                       else{
                           smoothFilename<<".nii";}
-                      //ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput());
+                      LOGI(10,ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput()));
                  delete  potentialIterators[d];
              }
              return potentials;
@@ -1740,13 +1740,13 @@ namespace itk{
                 result0->SetPixel(it.GetIndex(),(PixelType)(multiplier*prob0));
                 result1->SetPixel(it.GetIndex(),(PixelType)(multiplier*prob1));
             }
-            if(false){
+            if(true){
                 if (ImageType::ImageDimension ==2 ){
-                    ImageUtils<ImageType>::writeImage("p0-rfGradient.png",result0);
-                    ImageUtils<ImageType>::writeImage("p1-rfGradient.png",result1);
+                    LOGI(10,ImageUtils<ImageType>::writeImage("p0-rfGradient.png",result0));
+                    LOGI(10,ImageUtils<ImageType>::writeImage("p1-rfGradient.png",result1));
                 }else{
-                    ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0);
-                    ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1);
+                    LOGI(10,ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0));
+                    LOGI(10,ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1));
      
                 }}
             

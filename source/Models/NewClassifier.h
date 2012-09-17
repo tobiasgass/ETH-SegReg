@@ -362,7 +362,7 @@ namespace itk{
             }
             std::string suff;
             if (true){
-            if (ImageType::ImageDimension==2){
+                if (ImageType::ImageDimension==2){
                 suff=".png";
                 for ( int s=0;s<m_nSegmentationLabels;++s){
                     ostringstream probabilityfilename;

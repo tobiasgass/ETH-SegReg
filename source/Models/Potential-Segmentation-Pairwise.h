@@ -468,7 +468,8 @@ namespace itk{
             m_classifier->train(train,filename);
             // m_classifier->cachePotentials(this->m_targetImage,this->m_gradientImage);
             
-            m_probabilityImages=     m_classifier->getProbabilities(this->m_targetImage,this->m_gradientImage);
+            m_probabilityImages= m_classifier->getProbabilities(this->m_targetImage,this->m_gradientImage);
+            
         }
         virtual  void Init(){
             m_trainOnTargetROI=true;
@@ -521,10 +522,10 @@ namespace itk{
             for (unsigned int d=0;d<ImageType::ImageDimension;++d){
                 int diff= idx1[d]-idx2[d];
                 if (diff>0){
-                    probabilityEqualLabel=m_resampledProbImages[d]->GetPixel(idx1);
+                    probabilityEqualLabel=1-m_resampledProbImages[d]->GetPixel(idx1);
                     break;
                 }else if (diff<0){
-                    probabilityEqualLabel=m_resampledProbImages[d]->GetPixel(idx2);
+                    probabilityEqualLabel=1-m_resampledProbImages[d]->GetPixel(idx2);
                     break;
                 }
             }
@@ -533,10 +534,10 @@ namespace itk{
             probabilityEqualLabel=m_classifier->getCachedPotential(idx1,idx2);
 #endif
           
-            if (probabilityEqualLabel<std::numeric_limits<double>::epsilon()){
+            if (probabilityEqualLabel<=std::numeric_limits<double>::epsilon()){
                 probabilityEqualLabel=std::numeric_limits<double>::epsilon();
             }
-            return -log(1-probabilityEqualLabel);
+            return -log(probabilityEqualLabel);
             //return 1.0-prob;
         }
       
