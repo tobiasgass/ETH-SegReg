@@ -207,7 +207,7 @@ int main(int argc, char ** argv)
     logResetStage;
     logSetStage("ARS iteration");
     for (int iteration=0;iteration<10;++iteration){    
-        filterConfig.ARSTolerance= pow(2,max(0,4-iteration-1)+1);
+        filterConfig.ARSTolerance= pow(filterConfig.toleranceBase,max(0,4-iteration-1)+1);
         filter->setBulkTransform(transf);
         if (iteration == 0){
             //start with pure registration by setting seg and coh weights to zero

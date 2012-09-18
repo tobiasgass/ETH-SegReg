@@ -196,7 +196,7 @@ int main(int argc, char ** argv)
     logResetStage;//IO
     logSetStage("ARS iteration");
     for (int iteration=0;iteration<10;++iteration){    
-        filterConfig.ARSTolerance= pow(2,max(0,10-iteration-1)+1);
+        filterConfig.ARSTolerance= pow(filterConfig.toleranceBase,max(0,10-iteration-1)+1);
 
         filter->setBulkTransform(transf);
         if (iteration == 0){

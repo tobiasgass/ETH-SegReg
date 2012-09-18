@@ -400,7 +400,7 @@ namespace itk{
                 //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
                 double tolerance;
                 //tolerance=max(1.0,0.5*(graph->getSpacing()[0]));
-                tolerance=pow(2,exponent+1);
+                tolerance=pow(m_config->toleranceBase,exponent+1);
                 if (m_config->ARSTolerance>0.0){
                     tolerance=m_config->ARSTolerance;
 

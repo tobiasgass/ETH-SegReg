@@ -56,6 +56,7 @@ public:
     bool dontNormalizeRegUnaries;
     double ARSTolerance;
     bool centerImages;
+    double toleranceBase;
 private:
 	argstream * as;
 public:
@@ -111,6 +112,7 @@ public:
         ARSTolerance=-1.0;
         centerImages=false;
         segmentationScalingFactor=1.0;
+        double toleranceBase=2.0;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -239,6 +241,7 @@ public:
         (*as) >> parameter ("r",displacementRescalingFactor,"displacementRescalingFactor", false);
         (*as) >> parameter ("asymmetry",asymmetry,"asymmetry in segreg potential", false);
         (*as) >> parameter ("displacementScaling",displacementScaling,"Scaling of displacement labels relative to image spacing. WARNING: if set larger than 1, diffeomorphic registrations are no longer guaranteed!", false);
+        (*as) >> parameter ("toleranceBase",toleranceBase,"Base for computing the coherence tolerance at different l evels of the grid pyramid.", false);
 
 		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename", false);
 		(*as) >> parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);
