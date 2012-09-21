@@ -538,7 +538,7 @@ namespace itk{
                 probabilityEqualLabel=std::numeric_limits<double>::epsilon();
             }
             return -log(probabilityEqualLabel);
-            //return 1.0-prob;
+            //return 1.0-probabilityEqualLabel;
         }
       
     };//class

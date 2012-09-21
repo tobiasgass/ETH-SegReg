@@ -158,13 +158,7 @@ namespace itk{
              
                 if (true){    
                     if (ImageType::ImageDimension==2){
-                        typedef itk::ThresholdImageFilter <FloatImageType>
-                            ThresholdImageFilterType;
-                        typename ThresholdImageFilterType::Pointer thresholdFilter
-                            = ThresholdImageFilterType::New();
-                        thresholdFilter->SetInput(dt1);
-                        thresholdFilter->ThresholdOutside(0, 1000);
-                        thresholdFilter->SetOutsideValue(1000);
+                      
                         typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
                         typename CasterType::Pointer caster=CasterType::New();
                         caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
@@ -172,8 +166,22 @@ namespace itk{
                         
                         caster->SetInput(dt1);//thresholdFilter->GetOutput());
                         caster->Update();
-                        ImagePointerType output=caster->GetOutput();
-                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",(output)););
+                        //ImagePointerType output=caster->GetOutput();
+                        typedef itk::ThresholdImageFilter <FloatImageType>
+                            ThresholdImageFilterType;
+                        typename ThresholdImageFilterType::Pointer thresholdFilter
+                            = ThresholdImageFilterType::New();
+                        thresholdFilter->SetInput(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(dt1,64));
+                        //thresholdFilter->ThresholdOutside(-numeric_limits<float>::max(),  numeric_limits<typename ImageType::PixelType>::max());
+                        thresholdFilter->ThresholdAbove(numeric_limits<typename ImageType::PixelType>::max());
+                        thresholdFilter->SetOutsideValue( numeric_limits<typename ImageType::PixelType>::max() );
+                        thresholdFilter->Update();
+                        FloatImagePointerType tmpIm=thresholdFilter->GetOutput();
+                        thresholdFilter->SetInput(tmpIm);
+                        thresholdFilter->ThresholdBelow(numeric_limits<typename ImageType::PixelType>::min());
+                        thresholdFilter->SetOutsideValue(numeric_limits<typename ImageType::PixelType>::min() );
+                        thresholdFilter->Update();
+                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",FilterUtils<FloatImageType,ImageType>::cast(thresholdFilter->GetOutput())));
                     }
                     if (ImageType::ImageDimension==3){
                         ostringstream dtFilename;
@@ -222,6 +230,7 @@ namespace itk{
                 imageIt3.Set(fabs(imageIt3.Get()));
             }
 #endif
+            ImageUtils<FloatImageType>::multiplyImage(positiveDM,1.0/this->m_tolerance);
             return  positiveDM;
         }
 #if 0
@@ -301,11 +310,12 @@ namespace itk{
             }
           
 #else 
-            result/=m_tolerance;
-            result=0.5*result*result;//exp(result)-1;
+            //result/=m_tolerance;
             if (auxiliarySegmentation){
                 result=min(result,1.0);
             }
+            result=0.5*result*result;//exp(result)-1;
+           
             result=min(999999.0,result);
 #endif
             

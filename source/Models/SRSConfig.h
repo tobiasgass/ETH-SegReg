@@ -112,7 +112,7 @@ public:
         ARSTolerance=-1.0;
         centerImages=false;
         segmentationScalingFactor=1.0;
-        double toleranceBase=2.0;
+        toleranceBase=2.0;
 	}
     ~SRSConfig(){
 		//delete as;
