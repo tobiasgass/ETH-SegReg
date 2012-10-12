@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
     }
     logSetStage("Init");
 	//define types.
-    typedef unsigned char PixelType;
+    typedef unsigned short PixelType;
 	const   unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;

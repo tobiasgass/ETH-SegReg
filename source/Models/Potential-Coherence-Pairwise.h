@@ -158,7 +158,7 @@ namespace itk{
              
                 if (true){    
                     if (ImageType::ImageDimension==2){
-                      
+#if 0                      
                         typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
                         typename CasterType::Pointer caster=CasterType::New();
                         caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
@@ -182,6 +182,37 @@ namespace itk{
                         thresholdFilter->SetOutsideValue(numeric_limits<typename ImageType::PixelType>::min() );
                         thresholdFilter->Update();
                         LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",FilterUtils<FloatImageType,ImageType>::cast(thresholdFilter->GetOutput())));
+#else
+                        typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
+
+                        typedef itk::ThresholdImageFilter <FloatImageType>
+                            ThresholdImageFilterType;
+                        typename ThresholdImageFilterType::Pointer thresholdFilter
+                            = ThresholdImageFilterType::New();
+                        thresholdFilter->SetInput(dt1);
+                        thresholdFilter->ThresholdBelow(0);
+                        thresholdFilter->SetOutsideValue(0 );
+                        thresholdFilter->Update();
+                                                
+                        FloatImagePointerType probImage=ImageUtils<FloatImageType>::createEmpty(dt1);
+                        FloatImageIterator dt(thresholdFilter->GetOutput(),dt1->GetLargestPossibleRegion());
+                        FloatImageIterator prob(probImage,dt1->GetLargestPossibleRegion());
+                        for (dt.GoToBegin(),prob.GoToBegin();!dt.IsAtEnd();++dt,++prob){
+                            prob.Set(50*log(1+0.5*dt.Get()*dt.Get()));
+                        }
+                        typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
+                        typename CasterType::Pointer caster=CasterType::New();
+                        caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
+                        caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
+                        
+                        caster->SetInput(probImage);//thresholdFilter->GetOutput());
+                        caster->Update();
+                        ImagePointerType out=caster->GetOutput();
+                        //                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(probImage,255))));
+                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",out));
+
+#endif
+
                     }
                     if (ImageType::ImageDimension==3){
                         ostringstream dtFilename;

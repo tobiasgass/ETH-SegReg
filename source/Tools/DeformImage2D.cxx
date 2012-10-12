@@ -20,12 +20,12 @@ int main(int argc, char ** argv)
     LOG<<CLOCKS_PER_SEC<<endl;
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    typedef unsigned char PixelType;
+    typedef unsigned short PixelType;
     const unsigned int D=2;
     typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
-    typedef Vector<float,D> LabelType;
+    typedef Vector<double,D> LabelType;
     typedef Image<LabelType,D> LabelImageType;
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;

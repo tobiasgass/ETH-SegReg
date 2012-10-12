@@ -173,6 +173,9 @@ namespace itk{
         ConstImagePointerType GetTargetImage(){
             return m_scaledTargetImage;
         }
+        ConstImagePointerType GetAtlasImage(){
+            return m_scaledAtlasImage;
+        }
         virtual double getPotential(IndexType targetIndex, LabelType disp){
             double result=0;
             IndexType idx1=targetIndex;

@@ -324,6 +324,8 @@ public:
         IteratorType it2(result,img->GetLargestPossibleRegion());
         for (it2.GoToBegin(),it1.GoToBegin();!it1.IsAtEnd();++it1,++it2){
             it2.Set(it1.Get()*scalar);
+            //std::cout<<it2.Get()<<" "<<scalar<<" "<<it1.Get()<<std::endl;
+
         }
         return result;
     }

@@ -400,8 +400,16 @@ public:
                         outputImage=probSegmentationToSegmentationLocal(newProbabilisticTargetSegmentations[id]);
                     ostringstream tmpSegmentationFilename;
                     tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<id<<"-hop"<<n<<suffix;
-                    
                     ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
+                    if (verbose>=5){
+                        ostringstream tmpSegmentationFilename2;
+
+                        tmpSegmentationFilename2<<outputDir<<"/probsegmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<id<<"-hop"<<n<<suffix;
+                        outputImage=probSegmentationToProbImageLocal(newProbabilisticTargetSegmentations[id]);
+                        ImageUtils<ImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),outputImage);
+                    
+                    }
+
                 }
             }
             probabilisticTargetSegmentations=newProbabilisticTargetSegmentations;
@@ -476,7 +484,36 @@ protected:
         }
         return result;
     }
-
+    ImagePointerType probSegmentationToProbImageLocal( ProbabilisticVectorImagePointerType img){
+        ImagePointerType result=ImageType::New();
+        result->SetOrigin(img->GetOrigin());
+        result->SetSpacing(img->GetSpacing());
+        result->SetDirection(img->GetDirection());
+        result->SetRegions(img->GetLargestPossibleRegion());
+        result->Allocate();
+        ImageIteratorType imgIt(result,result->GetLargestPossibleRegion());
+        ProbImageIteratorType probIt(img,img->GetLargestPossibleRegion());
+        for (imgIt.GoToBegin(),probIt.GoToBegin();!imgIt.IsAtEnd();++imgIt,++probIt){
+            float maxProb=-std::numeric_limits<float>::max();
+            int maxLabel=0;
+            ProbabilisticPixelType p = probIt.Get();
+            double sump=0.0;
+            for (unsigned int s=0;s<nSegmentationLabels;++s){
+                if (p[s]>maxProb){
+                    maxLabel=s;
+                    maxProb=p[s];
+                }
+                sump+=p[s];
+            }
+            maxProb=p[1]/sump;
+            if (D==2){
+                imgIt.Set(1.0*std::numeric_limits<PixelType>::max()*pow(maxProb,1.0));
+            }else{
+                imgIt.Set(maxProb*maxLabel);
+            }
+        }
+        return result;
+    }
 
     ImagePointerType probSegmentationToSegmentationGraphcut( ProbabilisticVectorImagePointerType img, double smooth){
         ImagePointerType result=ImageType::New();
@@ -552,7 +589,8 @@ protected:
         typedef typename itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typename InterpolatorType::Pointer interpolator=InterpolatorType::New();
         interpolator->SetInputImage(movingImage);
-        typedef typename itk::DisplacementFieldTransform<double,D> DTTransformType;
+
+        typedef typename itk::DisplacementFieldTransform<typename TransfUtils<ImageType>::DisplacementPrecision,D> DTTransformType;
         typename DTTransformType::Pointer transf=DTTransformType::New();
         transf->SetDisplacementField(deformation);
 

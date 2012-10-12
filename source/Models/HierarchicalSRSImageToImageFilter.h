@@ -590,7 +590,9 @@ namespace itk{
                     //apply deformation to atlas image
                     if (regist || coherence){
                         composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
-                        deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,composedDeformation);
+                        //deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,composedDeformation);
+                        DeformationFieldPointerType lowResDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(composedDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
+                        deformedAtlasImage=FilterUtils<ImageType>::NNResample(TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef),m_targetImage);
                         deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
                     }
                     

@@ -15,6 +15,7 @@
 #include "argstream.h"
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
+#include <sstream>
 
 
 using namespace std;
@@ -75,7 +76,6 @@ int main(int argc, char * argv [])
     as >> option ("m", multilabel, "convert from multilabel segmentation");
 	as >> parameter ("e", evalLabel, "label to evaluate", false);
     as >> parameter ("n", nSegmentations, "number of segmentation labels in both images (must be consistent!)", false);
-
 	as >> option ("l", connectedComponent, "use largest connected component in segmentation");
 	as >> help();
 	as.defaultErrorHandling();
@@ -117,6 +117,9 @@ int main(int argc, char * argv [])
     }    
     typedef LabelImage::ConstPointer ConstType;
     if (connectedComponent){  
+        LabelImage::Pointer testImage = FilterUtils<LabelImage>::relabelComponents(segmentedImg);
+        ImageUtils<LabelImage>::writeImage("relabel.png", FilterUtils<LabelImage>::normalize(testImage));
+
         typedef itk::MinimumMaximumImageCalculator <LabelImage>
             ImageCalculatorFilterType;
         typedef itk::ConnectedComponentImageFilter<LabelImage,LabelImage>  ConnectedComponentImageFilterType;
@@ -132,14 +135,24 @@ int main(int argc, char * argv [])
         labelShapeKeepNObjectsImageFilter->SetNumberOfObjects( 1);
         labelShapeKeepNObjectsImageFilter->SetAttribute( LabelShapeKeepNObjectsImageFilterType::LabelObjectType::NUMBER_OF_PIXELS);
         labelShapeKeepNObjectsImageFilter->Update();
-        segmentedImg =  FilterUtils<LabelImage>::binaryThresholdingLow(labelShapeKeepNObjectsImageFilter->GetOutput(), 0.1);     //;//f->GetOutput();// FilterUtils<LabelImage>::binaryThresholding(labelShapeKeepNObjectsImageFilter->GetOutput(),1,10000);//filter->GetOutput(),1,1);
+        //segmentedImg =  labelShapeKeepNObjectsImageFilter->GetOutput();     //;//f->GetOutput();// FilterUtils<LabelImage>::binaryThresholding(labelShapeKeepNObjectsImageFilter->GetOutput(),1,10000);//filter->GetOutput(),1,1);
+        segmentedImg =  FilterUtils<LabelImage>::binaryThresholdingLow(labelShapeKeepNObjectsImageFilter->GetOutput(), 1);     //;//f->GetOutput();// FilterUtils<LabelImage>::binaryThresholding(labelShapeKeepNObjectsImageFilter->GetOutput(),1,10000);//filter->GetOutput(),1,1);
+        ostringstream lccFilename;
+        lccFilename<<"lcc-"<<segmentationFilename;
+        //ImageUtils<LabelImage>::writeImage(lccFilename.str(), FilterUtils<LabelImage>::normalize(segmentedImg));
     }
    
    
     if (hausdorff){
         typedef itk::HausdorffDistanceImageFilter<LabelImage, LabelImage> HausdorffDistanceFilterType;
         typedef HausdorffDistanceFilterType::Pointer HDPointerType;
-        HDPointerType hdFilter=HausdorffDistanceFilterType::New();;
+        HDPointerType hdFilter=HausdorffDistanceFilterType::New();
+        if (FilterUtils<LabelImage>::getMax(segmentedImg)==0){
+            //segmentedImg->FillBuffer(1.0);
+            LabelImage::IndexType idx;
+            idx.Fill(0);
+            segmentedImg->SetPixel(idx,1);
+        }
         hdFilter->SetInput1(groundTruthImg);
         hdFilter->SetInput2(segmentedImg);
         hdFilter->SetUseImageSpacing(true);
