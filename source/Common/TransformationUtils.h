@@ -624,6 +624,7 @@ public:
         composer->SetInput(1,def1);
         composer->SetInput(0,def2);
         composer->Update();
+     
         return composer->GetOutput();
     }
 #else
@@ -677,6 +678,25 @@ public:
             for (unsigned int d=0;d<D;++d,++count){
                 double tmp=pow(fabs(t[d]),exp);
                 norm+=tmp;
+            }
+        }
+        return pow(norm,1.0/exp)/count;
+    }
+    static double computeDeformationNormMask(DeformationFieldPointerType def, ImagePointerType mask, double exp=2){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+        ImageIterator imageIt(mask,def->GetLargestPossibleRegion());
+        
+        double norm=0.0;
+        int count=0;
+        LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
+        for (deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt){
+            if (imageIt.Get()){
+                DisplacementType t=deformationIt.Get();
+                for (unsigned int d=0;d<D;++d,++count){
+                    double tmp=pow(fabs(t[d]),exp);
+                    norm+=tmp;
+                }
             }
         }
         return pow(norm,1.0/exp)/count;

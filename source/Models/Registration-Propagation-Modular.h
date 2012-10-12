@@ -84,7 +84,7 @@ public:
         //(*as) >> parameter ("W", weightListFilename,"list of weights for deformations",false);
         //(*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
         //(*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
-        //(*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+        (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
         //(*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
         (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
         //(*as) >> parameter ("radius", radius,"patch radius for NCC",false);
@@ -207,7 +207,7 @@ public:
                 }
             }
         }
-       
+        //#define LOCALWEIGHTING
         logSetStage("Zero Hop");
         LOG<<"Computing"<<std::endl;
         for (int h=0;h<maxHops;++h){
@@ -219,6 +219,8 @@ public:
                 for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){                //iterate over targets
                     string targetID= targetImageIterator->first;
                     DeformationFieldPointerType sourceTargetAccumulator;
+                    FloatImagePointerType sourceTargetWeightAccumulator;
+
                     int count=0;
                     double weight=0.0;
                     double averageResidual=0.0;
@@ -226,6 +228,7 @@ public:
                         for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
                             string intermediateID= intermediateImageIterator->first;
                             if (targetID != intermediateID && sourceID!=intermediateID){
+                                //get all deformations for full circle
                                 DeformationFieldPointerType deformationSourceIntermed;
                                 deformationSourceIntermed = deformationCache[sourceID][intermediateID];
                                 DeformationFieldPointerType deformationIntermedTarget;
@@ -233,23 +236,50 @@ public:
                                 DeformationFieldPointerType deformationTargetSource;
                                 deformationTargetSource = deformationCache[targetID][sourceID];
 
-                                //DeformationFieldPointerType sourceTarget=TransfUtils<ImageType>::composeDeformations(deformationSourceIntermed,deformationIntermedTarget);
+                                //create mask of valid deformation region
+                                ImagePointerType mask=ImageType::New();
+                                mask->SetRegions(deformationTargetSource->GetLargestPossibleRegion());
+                                mask->SetOrigin(deformationTargetSource->GetOrigin());
+                                mask->SetSpacing(deformationTargetSource->GetSpacing());
+                                mask->SetDirection(deformationTargetSource->GetDirection());
+                                mask->Allocate();
+                                mask->FillBuffer(1);
+                                mask=TransfUtils<ImageType>::warpImage(mask,deformationSourceIntermed,true);
+                                mask=TransfUtils<ImageType>::warpImage(mask,deformationIntermedTarget,true);
+                                mask=TransfUtils<ImageType>::warpImage(mask,deformationTargetSource,true);
+                                ostringstream tmpFilename;
+                                tmpFilename<<outputDir<<"/mask-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
+                                ImageUtils<ImageType>::writeImage(tmpFilename.str().c_str(),FilterUtils<ImageType>::normalize(mask));
+
+                                //compute circle
                                 DeformationFieldPointerType sourceTarget=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
-                               
-                                //DeformationFieldPointerType circle=TransfUtils<ImageType>::composeDeformations(sourceTarget,deformationTargetSource);
                                 DeformationFieldPointerType circle=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,sourceTarget);
 
-                                FloatImagePointerType localDeformationNormWeights=TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle,10);
+#if 1
+                                ImagePointerType deformedSourceCircle=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,circle);
+                                ostringstream tmpFilename2;
+                                tmpFilename2<<outputDir<<"/deformed-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
+                                ImageUtils<ImageType>::writeImage(tmpFilename2.str().c_str(),deformedSourceCircle);
+
+                                
+                                FloatImagePointerType localDeformationNormWeights=TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle,m_sigma);
                                 FloatImagePointerType localDeformationNormWeightsSourceTarget=TransfUtils<FloatImageType>::warpImage(localDeformationNormWeights, sourceTarget);
                                 
                                 ostringstream tmpSegmentationFilename;
                                 tmpSegmentationFilename<<outputDir<<"/error-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
-                                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::normalize(localDeformationNormWeightsSourceTarget));
-
-                                double residual=TransfUtils<ImageType>::computeDeformationNorm(circle,1.0);
+                                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(localDeformationNormWeights,65535)));
+#endif
+                                //double residual=TransfUtils<ImageType>::computeDeformationNorm(circle,1.0);
+                                double residual=TransfUtils<ImageType>::computeDeformationNormMask(circle,mask,1.0);
                                 averageResidual+=residual;
-                                ImageUtils<DeformationFieldType>::multiplyImage(sourceTarget,1.0/residual);
-                                weight+=1.0/residual;
+                                double w=exp(-residual/m_sigma);
+                                weight+=w;
+
+#ifdef LOCALWEIGHTING
+                                sourceTarget=TransfUtils<ImageType>::locallyScaleDeformation(sourceTarget,localDeformationNormWeightsSourceTarget);                     
+#else
+                                ImageUtils<DeformationFieldType>::multiplyImage(sourceTarget,w);
+#endif                
 
                                 if (count){
                                     typename DeformationAddFilterType::Pointer adder=DeformationAddFilterType::New();
@@ -258,13 +288,27 @@ public:
                                     adder->SetInput2(sourceTarget);
                                     adder->Update();
                                     sourceTargetAccumulator=adder->GetOutput();
+#ifdef LOCALWEIGHTING
+                                    sourceTargetWeightAccumulator=FilterUtils<FloatImageType>::add(sourceTargetWeightAccumulator,localDeformationNormWeightsSourceTarget);
+#endif
+                                    
                                 }else{
                                     sourceTargetAccumulator=sourceTarget;
+#ifdef LOCALWEIGHTING
+
+                                    sourceTargetWeightAccumulator=localDeformationNormWeightsSourceTarget;
+#endif
                                 }
                                 count++;
                             }//if
                         }//intermediate image
+#ifdef LOCALWEIGHTING
+                        sourceTargetAccumulator=  TransfUtils<ImageType>::locallyInvertScaleDeformation(sourceTargetAccumulator,sourceTargetWeightAccumulator);
+#else
                         ImageUtils<DeformationFieldType>::multiplyImage(sourceTargetAccumulator,alpha/weight);
+#endif
+                      
+
                         DeformationFieldPointerType tmp=ImageUtils<DeformationFieldType>::multiplyImageOutOfPlace(deformationCache[sourceID][targetID],1.0-alpha);
                         typename DeformationAddFilterType::Pointer adder=DeformationAddFilterType::New();
                         adder->InPlaceOff();
