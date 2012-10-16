@@ -207,11 +207,13 @@ public:
                 }
             }
         }
+#define AVERAGE
         //#define LOCALWEIGHTING
         logSetStage("Zero Hop");
         LOG<<"Computing"<<std::endl;
         for (int h=0;h<maxHops;++h){
             map< string, map <string, DeformationFieldPointerType> > TMPdeformationCache;
+            int circles=0;
             double globalResidual=0.0;
             for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
@@ -220,7 +222,7 @@ public:
                     string targetID= targetImageIterator->first;
                     DeformationFieldPointerType sourceTargetAccumulator;
                     FloatImagePointerType sourceTargetWeightAccumulator;
-
+                    double bestResidual=10000000.0;
                     int count=0;
                     double weight=0.0;
                     double averageResidual=0.0;
@@ -273,8 +275,13 @@ public:
                                 double residual=TransfUtils<ImageType>::computeDeformationNormMask(circle,mask,1.0);
                                 averageResidual+=residual;
                                 double w=exp(-residual/m_sigma);
+                                LOGV(3)<<"hop"<<h<<" "<<VAR(residual)<<" "<<VAR(w)<<endl;
                                 weight+=w;
 
+
+
+#ifdef AVERAGE
+                                
 #ifdef LOCALWEIGHTING
                                 sourceTarget=TransfUtils<ImageType>::locallyScaleDeformation(sourceTarget,localDeformationNormWeightsSourceTarget);                     
 #else
@@ -299,13 +306,28 @@ public:
                                     sourceTargetWeightAccumulator=localDeformationNormWeightsSourceTarget;
 #endif
                                 }
+#else
+                                if (residual<bestResidual){
+
+                                    sourceTargetAccumulator=sourceTarget;
+                                    bestResidual=residual;
+                                }
+                                
+#endif
                                 count++;
+                                circles++;
                             }//if
                         }//intermediate image
+
+#ifdef AVERAGE
 #ifdef LOCALWEIGHTING
                         sourceTargetAccumulator=  TransfUtils<ImageType>::locallyInvertScaleDeformation(sourceTargetAccumulator,sourceTargetWeightAccumulator);
 #else
                         ImageUtils<DeformationFieldType>::multiplyImage(sourceTargetAccumulator,alpha/weight);
+#endif
+#else
+                        ImageUtils<DeformationFieldType>::multiplyImage(sourceTargetAccumulator,alpha);
+
 #endif
                       
 
@@ -316,13 +338,14 @@ public:
                         adder->SetInput2(sourceTargetAccumulator);
                         adder->Update();
                         TMPdeformationCache[sourceID][targetID]=adder->GetOutput();
-                        globalResidual+=1.0*averageResidual/count;
+                        globalResidual+=1.0*averageResidual;
                     }//if
                    
                 }//target images
               
             }//source images
-            LOG<<VAR(globalResidual)<<endl;
+            globalResidual/=circles;
+            LOG<<VAR(circles)<<" "<<VAR(globalResidual)<<endl;
             for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;

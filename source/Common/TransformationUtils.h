@@ -702,6 +702,33 @@ public:
         return pow(norm,1.0/exp)/count;
     }
 
+    static DeformationFieldPointerType warpDeformation(DeformationFieldPointerType img, DeformationFieldPointerType def){
+        typedef itk::VectorLinearInterpolateNearestNeighborExtrapolateImageFunction<
+            DeformationFieldType,double> DefaultFieldInterpolatorType;
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+
+        typename DefaultFieldInterpolatorType::Pointer interpolator=DefaultFieldInterpolatorType::New();
+        interpolator->SetInputImage(img);
+      
+
+        DeformationFieldPointerType deformedImg=ImageUtils<DeformationFieldType>::createEmpty((DeformationFieldConstPointerType)def);
+        
+        LabelIterator imageIt(img,img->GetLargestPossibleRegion());
+        LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
+        for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
+            IndexType index=deformationIt.GetIndex();
+            typename DefaultFieldInterpolatorType::ContinuousIndexType idx(index);
+            DisplacementType displacement=deformationIt.Get();
+            PointType p;
+            def->TransformIndexToPhysicalPoint(index,p);
+            p+=displacement;
+            img->TransformPhysicalPointToContinuousIndex(p,idx);
+            imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
+        }
+        return deformedImg;
+
+    }
+
     static FloatImagePointerType computeLocalDeformationNormWeights(DeformationFieldPointerType def, double sigma=1.0){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<FloatImageType> ImageIterator;
