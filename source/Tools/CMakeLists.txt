@@ -25,6 +25,11 @@ TARGET_LINK_LIBRARIES(ComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComposeDeformations2D ComposeDeformations2D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations2D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(DefSetMetaParametersByReference2D DefSetMetaParametersByReference2D.cxx )
+TARGET_LINK_LIBRARIES(DefSetMetaParametersByReference2D  Utils   ${ITK_LIBRARIES}  )
+
+
+
 #Compare segmentations
 ADD_EXECUTABLE(CompareSegmentations3D CompareSegmentations3D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations3D Utils   ${ITK_LIBRARIES}  )
@@ -32,5 +37,11 @@ ADD_EXECUTABLE(CompareSegmentations2D CompareSegmentations2D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations2D Utils   ${ITK_LIBRARIES}  )
  
 #Compare registrations 
-ADD_EXECUTABLE(ComputeLandmarkRegistrationError ComputeLandmarkRegistrationError.cxx )
-TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationError Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(ComputeLandmarkRegistrationError2D ComputeLandmarkRegistrationError.cxx )
+TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationError2D Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(ComputeLandmarkRegistrationError3D ComputeLandmarkRegistrationError3D.cxx )
+TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationError3D Utils   ${ITK_LIBRARIES}  )
+
+
+ADD_EXECUTABLE(ComputeDeformationError2D ComputeDeformationError2D.cxx )
+TARGET_LINK_LIBRARIES(ComputeDeformationError2D Utils   ${ITK_LIBRARIES}  )

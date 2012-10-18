@@ -20,7 +20,7 @@
 using namespace std;
 
 const unsigned int D=3;
-typedef unsigned char Label;
+typedef short Label;
 typedef itk::Image< Label, D >  LabelImage;
 typedef itk::Image< float, D > TRealImage;
 typedef  LabelImage::Pointer LabelImagePointerType;

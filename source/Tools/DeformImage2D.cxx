@@ -25,7 +25,8 @@ int main(int argc, char ** argv)
     typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
-    typedef Vector<double,D> LabelType;
+    typedef float Displacement;
+    typedef Vector<Displacement,D> LabelType;
     typedef Image<LabelType,D> LabelImageType;
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
@@ -48,11 +49,11 @@ int main(int argc, char ** argv)
     if (argc == 5){
         LOG<<"Performing NN interpolation"<<endl;
         //ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) ImageUtils<ImageType>::deformSegmentationImage((ImageConstPointerType)image,deformation) );
-        ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) TransfUtils<ImageType>::warpImage((ImageConstPointerType)image,deformation,true) );
+        ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) ImageUtils<ImageType>::normalize(TransfUtils<ImageType,Displacement>::warpImage((ImageConstPointerType)image,deformation,true) ));
     }
     else{
         LOG<<"Performing linear interpolation"<<endl;
-        ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) TransfUtils<ImageType>::warpImage((ImageConstPointerType)image,deformation) );
+        ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) TransfUtils<ImageType,Displacement>::warpImage((ImageConstPointerType)image,deformation) );
     }
 #endif
 

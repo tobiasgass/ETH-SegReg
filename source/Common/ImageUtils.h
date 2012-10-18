@@ -150,7 +150,6 @@ public:
 		writer->SetInput( image );
 		writer->Update();
 	}
-
 	static void writeImage(std::string fileName, ConstImagePointerType image) {
 		WriterTypePointer writer = WriterType::New();
 		writer->SetFileName( fileName );

@@ -67,7 +67,7 @@ public:
     int run(int argc, char ** argv){
         feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
         argstream * as=new argstream(argc,argv);
-        string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="";
+        string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="",trueDefListFilename="";
         int verbose=0;
         double pWeight=1.0;
         int radius=3;
@@ -83,6 +83,8 @@ public:
         m_sigma=30;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
+        (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", true);
+
         (*as) >> parameter ("i", imageFileList, " list of  images", true);
         //(*as) >> parameter ("W", weightListFilename,"list of weights for deformations",false);
         //(*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
@@ -169,7 +171,7 @@ public:
         }else{
             LOG<<"CACHING all deformations!"<<endl;
         }
-        map< string, map <string, DeformationFieldPointerType> > deformationCache, errorAccumulators;
+        map< string, map <string, DeformationFieldPointerType> > deformationCache, errorAccumulators, trueDeformations;
         map< string, map <string, string> > deformationFilenames;
         map<string, map<string, float> > globalWeights;
         DisplacementType zeroDisp;
@@ -202,6 +204,32 @@ public:
                 }
             }
         }
+
+        if (trueDefListFilename!=""){
+            ifstream ifs(trueDefListFilename.c_str());
+            while (!ifs.eof()){
+                string intermediateID,targetID,defFileName;
+                ifs >> intermediateID;
+                if (intermediateID!=""){
+                    ifs >> targetID;
+                    ifs >> defFileName;
+                    if (inputImages->find(intermediateID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
+                        LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                        //exit(0);
+                    }else{
+                        if (!dontCacheDeformations){
+                            LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
+                            trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
+                          
+                        }else{
+                            LOG<<"error, not caching true defs not implemented"<<endl;
+                            exit(0);
+                        }
+                    }
+                }
+            }
+            
+        }
         if (weightListFilename!=""){
             ifstream ifs(weightListFilename.c_str());
             while (!ifs.eof()){
@@ -222,6 +250,7 @@ public:
         for (int h=0;h<maxHops;++h){
             int circles=0;
             double averageResidual=0.0;
+            double trueResidual=0.0;
             for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
@@ -271,7 +300,11 @@ public:
                             FloatImagePointerType localDeformationNormWeights1=TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle1,m_sigma);
                             ostringstream tmpSegmentationFilename;
                             tmpSegmentationFilename<<outputDir<<"/error-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<"-1231.png";
-                            ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(localDeformationNormWeights1,65535)));
+                            //    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(localDeformationNormWeights1,65535)));
+                            //store circle
+                            ostringstream circle1Filename;
+                            circle1Filename<<outputDir<<"/circleError-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<"-1231.mha";
+                            //     ImageUtils<DeformationFieldType>::writeImage(circle1Filename.str().c_str(),circle1);
                             //residual
                             double residual1=TransfUtils<ImageType>::computeDeformationNormMask(circle1,mask1,1.0);
                             averageResidual+=residual1;
@@ -289,8 +322,12 @@ public:
                             //localNorms
                             FloatImagePointerType localDeformationNormWeights2=TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle2,m_sigma);
                             ostringstream tmpSegmentationFilename2;
-                            tmpSegmentationFilename2<<outputDir<<"/error-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<"-2312.png";
+                            tmpSegmentationFilename2<<outputDir<<"/error-from-"<<intermediateID<<"-VIA-"<<targetID<<"-TO-"<<sourceID<<"-hop"<<h<<"-2312.png";
                             ImageUtils<ImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(localDeformationNormWeights2,65535)));
+                            //store circle
+                            ostringstream circle2Filename;
+                            circle2Filename<<outputDir<<"/circleError-from-"<<intermediateID<<"-VIA-"<<targetID<<"-TO-"<<sourceID<<"-hop"<<h<<"-2312.mha";
+                            ImageUtils<DeformationFieldType>::writeImage(circle2Filename.str().c_str(),circle2);
                             //residual
                             double residual2=TransfUtils<ImageType>::computeDeformationNormMask(circle2,mask2,1.0);
                             averageResidual+=residual2;
@@ -308,8 +345,12 @@ public:
                             //localNorms
                             FloatImagePointerType localDeformationNormWeights3=TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle3,m_sigma);
                             ostringstream tmpSegmentationFilename3;
-                            tmpSegmentationFilename3<<outputDir<<"/error-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<"-3123.png";
+                            tmpSegmentationFilename3<<outputDir<<"/error-from-"<<targetID<<"-VIA-"<<sourceID<<"-TO-"<<intermediateID<<"-hop"<<h<<"-3123.png";
                             ImageUtils<ImageType>::writeImage(tmpSegmentationFilename3.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(localDeformationNormWeights3,65535)));
+                            //store circle
+                            ostringstream circle3Filename;
+                            circle3Filename<<outputDir<<"/circleError-from-"<<targetID<<"-VIA-"<<sourceID<<"-TO-"<<intermediateID<<"-hop"<<h<<"-3123-1.mha";
+                            ImageUtils<DeformationFieldType>::writeImage(circle3Filename.str().c_str(),circle3);
                             //residual
                             double residual3=TransfUtils<ImageType>::computeDeformationNormMask(circle3,mask3,1.0);
                             averageResidual+=residual3;
@@ -317,7 +358,7 @@ public:
                             weight+=w3;
                         
                             LOG<<VAR(residual1)<<" "<<VAR(residual2)<<" "<<VAR(residual3)<<endl;
-
+#if 0
                             //deform error maps and store
                             FloatImagePointerType warp1=TransfUtils<FloatImageType>::warpImage(localDeformationNormWeights1,deformationSourceIntermed);
                             ostringstream warpedWeights1;
@@ -334,79 +375,51 @@ public:
 
                             
                             //compute Differences between deformed circle residuals and circle residual
-                            typename DeformationSubtractFilterType::Pointer differ1=DeformationSubtractFilterType::New();
-                            differ1->SetInput1(circle2);
-                            //differ1->SetInput2(TransfUtils<ImageType>::warpDeformation(circle1,deformationSourceIntermed));
-                            //differ1->SetInput2(TransfUtils<ImageType>::composeDeformations(circle1,deformationSourceIntermed));
-                            differ1->SetInput2(TransfUtils<ImageType>::composeDeformations(deformationSourceIntermed,circle1));
-                            differ1->Update();
-                            DeformationFieldPointerType diffImage1=differ1->GetOutput();
+                            //circle1
+                            DeformationFieldPointerType diffImage1=TransfUtils<ImageType>::subtract(circle2,TransfUtils<ImageType>::warpDeformation(circle1,deformationSourceIntermed));
                             FloatImagePointerType diff1=TransfUtils<ImageType>::computeLocalDeformationNormWeights(differ1->GetOutput(),m_sigma);
                             ostringstream warpedDiff1;
                             warpedDiff1<<outputDir<<"/warpedDiffErrors-from-"<<sourceID<<"-TO-"<<intermediateID<<"-VIA-"<<targetID<<"-hop"<<h<<"-1231-2.png";
                             ImageUtils<ImageType>::writeImage(warpedDiff1.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(diff1,65535)));
                             
-                            typename DeformationSubtractFilterType::Pointer differ2=DeformationSubtractFilterType::New();
-                            differ2->SetInput1(circle3);
-                            //differ2->SetInput2(TransfUtils<ImageType>::warpDeformation(circle2,deformationIntermedTarget));
-                            //differ2->SetInput2(TransfUtils<ImageType>::composeDeformations(circle2,deformationIntermedTarget));
-                            differ2->SetInput2(TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,circle2));
-                            differ2->Update();
-                            DeformationFieldPointerType diffImage2=differ2->GetOutput();
-
+                            //circle2
+                            DeformationFieldPointerType diffImage2=TransfUtils<ImageType>::subtract(circle3,TransfUtils<ImageType>::warpDeformation(circle2,deformationIntermedTarget));
                             FloatImagePointerType diff2=TransfUtils<ImageType>::computeLocalDeformationNormWeights(differ2->GetOutput(),m_sigma);
                             ostringstream warpedDiff2;
                             warpedDiff2<<outputDir<<"/warpedDiffErrors-from-"<<intermediateID<<"-TO-"<<targetID<<"-VIA-"<<sourceID<<"-hop"<<h<<"-2312-3.png";
                             ImageUtils<ImageType>::writeImage(warpedDiff2.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(diff2,65535)));
                             
-                            typename DeformationSubtractFilterType::Pointer differ3=DeformationSubtractFilterType::New();
-                            differ3->SetInput1(circle1);
-                            //differ3->SetInput2(TransfUtils<ImageType>::warpDeformation(circle3,deformationTargetSource));
-                            //differ3->SetInput2(TransfUtils<ImageType>::composeDeformations(circle3,deformationTargetSource));
-                            differ3->SetInput2(TransfUtils<ImageType>::composeDeformations(deformationTargetSource,circle3));
-                            differ3->Update();
-                            DeformationFieldPointerType diffImage3=differ3->GetOutput();
-
+                            //circle3
+                            DeformationFieldPointerType diffImage3=TransfUtils<ImageType>::subtract(circle1,TransfUtils<ImageType>::warpDeformation(circle3,deformationTargetSource));
                             FloatImagePointerType diff3=TransfUtils<ImageType>::computeLocalDeformationNormWeights(differ3->GetOutput(),m_sigma);
                             ostringstream warpedDiff3;
                             warpedDiff3<<outputDir<<"/warpedDiffErrors-from-"<<targetID<<"-TO-"<<sourceID<<"-VIA-"<<intermediateID<<"-hop"<<h<<"-3123-1.png";
                             ImageUtils<ImageType>::writeImage(warpedDiff3.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(diff3,65535)));
-
+#endif
                             count++;
                             circles+=3;
-                            LOGV(5)<<VAR( errorAccumulators[sourceID][intermediateID] ) << " "<< VAR(diffImage1)<<endl;
-                            //accumulate errors
-                            DeformationAddFilterPointer accumulate1=DeformationAddFilterType::New();
-                            accumulate1->SetInput1( errorAccumulators[sourceID][intermediateID]);
-                            accumulate1->SetInput2(diffImage1);
-                            accumulate1->InPlaceOff();
-                            accumulate1->Update();
-                            errorAccumulators[sourceID][intermediateID]=accumulate1->GetOutput();
-                            LOGV(5)<<VAR( errorAccumulators[intermediateID][targetID])<<" "<< VAR(diffImage2)<<endl;
-                            DeformationAddFilterPointer accumulate2=DeformationAddFilterType::New();
-                            accumulate2->SetInput1( errorAccumulators[intermediateID][targetID]);
-                            accumulate2->SetInput2(diffImage2);
-                            accumulate2->InPlaceOff();
-                            accumulate2->Update();
-                            errorAccumulators[intermediateID][targetID]=accumulate2->GetOutput();
-                            LOGV(5)<<VAR( errorAccumulators[targetID][sourceID] ) << " "<< VAR(diffImage3)<<endl;
-                            DeformationAddFilterPointer accumulate3=DeformationAddFilterType::New();
-                            accumulate3->SetInput1( errorAccumulators[targetID][sourceID]);
-                            accumulate3->SetInput2(diffImage3);
-                            accumulate3->InPlaceOff();
-                            accumulate3->Update();
-                            errorAccumulators[targetID][sourceID]=accumulate3->GetOutput();
+                            
+                            //accumulate error estimates
+                            errorAccumulators[sourceID][intermediateID]=TransfUtils<ImageType>::add(circle1,errorAccumulators[sourceID][intermediateID]);
+                            errorAccumulators[intermediateID][targetID]=TransfUtils<ImageType>::add(circle2,errorAccumulators[intermediateID][targetID]);
+                            errorAccumulators[targetID][sourceID]=TransfUtils<ImageType>::add(circle3,errorAccumulators[targetID][sourceID]);
 
+                            //caclutate true error
+                            if (trueDefListFilename!=""){
+                                DeformationFieldPointerType trueError1=TransfUtils<ImageType>::subtract(deformationCache[sourceID][intermediateID],trueDeformations[sourceID][intermediateID]);
+                                DeformationFieldPointerType trueError2=TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
+                                DeformationFieldPointerType trueError3=TransfUtils<ImageType>::subtract(deformationCache[targetID][sourceID],trueDeformations[targetID][sourceID]);
+                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError1,1);
+                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError2,1);
+                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError3,1);
 
+                            }
+                                                                                                    
+                                                                                                    
                             //swap intermediate and target to invert circle direction
                             string tmp=intermediateID;
                             intermediateID=targetID;
                             targetID=tmp;
-
-
-
-
-
 
 
                         }//d
@@ -417,7 +430,8 @@ public:
                 }//target images
             }//source images
             averageResidual/=circles;
-            LOG<<VAR(circles)<<" "<<VAR(averageResidual)<<endl;
+            trueResidual/=circles;
+            LOG<<VAR(circles)<<" "<<VAR(averageResidual)<<" "<<VAR(trueResidual)<<endl;
             for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
@@ -431,7 +445,16 @@ public:
                         tmpSegmentationFilename<<outputDir<<"/registration-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".mha";
                         ImageUtils<DeformationFieldType>::writeImage(tmpSegmentationFilename.str().c_str(),deformationCache[sourceID][targetID]);
                         
-                        ImageUtils<DeformationFieldType>::multiplyImage(errorAccumulators[sourceID][targetID],alpha/(nImages-2));
+                        ImageUtils<DeformationFieldType>::multiplyImage(errorAccumulators[sourceID][targetID],1.0/(nImages-2));
+                        ostringstream tmpErrorFilename;
+                        tmpErrorFilename<<outputDir<<"/errorEstimate-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".mha";
+                        ImageUtils<DeformationFieldType>::writeImage(tmpErrorFilename.str().c_str(),errorAccumulators[sourceID][targetID]);
+                        FloatImagePointerType errorNorm=TransfUtils<ImageType>::computeLocalDeformationNormWeights(errorAccumulators[sourceID][targetID],m_sigma);
+                        ostringstream errorNormFilename;
+                        errorNormFilename<<outputDir<<"/errorEstimate-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
+                        ImageUtils<ImageType>::writeImage(errorNormFilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(errorNorm,65535)));
+                           
+                        ImageUtils<DeformationFieldType>::multiplyImage(errorAccumulators[sourceID][targetID],-alpha);
                         DeformationAddFilterPointer updateDef=DeformationAddFilterType::New();
                         updateDef->SetInput1(deformationCache[sourceID][targetID]);
                         updateDef->SetInput2(errorAccumulators[sourceID][targetID]);

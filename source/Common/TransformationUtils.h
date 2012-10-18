@@ -24,9 +24,10 @@
 #include <utility>
 #include <itkWarpVectorImageFilter.h>
 #include <itkAddImageFilter.h>
+#include <itkSubtractImageFilter.h>
 using namespace std;
 
-template<class ImageType>
+template<class ImageType, class DisplacementPrecision=float>
 class TransfUtils {
 
 public:
@@ -37,7 +38,7 @@ public:
     typedef typename AffineTransformType::Pointer AffineTransformPointerType;
     static const int D=ImageType::ImageDimension;
 
-    typedef float DisplacementPrecision;
+    //typedef float DisplacementPrecision;
     //typedef double DisplacementPrecision;
     typedef itk::Vector<DisplacementPrecision,D> DisplacementType;
     typedef itk::Image<DisplacementType,D> DeformationFieldType;
@@ -56,6 +57,13 @@ public:
     
     typedef itk::Image<float,D> FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
+    typedef itk::AddImageFilter<DeformationFieldType,DeformationFieldType,
+                                DeformationFieldType>                           AdderType;
+    typedef typename AdderType::Pointer                  AdderPointer;
+
+    typedef itk::SubtractImageFilter<DeformationFieldType,DeformationFieldType,
+                               DeformationFieldType>                           SubtracterType;
+        typedef typename SubtracterType::Pointer                  SubtracterPointer;
 public:
 
     static DeformationFieldPointerType affineToDisplacementField(AffineTransformPointerType affine, ImagePointerType targetImage){
@@ -630,9 +638,7 @@ public:
 #else
     static DeformationFieldPointerType composeDeformations(DeformationFieldPointerType rightField, DeformationFieldPointerType leftField){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
-        typedef itk::AddImageFilter<DeformationFieldType,DeformationFieldType,
-                               DeformationFieldType>                           AdderType;
-        typedef typename AdderType::Pointer                  AdderPointer;
+      
         // Setup the default interpolator
         typedef itk::VectorLinearInterpolateNearestNeighborExtrapolateImageFunction<
             DeformationFieldType,double> DefaultFieldInterpolatorType;
@@ -709,11 +715,8 @@ public:
 
         typename DefaultFieldInterpolatorType::Pointer interpolator=DefaultFieldInterpolatorType::New();
         interpolator->SetInputImage(img);
-      
-
         DeformationFieldPointerType deformedImg=ImageUtils<DeformationFieldType>::createEmpty((DeformationFieldConstPointerType)def);
-        
-        LabelIterator imageIt(img,img->GetLargestPossibleRegion());
+        LabelIterator imageIt(deformedImg,deformedImg->GetLargestPossibleRegion());
         LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
         for (imageIt.GoToBegin(),deformationIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++deformationIt){
             IndexType index=deformationIt.GetIndex();
@@ -779,5 +782,22 @@ public:
             scaledDeformationIt.Set(t);
         }
         return scaledDeformation;
+    }
+
+    static DeformationFieldPointerType add(DeformationFieldPointerType d1,DeformationFieldPointerType d2){
+        AdderPointer m_Adder=AdderType::New();
+        m_Adder->InPlaceOff();
+        m_Adder->SetInput1(d1);
+        m_Adder->SetInput2(d2);
+        m_Adder->Update();
+        return m_Adder->GetOutput();        
+    }
+    static DeformationFieldPointerType subtract(DeformationFieldPointerType d1,DeformationFieldPointerType d2){
+        SubtracterPointer m_Subtracter=SubtracterType::New();
+        m_Subtracter->InPlaceOff();
+        m_Subtracter->SetInput1(d1);
+        m_Subtracter->SetInput2(d2);
+        m_Subtracter->Update();
+        return m_Subtracter->GetOutput();        
     }
  };
