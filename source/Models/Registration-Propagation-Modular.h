@@ -207,7 +207,7 @@ public:
                 }
             }
         }
-#define AVERAGE
+        //#define AVERAGE
         //#define LOCALWEIGHTING
         logSetStage("Zero Hop");
         LOG<<"Computing"<<std::endl;
@@ -256,6 +256,16 @@ public:
                                 //compute circle
                                 DeformationFieldPointerType sourceTarget=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                 DeformationFieldPointerType circle=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,sourceTarget);
+
+                                DeformationFieldPointerType intermedSource=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,deformationIntermedTarget);
+                                DeformationFieldPointerType circleTEST=TransfUtils<ImageType>::composeDeformations(intermedSource,deformationSourceIntermed);
+
+                                DeformationFieldPointerType delta=TransfUtils<ImageType>::subtract(circle,circleTEST);
+                                ostringstream tmpFilename231;
+                                tmpFilename231<<outputDir<<"/compOrderDifference-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
+                                ImageUtils<ImageType>::writeImage(tmpFilename231.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(TransfUtils<ImageType>::computeLocalDeformationNormWeights(delta,m_sigma),65535)));
+
+
 
 #if 1
                                 ImagePointerType deformedSourceCircle=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,circle);

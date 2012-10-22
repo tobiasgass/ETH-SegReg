@@ -406,12 +406,29 @@ public:
 
                             //caclutate true error
                             if (trueDefListFilename!=""){
-                                DeformationFieldPointerType trueError1=TransfUtils<ImageType>::subtract(deformationCache[sourceID][intermediateID],trueDeformations[sourceID][intermediateID]);
-                                DeformationFieldPointerType trueError2=TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
-                                DeformationFieldPointerType trueError3=TransfUtils<ImageType>::subtract(deformationCache[targetID][sourceID],trueDeformations[targetID][sourceID]);
-                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError1,1);
-                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError2,1);
-                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError3,1);
+                                DeformationFieldPointerType trueError12=TransfUtils<ImageType>::subtract(deformationCache[sourceID][intermediateID],trueDeformations[sourceID][intermediateID]);
+                                DeformationFieldPointerType trueError23=TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
+                                DeformationFieldPointerType trueError31=TransfUtils<ImageType>::subtract(deformationCache[targetID][sourceID],trueDeformations[targetID][sourceID]);
+                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError12,1);
+                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError23,1);
+                                trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError31,1);
+
+                                DeformationFieldPointerType circleErrorEstimate123=TransfUtils<ImageType>::add(trueError31,
+                                                                                                               TransfUtils<ImageType>::add(
+                                                                                                                                           TransfUtils<ImageType>::warpDeformation(trueError23,
+                                                                                                                                                                           trueDeformations[targetID][sourceID]),
+                                                                                                                                           (TransfUtils<ImageType>::warpDeformation(TransfUtils<ImageType>::warpDeformation(trueError12,
+                                                                                                                                                                                                            trueDeformations[intermediateID][targetID]),
+                                                                                                                                                                            trueDeformations[targetID][sourceID])
+                                                                                                                                            )
+                                                                                                                                           )
+                                                                                                               );
+                                DeformationFieldPointerType circleErrorEstimateDiff=TransfUtils<ImageType>::subtract(circleErrorEstimate123,circle1);
+                                ostringstream circleErrorEstimate123FN;
+                                circleErrorEstimate123FN<<outputDir<<"/circleDiff-from-"<<sourceID<<"-TO-"<<intermediateID<<"-VIA-"<<targetID<<"-hop"<<h<<"-1231-2.png";
+                                ImageUtils<ImageType>::writeImage(circleErrorEstimate123FN.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(TransfUtils<ImageType>::computeLocalDeformationNormWeights(circleErrorEstimateDiff,m_sigma),65535)));
+
+                                
 
                             }
                                                                                                     
