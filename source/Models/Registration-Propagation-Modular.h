@@ -64,7 +64,7 @@ public:
     int run(int argc, char ** argv){
         feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
         argstream * as=new argstream(argc,argv);
-        string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="";
+        string trueDefListFilename="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="";
         int verbose=0;
         double pWeight=1.0;
         int radius=3;
@@ -81,6 +81,7 @@ public:
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images", true);
+        (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
         //(*as) >> parameter ("W", weightListFilename,"list of weights for deformations",false);
         //(*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
         //(*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
@@ -166,7 +167,7 @@ public:
         }else{
             LOG<<"CACHING all deformations!"<<endl;
         }
-        map< string, map <string, DeformationFieldPointerType> > deformationCache;
+        map< string, map <string, DeformationFieldPointerType> > deformationCache, trueDeformations;
         map< string, map <string, string> > deformationFilenames;
         map<string, map<string, float> > globalWeights;
         {
@@ -194,6 +195,31 @@ public:
                 }
             }
         }
+        if (trueDefListFilename!=""){
+            ifstream ifs(trueDefListFilename.c_str());
+            while (!ifs.eof()){
+                string intermediateID,targetID,defFileName;
+                ifs >> intermediateID;
+                if (intermediateID!=""){
+                    ifs >> targetID;
+                    ifs >> defFileName;
+                    if (inputImages->find(intermediateID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
+                        LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                        //exit(0);
+                    }else{
+                        if (!dontCacheDeformations){
+                            LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
+                            trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
+                          
+                        }else{
+                            LOG<<"error, not caching true defs not implemented"<<endl;
+                            exit(0);
+                        }
+                    }
+                }
+            }
+            
+        }
         if (weightListFilename!=""){
             ifstream ifs(weightListFilename.c_str());
             while (!ifs.eof()){
@@ -207,7 +233,7 @@ public:
                 }
             }
         }
-        //#define AVERAGE
+#define AVERAGE
         //#define LOCALWEIGHTING
         logSetStage("Zero Hop");
         LOG<<"Computing"<<std::endl;
@@ -215,6 +241,8 @@ public:
             map< string, map <string, DeformationFieldPointerType> > TMPdeformationCache;
             int circles=0;
             double globalResidual=0.0;
+            double trueResidual=0.0;
+
             for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
@@ -251,12 +279,12 @@ public:
                                 mask=TransfUtils<ImageType>::warpImage(mask,deformationTargetSource,true);
                                 ostringstream tmpFilename;
                                 tmpFilename<<outputDir<<"/mask-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
-                                ImageUtils<ImageType>::writeImage(tmpFilename.str().c_str(),FilterUtils<ImageType>::normalize(mask));
+                                //ImageUtils<ImageType>::writeImage(tmpFilename.str().c_str(),FilterUtils<ImageType>::normalize(mask));
 
                                 //compute circle
                                 DeformationFieldPointerType sourceTarget=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                 DeformationFieldPointerType circle=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,sourceTarget);
-
+#if 0
                                 DeformationFieldPointerType intermedSource=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,deformationIntermedTarget);
                                 DeformationFieldPointerType circleTEST=TransfUtils<ImageType>::composeDeformations(intermedSource,deformationSourceIntermed);
 
@@ -264,6 +292,7 @@ public:
                                 ostringstream tmpFilename231;
                                 tmpFilename231<<outputDir<<"/compOrderDifference-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
                                 ImageUtils<ImageType>::writeImage(tmpFilename231.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(TransfUtils<ImageType>::computeLocalDeformationNormWeights(delta,m_sigma),65535)));
+#endif
 
 
 
@@ -278,8 +307,8 @@ public:
                                 FloatImagePointerType localDeformationNormWeightsSourceTarget=TransfUtils<FloatImageType>::warpImage(localDeformationNormWeights, sourceTarget);
                                 
                                 ostringstream tmpSegmentationFilename;
-                                tmpSegmentationFilename<<outputDir<<"/error-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
-                                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(localDeformationNormWeights,65535)));
+                                //tmpSegmentationFilename<<outputDir<<"/error-from-"<<sourceID<<"-VIA-"<<intermediateID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
+                                //ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(localDeformationNormWeights,65535)));
 #endif
                                 //double residual=TransfUtils<ImageType>::computeDeformationNorm(circle,1.0);
                                 double residual=TransfUtils<ImageType>::computeDeformationNormMask(circle,mask,1.0);
@@ -326,6 +355,16 @@ public:
 #endif
                                 count++;
                                 circles++;
+
+
+                                if (trueDefListFilename!=""){
+                                    //DeformationFieldPointerType trueError12=TransfUtils<ImageType>::subtract(deformationCache[sourceID][intermediateID],trueDeformations[sourceID][intermediateID]);
+                                    //DeformationFieldPointerType trueError23=TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
+                                    DeformationFieldPointerType trueError31=TransfUtils<ImageType>::subtract(deformationCache[targetID][sourceID],trueDeformations[targetID][sourceID]);
+                                    //trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError12,1);
+                                    //trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError23,1);
+                                    trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueError31,1);
+                            }
                             }//if
                         }//intermediate image
 
@@ -355,7 +394,8 @@ public:
               
             }//source images
             globalResidual/=circles;
-            LOG<<VAR(circles)<<" "<<VAR(globalResidual)<<endl;
+            trueResidual/=circles;
+            LOG<<VAR(circles)<<" "<<VAR(globalResidual)<<" "<<VAR(trueResidual)<<endl;
             for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;

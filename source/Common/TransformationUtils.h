@@ -732,7 +732,7 @@ public:
 
     }
 
-    static FloatImagePointerType computeLocalDeformationNormWeights(DeformationFieldPointerType def, double sigma=1.0){
+    static FloatImagePointerType computeLocalDeformationNormWeights(DeformationFieldPointerType def, double sigma=1.0, double * averageNorm=NULL){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<FloatImageType> ImageIterator;
 
@@ -741,9 +741,14 @@ public:
         int count=0;
         LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
         ImageIterator imageIt(normImage,def->GetLargestPossibleRegion());
-        for (deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt){
+        for (deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt,++count){
             DisplacementType t=deformationIt.Get();
-            imageIt.Set(exp(-t.GetNorm()/sigma));
+            double localNorm=t.GetNorm();
+            imageIt.Set(exp(-localNorm/sigma));
+            norm+=localNorm;
+        }
+        if (averageNorm!=NULL){
+            (*averageNorm)=norm/count;
         }
         return normImage;
     }
