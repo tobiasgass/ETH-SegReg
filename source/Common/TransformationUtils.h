@@ -63,9 +63,13 @@ public:
 
     typedef itk::SubtractImageFilter<DeformationFieldType,DeformationFieldType,
                                DeformationFieldType>                           SubtracterType;
-        typedef typename SubtracterType::Pointer                  SubtracterPointer;
+    typedef typename SubtracterType::Pointer                  SubtracterPointer;
 public:
-
+    static  DisplacementType zeroDisp(){
+        DisplacementType d;
+        d->Fill(0);
+        return d;
+    }; 
     static DeformationFieldPointerType affineToDisplacementField(AffineTransformPointerType affine, ImagePointerType targetImage){
         DeformationFieldPointerType deformation=DeformationFieldType::New();
         deformation->SetRegions(targetImage->GetLargestPossibleRegion());
@@ -752,6 +756,27 @@ public:
         }
         return normImage;
     }
+
+    static FloatImagePointerType computeLocalDeformationNorm(DeformationFieldPointerType def, double sigma=1.0, double * averageNorm=NULL){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        typedef typename  itk::ImageRegionIterator<FloatImageType> ImageIterator;
+
+        FloatImagePointerType normImage=createEmptyFloat(def);
+        double norm=0.0;
+        int count=0;
+        LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
+        ImageIterator imageIt(normImage,def->GetLargestPossibleRegion());
+        for (deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt,++count){
+            DisplacementType t=deformationIt.Get();
+            double localNorm=t.GetNorm();
+            imageIt.Set(localNorm/sigma);
+            norm+=localNorm;
+        }
+        if (averageNorm!=NULL){
+            (*averageNorm)=norm/count;
+        }
+        return normImage;
+    }
     static DeformationFieldPointerType locallyScaleDeformation(DeformationFieldPointerType def, FloatImagePointerType weights){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<FloatImageType> ImageIterator;
@@ -797,6 +822,15 @@ public:
         m_Adder->Update();
         return m_Adder->GetOutput();        
     }
+    static void addInPlace(DeformationFieldPointerType d1,DeformationFieldPointerType d2){
+        AdderPointer m_Adder=AdderType::New();
+        m_Adder->InPlaceOff();
+        m_Adder->SetInput1(d1);
+        m_Adder->SetInput2(d2);
+        m_Adder->Update();
+        d1=m_Adder->GetOutput();        
+    }
+
     static DeformationFieldPointerType subtract(DeformationFieldPointerType d1,DeformationFieldPointerType d2){
         SubtracterPointer m_Subtracter=SubtracterType::New();
         m_Subtracter->InPlaceOff();
@@ -804,5 +838,24 @@ public:
         m_Subtracter->SetInput2(d2);
         m_Subtracter->Update();
         return m_Subtracter->GetOutput();        
+    }
+
+    static DeformationFieldPointerType locallyInvertScaleDeformation(DeformationFieldPointerType def, ImagePointerType weights){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+        double norm=0.0;
+        int count=0;
+        DeformationFieldPointerType scaledDeformation=ImageUtils<DeformationFieldType>::createEmpty(def);
+        LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
+        LabelIterator scaledDeformationIt(scaledDeformation,def->GetLargestPossibleRegion());
+        ImageIterator imageIt(weights,def->GetLargestPossibleRegion());
+        for (scaledDeformationIt.GoToBegin(),deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt,++scaledDeformationIt){
+            DisplacementType t=deformationIt.Get();
+            float scalar=imageIt.Get();
+            if (scalar != 0.0)
+                t=t/scalar;
+            scaledDeformationIt.Set(t);
+        }
+        return scaledDeformation;
     }
  };

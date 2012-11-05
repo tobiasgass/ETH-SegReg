@@ -2,7 +2,7 @@
 #define IMAGE_UTILS
 #pragma once
 
-
+#include <limits.h>
 #include "itkImage.h"
 #include "itkImageFileReader.h"
 #include "itkImageFileWriter.h"
@@ -407,6 +407,19 @@ public:
         return withinImageIndex;
     }
 
+    static inline ImagePointerType cutOffIntensities(ImagePointerType img){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        ImagePointerType res=createEmpty(img);
+        IteratorType it2(res,img->GetLargestPossibleRegion());
+        for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2){
+            PixelType maxCutOff=max(it1.Get(),std::numeric_limits<PixelType>::min());
+            PixelType minMaxCutOff=min(maxCutOff,std::numeric_limits<PixelType>::max());
+                                    
+            it2.Set(minMaxCutOff);
+        }
+        return res;
+    }
 
 };
 #endif // IMAGE_UTILS

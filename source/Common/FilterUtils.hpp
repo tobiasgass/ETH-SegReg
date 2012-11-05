@@ -371,7 +371,14 @@ public:
         castFilter->Update();
         return castFilter->GetOutput();
     }
-
+    
+    static OutputImagePointer truncateCast(InputImagePointer image) {
+        InputImagePointer trunc=FilterUtils<InputImage,InputImage>::thresholding(image,std::numeric_limits<OutputImagePixelType>::min(), std::numeric_limits<OutputImagePixelType>::max());
+        CastFilterPointer castFilter = CastImageFilterType::New();
+        castFilter->SetInput(image);
+        castFilter->Update();
+        return castFilter->GetOutput();
+    }
 
 
 
