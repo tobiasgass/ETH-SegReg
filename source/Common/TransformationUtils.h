@@ -858,4 +858,49 @@ public:
         }
         return scaledDeformation;
     }
+
+    static DeformationFieldPointerType multiplyOutOfPlace(DeformationFieldPointerType def1, DeformationFieldPointerType def2){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        double norm=0.0;
+        int count=0;
+        DeformationFieldPointerType multDef=ImageUtils<DeformationFieldType>::createEmpty(def1);
+        LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
+        LabelIterator def2It(def2,def2->GetLargestPossibleRegion());
+        LabelIterator multDefIt(multDef,multDef->GetLargestPossibleRegion());
+        for (def1It.GoToBegin(),def2It.GoToBegin(),multDefIt.GoToBegin();!def1It.IsAtEnd();++def1It,++def2It,++multDefIt){
+            DisplacementType t1=def1It.Get();
+            DisplacementType t2=def2It.Get();
+            for (int d=0;d<D;++d)
+                t1[d]=t1[d]*t2[d];
+            multDefIt.Set(t1);
+        }
+        return multDef;
+    }
+    static DeformationFieldPointerType multiplyOutOfPlace(DeformationFieldPointerType def1, double scalar){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        double norm=0.0;
+        int count=0;
+        DeformationFieldPointerType multDef=ImageUtils<DeformationFieldType>::createEmpty(def1);
+        LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
+        LabelIterator multDefIt(multDef,multDef->GetLargestPossibleRegion());
+        for (def1It.GoToBegin(),multDefIt.GoToBegin();!def1It.IsAtEnd();++def1It,++multDefIt){
+            DisplacementType t1=def1It.Get()*scalar;
+            multDefIt.Set(t1);
+        }
+        return multDef;
+    }
+    static DeformationFieldPointerType localSqrt(DeformationFieldPointerType def1){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        DeformationFieldPointerType multDef=ImageUtils<DeformationFieldType>::createEmpty(def1);
+        LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
+        LabelIterator multDefIt(multDef,multDef->GetLargestPossibleRegion());
+        for (def1It.GoToBegin(),multDefIt.GoToBegin();!def1It.IsAtEnd();++def1It,++multDefIt){
+            DisplacementType t1=def1It.Get();
+            for (int d=0;d<D;++d)
+                t1[d]=sqrt(t1[d]);
+            multDefIt.Set(t1);
+        }
+        return multDef;
+    }
+    
  };
