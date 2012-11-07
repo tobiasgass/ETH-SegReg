@@ -1,5 +1,6 @@
 PROJECT(ImageRegistration)
-include_directories (${SRS-MRF_SOURCE_DIR}/Models) 
+include_directories (${SRS-MRF_SOURCE_DIR}/SegmentationRegistration) 
+include_directories (${SRS-MRF_SOURCE_DIR}/Propagation) 
 include_directories (${SRS-MRF_SOURCE_DIR}/Utils)
 include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
 include_directories (${SRS-MRF_SOURCE_DIR}/External/TRWS) 
