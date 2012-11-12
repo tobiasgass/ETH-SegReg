@@ -15,7 +15,7 @@ public:
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
 public:
 
-    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache){
+    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations=NULL){
         m_imageIDList=imageIDList;
         m_deformationCache=deformationCache;
         m_numImages=imageIDList->size();
@@ -146,7 +146,7 @@ public:
 protected:
     int m_nVars,m_nEqs,m_nNonZeroes;
     int m_numImages;
-    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache;
+    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations;
     std::vector<string> * m_imageIDList;
     bool m_additive;
 

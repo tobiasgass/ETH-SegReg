@@ -23,7 +23,7 @@ public:
     static const unsigned int D=ImageType::ImageDimension;
 public:
 
-    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache){
+    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations=NULL){
         m_imageIDList=imageIDList;
         m_deformationCache=deformationCache;
         m_numImages=imageIDList->size();
@@ -167,7 +167,7 @@ public:
                     for (int p=0;!it.IsAtEnd();++it){
                         DeformationType disp;
                         for (unsigned int d=0;d<D;++d,++p){
-                            disp[d]=rData[edgeNum(s,t,p)];
+                            disp[d]=rData[edgeNum(s,t,p)-1];
                         }
                         it.Set(disp);
                     }

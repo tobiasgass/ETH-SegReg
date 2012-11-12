@@ -24,7 +24,7 @@ public:
     static const unsigned int D=ImageType::ImageDimension;
 public:
 
-    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache){
+    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations=NULL){
         m_imageIDList=imageIDList;
         m_deformationCache=deformationCache;
         m_numImages=imageIDList->size();
@@ -32,6 +32,7 @@ public:
         m_nEqs= m_numImages*(m_numImages-1)*( m_numImages-2)*m_nPixels;
         m_nVars= m_numImages*(m_numImages-1)*m_nPixels;
         m_nNonZeroes=3*m_nEqs;
+        m_trueDeformations=trueDeformations;
     }
     
     virtual void createSystem(){
@@ -51,18 +52,7 @@ public:
         double * b=mxGetPr(mxB);
         
         LOG<<"creating"<<endl;
-        {
-            ostringstream evalstr;
-            evalstr<<"A = sparse([],[],[],"<<m_nEqs<<","<<m_nVars<<","<<m_nNonZeroes<<");";
-            engEvalString(this->m_ep,evalstr.str().c_str() );
-        }
-
-        {
-            ostringstream evalstr;
-            evalstr<<" b=zeros(1,"<<m_nEqs<<");";
-            engEvalString(this->m_ep,evalstr.str().c_str() );
-        }
-
+      
 
         char buffer[256+1];
         buffer[256] = '\0';
@@ -89,6 +79,14 @@ public:
                             DeformationFieldPointerType d1=(*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
                             DeformationFieldPointerType d2=(*m_deformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
                             DeformationFieldPointerType d3=(*m_deformationCache)[(*m_imageIDList)[target]][(*m_imageIDList)[source]];
+
+                            DeformationFieldPointerType hatd1,hatd2,hatd3;
+                            if (m_trueDeformations!=NULL){
+                                hatd1=(*m_trueDeformations)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
+                                hatd2=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
+                                hatd3=(*m_trueDeformations)[(*m_imageIDList)[target]][(*m_imageIDList)[source]];
+
+                            }
                             
                             //compute circle
                             DeformationFieldPointerType circle=composeDeformations(d1,d2,d3);
@@ -99,10 +97,14 @@ public:
                             // LOG<<VAR(dir)<<" "<<VAR(start)<<endl;
                             for (;!it.IsAtEnd();++it){
                                 bool valid=true;
-                                IndexType idx1=it.GetIndex(),idx2,idx3;
+                                IndexType idx3=it.GetIndex(),idx2,idx1;
                                 PointType pt1,pt2,pt3;
-                                d3->TransformIndexToPhysicalPoint(idx1,pt1);
-                                pt2=pt1+d3->GetPixel(idx1);
+#if 0                                
+                                //This is the backward assumption. circle errors are in the domain of d3, and are summed backwards
+                                
+                                d3->TransformIndexToPhysicalPoint(idx3,pt3);
+                                pt2=pt3+d3->GetPixel(idx3);
+                                //pt2=pt3+hatd3->GetPixel(idx3);
                                 d2->TransformPhysicalPointToIndex(pt2,idx2);
                                 // what to do when circle goes outside along the way?
                                 // skip it
@@ -112,26 +114,32 @@ public:
                                     c+=3*D;
                                     continue;
                                 }
-                                pt3=pt2+d2->GetPixel(idx2);
-                                d1->TransformPhysicalPointToIndex(pt3,idx3);
-                                if ( (!d1->GetLargestPossibleRegion().IsInside(idx3) )) {
+                                pt1=pt2+d2->GetPixel(idx2);
+                                //pt1=pt2+hatd2->GetPixel(idx2);
+                                d1->TransformPhysicalPointToIndex(pt1,idx1);
+                                if ( (!d1->GetLargestPossibleRegion().IsInside(idx1) )) {
                                     LOGV(6)<<"break at "<<VAR(eq)<<" "<<VAR(c)<<" "<<VAR(idx3)<<" "<<VAR(idx2)<<endl;
                                     eq=eq+D;
                                     c+=3*D;
                                     continue;
                                 }
-
+#else
+                                //now let's try the inverse of that
+                                idx1=idx3;
+                                idx2=idx3;
+                              
+#endif
 
                                 double val=1;
 
 
                                 //LOG<<VAR(idx3)<<" "<<VAR(idx2)<<" "<<VAR(idx1)<<endl;
                                 LOGV(5)<<"1"<<endl;
-                                long int e1=edgeNum(source,intermediate,idx3);
+                                long int e1=edgeNum(source,intermediate,idx1);
                                 LOGV(5)<<"2"<<endl;
                                 long int e2=edgeNum(intermediate,target,idx2);
                                 LOGV(5)<<"3"<<endl;
-                                long int e3=edgeNum(target,source,idx1);
+                                long int e3=edgeNum(target,source,idx3);
                                 LOGV(5)<<"4"<<endl;
                                 if (e1<=0) {LOG<<VAR(e1)<<" ????? "<<endl;}
                                 if (e2<=0) {LOG<<VAR(e2)<<endl;}
@@ -139,6 +147,11 @@ public:
                                 //LOG<<VAR(e1)<<" "<<VAR(e2)<<" "<<VAR(e3)<<endl;
                                 
                                 DeformationType localDef=it.Get();
+
+                                PointType pt0;
+                                pt0=pt1+d1->GetPixel(idx1);
+
+                                LOGV(4)<<"consistency check : "<<VAR(localDef)<<" ?= "<<VAR(pt0-pt3)<<endl;
                                 
                                 maxE=max(maxE,max(e1,max(e2,e3)));
                                 
@@ -246,7 +259,7 @@ public:
 protected:
     int m_nVars,m_nEqs,m_nNonZeroes,m_nPixels;
     int m_numImages;
-    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache;
+    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations;
     std::vector<string> * m_imageIDList;
     bool m_additive;
 
