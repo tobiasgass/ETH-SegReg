@@ -30,6 +30,7 @@
 #include "SolveAquircLocalDeformationNorms.h"
 #include "SolveAquircLocalDeformations.h"
 #include "SolveAquircLocalComposedDeformations.h"
+#include "SolveAquircLocalDeformationAndError.h"
 #include "SolveAquircLocalError.h"
 
 //using namespace std;
@@ -64,7 +65,7 @@ typedef  itk::FixedPointInverseDeformationFieldImageFilter<DeformationFieldType,
 typedef  InverseDeformationFieldFilterType::Pointer InverseDeformationFieldFilterPointerType;
 enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
 enum WeightingType {UNIFORM,GLOBAL,LOCAL};
-enum SolverType {GLOBALNORM,LOCALNORM,LOCALERROR,LOCALCOMPOSEDERROR,LOCALCOMPOSEDNORM};
+enum SolverType {GLOBALNORM,LOCALNORM,LOCALERROR,LOCALCOMPOSEDERROR,LOCALCOMPOSEDNORM,LOCALDEFORMATIONANDERROR};
 
 
 
@@ -132,7 +133,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
 
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
-    (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror}",false);
+    (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
     (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
     //(*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",true);
@@ -172,6 +173,8 @@ int main(int argc, char ** argv){
         solverType=LOCALERROR;
     }  else if (solverName=="localcomposederror"){
         solverType=LOCALCOMPOSEDERROR;
+    }else if (solverName=="localdeformationanderror"){
+        solverType=LOCALDEFORMATIONANDERROR;
     }
    
 
@@ -288,10 +291,11 @@ int main(int argc, char ** argv){
     case LOCALERROR:
         solver= new AquircLocalDeformationSolver<ImageType>;
         break;
-
     case LOCALCOMPOSEDERROR:
-        //solver = new AquircLocalComposedDeformationSolver<ImageType> ;
         solver = new AquircLocalErrorSolver<ImageType> ;
+        break;
+     case LOCALDEFORMATIONANDERROR:
+        solver = new AquircLocalDeformationAndErrorSolver<ImageType> ;
         break;
 
     }
