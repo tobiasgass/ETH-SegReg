@@ -281,7 +281,8 @@ public:
                             DeformationFieldPointerType deformationTargetSource;
                             deformationTargetSource = deformationCache[targetID][sourceID];
 
-                            averageResidual+=updateErrorEstimatesLoopy(deformationSourceIntermed,deformationIntermedTarget,deformationTargetSource, errorAccumulators[sourceID][intermediateID],errorAccumulators[intermediateID][targetID], errorAccumulators[targetID][sourceID]);
+                            //averageResidual+=updateErrorEstimatesLoopy(deformationSourceIntermed,deformationIntermedTarget,deformationTargetSource, errorAccumulators[sourceID][intermediateID],errorAccumulators[intermediateID][targetID], errorAccumulators[targetID][sourceID]);
+                            averageResidual+=updateErrorEstimates(deformationSourceIntermed,deformationIntermedTarget,deformationTargetSource, errorAccumulators[sourceID][intermediateID],errorAccumulators[intermediateID][targetID], errorAccumulators[targetID][sourceID],sourceID,intermediateID,targetID,outputDir,h);
                             
                             count++;
                             circles+=3;
@@ -463,7 +464,7 @@ protected:
             return 0.0;
     }
     
-    double  updateErrorEstimates(DeformationFieldPointerType deformationIntermedTarget , DeformationFieldPointerType deformationSourceIntermed, DeformationFieldPointerType deformationTargetSource, DeformationFieldPointerType err1, DeformationFieldPointerType err2, DeformationFieldPointerType err3){
+    double  updateErrorEstimates(DeformationFieldPointerType deformationIntermedTarget , DeformationFieldPointerType deformationSourceIntermed, DeformationFieldPointerType deformationTargetSource, DeformationFieldPointerType & err1, DeformationFieldPointerType & err2, DeformationFieldPointerType & err3, string ID1,string ID2, string ID3,string outputDir, int h){
         //create mask of valid deformation region
         double averageResidual=0.0;
         double weight=0.0;
@@ -486,14 +487,72 @@ protected:
         mask1=TransfUtils<ImageType>::warpImage(mask1,deformationTargetSource,true);
         //localNorms
         FloatImagePointerType localDeformationNormWeights1=TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle1,m_sigma);
-       
+        FloatImagePointerType errorNorm1=TransfUtils<ImageType>::computeLocalDeformationNorm(circle1,m_sigma);
+        ostringstream errorNormFilename1;
+        errorNormFilename1<<outputDir<<"/circle-ending-"<<ID3<<"-TO-"<<ID1<<"-VIA-"<<ID2<<"-hop"<<h<<".png";
+        ImageUtils<ImageType>::writeImage(errorNormFilename1.str().c_str(),FilterUtils<FloatImageType,ImageType>::truncateCast(errorNorm1));
+        ostringstream errorFilename1;
+        errorFilename1<<outputDir<<"/circle-ending-"<<ID3<<"-TO-"<<ID1<<"-VIA-"<<ID2<<"-hop"<<h<<".mha";
+        ImageUtils<DeformationFieldType>::writeImage(errorFilename1.str().c_str(),circle1);
         //residual
         double residual1=TransfUtils<ImageType>::computeDeformationNormMask(circle1,mask1,1.0);
         averageResidual+=residual1;
         double w1=exp(-residual1/m_sigma);
         weight+=w1;
                            
-        //test if move zeroes out residual
+      
+
+
+        //compute circle2
+        //deformatiom
+        DeformationFieldPointerType intermedSource=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,deformationIntermedTarget);
+        DeformationFieldPointerType circle2=TransfUtils<ImageType>::composeDeformations(deformationSourceIntermed,intermedSource);
+        //mask
+        ImagePointerType mask2=TransfUtils<ImageType>::warpImage(mask,deformationSourceIntermed,true);
+        mask2=TransfUtils<ImageType>::warpImage(mask2,deformationIntermedTarget,true);
+        mask2=TransfUtils<ImageType>::warpImage(mask2,deformationTargetSource,true);
+        //localNorms
+        FloatImagePointerType localDeformationNorm2=TransfUtils<ImageType>::computeLocalDeformationNorm(circle2,m_sigma);
+        FloatImagePointerType errorNorm2=TransfUtils<ImageType>::computeLocalDeformationNorm(circle2,m_sigma);
+        ostringstream errorNormFilename2;
+        errorNormFilename2<<outputDir<<"/circle-ending-"<<ID1<<"-TO-"<<ID2<<"-VIA-"<<ID3<<"-hop"<<h<<".png";
+        ImageUtils<ImageType>::writeImage(errorNormFilename2.str().c_str(),FilterUtils<FloatImageType,ImageType>::truncateCast(errorNorm2));
+        ostringstream errorFilename2;
+        errorFilename2<<outputDir<<"/circle-ending-"<<ID1<<"-TO-"<<ID2<<"-VIA-"<<ID3<<"-hop"<<h<<".mha";
+        ImageUtils<DeformationFieldType>::writeImage(errorFilename2.str().c_str(),circle2);
+        //residual
+        double residual2=TransfUtils<ImageType>::computeDeformationNormMask(circle2,mask2,1.0);
+        averageResidual+=residual2;
+        double w2=exp(-residual2/m_sigma);
+        weight+=w2;
+       
+
+        //compute circle3
+        //deformatiom
+        DeformationFieldPointerType targetIntermed=TransfUtils<ImageType>::composeDeformations(deformationSourceIntermed,deformationTargetSource);
+        DeformationFieldPointerType circle3=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,targetIntermed);
+        //mask
+        ImagePointerType mask3=TransfUtils<ImageType>::warpImage(mask,deformationSourceIntermed,true);
+        mask3=TransfUtils<ImageType>::warpImage(mask3,deformationIntermedTarget,true);
+        mask3=TransfUtils<ImageType>::warpImage(mask3,deformationTargetSource,true);
+        //localNorms
+        FloatImagePointerType localDeformationNorm3=TransfUtils<ImageType>::computeLocalDeformationNorm(circle3,m_sigma);
+        FloatImagePointerType errorNorm3=TransfUtils<ImageType>::computeLocalDeformationNorm(circle3,m_sigma);
+        ostringstream errorNormFilename3;
+        errorNormFilename3<<outputDir<<"/circle-ending-"<<ID2<<"-TO-"<<ID3<<"-VIA-"<<ID1<<"-hop"<<h<<".png";
+        ImageUtils<ImageType>::writeImage(errorNormFilename3.str().c_str(),FilterUtils<FloatImageType,ImageType>::truncateCast(errorNorm3));
+        ostringstream errorFilename3;
+        errorFilename3<<outputDir<<"/circle-ending-"<<ID2<<"-TO-"<<ID3<<"-VIA-"<<ID1<<"-hop"<<h<<".mha";
+        ImageUtils<DeformationFieldType>::writeImage(errorFilename3.str().c_str(),circle3);
+        //residual
+        double residual3=TransfUtils<ImageType>::computeDeformationNormMask(circle3,mask3,1.0);
+        averageResidual+=residual3;
+        double w3=exp(-residual3/m_sigma);
+        weight+=w3;
+      
+                            
+#if 0                  
+  //test if move zeroes out residual
         InverseDeformationFieldFilterPointerType inverter=InverseDeformationFieldFilterType::New();
         inverter->SetInput(circle1);
         inverter->SetOutputOrigin(circle1->GetOrigin());
@@ -515,25 +574,6 @@ protected:
         LOG<<VAR(residual1)<<" "<<VAR(residual1Corr)<<endl;
         double resImprovement1=residual1/residual1Corr;
 
-
-
-        //compute circle2
-        //deformatiom
-        DeformationFieldPointerType intermedSource=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,deformationIntermedTarget);
-        DeformationFieldPointerType circle2=TransfUtils<ImageType>::composeDeformations(deformationSourceIntermed,intermedSource);
-        //mask
-        ImagePointerType mask2=TransfUtils<ImageType>::warpImage(mask,deformationSourceIntermed,true);
-        mask2=TransfUtils<ImageType>::warpImage(mask2,deformationIntermedTarget,true);
-        mask2=TransfUtils<ImageType>::warpImage(mask2,deformationTargetSource,true);
-        //localNorms
-        FloatImagePointerType localDeformationNorm2=TransfUtils<ImageType>::computeLocalDeformationNorm(circle2,m_sigma);
-
-     
-        //residual
-        double residual2=TransfUtils<ImageType>::computeDeformationNormMask(circle2,mask2,1.0);
-        averageResidual+=residual2;
-        double w2=exp(-residual2/m_sigma);
-        weight+=w2;
         inverter->SetInput(circle2);
         inverter->Update();
         DeformationFieldPointerType invCircle2=inverter->GetOutput();
@@ -550,23 +590,6 @@ protected:
         double residual2Corr=TransfUtils<ImageType>::computeDeformationNormMask(einszweidrei2,masktest2,1.0);
         //LOG<<VAR(residual2)<<" "<<VAR(residual2Corr)<<endl;
         double resImprovement2=residual2/residual2Corr;
-
-        //compute circle3
-        //deformatiom
-        DeformationFieldPointerType targetIntermed=TransfUtils<ImageType>::composeDeformations(deformationSourceIntermed,deformationTargetSource);
-        DeformationFieldPointerType circle3=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,targetIntermed);
-        //mask
-        ImagePointerType mask3=TransfUtils<ImageType>::warpImage(mask,deformationSourceIntermed,true);
-        mask3=TransfUtils<ImageType>::warpImage(mask3,deformationIntermedTarget,true);
-        mask3=TransfUtils<ImageType>::warpImage(mask3,deformationTargetSource,true);
-        //localNorms
-        FloatImagePointerType localDeformationNorm3=TransfUtils<ImageType>::computeLocalDeformationNorm(circle3,m_sigma);
-      
-        //residual
-        double residual3=TransfUtils<ImageType>::computeDeformationNormMask(circle3,mask3,1.0);
-        averageResidual+=residual3;
-        double w3=exp(-residual3/m_sigma);
-        weight+=w3;
         inverter->SetInput(circle3);
         inverter->Update();
         DeformationFieldPointerType invCircle3=inverter->GetOutput();
@@ -582,9 +605,9 @@ protected:
         double residual3Corr=TransfUtils<ImageType>::computeDeformationNormMask(einszweidrei3,masktest3,1.0);
         double resImprovement3=residual3/residual3Corr;
         //LOG<<VAR(residual3)<<" "<<VAR(residual3Corr)<<endl;
-                            
-                            
+          
         LOG<<VAR(resImprovement1)<<" "<<VAR(resImprovement2)<<" "<<VAR(resImprovement3)<<" "<<endl;
+#endif
         //LOG<<VAR(residual1)<<" "<<VAR(residual2)<<" "<<VAR(residual3)<<endl;
 
         //accumulate error estimates

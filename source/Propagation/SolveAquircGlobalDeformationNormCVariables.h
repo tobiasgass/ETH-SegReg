@@ -13,15 +13,18 @@ class AquircGlobalDeformationNormSolverCVariables: public LinearSolver{
 public:
     typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
+    typedef typename ImageType::Pointer ImagePointerType;
+    typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
 public:
 
-    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations=NULL){
+    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations, ImagePointerType ROI){
         m_imageIDList=imageIDList;
         m_deformationCache=deformationCache;
         m_numImages=imageIDList->size();
         m_nEqs= m_numImages*(m_numImages-1)*( m_numImages-2);
         m_nVars= m_numImages*(m_numImages-1);
         m_nNonZeroes=3*m_nEqs;
+        m_ROI=ROI;
     }
     
     virtual void createSystem(){
@@ -149,6 +152,7 @@ protected:
     map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations;
     std::vector<string> * m_imageIDList;
     bool m_additive;
+    ImagePointerType m_ROI;
 
 protected:
     inline int edgeNum(int n1,int n2){ return (n1)*(m_numImages-1) + n2 - (n2>n1)+1;}

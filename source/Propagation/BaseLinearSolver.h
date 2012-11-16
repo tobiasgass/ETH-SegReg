@@ -10,7 +10,7 @@ class LinearSolver{
 public:
 
     LinearSolver(){
-        if (!(m_ep = engOpen(""))) {
+        if (!(m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
             fprintf(stderr, "\nCan't start MATLAB engine\n");
             exit(EXIT_FAILURE);
         }
@@ -34,8 +34,8 @@ public:
         //remove zero rows from A,b. quite slow!
         //engEvalString(m_ep, "zRows=~sum(A,2); A=A(~zRows,:); b=b(~zRows);");
 
-        engEvalString(m_ep, "lb=-30*ones(size(A,2),1);");
-        engEvalString(m_ep, "ub=30*ones(size(A,2),1);");
+        engEvalString(m_ep, "lb=-60*ones(size(A,2),1);");
+        engEvalString(m_ep, "ub=60*ones(size(A,2),1);");
 
         engEvalString(m_ep, "size(b)");
         printf("%s", buffer+2);

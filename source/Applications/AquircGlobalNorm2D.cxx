@@ -32,6 +32,7 @@
 #include "SolveAquircLocalComposedDeformations.h"
 #include "SolveAquircLocalDeformationAndError.h"
 #include "SolveAquircLocalError.h"
+#include "SolveAquircLocalInterpolatedError.h"
 
 //using namespace std;
 typedef unsigned char PixelType;
@@ -65,7 +66,7 @@ typedef  itk::FixedPointInverseDeformationFieldImageFilter<DeformationFieldType,
 typedef  InverseDeformationFieldFilterType::Pointer InverseDeformationFieldFilterPointerType;
 enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
 enum WeightingType {UNIFORM,GLOBAL,LOCAL};
-enum SolverType {GLOBALNORM,LOCALNORM,LOCALERROR,LOCALCOMPOSEDERROR,LOCALCOMPOSEDNORM,LOCALDEFORMATIONANDERROR};
+enum SolverType {GLOBALNORM,LOCALNORM,LOCALERROR,LOCALCOMPOSEDERROR,LOCALCOMPOSEDINTERPOLATEDERROR,LOCALCOMPOSEDNORM,LOCALDEFORMATIONANDERROR};
 
 
 
@@ -112,7 +113,7 @@ int main(int argc, char ** argv){
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     argstream * as=new argstream(argc,argv);
-    string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="",trueDefListFilename="";
+    string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
     int radius=3;
@@ -131,6 +132,7 @@ int main(int argc, char ** argv){
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
+    (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
 
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
@@ -141,7 +143,6 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
     (*as) >> parameter ("alpha", alpha,"update rate",false);
     (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
-    (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
     (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
@@ -175,7 +176,10 @@ int main(int argc, char ** argv){
         solverType=LOCALCOMPOSEDERROR;
     }else if (solverName=="localdeformationanderror"){
         solverType=LOCALDEFORMATIONANDERROR;
+    }else if (solverName=="localcomposedinterpolatederror"){
+        solverType=LOCALCOMPOSEDINTERPOLATEDERROR;
     }
+
    
 
     map<string,ImagePointerType> *inputImages;
@@ -274,11 +278,13 @@ int main(int argc, char ** argv){
                 }
             }
         }
-        
-
-
     }
-     
+    ImagePointerType ROI;
+    if (ROIFilename!="") {
+        ROI=ImageUtils<ImageType>::readImage(ROIFilename);
+        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
+    }
+    
     AquircGlobalDeformationNormSolverCVariables<ImageType> * solver;
     switch(solverType){
     case GLOBALNORM:
@@ -297,9 +303,13 @@ int main(int argc, char ** argv){
      case LOCALDEFORMATIONANDERROR:
         solver = new AquircLocalDeformationAndErrorSolver<ImageType> ;
         break;
-
+    case LOCALCOMPOSEDINTERPOLATEDERROR:
+        solver = new AquircLocalInterpolatedErrorSolver<ImageType> ;
+        break;
+        
     }
-    solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations);
+
+    solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
     solver->createSystem();
     solver->solve();
     solver->storeResult(outputDir);

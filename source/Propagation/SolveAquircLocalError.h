@@ -20,11 +20,12 @@ public:
     typedef typename DeformationFieldType::PixelType DeformationType;
     typedef typename DeformationFieldType::IndexType IndexType;
     typedef typename DeformationFieldType::PointType PointType;
-    
+    typedef typename ImageType::Pointer ImagePointerType;
+
     static const unsigned int D=ImageType::ImageDimension;
 public:
 
-    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations=NULL){
+    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI){
         m_imageIDList=imageIDList;
         m_deformationCache=deformationCache;
         m_numImages=imageIDList->size();
@@ -154,13 +155,13 @@ public:
                                     x[c]=eq;
                                     y[c]=e1+d;
                                     //LOG<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(p)<<" "<<VAR(edgeNum(source,intermediate,p))<<endl;
-                                    v[c++]=val;
+                                    v[c++]=0.5*val;
                                     x[c]=eq;
                                     y[c]=e2+d;
                                     v[c++]=val;
                                     x[c]=eq;
                                     y[c]=e3+d;
-                                    v[c++]=val;
+                                    v[c++]=1.5*val;
                                     
                                     //set rhs
                                     b[eq-1]=def;
