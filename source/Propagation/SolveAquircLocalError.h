@@ -6,6 +6,7 @@
 #include "ImageUtils.h"
 #include <vector>
 #include <sstream>
+
 #include "SolveAquircGlobalDeformationNormCVariables.h"
 
 template<class ImageType>
@@ -15,17 +16,14 @@ public:
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
     typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
     typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
-    typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
-    typedef typename itk::ImageRegionIteratorWithIndex<DeformationFieldType> DeformationFieldIterator;
+    typedef typename itk::ImageRegionIterator<typename ImageUtils<ImageType>::FloatImageType> FloatImageIterator;
+    typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationFieldIterator;
     typedef typename DeformationFieldType::PixelType DeformationType;
-    typedef typename DeformationFieldType::IndexType IndexType;
-    typedef typename DeformationFieldType::PointType PointType;
     typedef typename ImageType::Pointer ImagePointerType;
-
     static const unsigned int D=ImageType::ImageDimension;
 public:
 
-    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI){
+    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType img){
         m_imageIDList=imageIDList;
         m_deformationCache=deformationCache;
         m_numImages=imageIDList->size();
@@ -33,7 +31,6 @@ public:
         m_nEqs= m_numImages*(m_numImages-1)*( m_numImages-2)*m_nPixels;
         m_nVars= m_numImages*(m_numImages-1)*m_nPixels;
         m_nNonZeroes=3*m_nEqs;
-        m_trueDeformations=trueDeformations;
     }
     
     virtual void createSystem(){
@@ -46,14 +43,22 @@ public:
         mxArray *mxB=mxCreateDoubleMatrix(m_nEqs,1,mxREAL);
         
         double * x=( double *)mxGetData(mxX);
-        std::fill(x,x+m_nNonZeroes,m_nEqs);
         double * y=( double *)mxGetData(mxY);
-        std::fill(y,y+m_nNonZeroes,m_nVars);
         double * v=( double *)mxGetData(mxV);
         double * b=mxGetPr(mxB);
         
         LOG<<"creating"<<endl;
-     
+        {
+            ostringstream evalstr;
+            evalstr<<"A = sparse([],[],[],"<<m_nEqs<<","<<m_nVars<<","<<m_nNonZeroes<<");";
+            engEvalString(this->m_ep,evalstr.str().c_str() );
+        }
+
+        {
+            ostringstream evalstr;
+            evalstr<<" b=zeros(1,"<<m_nEqs<<");";
+            engEvalString(this->m_ep,evalstr.str().c_str() );
+        }
 
 
         char buffer[256+1];
@@ -61,122 +66,79 @@ public:
         engOutputBuffer(this->m_ep, buffer, 256);
       
         //attention matlab index convention?!?
-        long int eq = 1;
-        long int c=0;
-        long int maxE=0;
-        for (int s = 0;s<m_numImages;++s){                            
-            int source=s;
-            for (int i=0;i<m_numImages;++i){
-                if (i!=s){
-                    int intermediate=i;
-                    DeformationFieldPointerType d1=(*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
+        int eq = 1;
+        //create edge index storage object
+        int c=0;
+        int maxE=0;
 
-                    for (int t=0;t<m_numImages;++t){
-                        if (t!=i && t!=s){
-                            //define a set of 3 images
-                            int target=t;
-                            DeformationFieldPointerType d2=(*m_deformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            DeformationFieldPointerType d3=(*m_deformationCache)[(*m_imageIDList)[target]][(*m_imageIDList)[source]];
-                            
-                            DeformationFieldPointerType hatd1,hatd2,hatd3;
-                            if (m_trueDeformations!=NULL){
-                                hatd1=(*m_trueDeformations)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
-                                hatd2=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                                hatd3=(*m_trueDeformations)[(*m_imageIDList)[target]][(*m_imageIDList)[source]];
-                            }
-                            
+        for (int s = 0;s<m_numImages;++s){
+            for (int i=s+1;i<m_numImages;++i){
+                for (int t=i+1;t<m_numImages;++t){
+                    //define a set of 3 images
+                    //there are 6 possible circles with 3 images
+                    int source=s;
+                    int intermediate=i;
+                    int target=t;
+                    //       LOG<<VAR(s)<<" "<<VAR(i)<<" "<<VAR(t)<<endl;
+                    for (int dir=0;dir<2;++dir){ //forwar-backward
+                        double normSum=0.0;
+                        for (int start=0;start<3;++start){
+                            if (intermediate<0 || target<0 || intermediate>m_numImages || target>m_numImages) break;
+
                             //compute circle
-                            DeformationFieldPointerType circle=composeDeformations(d1,d2,d3);
+                            DeformationFieldPointerType circle=composeDeformations((*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]],
+                                                                                   (*m_deformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]],
+                                                                                   (*m_deformationCache)[(*m_imageIDList)[target]][(*m_imageIDList)[source]]);
                             //compute norm
+                            //double norm=TransfUtils<ImageType>::computeDeformationNorm(circle,1.0);
                             DeformationFieldIterator it(circle,circle->GetLargestPossibleRegion());
                             it.GoToBegin();
-                            
-                            // LOG<<VAR(dir)<<" "<<VAR(start)<<endl;
-                            for (;!it.IsAtEnd();++it){
-                                bool valid=true;
-                                IndexType idx3=it.GetIndex(),idx2,idx1;
-                                PointType pt1,pt2,pt3;
-#if 1                         
-                                //This is the backward assumption. circle errors are in the domain of d3, and are summed backwards
-                                
-                                d3->TransformIndexToPhysicalPoint(idx3,pt3);
-                                pt2=pt3+d3->GetPixel(idx3);
-                                //pt2=pt3+hatd3->GetPixel(idx3);
-                                d2->TransformPhysicalPointToIndex(pt2,idx2);
-                                // what to do when circle goes outside along the way?
-                                // skip it
-                                if ( !d2->GetLargestPossibleRegion().IsInside(idx2) ) {
-                                    LOGV(6)<<"break at "<<VAR(eq)<<" "<<VAR(c)<<" "<<VAR(idx3)<<" "<<VAR(idx2)<<endl;
-                                    //eq+=D;
-                                    //c+=3*D;
-                                    continue;
-                                }
-                                pt1=pt2+d2->GetPixel(idx2);
-                                //pt1=pt2+hatd2->GetPixel(idx2);
-                                d1->TransformPhysicalPointToIndex(pt1,idx1);
-                                if ( (!d1->GetLargestPossibleRegion().IsInside(idx1) )) {
-                                    LOGV(6)<<"break at "<<VAR(eq)<<" "<<VAR(c)<<" "<<VAR(idx3)<<" "<<VAR(idx2)<<endl;
-                                    //eq=eq+D;
-                                    //c+=3*D;
-                                    continue;
-                                }
-#else
-                                //fixed point estimation
-                                idx1=idx3;
-                                idx2=idx3;
-                                
-#endif
-                                
-                                double val=1;
-
-                                //add 1 for matlab array layout
-                                long int e1=edgeNum(source,intermediate,idx1)+1;
-                                long int e2=edgeNum(intermediate,target,idx2)+1;
-                                long int e3=edgeNum(target,source,idx3)+1;
-                                if (e1<=0) {LOG<<VAR(e1)<<" ????? "<<endl;}
-                                if (e2<=0) {LOG<<VAR(e2)<<endl;}
-                                if (e3<=0) {LOG<<VAR(e3)<<endl; }
-                                //LOG<<VAR(e1)<<" "<<VAR(e2)<<" "<<VAR(e3)<<endl;
-                                
+                            for (int p=0;!it.IsAtEnd();++it){
                                 DeformationType localDef=it.Get();
-                                
-                                PointType pt0;
-                                pt0=pt1+d1->GetPixel(idx1);
-                                
-                                LOGV(4)<<"consistency check : "<<VAR(localDef)<<" ?= "<<VAR(pt0-pt3)<<endl;
-                                
-                                maxE=max(maxE,max(e1,max(e2,e3)));
-                                
-                                for (unsigned int d=0;d<D;++d){
+
+                                for (unsigned int d=0;d<D;++d,++p){
                                     double def=localDef[d];
-                                    LOGV(6)<<VAR(e1)<<" "<<VAR(e2)<<" "<<VAR(e3)<<endl;
-                                    
+                                  
                                     //set sparse entries
                                     x[c]=eq;
-                                    y[c]=e1+d;
+                                    y[c]=edgeNum(source,intermediate,p);
                                     //LOG<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(p)<<" "<<VAR(edgeNum(source,intermediate,p))<<endl;
-                                    v[c++]=0.5*val;
+                                    v[c++]=1.5;
                                     x[c]=eq;
-                                    y[c]=e2+d;
-                                    v[c++]=val;
+                                    y[c]=edgeNum(intermediate,target,p);
+                                    v[c++]=1.0;
                                     x[c]=eq;
-                                    y[c]=e3+d;
-                                    v[c++]=1.5*val;
-                                    
+                                    y[c]=edgeNum(target,source,p);
+                                    v[c++]=0.5;
+                                    maxE=max(maxE,max(edgeNum(source,intermediate,p),max(edgeNum(intermediate,target,p),edgeNum(target,source,p))));
+
                                     //set rhs
                                     b[eq-1]=def;
                                     ++eq;
-                                    LOGV(6)<<"did it"<<endl;
-                                }// D
-                            }//image
+                                }
+                            }
+                            
+                            
+                            
+                            //shift start point
+                            int tmpInt=source;
+                            source=intermediate;
+                            intermediate=target;
+                            target=tmpInt;
+                        }
+                      
+                        int tmp=target;
+                        target=intermediate;
+                        intermediate=tmp;
 
-                        }//if
-                    }//target
-                }//if
-            }//intermediate
-        }//source
-        LOG<<VAR(eq)<<" "<<VAR(c)<<endl;
+                    }
+
+                
+                }
+            }
+        }
         LOG<<VAR(maxE)<<endl;
+
         //put variables into workspace and immediately destroy them
         engPutVariable(this->m_ep,"xCord",mxX);
         mxDestroyArray(mxX);
@@ -204,15 +166,14 @@ public:
                     it.GoToBegin();
                     for (int p=0;!it.IsAtEnd();++it){
                         DeformationType disp;
-                        int e=edgeNum(s,t,it.GetIndex());
                         for (unsigned int d=0;d<D;++d,++p){
-                            disp[d]=rData[e+d];
+                            disp[d]=rData[edgeNum(s,t,p)-1];
                         }
                         it.Set(disp);
                     }
 
                     ostringstream outfile;
-                    outfile<<directory<<"/estimatedLocalComposedDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
+                    outfile<<directory<<"/estimatedLocalDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
                     ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
                 }
             }
@@ -236,21 +197,12 @@ public:
 protected:
     int m_nVars,m_nEqs,m_nNonZeroes,m_nPixels;
     int m_numImages;
-    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations;
+    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache;
     std::vector<string> * m_imageIDList;
     bool m_additive;
 
 protected:
-    //return fortlaufende number of pairs n1,n2, 0..(n*(n-1)-1)
-    inline long int edgeNum(int n1,int n2){ return ((n1)*(m_numImages-1) + n2 - (n2>n1));}
-    
-    //return edgenumber after taking into acount nPixel*2 edges per image pair
-    inline long int edgeNum(int n1,int n2,IndexType idx){ 
-        long int offset = (*m_deformationCache)[(*m_imageIDList)[n1]][(*m_imageIDList)[n2]]->ComputeOffset(idx);
-        return offset*2+edgeNum(n1,n2)*m_nPixels ;
-    }
-  
-
+    inline int edgeNum(int n1,int n2,int p){ return ((n1)*(m_numImages-1) + n2 - (n2>n1))*(m_nPixels) +p +1;}
     inline void edges(int edgeNum, int &n1, int &n2){
         n1 = edgeNum/(m_numImages-1);
         n2 =edgeNum%(m_numImages-1);

@@ -8,6 +8,7 @@
 #include <sstream>
 #include "SolveAquircGlobalDeformationNormCVariables.h"
 #include "itkVectorLinearInterpolateImageFunction.h"
+#include "itkNeighborhoodIterator.h"
 
 template<class ImageType>
 class AquircLocalInterpolatedErrorSolver: public AquircGlobalDeformationNormSolverCVariables< ImageType>{
@@ -37,7 +38,13 @@ public:
         m_nPixels=2*(*deformationCache)[(*imageIDList)[0]][(*imageIDList)[1]]->GetLargestPossibleRegion().GetNumberOfPixels( );
         m_nEqs= m_numImages*(m_numImages-1)*( m_numImages-2)*m_nPixels;
         m_nVars= m_numImages*(m_numImages-1)*m_nPixels;
-        m_nNonZeroes=9*m_nEqs;
+        //NN interpol
+        m_nNonZeroes=3*m_nEqs;
+        //Linear interpol
+        m_nNonZeroes=(3+2*pow(2,D))*m_nEqs;
+        //gaussian interpol
+        int radius=2;
+        //m_nNonZeroes=(3+2*pow(2*radius+1,D))*m_nEqs;
         m_trueDeformations=trueDeformations;
     }
     
@@ -49,7 +56,11 @@ public:
         mxArray *mxY=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
         mxArray *mxV=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
         mxArray *mxB=mxCreateDoubleMatrix(m_nEqs,1,mxREAL);
-        
+        if (! (mxX && mxY && mxV &&mxB)){
+            LOG<<"not enough memory, aborting"<<endl;
+            exit(0);
+        }
+
         double * x=( double *)mxGetData(mxX);
         std::fill(x,x+m_nNonZeroes,m_nEqs);
         double * y=( double *)mxGetData(mxY);
@@ -79,6 +90,7 @@ public:
                     d1Interpolater->SetInputImage(d1);
 
                     for (int t=0;t<m_numImages;++t){
+
                         if (t!=i && t!=s){
                             //define a set of 3 images
                             int target=t;
@@ -115,7 +127,9 @@ public:
                                 d2->TransformPhysicalPointToIndex(pt2,idx2);
                                 // what to do when circle goes outside along the way?
                                 // skip it
-                                bool inside=getNeighbors(d2,pt2,pt2Neighbors);
+                                //bool inside=getGaussianNeighbors(d2,pt2,pt2Neighbors);
+                                bool inside=getLinearNeighbors(d2,pt2,pt2Neighbors);
+                                //bool inside=getNearestNeighbors(d2,pt2,pt2Neighbors);
                                 if ( !inside ) {
                                     LOGV(6)<<"break at "<<VAR(eq)<<" "<<VAR(c)<<" "<<VAR(idx3)<<" "<<VAR(idx2)<<endl;
                                     continue;
@@ -124,7 +138,9 @@ public:
                                 d2->TransformPhysicalPointToContinuousIndex(pt2,ci2);
                                 pt1=pt2+d2Interpolater->EvaluateAtContinuousIndex(ci2);
                                 d1->TransformPhysicalPointToIndex(pt1,idx1);
-                                inside=getNeighbors(d1,pt1,pt1Neighbors);
+                                //inside=getNearestNeighbors(d1,pt1,pt1Neighbors);
+                                inside=getLinearNeighbors(d1,pt1,pt1Neighbors);
+                                //inside=getGaussianNeighbors(d1,pt1,pt1Neighbors);
                                 if ( (! inside )) {
                                     LOGV(6)<<"break at "<<VAR(eq)<<" "<<VAR(c)<<" "<<VAR(idx3)<<" "<<VAR(idx2)<<endl;
                                     continue;
@@ -152,25 +168,30 @@ public:
                                 
                                 for (unsigned int d=0;d<D;++d){
                                     double def=localDef[d];
+                                    val=1.0;//exp(-def*def/100);
+                                    std::vector<double> weights=getCircleWeights(def);
                                     
+                                   
                                     //set sparse entries
                                     //neighbors of pt1
                                     for (int i=0;i<pt1Neighbors.size();++i){
+                                        LOGV(7)<<VAR(eq)<<" "<< VAR(pt1)<<" "<<VAR(i)<<" "<<VAR(c)<<" "<<VAR(pt1Neighbors[i].first)<<" "<<VAR(pt1Neighbors[i].second)<<endl;
                                         x[c]=eq;
-                                        y[c]=edgeNum(s,i,pt1Neighbors[i].first)+d+1;
-                                        v[c++]=0.5*pt1Neighbors[i].second;
+                                        y[c]=edgeNum(source,intermediate,pt1Neighbors[i].first)+d+1;
+                                        v[c++]=weights[0]*pt1Neighbors[i].second*val;
                                     }
                                     for (int i=0;i<pt2Neighbors.size();++i){
+                                        LOGV(7)<<VAR(eq)<<" "<< VAR(pt2)<<" "<< VAR(i)<<" "<< VAR(c)<<" "<<VAR(pt2Neighbors[i].first)<<" "<<VAR(pt2Neighbors[i].second)<<endl;
                                         x[c]=eq;
-                                        y[c]=edgeNum(i,t,pt2Neighbors[i].first)+d+1;
-                                        v[c++]=1.0*pt2Neighbors[i].second;
+                                        y[c]=edgeNum(intermediate,target,pt2Neighbors[i].first)+d+1;
+                                        v[c++]=weights[1]*pt2Neighbors[i].second*val;
                                     }
                                     x[c]=eq;
-                                    y[c]=edgeNum(t,s,idx3)+d+1;;
-                                    v[c++]=1.5*val;
+                                    y[c]=edgeNum(target,source,idx3)+d+1;;
+                                    v[c++]=weights[2]*val;
                                     
                                     //set rhs
-                                    b[eq-1]=def;
+                                    b[eq-1]=def*val;
                                     ++eq;
                                     LOGV(6)<<"did it"<<endl;
                                 }// D
@@ -197,23 +218,31 @@ public:
 
     }
 
-    virtual void storeResult(string directory){
+     virtual void storeResult(string directory){
         std::vector<double> result(m_nVars);
         double * rData=mxGetPr(this->m_result);
+        double trueResidual=0.0;
+
         for (int s = 0;s<m_numImages;++s){
             for (int t=0;t<m_numImages;++t){
                 if (s!=t){
                     //slightly(!!!) stupid creation of empty image
                     DeformationFieldPointerType estimatedError=ImageUtils<DeformationFieldType>::createEmpty((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
                     DeformationFieldIterator it(estimatedError,estimatedError->GetLargestPossibleRegion());
+                    DeformationFieldIterator itTrueDef((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
+                    DeformationFieldIterator itOriginalDef((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
+                    itOriginalDef.GoToBegin();
                     it.GoToBegin();
-                    for (int p=0;!it.IsAtEnd();++it){
+                    itTrueDef.GoToBegin();
+                    for (int p=0;!it.IsAtEnd();++it,++itTrueDef,++itOriginalDef){
                         DeformationType disp;
                         int e=edgeNum(s,t,it.GetIndex());
                         for (unsigned int d=0;d<D;++d,++p){
                             disp[d]=rData[e+d];
                         }
                         it.Set(disp);
+                        trueResidual+=(itOriginalDef.Get()-itTrueDef.Get()-disp).GetSquaredNorm();
+
                     }
 
                     ostringstream outfile;
@@ -222,8 +251,13 @@ public:
                 }
             }
         }
+        trueResidual=sqrt(trueResidual);
+        LOG<<VAR(trueResidual)<<" "<<endl;
+
+
 
     }
+   
 
     std::vector<double> getResult(){
         std::vector<double> result(m_nVars);
@@ -274,13 +308,14 @@ protected:
 
     }
 
-    inline bool getNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
+    inline bool getLinearNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
         bool inside=false;
         neighbors= std::vector<std::pair<IndexType,double> >(pow(2,D));
         int nNeighbors=0;
         IndexType idx1;
         def->TransformPhysicalPointToIndex(point,idx1);
         inside=inside || def->GetLargestPossibleRegion().IsInside(idx1);
+        if (!inside) return false;
         PointType pt1;
         def->TransformIndexToPhysicalPoint(idx1,pt1);
         DeformationType dist=point-pt1;
@@ -312,18 +347,100 @@ protected:
         neighbors.resize(nNeighbors);
         return inside;
     }
+  inline bool getNearestNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
+        bool inside=false;
+        neighbors= std::vector<std::pair<IndexType,double> >(1);
+        int nNeighbors=0;
+        IndexType idx1;
+        def->TransformPhysicalPointToIndex(point,idx1);
+        inside=inside || def->GetLargestPossibleRegion().IsInside(idx1);
+        PointType pt1;
+        def->TransformIndexToPhysicalPoint(idx1,pt1);
+        DeformationType dist=point-pt1;
+        if (inside){
+            neighbors[nNeighbors++]=std::make_pair(idx1,1.0);
+        }
+       
+        return inside;
+    }
 
+    inline bool getGaussianNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors, int radius=2, double sigma=4.0){
+        bool inside=false;
+        neighbors= std::vector<std::pair<IndexType,double> >(pow(2*radius+1,D));
+        int nNeighbors=0;
+        IndexType idx1;
+        def->TransformPhysicalPointToIndex(point,idx1);
+        if (! def->GetLargestPossibleRegion().IsInside(idx1)){
+            return false;
+        }
+        typename itk::NeighborhoodIterator<DeformationFieldType>::RadiusType r;
+        r.Fill(radius);
+        typename itk::NeighborhoodIterator<DeformationFieldType>  iterator( r, def, def->GetLargestPossibleRegion());
+        LOGV(7)<<VAR(idx1)<<endl;
+        iterator.SetLocation(idx1);
+        double weightSum=0.0;
+        for (int i=0;i<iterator.Size();++i){
+            LOGV(7)<<VAR(i)<<endl;
+            bool insideTMP;
+#if 0           
+            DeformationType d=iterator.GetPixel(i,insideTMP);
+            LOGV(7)<<VAR(insideTMP)<<" "<<VAR(d)<<endl;
+#endif
+            IndexType idx=iterator.GetIndex(i);
+            insideTMP=def->GetLargestPossibleRegion().IsInside(idx);
+            if (insideTMP){
+                inside=true;
+                IndexType idx=iterator.GetIndex(i);
+                LOGV(7)<<VAR(i)<<" "<<VAR(idx)<<endl;
+                PointType pt;
+                def->TransformIndexToPhysicalPoint(idx,pt);
+                LOGV(7)<<VAR(point)<<" "<<VAR(pt)<<" "<<VAR(point-pt)<<endl;
+                double w=exp(-0.5*(point-pt).GetSquaredNorm()/(sigma*sigma));
+                LOGV(7)<<VAR(w)<<endl;
+                weightSum+=w;
+                neighbors[nNeighbors++]=std::make_pair(idx,w);
+            }
+
+        }
+        neighbors.resize(nNeighbors);
+        if (inside && weightSum>0){
+            for (int i=0;i<nNeighbors;++i){
+                LOGV(7)<<VAR(i)<<" "<<VAR( neighbors[i].second) << " " << VAR(weightSum)<<endl;
+                neighbors[i].second/=weightSum;
+            }
+        }
+        return inside;
+    }
     inline double getWeight(const DeformationType & dist, const SpacingType & space){
         double w=1.0;
         for (int d=0;d<D;++d){
-            w*=(1-dist[d]/space[d]);
+            w*=(1-fabs(dist[d])/space[d]);
         }
+        LOGV(9)<<VAR(dist)<<" "<<VAR(space)<<" "<<VAR(w)<<endl;
         return w;
     }
     inline int sign(double s){
 
-        if (s>0) return 1;
+        if (s>=0) return 1;
         if (s<0) return -1;
         return 0;
+    }
+    
+    inline std::vector<double> getCircleWeights(double localCircleDef){
+        std::vector<double> weights(3,0.0);
+        double wSum=0.0;
+        LOGV(5)<<VAR(fabs(localCircleDef))<<" "<<VAR(exp(-0.5*localCircleDef*localCircleDef/50))<<endl;
+        weights[0]=1.0-0.5;//*exp(-0.5*localCircleDef/50);
+        weights[1]=1.0;
+        weights[2]=1.0+0.5;//*exp(-0.5*localCircleDef/50);
+        
+        for (int i=0;i<3;++i){
+            wSum+=1.0/3*weights[i];
+        }
+        for (int i=0;i<3;++i){
+            weights[i]/=wSum;
+        }
+        return weights;
+
     }
 };

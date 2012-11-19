@@ -230,6 +230,7 @@ public:
                                     //b[eq-1]=lambda*hatDelta3[d];
                                     ++eq;
 #endif
+#if 0
                                     //constraint that estimated def + estimated error = original def
                                     x[c]=eq;
                                     y[c]=e3+d+m_nPixels;
@@ -239,7 +240,19 @@ public:
                                     v[c++]=10000;
                                     b[eq-1]=10000*delta3[d];
                                     ++eq;
-                                    
+#endif                               
+                                    //constraint that sum of deformations should be zero
+                                    float lambda=1.0;//exp(-def*def);
+                                    x[c]=eq;
+                                    y[c]=e1+d+m_nPixels;
+                                    v[c++]=lambda*val;  
+                                    x[c]=eq;
+                                    y[c]=e2+d+m_nPixels;
+                                    v[c++]=lambda*val;
+                                    x[c]=eq;
+                                    y[c]=e3+d+m_nPixels;
+                                    v[c++]=lambda*val;
+                                    b[eq-1]=0.0;
 
                                     LOGV(6)<<"did it"<<endl;
                                 }// D
@@ -265,8 +278,6 @@ public:
         //clear unnneeded variables from matlab workspace
         engEvalString(this->m_ep,"clear xCord yCord val;" );
 
-        engEvalString(this->m_ep,"rank(A)" );
-        printf("%s", buffer+2);
         engEvalString(this->m_ep,"save('test.mat');" );
 
     }

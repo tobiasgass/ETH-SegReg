@@ -28,11 +28,11 @@
 #include "SolveAquircGlobalDeformationNorm.h"
 #include "SolveAquircGlobalDeformationNormCVariables.h"
 #include "SolveAquircLocalDeformationNorms.h"
-#include "SolveAquircLocalDeformations.h"
-#include "SolveAquircLocalComposedDeformations.h"
 #include "SolveAquircLocalDeformationAndError.h"
 #include "SolveAquircLocalError.h"
+#include "SolveAquircLocalComposedError.h"
 #include "SolveAquircLocalInterpolatedError.h"
+#include "SolveAquircLocalErrorAndResidual.h"
 
 //using namespace std;
 typedef unsigned char PixelType;
@@ -48,6 +48,7 @@ typedef   ImageType::ConstPointer ConstImagePointerType;
 typedef   ImageUtils<ImageType>::FloatImageType FloatImageType;
 typedef   FloatImageType::Pointer FloatImagePointerType;
 
+
 typedef   TransfUtils<ImageType>::DisplacementType DisplacementType;
 typedef   TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
 typedef   DeformationFieldType::Pointer DeformationFieldPointerType;
@@ -58,6 +59,7 @@ typedef   itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorTyp
 typedef   ImageNeighborhoodIteratorType * ImageNeighborhoodIteratorPointerType;
 typedef   ImageNeighborhoodIteratorType::RadiusType RadiusType;
 
+typedef  itk::ImageRegionIteratorWithIndex<DeformationFieldType> DeformationFieldIterator;
 typedef  itk::AddImageFilter<DeformationFieldType,DeformationFieldType,DeformationFieldType> DeformationAddFilterType;
 typedef  DeformationAddFilterType::Pointer DeformationAddFilterPointer;
 typedef  itk::SubtractImageFilter<DeformationFieldType,DeformationFieldType,DeformationFieldType> DeformationSubtractFilterType;
@@ -70,35 +72,35 @@ enum SolverType {GLOBALNORM,LOCALNORM,LOCALERROR,LOCALCOMPOSEDERROR,LOCALCOMPOSE
 
 
 
-    map<string,ImagePointerType> * readImageList(string filename,std::vector<string> & imageIDs){
-        map<string,ImagePointerType> * result=new  map<string,ImagePointerType>;
-        ifstream ifs(filename.c_str());
-        if (!ifs){
-            LOG<<"could not read "<<filename<<endl;
-            exit(0);
-        }
-        while( ! ifs.eof() ) 
-            {
-                string imageID;
-                ifs >> imageID;                
-                if (imageID!=""){
-                    imageIDs.push_back(imageID);
-                    ImagePointerType img;
-                    string imageFileName ;
-                    ifs >> imageFileName;
-                    LOGV(3)<<"Reading image "<<imageFileName<< " with ID "<<imageID<<endl;
+map<string,ImagePointerType> * readImageList(string filename,std::vector<string> & imageIDs){
+    map<string,ImagePointerType> * result=new  map<string,ImagePointerType>;
+    ifstream ifs(filename.c_str());
+    if (!ifs){
+        LOG<<"could not read "<<filename<<endl;
+        exit(0);
+    }
+    while( ! ifs.eof() ) 
+        {
+            string imageID;
+            ifs >> imageID;                
+            if (imageID!=""){
+                imageIDs.push_back(imageID);
+                ImagePointerType img;
+                string imageFileName ;
+                ifs >> imageFileName;
+                LOGV(3)<<"Reading image "<<imageFileName<< " with ID "<<imageID<<endl;
 
-                    img=ImageUtils<ImageType>::readImage(imageFileName);
-                    if (result->find(imageID)==result->end())
-                        (*result)[imageID]=img;
-                    else{
-                        LOG<<"duplicate image ID "<<imageID<<", aborting"<<endl;
-                        exit(0);
-                    }
+                img=ImageUtils<ImageType>::readImage(imageFileName);
+                if (result->find(imageID)==result->end())
+                    (*result)[imageID]=img;
+                else{
+                    LOG<<"duplicate image ID "<<imageID<<", aborting"<<endl;
+                    exit(0);
                 }
             }
-        return result;
-    }        
+        }
+    return result;
+}        
   
 
   
@@ -230,6 +232,7 @@ int main(int argc, char ** argv){
     }
 
     if (trueDefListFilename!=""){
+        double trueErrorNorm=0.0;
         ifstream ifs(trueDefListFilename.c_str());
         while (!ifs.eof()){
             string intermediateID,targetID,defFileName;
@@ -251,18 +254,31 @@ int main(int argc, char ** argv){
                         ostringstream trueDef;
                         trueDef<<outputDir<<"/trueLocalDeformationERROR-FROM-"<<intermediateID<<"-TO-"<<targetID<<".mha";
                         ImageUtils<DeformationFieldType>::writeImage(trueDef.str().c_str(),diff);
-                        
-                          
-                    }else{
+                        DeformationFieldIterator itDef( deformationCache[intermediateID][targetID],deformationCache[intermediateID][targetID]->GetLargestPossibleRegion());
+                        DeformationFieldIterator itTrueDef( trueDeformations[intermediateID][targetID], trueDeformations[intermediateID][targetID]->GetLargestPossibleRegion());
+                        itDef.GoToBegin();
+                        itTrueDef.GoToBegin();
+                        for (;!itDef.IsAtEnd();++itDef,++itTrueDef){
+                            //get solution of eqn system
+                            trueErrorNorm+=(itTrueDef.Get()-itDef.Get()).GetSquaredNorm();
+                        }
+                    }  
+                    
+                    else{
                         LOG<<"error, not caching true defs not implemented"<<endl;
                         exit(0);
                     }
                 }
-               
+                
             }
-        }
             
+        }
+        trueErrorNorm=sqrt(trueErrorNorm);
+        LOG<<VAR(trueErrorNorm)<<endl;
     }
+    
+            
+
 
     if (resamplingFactor !=1.0){
         for (int t=0;t<imageIDs.size();++t){
@@ -295,12 +311,12 @@ int main(int argc, char ** argv){
         break;
 
     case LOCALERROR:
-        solver= new AquircLocalDeformationSolver<ImageType>;
+        solver= new AquircLocalErrorSolver<ImageType>;
         break;
     case LOCALCOMPOSEDERROR:
-        solver = new AquircLocalErrorSolver<ImageType> ;
+        solver = new AquircLocalComposedErrorSolver<ImageType> ;
         break;
-     case LOCALDEFORMATIONANDERROR:
+    case LOCALDEFORMATIONANDERROR:
         solver = new AquircLocalDeformationAndErrorSolver<ImageType> ;
         break;
     case LOCALCOMPOSEDINTERPOLATEDERROR:
