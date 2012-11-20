@@ -103,7 +103,11 @@ map<string,ImagePointerType> * readImageList(string filename,std::vector<string>
 }        
   
 
-  
+double computeError( map< string, map <string, DeformationFieldPointerType> >  & defs,  map< string, map <string, DeformationFieldPointerType> > & trueDefs){
+    
+    return 0.0;
+
+}
   
 
 int main(int argc, char ** argv){
@@ -131,6 +135,7 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=30;
     string solverName="localnorm";
+    double w1=1.0,w3=1.0;
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -144,6 +149,8 @@ int main(int argc, char ** argv){
     //(*as) >> parameter ("radius", radius,"patch radius for NCC",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
     (*as) >> parameter ("alpha", alpha,"update rate",false);
+    (*as) >> parameter ("w1", w1,"weight for def1 in circle",false);
+    (*as) >> parameter ("w3", w3,"weight for def3 in circle",false);
     (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -324,13 +331,13 @@ int main(int argc, char ** argv){
         break;
         
     }
-
+    solver->setCircleWeights(w1,w3);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
     solver->createSystem();
     solver->solve();
     solver->storeResult(outputDir);
-    //std::vector<double> result=Solver.getResult();
+    //result=Solver.getResult();
     
     
-    // return 1;
+    return 1;
 }//main

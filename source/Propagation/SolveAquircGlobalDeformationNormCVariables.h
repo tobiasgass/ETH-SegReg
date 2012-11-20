@@ -26,7 +26,10 @@ public:
         m_nNonZeroes=3*m_nEqs;
         m_ROI=ROI;
     }
-    
+    virtual void setCircleWeights(double w1, double w3){
+        m_w1=w1;
+        m_w3=w3;
+    }
     virtual void createSystem(){
 
         mxArray *mxX=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
@@ -153,6 +156,7 @@ protected:
     std::vector<string> * m_imageIDList;
     bool m_additive;
     ImagePointerType m_ROI;
+    double m_w1,m_w3;
 
 protected:
     inline int edgeNum(int n1,int n2){ return (n1)*(m_numImages-1) + n2 - (n2>n1)+1;}

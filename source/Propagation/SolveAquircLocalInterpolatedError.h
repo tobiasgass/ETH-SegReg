@@ -46,6 +46,7 @@ public:
         int radius=2;
         //m_nNonZeroes=(3+2*pow(2*radius+1,D))*m_nEqs;
         m_trueDeformations=trueDeformations;
+        computeError();
     }
     
     virtual void createSystem(){
@@ -222,6 +223,7 @@ public:
         std::vector<double> result(m_nVars);
         double * rData=mxGetPr(this->m_result);
         double trueResidual=0.0;
+        int c=0;
 
         for (int s = 0;s<m_numImages;++s){
             for (int t=0;t<m_numImages;++t){
@@ -241,20 +243,45 @@ public:
                             disp[d]=rData[e+d];
                         }
                         it.Set(disp);
-                        trueResidual+=(itOriginalDef.Get()-itTrueDef.Get()-disp).GetSquaredNorm();
-
+                        trueResidual+=(itOriginalDef.Get()-itTrueDef.Get()-disp).GetNorm();
+                        ++c;
                     }
 
                     ostringstream outfile;
-                    outfile<<directory<<"/estimatedLocalComposedDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
+                    outfile<<directory<<"/estimatedLocalComposedInterpolatedDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
                     ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
                 }
             }
         }
-        trueResidual=sqrt(trueResidual);
+        trueResidual/=c;
         LOG<<VAR(trueResidual)<<" "<<endl;
 
 
+
+    }
+
+    void computeError(){
+        double residual=0.0;
+        int c=0;
+        for (int s = 0;s<m_numImages;++s){
+            for (int t=0;t<m_numImages;++t){
+                if (s!=t){
+                    //slightly(!!!) stupid creation of empty image
+                    DeformationFieldIterator itTrueDef((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
+                    DeformationFieldIterator itOriginalDef((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
+                    itOriginalDef.GoToBegin();
+                    itTrueDef.GoToBegin();
+                    for (int p=0;!itTrueDef.IsAtEnd();++itTrueDef,++itOriginalDef){
+                       
+                        residual+=(itOriginalDef.Get()-itTrueDef.Get()).GetNorm();
+                        ++c;
+                    }
+
+                }
+            }
+        }
+        residual/=c;
+        LOG<<VAR(residual)<<" "<<endl;
 
     }
    
@@ -430,9 +457,9 @@ protected:
         std::vector<double> weights(3,0.0);
         double wSum=0.0;
         LOGV(5)<<VAR(fabs(localCircleDef))<<" "<<VAR(exp(-0.5*localCircleDef*localCircleDef/50))<<endl;
-        weights[0]=1.0-0.5;//*exp(-0.5*localCircleDef/50);
+        weights[0]=this->m_w1;//1.0+0.6;//*exp(-0.5*localCircleDef/50);
         weights[1]=1.0;
-        weights[2]=1.0+0.5;//*exp(-0.5*localCircleDef/50);
+        weights[2]=this->m_w3;//1.0-0.3;//*exp(-0.5*localCircleDef/50);
         
         for (int i=0;i<3;++i){
             wSum+=1.0/3*weights[i];
