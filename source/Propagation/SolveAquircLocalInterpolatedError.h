@@ -11,7 +11,7 @@
 #include "itkNeighborhoodIterator.h"
 
 template<class ImageType>
-class AquircLocalInterpolatedErrorSolver: public AquircGlobalDeformationNormSolverCVariables< ImageType>{
+class AquircLocalInterpolatedErrorSolver: public AquircLocalErrorSolver< ImageType>{
 public:
     typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
@@ -31,41 +31,57 @@ public:
     static const unsigned int D=ImageType::ImageDimension;
 public:
 
-    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI){
-        m_imageIDList=imageIDList;
-        m_deformationCache=deformationCache;
-        m_numImages=imageIDList->size();
-        m_nPixels=2*(*deformationCache)[(*imageIDList)[0]][(*imageIDList)[1]]->GetLargestPossibleRegion().GetNumberOfPixels( );
-        m_nEqs= m_numImages*(m_numImages-1)*( m_numImages-2)*m_nPixels;
-        m_nVars= m_numImages*(m_numImages-1)*m_nPixels;
+    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType img){
+        LOG<<"LOCAL INTERPOLATED COMPOSED ERROR SOLVER"<<endl;
+        this->m_imageIDList=imageIDList;
+        this->m_deformationCache=deformationCache;
+        this->m_numImages=imageIDList->size();
+        this->m_nPixels=2*(*deformationCache)[(*imageIDList)[0]][(*imageIDList)[1]]->GetLargestPossibleRegion().GetNumberOfPixels( );
+        this->m_nEqs= this->m_numImages*(this->m_numImages-1)*( this->m_numImages-2)*this->m_nPixels;
+        this->m_nVars= this->m_numImages*(this->m_numImages-1)*this->m_nPixels;
         //NN interpol
-        m_nNonZeroes=3*m_nEqs;
+        this->m_nNonZeroes=3*this->m_nEqs;
         //Linear interpol
-        m_nNonZeroes=(3+2*pow(2,D))*m_nEqs;
+        this->m_nNonZeroes=(3+2*pow(2,D))*this->m_nEqs;
         //gaussian interpol
         int radius=2;
-        //m_nNonZeroes=(3+2*pow(2*radius+1,D))*m_nEqs;
-        m_trueDeformations=trueDeformations;
-        computeError();
+        //this->m_nNonZeroes=(3+2*pow(2*radius+1,D))*this->m_nEqs;
+        this->m_trueDeformations=trueDeformations;
+     
+
+        if (img.IsNotNull()){
+            this->m_regionOfInterest.SetSize(img->GetLargestPossibleRegion().GetSize());
+            IndexType startIndex,nullIdx;
+            nullIdx.Fill(0);
+            PointType startPoint;
+            img->TransformIndexToPhysicalPoint(nullIdx,startPoint);
+            (*this->m_deformationCache)[(*this->m_imageIDList)[0]][(*this->m_imageIDList)[1]]->TransformPhysicalPointToIndex(startPoint,startIndex);
+            this->m_regionOfInterest.SetIndex(startIndex);
+        }else{
+            this->m_regionOfInterest=  (*this->m_deformationCache)[(*this->m_imageIDList)[0]][(*this->m_imageIDList)[1]]->GetLargestPossibleRegion();
+        }
+
+        if (trueDeformations!=NULL)
+            this->computeError(deformationCache);
     }
     
     virtual void createSystem(){
 
         LOG<<"Creating equation system.."<<endl;
-        LOG<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
-        mxArray *mxX=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-        mxArray *mxY=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-        mxArray *mxV=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-        mxArray *mxB=mxCreateDoubleMatrix(m_nEqs,1,mxREAL);
+        LOG<<VAR(this->m_numImages)<<" "<<VAR(this->m_nPixels)<<" "<<VAR(this->m_nEqs)<<" "<<VAR(this->m_nVars)<<" "<<VAR(this->m_nNonZeroes)<<endl;
+        mxArray *mxX=mxCreateDoubleMatrix(this->m_nNonZeroes,1,mxREAL);
+        mxArray *mxY=mxCreateDoubleMatrix(this->m_nNonZeroes,1,mxREAL);
+        mxArray *mxV=mxCreateDoubleMatrix(this->m_nNonZeroes,1,mxREAL);
+        mxArray *mxB=mxCreateDoubleMatrix(this->m_nEqs,1,mxREAL);
         if (! (mxX && mxY && mxV &&mxB)){
             LOG<<"not enough memory, aborting"<<endl;
             exit(0);
         }
 
         double * x=( double *)mxGetData(mxX);
-        std::fill(x,x+m_nNonZeroes,m_nEqs);
+        std::fill(x,x+this->m_nNonZeroes,this->m_nEqs);
         double * y=( double *)mxGetData(mxY);
-        std::fill(y,y+m_nNonZeroes,m_nVars);
+        std::fill(y,y+this->m_nNonZeroes,this->m_nVars);
         double * v=( double *)mxGetData(mxV);
         double * b=mxGetPr(mxB);
         
@@ -81,30 +97,30 @@ public:
         long int eq = 1;
         long int c=0;
         long int maxE=0;
-        for (int s = 0;s<m_numImages;++s){                            
+        for (int s = 0;s<this->m_numImages;++s){                            
             int source=s;
-            for (int i=0;i<m_numImages;++i){
+            for (int i=0;i<this->m_numImages;++i){
                 if (i!=s){
                     int intermediate=i;
-                    DeformationFieldPointerType d1=(*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
+                    DeformationFieldPointerType d1=(*this->m_deformationCache)[(*this->m_imageIDList)[source]][(*this->m_imageIDList)[intermediate]];
                     DeformationFieldInterpolaterPointerType d1Interpolater=DeformationFieldInterpolaterType::New();
                     d1Interpolater->SetInputImage(d1);
 
-                    for (int t=0;t<m_numImages;++t){
+                    for (int t=0;t<this->m_numImages;++t){
 
                         if (t!=i && t!=s){
                             //define a set of 3 images
                             int target=t;
-                            DeformationFieldPointerType d2=(*m_deformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            DeformationFieldPointerType d3=(*m_deformationCache)[(*m_imageIDList)[target]][(*m_imageIDList)[source]];
+                            DeformationFieldPointerType d2=(*this->m_deformationCache)[(*this->m_imageIDList)[intermediate]][(*this->m_imageIDList)[target]];
+                            DeformationFieldPointerType d3=(*this->m_deformationCache)[(*this->m_imageIDList)[target]][(*this->m_imageIDList)[source]];
                             DeformationFieldInterpolaterPointerType d2Interpolater=DeformationFieldInterpolaterType::New();
                             d2Interpolater->SetInputImage(d2);
 
                             DeformationFieldPointerType hatd1,hatd2,hatd3;
-                            if (m_trueDeformations!=NULL){
-                                hatd1=(*m_trueDeformations)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
-                                hatd2=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                                hatd3=(*m_trueDeformations)[(*m_imageIDList)[target]][(*m_imageIDList)[source]];
+                            if (this->m_trueDeformations!=NULL){
+                                hatd1=(*this->m_trueDeformations)[(*this->m_imageIDList)[source]][(*this->m_imageIDList)[intermediate]];
+                                hatd2=(*this->m_trueDeformations)[(*this->m_imageIDList)[intermediate]][(*this->m_imageIDList)[target]];
+                                hatd3=(*this->m_trueDeformations)[(*this->m_imageIDList)[target]][(*this->m_imageIDList)[source]];
                             }
                             
                             //compute circle
@@ -170,7 +186,7 @@ public:
                                 for (unsigned int d=0;d<D;++d){
                                     double def=localDef[d];
                                     val=1.0;//exp(-def*def/100);
-                                    std::vector<double> weights=getCircleWeights(def);
+                                    std::vector<double> weights=this->getCircleWeights(def);
                                     
                                    
                                     //set sparse entries
@@ -219,109 +235,88 @@ public:
 
     }
 
-     virtual void storeResult(string directory){
-        std::vector<double> result(m_nVars);
+    virtual void storeResult(string directory){
+        std::vector<double> result(this->m_nVars);
         double * rData=mxGetPr(this->m_result);
-        double trueResidual=0.0;
-        int c=0;
+      
 
-        for (int s = 0;s<m_numImages;++s){
-            for (int t=0;t<m_numImages;++t){
+        for (int s = 0;s<this->m_numImages;++s){
+            for (int t=0;t<this->m_numImages;++t){
                 if (s!=t){
                     //slightly(!!!) stupid creation of empty image
-                    DeformationFieldPointerType estimatedError=ImageUtils<DeformationFieldType>::createEmpty((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
-                    DeformationFieldIterator it(estimatedError,estimatedError->GetLargestPossibleRegion());
-                    DeformationFieldIterator itTrueDef((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
-                    DeformationFieldIterator itOriginalDef((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
-                    itOriginalDef.GoToBegin();
+                    DeformationFieldPointerType estimatedError=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
+                    DeformationType n;
+                    n.Fill(0.0);
+                    estimatedError->FillBuffer(n);
+                    //DeformationFieldIterator it(estimatedError,estimatedError->GetLargestPossibleRegion());
+                    DeformationFieldIterator it(estimatedError,this->m_regionOfInterest);
                     it.GoToBegin();
-                    itTrueDef.GoToBegin();
-                    for (int p=0;!it.IsAtEnd();++it,++itTrueDef,++itOriginalDef){
+                    for (int p=0;!it.IsAtEnd();++it){
                         DeformationType disp;
                         int e=edgeNum(s,t,it.GetIndex());
                         for (unsigned int d=0;d<D;++d,++p){
                             disp[d]=rData[e+d];
                         }
                         it.Set(disp);
-                        trueResidual+=(itOriginalDef.Get()-itTrueDef.Get()-disp).GetNorm();
-                        ++c;
+                      
                     }
-
                     ostringstream outfile;
-                    outfile<<directory<<"/estimatedLocalComposedInterpolatedDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
+                    outfile<<directory<<"/estimatedLocalComposedInterpolatedDeformationError-FROM-"<<(*this->m_imageIDList)[s]<<"-TO-"<<(*this->m_imageIDList)[t]<<".mha";
                     ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
                 }
             }
         }
-        trueResidual/=c;
-        LOG<<VAR(trueResidual)<<" "<<endl;
-
-
-
     }
-
-    void computeError(){
-        double residual=0.0;
-        int c=0;
-        for (int s = 0;s<m_numImages;++s){
-            for (int t=0;t<m_numImages;++t){
+    
+    virtual map< string, map <string, DeformationFieldPointerType> > * getEstimatedDeformations(){
+        map< string, map <string, DeformationFieldPointerType> > * result=new map< string, map <string, DeformationFieldPointerType> >;
+        double * rData=mxGetPr(this->m_result);
+        for (int s = 0;s<this->m_numImages;++s){
+            for (int t=0;t<this->m_numImages;++t){
                 if (s!=t){
                     //slightly(!!!) stupid creation of empty image
-                    DeformationFieldIterator itTrueDef((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
-                    DeformationFieldIterator itOriginalDef((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
+                    DeformationFieldPointerType estimatedDef=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
+                    DeformationFieldIterator it(estimatedDef,estimatedDef->GetLargestPossibleRegion());
+                    DeformationFieldIterator itOriginalDef((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]],(*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]->GetLargestPossibleRegion());
                     itOriginalDef.GoToBegin();
-                    itTrueDef.GoToBegin();
-                    for (int p=0;!itTrueDef.IsAtEnd();++itTrueDef,++itOriginalDef){
-                       
-                        residual+=(itOriginalDef.Get()-itTrueDef.Get()).GetNorm();
-                        ++c;
+                    it.GoToBegin();
+                    for (int p=0;!it.IsAtEnd();++it,++itOriginalDef){
+                        DeformationType disp;
+                        int e=edgeNum(s,t,it.GetIndex());
+
+                        for (unsigned int d=0;d<D;++d,++p){
+                            disp[d]=rData[e+d];
+                        }
+                        it.Set(itOriginalDef.Get()-disp);
                     }
 
+                    (*result)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]=estimatedDef;
                 }
             }
         }
-        residual/=c;
-        LOG<<VAR(residual)<<" "<<endl;
-
+        return result;
     }
+    
    
 
-    std::vector<double> getResult(){
-        std::vector<double> result(m_nVars);
-        double * rData=mxGetPr(this->m_result);
-        for (int i=0;i<m_nVars;++i){
-            result[i]=rData[i];
-            int n1,n2;
-            edges(i+1,n1,n2);
-            LOG<<VAR(i)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(result[i])<<endl;
-        }
-        return result;
-        
-
-    }
-protected:
-    int m_nVars,m_nEqs,m_nNonZeroes,m_nPixels;
-    int m_numImages;
-    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations;
-    std::vector<string> * m_imageIDList;
-    bool m_additive;
+   
 
 protected:
     //return fortlaufende number of pairs n1,n2, 0..(n*(n-1)-1)
-    inline long int edgeNum(int n1,int n2){ return ((n1)*(m_numImages-1) + n2 - (n2>n1));}
+    inline long int edgeNum(int n1,int n2){ return ((n1)*(this->m_numImages-1) + n2 - (n2>n1));}
     
     //return edgenumber after taking into acount nPixel*2 edges per image pair
     inline long int edgeNum(int n1,int n2,IndexType idx){ 
-        long int offset = (*m_deformationCache)[(*m_imageIDList)[n1]][(*m_imageIDList)[n2]]->ComputeOffset(idx);
-        return offset*2+edgeNum(n1,n2)*m_nPixels ;
+        long int offset = (*this->m_deformationCache)[(*this->m_imageIDList)[n1]][(*this->m_imageIDList)[n2]]->ComputeOffset(idx);
+        return offset*2+edgeNum(n1,n2)*this->m_nPixels ;
     }
   
 
     inline void edges(int edgeNum, int &n1, int &n2){
-        n1 = edgeNum/(m_numImages-1);
-        n2 =edgeNum%(m_numImages-1);
+        n1 = edgeNum/(this->m_numImages-1);
+        n2 =edgeNum%(this->m_numImages-1);
         if (n2 ==0){
-            n2=(m_numImages-1);
+            n2=(this->m_numImages-1);
             n1--;
         }
         if (n2>n1) ++n2;
@@ -329,12 +324,7 @@ protected:
         
     }
 
-    //compose 3 deformations. order is left-to-right
-    DeformationFieldPointerType composeDeformations(DeformationFieldPointerType d1,DeformationFieldPointerType d2,DeformationFieldPointerType d3){
-        return TransfUtils<ImageType>::composeDeformations(d3,TransfUtils<ImageType>::composeDeformations(d2,d1));
-
-    }
-
+   
     inline bool getLinearNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
         bool inside=false;
         neighbors= std::vector<std::pair<IndexType,double> >(pow(2,D));
@@ -453,21 +443,5 @@ protected:
         return 0;
     }
     
-    inline std::vector<double> getCircleWeights(double localCircleDef){
-        std::vector<double> weights(3,0.0);
-        double wSum=0.0;
-        LOGV(5)<<VAR(fabs(localCircleDef))<<" "<<VAR(exp(-0.5*localCircleDef*localCircleDef/50))<<endl;
-        weights[0]=this->m_w1;//1.0+0.6;//*exp(-0.5*localCircleDef/50);
-        weights[1]=1.0;
-        weights[2]=this->m_w3;//1.0-0.3;//*exp(-0.5*localCircleDef/50);
-        
-        for (int i=0;i<3;++i){
-            wSum+=1.0/3*weights[i];
-        }
-        for (int i=0;i<3;++i){
-            weights[i]/=wSum;
-        }
-        return weights;
-
-    }
+   
 };

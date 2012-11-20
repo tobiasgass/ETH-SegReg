@@ -177,4 +177,22 @@ protected:
         return TransfUtils<ImageType>::composeDeformations(d3,TransfUtils<ImageType>::composeDeformations(d2,d1));
 
     }
+
+    inline std::vector<double> getCircleWeights(double localCircleDef){
+        std::vector<double> weights(3,0.0);
+        double wSum=0.0;
+        LOGV(5)<<VAR(fabs(localCircleDef))<<" "<<VAR(exp(-0.5*localCircleDef*localCircleDef/50))<<endl;
+        weights[0]=this->m_w1;//1.0+0.6;//*exp(-0.5*localCircleDef/50);
+        weights[1]=1.0;
+        weights[2]=this->m_w3;//1.0-0.3;//*exp(-0.5*localCircleDef/50);
+        
+        for (int i=0;i<3;++i){
+            wSum+=1.0/3*weights[i];
+        }
+        for (int i=0;i<3;++i){
+            weights[i]/=wSum;
+        }
+        return weights;
+
+    }
 };

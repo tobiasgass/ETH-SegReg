@@ -20,27 +20,71 @@ public:
     typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationFieldIterator;
     typedef typename DeformationFieldType::PixelType DeformationType;
     typedef typename ImageType::Pointer ImagePointerType;
+    typedef typename ImageType::RegionType RegionType;
+    typedef typename ImageType::IndexType IndexType;
+    typedef typename ImageType::PointType PointType;
     static const unsigned int D=ImageType::ImageDimension;
 public:
 
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType img){
-        m_imageIDList=imageIDList;
-        m_deformationCache=deformationCache;
-        m_numImages=imageIDList->size();
-        m_nPixels=2*(*deformationCache)[(*imageIDList)[0]][(*imageIDList)[1]]->GetLargestPossibleRegion().GetNumberOfPixels( );
-        m_nEqs= m_numImages*(m_numImages-1)*( m_numImages-2)*m_nPixels;
-        m_nVars= m_numImages*(m_numImages-1)*m_nPixels;
-        m_nNonZeroes=3*m_nEqs;
+        LOG<<"LOCAL  ERROR SOLVER"<<endl;
+        this->m_imageIDList=imageIDList;
+        this->m_deformationCache=deformationCache;
+        this->m_numImages=imageIDList->size();
+        this->m_nPixels=2*(*deformationCache)[(*imageIDList)[0]][(*imageIDList)[1]]->GetLargestPossibleRegion().GetNumberOfPixels( );
+        this->m_nEqs= this->m_numImages*(this->m_numImages-1)*( this->m_numImages-2)*this->m_nPixels;
+        this->m_nVars= this->m_numImages*(this->m_numImages-1)*this->m_nPixels;
+        this->m_nNonZeroes=3*this->m_nEqs;
+        this->m_trueDeformations=trueDeformations;
+      
+        if (img.IsNotNull()){
+            this->m_regionOfInterest.SetSize(img->GetLargestPossibleRegion().GetSize());
+            IndexType startIndex,nullIdx;
+            nullIdx.Fill(0);
+            PointType startPoint;
+            img->TransformIndexToPhysicalPoint(nullIdx,startPoint);
+            (*this->m_deformationCache)[(*this->m_imageIDList)[0]][(*this->m_imageIDList)[1]]->TransformPhysicalPointToIndex(startPoint,startIndex);
+            this->m_regionOfInterest.SetIndex(startIndex);
+        }else{
+            this->m_regionOfInterest=  (*this->m_deformationCache)[(*this->m_imageIDList)[0]][(*this->m_imageIDList)[1]]->GetLargestPossibleRegion();
+        }
+
+        if (trueDeformations!=NULL)
+            this->computeError(deformationCache);
+
+
     }
-    
+     void computeError(map< string, map <string, DeformationFieldPointerType> > * deformationCache){
+        double residual=0.0;
+        int c=0;
+        for (int s = 0;s<this->m_numImages;++s){
+            for (int t=0;t<this->m_numImages;++t){
+                if (s!=t){
+                    DeformationFieldIterator itTrueDef((*this->m_trueDeformations)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]],m_regionOfInterest);
+                    DeformationFieldIterator itOriginalDef((*deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]],m_regionOfInterest);
+                    itOriginalDef.GoToBegin();
+                    itTrueDef.GoToBegin();
+                    for (;!itTrueDef.IsAtEnd();++itTrueDef,++itOriginalDef){
+                        residual+=(itOriginalDef.Get()-itTrueDef.Get()).GetNorm();
+                        ++c;
+                    }
+
+                }
+            }
+        }
+        residual/=c;
+        LOG<<VAR(residual)<<" "<<endl;
+
+    }
+   
     virtual void createSystem(){
 
         LOG<<"Creating equation system.."<<endl;
-        LOG<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
-        mxArray *mxX=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-        mxArray *mxY=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-        mxArray *mxV=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-        mxArray *mxB=mxCreateDoubleMatrix(m_nEqs,1,mxREAL);
+        LOG<<VAR(this->m_numImages)<<" "<<VAR(this->m_nPixels)<<" "<<VAR(this->m_nEqs)<<" "<<VAR(this->m_nVars)<<" "<<VAR(this->m_nNonZeroes)<<endl;
+        mxArray *mxX=mxCreateDoubleMatrix(this->m_nNonZeroes,1,mxREAL);
+        mxArray *mxY=mxCreateDoubleMatrix(this->m_nNonZeroes,1,mxREAL);
+        mxArray *mxV=mxCreateDoubleMatrix(this->m_nNonZeroes,1,mxREAL);
+        mxArray *mxB=mxCreateDoubleMatrix(this->m_nEqs,1,mxREAL);
         
         double * x=( double *)mxGetData(mxX);
         double * y=( double *)mxGetData(mxY);
@@ -50,13 +94,13 @@ public:
         LOG<<"creating"<<endl;
         {
             ostringstream evalstr;
-            evalstr<<"A = sparse([],[],[],"<<m_nEqs<<","<<m_nVars<<","<<m_nNonZeroes<<");";
+            evalstr<<"A = sparse([],[],[],"<<this->m_nEqs<<","<<this->m_nVars<<","<<this->m_nNonZeroes<<");";
             engEvalString(this->m_ep,evalstr.str().c_str() );
         }
 
         {
             ostringstream evalstr;
-            evalstr<<" b=zeros(1,"<<m_nEqs<<");";
+            evalstr<<" b=zeros(1,"<<this->m_nEqs<<");";
             engEvalString(this->m_ep,evalstr.str().c_str() );
         }
 
@@ -70,10 +114,11 @@ public:
         //create edge index storage object
         int c=0;
         int maxE=0;
+        std::vector<double> weights=this->getCircleWeights(0.0);
 
-        for (int s = 0;s<m_numImages;++s){
-            for (int i=s+1;i<m_numImages;++i){
-                for (int t=i+1;t<m_numImages;++t){
+        for (int s = 0;s<this->m_numImages;++s){
+            for (int i=s+1;i<this->m_numImages;++i){
+                for (int t=i+1;t<this->m_numImages;++t){
                     //define a set of 3 images
                     //there are 6 possible circles with 3 images
                     int source=s;
@@ -83,12 +128,12 @@ public:
                     for (int dir=0;dir<2;++dir){ //forwar-backward
                         double normSum=0.0;
                         for (int start=0;start<3;++start){
-                            if (intermediate<0 || target<0 || intermediate>m_numImages || target>m_numImages) break;
+                            if (intermediate<0 || target<0 || intermediate>this->m_numImages || target>this->m_numImages) break;
 
                             //compute circle
-                            DeformationFieldPointerType circle=composeDeformations((*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]],
-                                                                                   (*m_deformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]],
-                                                                                   (*m_deformationCache)[(*m_imageIDList)[target]][(*m_imageIDList)[source]]);
+                            DeformationFieldPointerType circle=composeDeformations((*this->m_deformationCache)[(*this->m_imageIDList)[source]][(*this->m_imageIDList)[intermediate]],
+                                                                                   (*this->m_deformationCache)[(*this->m_imageIDList)[intermediate]][(*this->m_imageIDList)[target]],
+                                                                                   (*this->m_deformationCache)[(*this->m_imageIDList)[target]][(*this->m_imageIDList)[source]]);
                             //compute norm
                             //double norm=TransfUtils<ImageType>::computeDeformationNorm(circle,1.0);
                             DeformationFieldIterator it(circle,circle->GetLargestPossibleRegion());
@@ -103,13 +148,13 @@ public:
                                     x[c]=eq;
                                     y[c]=edgeNum(source,intermediate,p);
                                     //LOG<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(p)<<" "<<VAR(edgeNum(source,intermediate,p))<<endl;
-                                    v[c++]=1.5;
+                                    v[c++]=weights[0];
                                     x[c]=eq;
                                     y[c]=edgeNum(intermediate,target,p);
-                                    v[c++]=1.0;
+                                    v[c++]=weights[1];
                                     x[c]=eq;
                                     y[c]=edgeNum(target,source,p);
-                                    v[c++]=0.5;
+                                    v[c++]=weights[2];
                                     maxE=max(maxE,max(edgeNum(source,intermediate,p),max(edgeNum(intermediate,target,p),edgeNum(target,source,p))));
 
                                     //set rhs
@@ -155,13 +200,12 @@ public:
     }
 
     virtual void storeResult(string directory){
-        std::vector<double> result(m_nVars);
+        std::vector<double> result(this->m_nVars);
         double * rData=mxGetPr(this->m_result);
-        for (int s = 0;s<m_numImages;++s){
-            for (int t=0;t<m_numImages;++t){
+        for (int s = 0;s<this->m_numImages;++s){
+            for (int t=0;t<this->m_numImages;++t){
                 if (s!=t){
-                    //slightly(!!!) stupid creation of empty image
-                    DeformationFieldPointerType estimatedError=ImageUtils<DeformationFieldType>::createEmpty((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
+                    DeformationFieldPointerType estimatedError=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
                     DeformationFieldIterator it(estimatedError,estimatedError->GetLargestPossibleRegion());
                     it.GoToBegin();
                     for (int p=0;!it.IsAtEnd();++it){
@@ -173,7 +217,7 @@ public:
                     }
 
                     ostringstream outfile;
-                    outfile<<directory<<"/estimatedLocalDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
+                    outfile<<directory<<"/estimatedLocalDeformationError-FROM-"<<(*this->m_imageIDList)[s]<<"-TO-"<<(*this->m_imageIDList)[t]<<".mha";
                     ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
                 }
             }
@@ -181,33 +225,44 @@ public:
 
     }
 
-    std::vector<double> getResult(){
-        std::vector<double> result(m_nVars);
+    virtual map< string, map <string, DeformationFieldPointerType> > * getEstimatedDeformations(){
+        map< string, map <string, DeformationFieldPointerType> > * result=new map< string, map <string, DeformationFieldPointerType> >;
         double * rData=mxGetPr(this->m_result);
-        for (int i=0;i<m_nVars;++i){
-            result[i]=rData[i];
-            int n1,n2;
-            edges(i+1,n1,n2);
-            LOG<<VAR(i)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(result[i])<<endl;
+        for (int s = 0;s<this->m_numImages;++s){
+            for (int t=0;t<this->m_numImages;++t){
+                if (s!=t){
+                    DeformationFieldPointerType estimatedDef=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
+                    DeformationFieldIterator it(estimatedDef,estimatedDef->GetLargestPossibleRegion());
+                    DeformationFieldIterator itOriginalDef((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]],(*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]->GetLargestPossibleRegion());
+                    itOriginalDef.GoToBegin();
+                    it.GoToBegin();
+                    for (int p=0;!it.IsAtEnd();++it,++itOriginalDef){
+                        DeformationType disp;
+                        for (unsigned int d=0;d<D;++d,++p){
+                            disp[d]=rData[edgeNum(s,t,p)-1];
+                        }
+                        it.Set(itOriginalDef.Get()-disp);
+                    }
+
+                    (*result)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]=estimatedDef;
+                }
+            }
         }
         return result;
-        
-
     }
-protected:
-    int m_nVars,m_nEqs,m_nNonZeroes,m_nPixels;
-    int m_numImages;
-    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache;
-    std::vector<string> * m_imageIDList;
-    bool m_additive;
 
 protected:
-    inline int edgeNum(int n1,int n2,int p){ return ((n1)*(m_numImages-1) + n2 - (n2>n1))*(m_nPixels) +p +1;}
+    int m_nPixels;
+    RegionType m_regionOfInterest;
+
+
+protected:
+    inline int edgeNum(int n1,int n2,int p){ return ((n1)*(this->m_numImages-1) + n2 - (n2>n1))*(this->m_nPixels) +p +1;}
     inline void edges(int edgeNum, int &n1, int &n2){
-        n1 = edgeNum/(m_numImages-1);
-        n2 =edgeNum%(m_numImages-1);
+        n1 = edgeNum/(this->m_numImages-1);
+        n2 =edgeNum%(this->m_numImages-1);
         if (n2 ==0){
-            n2=(m_numImages-1);
+            n2=(this->m_numImages-1);
             n1--;
         }
         if (n2>n1) ++n2;
@@ -215,9 +270,6 @@ protected:
         
     }
 
-    //compose 3 deformations. order is left-to-right
-    DeformationFieldPointerType composeDeformations(DeformationFieldPointerType d1,DeformationFieldPointerType d2,DeformationFieldPointerType d3){
-        return TransfUtils<ImageType>::composeDeformations(d3,TransfUtils<ImageType>::composeDeformations(d2,d1));
 
-    }
+    
 };

@@ -37,10 +37,7 @@ public:
         engEvalString(m_ep, "lb=-60*ones(size(A,2),1);");
         engEvalString(m_ep, "ub=60*ones(size(A,2),1);");
 
-        engEvalString(m_ep, "size(b)");
-        printf("%s", buffer+2);
-        engEvalString(m_ep, "size(A)");
-        printf("%s", buffer+2);
+      
 
 
         //TIME(engEvalString(m_ep, "tic;[x resnorm residual] =lsqlin(A,b,[],[],[],[],zer);toc"));
@@ -52,9 +49,7 @@ public:
         printf("%s", buffer+2);
         engEvalString(m_ep, " resnorm");
         printf("%s", buffer+2);
-        engEvalString(m_ep, " size(x)");
-        printf("%s", buffer+2);
-
+      
         LOG<<"done"<<endl;
         if ((m_result = engGetVariable(m_ep,"x")) == NULL)
             printf("something went wrong when getting the variable.\n Result is probably wrong. \n");
