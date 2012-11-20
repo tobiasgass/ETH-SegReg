@@ -238,31 +238,40 @@ public:
     virtual void storeResult(string directory){
         std::vector<double> result(this->m_nVars);
         double * rData=mxGetPr(this->m_result);
-      
+        double * rResidual=mxGetPr(this->m_residual);
+
 
         for (int s = 0;s<this->m_numImages;++s){
             for (int t=0;t<this->m_numImages;++t){
                 if (s!=t){
                     //slightly(!!!) stupid creation of empty image
                     DeformationFieldPointerType estimatedError=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
+                    DeformationFieldPointerType estimatedResidual=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
                     DeformationType n;
                     n.Fill(0.0);
                     estimatedError->FillBuffer(n);
                     //DeformationFieldIterator it(estimatedError,estimatedError->GetLargestPossibleRegion());
                     DeformationFieldIterator it(estimatedError,this->m_regionOfInterest);
+                    DeformationFieldIterator itRes(estimatedResidual,this->m_regionOfInterest);
                     it.GoToBegin();
-                    for (int p=0;!it.IsAtEnd();++it){
-                        DeformationType disp;
+                    itRes.GoToBegin();
+                    for (int p=0;!it.IsAtEnd();++it,++itRes){
+                        DeformationType disp,res;
                         int e=edgeNum(s,t,it.GetIndex());
                         for (unsigned int d=0;d<D;++d,++p){
                             disp[d]=rData[e+d];
+                            res[d]=rResidual[e+d];
                         }
                         it.Set(disp);
+                        itRes.Set(res);
                       
                     }
                     ostringstream outfile;
                     outfile<<directory<<"/estimatedLocalComposedInterpolatedDeformationError-FROM-"<<(*this->m_imageIDList)[s]<<"-TO-"<<(*this->m_imageIDList)[t]<<".mha";
                     ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
+                    ostringstream outfile2;
+                    outfile2<<directory<<"/estimatedLocalComposedInterpolatedDeformationRESIDUAL-FROM-"<<(*this->m_imageIDList)[s]<<"-TO-"<<(*this->m_imageIDList)[t]<<".mha";
+                    ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),estimatedResidual);
                 }
             }
         }

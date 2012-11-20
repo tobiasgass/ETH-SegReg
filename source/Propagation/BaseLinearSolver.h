@@ -53,13 +53,15 @@ public:
         LOG<<"done"<<endl;
         if ((m_result = engGetVariable(m_ep,"x")) == NULL)
             printf("something went wrong when getting the variable.\n Result is probably wrong. \n");
+        if ((m_residual = engGetVariable(m_ep,"residual")) == NULL)
+            printf("something went wrong when getting the variable.\n Result is probably wrong. \n");
     }
     
     
     virtual void createSystem()=0;
     virtual void storeResult(string directory)=0;
 protected:
-    mxArray *m_A, *m_result,*m_b;
+    mxArray *m_A, *m_result,*m_b, *m_residual;
     Engine *m_ep;
 
 };
