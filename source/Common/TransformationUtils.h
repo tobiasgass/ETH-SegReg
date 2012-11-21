@@ -795,24 +795,7 @@ public:
         return scaledDeformation;
     }
 
-    static DeformationFieldPointerType locallyInvertScaleDeformation(DeformationFieldPointerType def, FloatImagePointerType weights){
-        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
-        typedef typename  itk::ImageRegionIterator<FloatImageType> ImageIterator;
-        double norm=0.0;
-        int count=0;
-        DeformationFieldPointerType scaledDeformation=ImageUtils<DeformationFieldType>::createEmpty(def);
-        LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
-        LabelIterator scaledDeformationIt(scaledDeformation,def->GetLargestPossibleRegion());
-        ImageIterator imageIt(weights,def->GetLargestPossibleRegion());
-        for (scaledDeformationIt.GoToBegin(),deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt,++scaledDeformationIt){
-            DisplacementType t=deformationIt.Get();
-            float scalar=imageIt.Get();
-            if (scalar != 0.0)
-                t=t/scalar;
-            scaledDeformationIt.Set(t);
-        }
-        return scaledDeformation;
-    }
+   
 
     static DeformationFieldPointerType add(DeformationFieldPointerType d1,DeformationFieldPointerType d2){
         AdderPointer m_Adder=AdderType::New();

@@ -6,12 +6,12 @@
 #include "ImageUtils.h"
 #include <vector>
 #include <sstream>
-#include "SolveAquircGlobalDeformationNormCVariables.h"
+#include "SolveAquircLocalComposedError.h"
 #include "itkVectorLinearInterpolateImageFunction.h"
 #include "itkNeighborhoodIterator.h"
 
 template<class ImageType>
-class AquircLocalInterpolatedErrorSolver: public AquircLocalErrorSolver< ImageType>{
+class AquircLocalInterpolatedErrorSolver: public AquircLocalComposedErrorSolver< ImageType>{
 public:
     typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
@@ -216,10 +216,59 @@ public:
 
                         }//if
                     }//target
+                     if (this->m_regWeight>0.0){
+                        DeformationFieldPointerType defSourceInterm=(*this->m_deformationCache)[(*this->m_imageIDList)[source]][(*this->m_imageIDList)[intermediate]];
+                        DeformationFieldIterator it(defSourceInterm,defSourceInterm->GetLargestPossibleRegion());
+                        it.GoToBegin();
+                        for (;!it.IsAtEnd();++it){
+                            DeformationType localDef=it.Get();
+                            IndexType idx=it.GetIndex();
+                            long int e=edgeNum(source,intermediate,idx)+1;
+                            for (int n=0;n<D;++n){
+                                OffsetType off,off2;
+                                off.Fill(0);
+                                off2=off;
+                                off[n]=1;
+                                off2[n]=-1;
+                                IndexType neighborIndexRight=idx+off;
+                                IndexType neighborIndexLeft=idx+off2;
+                                if (defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
+                                    long int eNeighborRight=edgeNum(source,intermediate,neighborIndexRight)+1;
+                                    DeformationType neighborDefRight=defSourceInterm->GetPixel(neighborIndexRight);
+                                    long int eNeighborLeft=edgeNum(source,intermediate,neighborIndexLeft)+1;
+                                    DeformationType neighborDefLeft=defSourceInterm->GetPixel(neighborIndexLeft);
+                                    LOGV(6)<<""<<VAR(idx)<<" "<<VAR(neighborIndexRight)<<" "<<VAR(e)<<" "<<VAR(eNeighborRight)<<" "<<endl;
+                                    for (unsigned int d=0;d<D;++d){
+                                        LOGV(7)<<"regularizing... "<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(eq)<<" "<<VAR(c+3)<<" "<<endl;
+                                        double def=localDef[d];
+                                        double defNeighborRight=neighborDefRight[d];
+                                        double defNeighborLeft=neighborDefLeft[d];
+                                        x[c]=eq;
+                                        y[c]=e+d;
+                                        v[c++]=-2*this->m_regWeight;
+                                        x[c]=eq;
+                                        y[c]=eNeighborRight+d;
+                                        v[c++]=this->m_regWeight;
+                                        x[c]=eq;
+                                        y[c]=eNeighborLeft+d;
+                                        v[c++]=this->m_regWeight;
+                                        b[eq-1]=this->m_regWeight*(defNeighborRight+defNeighborLeft-2*def);
+                                        ++eq;
+                                    }
+                                }//inside
+
+                            }//neighbors
+                        }//for
+                    }//regularization
                 }//if
             }//intermediate
         }//source
         LOG<<VAR(eq)<<" "<<VAR(c)<<endl;
+        this->m_nNonZeroes=c;
+        mxSetM(mxX,c);
+        mxSetM(mxY,c);
+        mxSetM(mxV,c);
+        mxSetM(mxB,eq-1);
         //put variables into workspace and immediately destroy them
         engPutVariable(this->m_ep,"xCord",mxX);
         mxDestroyArray(mxX);
@@ -235,104 +284,11 @@ public:
 
     }
 
-    virtual void storeResult(string directory){
-        std::vector<double> result(this->m_nVars);
-        double * rData=mxGetPr(this->m_result);
-        double * rResidual=mxGetPr(this->m_residual);
-
-
-        for (int s = 0;s<this->m_numImages;++s){
-            for (int t=0;t<this->m_numImages;++t){
-                if (s!=t){
-                    //slightly(!!!) stupid creation of empty image
-                    DeformationFieldPointerType estimatedError=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
-                    DeformationFieldPointerType estimatedResidual=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
-                    DeformationType n;
-                    n.Fill(0.0);
-                    estimatedError->FillBuffer(n);
-                    //DeformationFieldIterator it(estimatedError,estimatedError->GetLargestPossibleRegion());
-                    DeformationFieldIterator it(estimatedError,this->m_regionOfInterest);
-                    DeformationFieldIterator itRes(estimatedResidual,this->m_regionOfInterest);
-                    it.GoToBegin();
-                    itRes.GoToBegin();
-                    for (int p=0;!it.IsAtEnd();++it,++itRes){
-                        DeformationType disp,res;
-                        int e=edgeNum(s,t,it.GetIndex());
-                        for (unsigned int d=0;d<D;++d,++p){
-                            disp[d]=rData[e+d];
-                            res[d]=rResidual[e+d];
-                        }
-                        it.Set(disp);
-                        itRes.Set(res);
-                      
-                    }
-                    ostringstream outfile;
-                    outfile<<directory<<"/estimatedLocalComposedInterpolatedDeformationError-FROM-"<<(*this->m_imageIDList)[s]<<"-TO-"<<(*this->m_imageIDList)[t]<<".mha";
-                    ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
-                    ostringstream outfile2;
-                    outfile2<<directory<<"/estimatedLocalComposedInterpolatedDeformationRESIDUAL-FROM-"<<(*this->m_imageIDList)[s]<<"-TO-"<<(*this->m_imageIDList)[t]<<".mha";
-                    ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),estimatedResidual);
-                }
-            }
-        }
-    }
-    
-    virtual map< string, map <string, DeformationFieldPointerType> > * getEstimatedDeformations(){
-        map< string, map <string, DeformationFieldPointerType> > * result=new map< string, map <string, DeformationFieldPointerType> >;
-        double * rData=mxGetPr(this->m_result);
-        for (int s = 0;s<this->m_numImages;++s){
-            for (int t=0;t<this->m_numImages;++t){
-                if (s!=t){
-                    //slightly(!!!) stupid creation of empty image
-                    DeformationFieldPointerType estimatedDef=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
-                    DeformationFieldIterator it(estimatedDef,estimatedDef->GetLargestPossibleRegion());
-                    DeformationFieldIterator itOriginalDef((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]],(*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]->GetLargestPossibleRegion());
-                    itOriginalDef.GoToBegin();
-                    it.GoToBegin();
-                    for (int p=0;!it.IsAtEnd();++it,++itOriginalDef){
-                        DeformationType disp;
-                        int e=edgeNum(s,t,it.GetIndex());
-
-                        for (unsigned int d=0;d<D;++d,++p){
-                            disp[d]=rData[e+d];
-                        }
-                        it.Set(itOriginalDef.Get()-disp);
-                    }
-
-                    (*result)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]=estimatedDef;
-                }
-            }
-        }
-        return result;
-    }
-    
-   
 
    
 
 protected:
-    //return fortlaufende number of pairs n1,n2, 0..(n*(n-1)-1)
-    inline long int edgeNum(int n1,int n2){ return ((n1)*(this->m_numImages-1) + n2 - (n2>n1));}
-    
-    //return edgenumber after taking into acount nPixel*2 edges per image pair
-    inline long int edgeNum(int n1,int n2,IndexType idx){ 
-        long int offset = (*this->m_deformationCache)[(*this->m_imageIDList)[n1]][(*this->m_imageIDList)[n2]]->ComputeOffset(idx);
-        return offset*2+edgeNum(n1,n2)*this->m_nPixels ;
-    }
-  
-
-    inline void edges(int edgeNum, int &n1, int &n2){
-        n1 = edgeNum/(this->m_numImages-1);
-        n2 =edgeNum%(this->m_numImages-1);
-        if (n2 ==0){
-            n2=(this->m_numImages-1);
-            n1--;
-        }
-        if (n2>n1) ++n2;
-        n2--;
-        
-    }
-
+   
    
     inline bool getLinearNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
         bool inside=false;

@@ -126,7 +126,7 @@ int main(int argc, char ** argv){
     bool dontCacheDeformations=false;
     bool graphCut=false;
     double smoothness=1.0;
-    double alpha=0.5;
+    double lambda=0.0;
     double resamplingFactor=1.0;
     m_sigma=30;
     string solverName="localnorm";
@@ -143,7 +143,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     //(*as) >> parameter ("radius", radius,"patch radius for NCC",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-    (*as) >> parameter ("alpha", alpha,"update rate",false);
+    (*as) >> parameter ("lambda", lambda,"regularization",false);
     (*as) >> parameter ("w1", w1,"weight for def1 in circle",false);
     (*as) >> parameter ("w3", w3,"weight for def3 in circle",false);
     (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
@@ -207,7 +207,7 @@ int main(int argc, char ** argv){
                 ifs >> targetID;
                 ifs >> defFileName;
                 if (inputImages->find(intermediateID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
-                    LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                    LOGV(3)<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                     //exit(0);
                 }else{
                     if (!dontCacheDeformations){
@@ -226,7 +226,9 @@ int main(int argc, char ** argv){
             }
         }
     }
-
+    if (outputDir!=""){
+        mkdir(outputDir.c_str(),0755);
+    }
     if (trueDefListFilename!=""){
         double trueErrorNorm=0.0;
         ifstream ifs(trueDefListFilename.c_str());
@@ -238,7 +240,7 @@ int main(int argc, char ** argv){
                 ifs >> targetID;
                 ifs >> defFileName;
                 if (inputImages->find(intermediateID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
-                    LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                    LOGV(3)<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                     //exit(0);
                 }else{
                     if (!dontCacheDeformations){
@@ -315,13 +317,14 @@ int main(int argc, char ** argv){
         
     }
     solver->setCircleWeights(w1,w3);
-    for (int h=0;h<maxHops;++h){
+   for (int h=0;h<maxHops;++h){
         solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
+        solver->SetRegularization(lambda);
         solver->createSystem();
         solver->solve();
         if (outputDir!=""){
-            mkdir(outputDir.c_str(),0755);
-            solver->storeResult(outputDir);
+
+            solver->storeResult(outputDir,solverName);
         }
         map< string, map <string, DeformationFieldPointerType> > * estimatedDeforms=solver->getEstimatedDeformations();
         solver->computeError(estimatedDeforms);

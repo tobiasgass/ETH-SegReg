@@ -323,6 +323,40 @@ public:
                             }//if
                         }//intermediate image
                         gaussian.finalize();
+                        //compute T_st - 1/c sum_i(T_sit)
+                        //1. normalize sum
+                        //avgIndirecDeformation=TransfUtils<ImageType>::locallyInvertScaleDeformation(avgIndirecDeformation,localCountsIndirect);
+                        ImageUtils<DeformationFieldType>::multiplyImage(avgIndirecDeformation,1.0/count);
+                        //compute re-ewighted mean
+                        if (1){
+                            FloatImagePointerType weightAccumulator=TransfUtils<FloatImageType>::createEmptyFloat(deformationSourceTarget);
+                            DeformationFieldPointerType weightedMean=TransfUtils<ImageType>::createEmpty(deformationSourceTarget);
+                            for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
+                                string intermediateID= intermediateImageIterator->first;
+                                if (targetID != intermediateID && sourceID!=intermediateID){
+                                    //get all deformations for full circle
+                                    DeformationFieldPointerType deformationSourceIntermed;
+                                    deformationSourceIntermed = deformationCache[sourceID][intermediateID];
+                                    DeformationFieldPointerType deformationIntermedTarget;
+                                    deformationIntermedTarget = deformationCache[intermediateID][targetID];
+                                    //compute indirect path
+                                    DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
+                                    
+                                    //compute likelihood
+                                    FloatImagePointerType px=gaussian.getLikelihood(sourceTargetIndirect);
+                                    //accumulate weights
+                                    weightAccumulator=FilterUtils<FloatImageType>::add(weightAccumulator,px);
+                                    weightedMean=TransfUtils<ImageType>::add(weightedMean,TransfUtils<FloatImageType>::locallyScaleDeformation(sourceTargetIndirect,px));
+                                }//if
+                            }//intermediate image
+                            
+                            //finalize
+                            weightedMean=TransfUtils<FloatImageType>::locallyInvertScaleDeformation(weightedMean,weightAccumulator);
+                            //pass on result
+                            avgIndirecDeformation=weightedMean;
+
+                        }
+
                         ostringstream variance;
                         variance<<outputDir<<"/error-VARIANCE-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
                         ImageUtils<ImageType>::writeImage(variance.str().c_str(),FilterUtils<FloatImageType,ImageType>::truncateCast(TransfUtils<ImageType>::computeLocalDeformationNorm(gaussian.getStdDev(),m_sigma)));
@@ -330,10 +364,7 @@ public:
                         mean<<outputDir<<"/error-MEAN-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
                         ImageUtils<ImageType>::writeImage(mean.str().c_str(),FilterUtils<FloatImageType,ImageType>::truncateCast(TransfUtils<ImageType>::computeLocalDeformationNorm(gaussian.getMean(),m_sigma)));
 
-                        //compute T_st - 1/c sum_i(T_sit)
-                        //1. normalize sum
-                        //avgIndirecDeformation=TransfUtils<ImageType>::locallyInvertScaleDeformation(avgIndirecDeformation,localCountsIndirect);
-                        ImageUtils<DeformationFieldType>::multiplyImage(avgIndirecDeformation,1.0/count);
+                      
                         //2. compute difference
                         DeformationFieldPointerType deltaNullSourceTarget=TransfUtils<ImageType>::subtract(deformationSourceTarget,avgIndirecDeformation);
                         ostringstream weakEst;
