@@ -38,6 +38,7 @@ TARGET_LINK_LIBRARIES(SRS3D-Bone maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /h
 
 
 #ARS
+
 ADD_EXECUTABLE(ARS2D Multiresolution-ARS2D.cxx )
 TARGET_LINK_LIBRARIES(ARS2D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ARS3D Multiresolution-ARS3D.cxx )
@@ -71,10 +72,24 @@ ADD_EXECUTABLE(SegProp3D SegmentationPropagation-3D.cxx )
 TARGET_LINK_LIBRARIES(SegProp3D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
 #reg-propagation
+INCLUDE_DIRECTORIES(
+    /usr/include/libxml2
+    ../External/RF
+    ../External/c-ugmix
+    ../Common
+    /home/gasst/work/src/statismoREADONLY/build/include/statismo_ITK
+    /home/gasst/work/src/statismoREADONLY/build/include/Representers/ITK/
+    ${STATISMO_INCLUDE_DIR} ${STATISMO_INCLUDE_DIR}/statismo_ITK  ${STATISMO_INCLUDE_DIR}/3rdParty  ${STATISMO_INCLUDE_DIR}  
+    ${STATISMO_INCLUDE_DIR}/Representers/ITK
+ )
+
 ADD_EXECUTABLE(RegProp2D RegistrationPropagation-2D.cxx )
-TARGET_LINK_LIBRARIES(RegProp2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(RegProp2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${STATISMO_LIBRARIES} )
 ADD_EXECUTABLE(RegProp3D RegistrationPropagation-3D.cxx )
-TARGET_LINK_LIBRARIES(RegProp3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(RegProp3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  ${STATISMO_LIBRARIES} )
+
+
+
 
 #Aquirc like stuff
 include_directories(${MATLAB_INCLUDE_DIR})

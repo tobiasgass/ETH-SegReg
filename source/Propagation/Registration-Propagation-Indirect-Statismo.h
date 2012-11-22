@@ -25,6 +25,16 @@
 #include <itkAddImageFilter.h>
 #include "itkGaussianImage.h"
 
+#include "itkVectorImageRepresenter.h"
+#include "itkImageRepresenter.h"
+#include "statismo_ITK/itkStatisticalModel.h"
+#include "statismo_ITK/itkPCAModelBuilder.h"
+#include "statismo_ITK/itkDataManager.h"
+#include "statismo_ITK/itkStatisticalDeformationModelTransform.h"
+#include "itkImageRegistrationMethod.h"
+
+#include "itkLBFGSOptimizer.h"
+
 using namespace std;
 
 template <class ImageType>
@@ -50,9 +60,20 @@ public:
     typedef typename  itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
     typedef   ImageNeighborhoodIteratorType * ImageNeighborhoodIteratorPointerType;
     typedef typename  ImageNeighborhoodIteratorType::RadiusType RadiusType;
+    
+    typedef itk::VectorImageRepresenter<float, D, D> RepresenterType;
+    typedef itk::PCAModelBuilder<RepresenterType> ModelBuilderType;
+	typedef itk::StatisticalModel<RepresenterType> StatisticalModelType;
+    typedef itk::DataManager<RepresenterType> DataManagerType;
+    typedef itk::NormalizedCorrelationImageToImageMetric<ImageType, ImageType> MetricType;
+    typedef typename itk::StatisticalDeformationModelTransform<RepresenterType, double, D> TransformType;
+    typedef itk::LinearInterpolateImageFunction<ImageType, double> InterpolatorType;
+    typedef itk::ImageRegistrationMethod<ImageType, ImageType> RegistrationFilterType;
+
+    typedef  itk::LBFGSOptimizer OptimizerType;
 
 
-    enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
+    //enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
     enum WeightingType {UNIFORM,GLOBAL,LOCAL};
 protected:
     double m_sigma;
@@ -111,46 +132,7 @@ public:
         logSetStage("IO");
         logSetVerbosity(verbose);
         
-        MetricType metric;
-        if (metricName=="NONE")
-            metric=NONE;
-        else if (metricName=="MSD")
-            metric=MSD;
-        else if (metricName=="MAD")
-            metric=MAD;
-        else if (metricName=="NCC")
-            metric=NCC;
-        else if (metricName=="NMI")
-            metric=NMI;
-        else if (metricName=="MI")
-            metric=MI;
-        else{
-            LOG<<"don't understand "<<metricName<<", defaulting to NONE"<<endl;
-            metric=NONE;
-        }
         WeightingType weighting;
-        if (weightingName=="uniform" || metric==NONE){
-            weighting=UNIFORM;}
-        else if (weightingName=="global")
-            weighting=GLOBAL;
-        else if (weightingName=="local"){
-            weighting=LOCAL;
-            if (metric==NMI || metric == MI ){
-                LOG<<VAR(metric)<<" incompatibel with local weighing, aborting"<<endl;
-                exit(0);
-            }
-        }
-        else{
-            LOG<<"don't understand "<<VAR(weightingName)<<", defaulting to uniform."<<endl;
-            weighting=UNIFORM;
-        }
-
-        if (metric==MAD || metric==MSD){
-            if (m_sigma ==0.0){
-                weighting=UNIFORM;
-                metric=NONE;
-            }
-        }
 
         map<string,ImagePointerType> *inputImages;
         typedef typename map<string, ImagePointerType>::iterator ImageListIteratorType;
@@ -158,7 +140,6 @@ public:
         inputImages = readImageList( imageFileList );
         int nImages = inputImages->size();
         
-        LOGV(2)<<VAR(metric)<<" "<<VAR(weighting)<<endl;
         LOGV(2)<<VAR(m_sigma)<<" "<<VAR(lateFusion)<<" "<<VAR(m_patchRadius)<<endl;
 
         if (dontCacheDeformations){
@@ -263,8 +244,14 @@ public:
                         trueIndirectDeltaSourceTarget=TransfUtils<ImageType>::createEmpty(deformationSourceTarget);
                         
                         ImagePointerType localCountsIndirect, localCountsTRUEIndirect;
-                        GaussianEstimatorVectorImage<ImageType> gaussian;
-                        gaussian.addImage(deformationSourceTarget);
+                    
+
+                        typename RepresenterType::Pointer representer = RepresenterType::New();
+                        representer->SetReference(deformationSourceTarget);
+                        typename DataManagerType::Pointer dataManager = DataManagerType::New();
+                        dataManager->SetRepresenter(representer);
+                        dataManager->AddDataset(deformationSourceTarget,"");
+
                         int count=0;
                         for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
                             string intermediateID= intermediateImageIterator->first;
@@ -296,54 +283,51 @@ public:
                                 //compute indirect path
                                 DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                 //add to accumulator
-                                gaussian.addImage(sourceTargetIndirect);
-                             
+                                dataManager->AddDataset(sourceTargetIndirect,"");
+
                                 count++;
                                 circles++;
                             }//if
                         }//intermediate image
-                        gaussian.finalize();
-                        //compute T_st - 1/c sum_i(T_sit)
-                        //1. normalize sum
-                        //avgIndirecDeformation=TransfUtils<ImageType>::locallyInvertScaleDeformation(avgIndirecDeformation,localCountsIndirect);
-                        avgIndirectDeformation=gaussian.getMean();
-                        //compute re-ewighted mean
-                        if (gaussianReweight){
-                            FloatImagePointerType weightAccumulator=TransfUtils<FloatImageType>::createEmptyFloat(deformationSourceTarget);
-                            DeformationFieldPointerType weightedMean=TransfUtils<ImageType>::createEmpty(deformationSourceTarget);
-                            for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
-                                string intermediateID= intermediateImageIterator->first;
-                                if (targetID != intermediateID && sourceID!=intermediateID){
-                                    //get all deformations for full circle
-                                    DeformationFieldPointerType deformationSourceIntermed;
-                                    DeformationFieldPointerType deformationIntermedTarget;
-                                    if (dontCacheDeformations){
-                                        deformationSourceIntermed=ImageUtils<DeformationFieldType>::readImage(deformationFilenames[sourceID][intermediateID]);
-                                        deformationIntermedTarget=ImageUtils<DeformationFieldType>::readImage(deformationFilenames[intermediateID][targetID]);
-                                    }
-                                    else{
-                                        deformationSourceIntermed = deformationCache[sourceID][intermediateID];
-                                        deformationIntermedTarget = deformationCache[intermediateID][targetID];
-                                    }
-                                    
-                                    //compute indirect path
-                                    DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
-                                    
-                                    //compute likelihood
-                                    FloatImagePointerType px=gaussian.getLikelihood(sourceTargetIndirect);
-                                    //accumulate weights
-                                    weightAccumulator=FilterUtils<FloatImageType>::add(weightAccumulator,px);
-                                    weightedMean=TransfUtils<ImageType>::add(weightedMean,TransfUtils<FloatImageType>::locallyScaleDeformation(sourceTargetIndirect,px));
-                                }//if
-                            }//intermediate image
-                            
-                            //finalize
-                            weightedMean=TransfUtils<FloatImageType>::locallyInvertScaleDeformation(weightedMean,weightAccumulator);
-                            //pass on result
-                            avgIndirectDeformation=weightedMean;
+                        LOGV(1)<<"Building PCA model"<<endl;
+                        typename ModelBuilderType::Pointer pcaModelBuilder = ModelBuilderType::New();
+                        typename StatisticalModelType::Pointer model = pcaModelBuilder->BuildNewModel(dataManager->GetSampleData(), 0);
+                        LOGV(1)<<"done, now fitting model to data"<<endl;
+                        typename TransformType::Pointer transform = TransformType::New();
+                        transform->SetStatisticalModel(model);
+                        transform->SetIdentity();
+                        
+                        // Setting up the fitting
+                        typename OptimizerType::Pointer optimizer = OptimizerType::New();
+                        optimizer->MinimizeOn();
+                        optimizer->SetMaximumNumberOfFunctionEvaluations(100);
 
+
+                        typename MetricType::Pointer metric = MetricType::New();
+                        typename InterpolatorType::Pointer interpolator = InterpolatorType::New();
+                        
+                        
+                        typename RegistrationFilterType::Pointer registration = RegistrationFilterType::New();
+                        registration->SetInitialTransformParameters(transform->GetParameters());
+                        registration->SetMetric(metric);
+                        registration->SetOptimizer(   optimizer   );
+                        registration->SetTransform(   transform );
+                        registration->SetInterpolator( interpolator );
+                        registration->SetFixedImage( (*inputImages)[targetID] );
+                        registration->SetFixedImageRegion((*inputImages)[targetID]->GetBufferedRegion() ); // seems to be necessary for the filter to work
+                        registration->SetMovingImage( (*inputImages)[sourceID] );
+                        
+                        try {
+                            
+                            registration->Update();
+                            
+                        } catch ( itk::ExceptionObject& o ) {
+                            std::cout << "caught exception " << o << std::endl;
                         }
 
+                        LOGV(2)<<VAR(transform->GetCoefficients())<<endl;
+                        avgIndirectDeformation = model->DrawSample(transform->GetCoefficients());
+                        LOGV(1)<<"done, storing result"<<endl;
                         //store deformation
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<outputDir<<"/registration-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h+1<<".mha";

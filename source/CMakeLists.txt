@@ -4,6 +4,9 @@ INCLUDE_REGULAR_EXPRESSION("^.*$")
 
 find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
+find_package(STATISMO REQUIRED)
+
+set (STATISMO_INCLUDE_DIR ${STATISMO_DIR}/include)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /home/gasst/work/src/Novel-SRS/source )
 set(MATLAB_ROOT /usr/pack/matlab-7.13r2011b-sd/ )
