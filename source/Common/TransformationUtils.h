@@ -628,7 +628,7 @@ public:
         result->FillBuffer(0.0);
         return result;
     }
-#define USE_INRIA
+    //#define USE_INRIA
 #ifdef USE_INRIA
     static DeformationFieldPointerType composeDeformations(DeformationFieldPointerType def1, DeformationFieldPointerType def2){
         typedef  typename itk::DisplacementFieldCompositionFilter<DeformationFieldType,DeformationFieldType> CompositionFilterType;
