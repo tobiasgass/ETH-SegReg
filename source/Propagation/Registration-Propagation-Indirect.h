@@ -75,6 +75,7 @@ public:
         double smoothness=1.0;
         double alpha=0.5;
         m_sigma=30;
+        bool gaussianReweight=false;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images", true);
@@ -90,6 +91,7 @@ public:
         (*as) >> parameter ("alpha", alpha,"update rate",false);
         (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
+        (*as) >> option ("gaussianReweight", gaussianReweight,"Use reweighted mean for reconstruction");
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
         (*as) >> parameter ("verbose", verbose,"get verbose output",false);
@@ -281,9 +283,10 @@ public:
                                 //compute indirect path
                                 DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                 //add to accumulator
+                                gaussian.addImage(sourceTargetIndirect);
+
                                 avgIndirecDeformation=TransfUtils<ImageType>::add(avgIndirecDeformation,sourceTargetIndirect);
                                 
-                                gaussian.addImage(sourceTargetIndirect);
                                 
                                 //accumulate counts of valid local deformations
                                 ImagePointerType mask1=TransfUtils<ImageType>::warpImage(mask,deformationSourceIntermed,true);
@@ -328,7 +331,7 @@ public:
                         //avgIndirecDeformation=TransfUtils<ImageType>::locallyInvertScaleDeformation(avgIndirecDeformation,localCountsIndirect);
                         ImageUtils<DeformationFieldType>::multiplyImage(avgIndirecDeformation,1.0/count);
                         //compute re-ewighted mean
-                        if (1){
+                        if (gaussianReweight){
                             FloatImagePointerType weightAccumulator=TransfUtils<FloatImageType>::createEmptyFloat(deformationSourceTarget);
                             DeformationFieldPointerType weightedMean=TransfUtils<ImageType>::createEmpty(deformationSourceTarget);
                             for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates

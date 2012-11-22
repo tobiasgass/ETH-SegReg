@@ -73,6 +73,8 @@ TARGET_LINK_LIBRARIES(SegProp3D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xm
 #reg-propagation
 ADD_EXECUTABLE(RegProp2D RegistrationPropagation-2D.cxx )
 TARGET_LINK_LIBRARIES(RegProp2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(RegProp3D RegistrationPropagation-3D.cxx )
+TARGET_LINK_LIBRARIES(RegProp3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
 #Aquirc like stuff
 include_directories(${MATLAB_INCLUDE_DIR})
