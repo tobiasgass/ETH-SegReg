@@ -12,7 +12,7 @@ using namespace std;
 
 int main(int argc, char ** argv)
 {
-    typedef unsigned char PixelType;
+    typedef unsigned short PixelType;
     const unsigned int D=2;
     typedef itk::Image<PixelType,D> ImageType;
     //SegmentationPropagationDeformationWeighting<ImageType> net;

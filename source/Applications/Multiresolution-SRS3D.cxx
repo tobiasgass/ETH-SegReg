@@ -209,6 +209,8 @@ int main(int argc, char ** argv)
     ImagePointerType targetSegmentationEstimate=filter->getTargetSegmentationEstimate();
     DeformationFieldPointerType finalDeformation=filter->getFinalDeformation();
     
+    delete filter;
+
     //upsample?
     if (filterConfig.downScale<1){
         LOG<<"Upsampling Images.."<<endl;

@@ -34,6 +34,8 @@
 #include "itkImageRegistrationMethod.h"
 
 #include "itkLBFGSOptimizer.h"
+#include "itkLBFGSBOptimizer.h"
+#include "itkPowellOptimizer.h"
 
 using namespace std;
 
@@ -71,7 +73,8 @@ public:
     typedef itk::ImageRegistrationMethod<ImageType, ImageType> RegistrationFilterType;
 
     typedef  itk::LBFGSOptimizer OptimizerType;
-
+    //typedef  itk::LBFGSBOptimizer OptimizerType;
+    //typedef  itk::PowellOptimizer OptimizerType;
 
     //enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
     enum WeightingType {UNIFORM,GLOBAL,LOCAL};
@@ -300,7 +303,8 @@ public:
                         // Setting up the fitting
                         typename OptimizerType::Pointer optimizer = OptimizerType::New();
                         optimizer->MinimizeOn();
-                        optimizer->SetMaximumNumberOfFunctionEvaluations(100);
+                        //optimizer->MaximizeOff();
+                        //optimizer->SetMaximumNumberOfFunctionEvaluations(100);
 
 
                         typename MetricType::Pointer metric = MetricType::New();

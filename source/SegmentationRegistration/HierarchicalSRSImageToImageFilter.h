@@ -295,7 +295,7 @@ namespace itk{
                 m_config->nLevels=1;
                 m_config->iterationsPerLevel=1;
             }
-            bool computeLowResolutionBsplineIfPossible=false;
+            bool computeLowResolutionBsplineIfPossible=true;
             LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
             int l=0;

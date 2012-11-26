@@ -17,8 +17,8 @@ int main(int argc, char ** argv)
     typedef itk::Image<PixelType,D> ImageType;
     //RegistrationUpdateResidual<ImageType> net;
     //RegistrationPropagationModular<ImageType> net;
-    //RegistrationPropagationIndirect<ImageType> net;
-    RegistrationPropagationIndirectStatismo<ImageType> net;
+    RegistrationPropagationIndirect<ImageType> net;
+    //RegistrationPropagationIndirectStatismo<ImageType> net;
     //RegistrationCircles<ImageType> net;
     net.run(argc,argv);
     return 1;

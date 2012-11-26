@@ -27,7 +27,7 @@
 #include <itkSubtractImageFilter.h>
 using namespace std;
 
-template<class ImageType, class DisplacementPrecision=float>
+template<class ImageType, class CDisplacementPrecision=float>
 class TransfUtils {
 
 public:
@@ -38,7 +38,7 @@ public:
     typedef typename AffineTransformType::Pointer AffineTransformPointerType;
     static const int D=ImageType::ImageDimension;
 
-    //typedef float DisplacementPrecision;
+    typedef  CDisplacementPrecision DisplacementPrecision;
     //typedef double DisplacementPrecision;
     typedef itk::Vector<DisplacementPrecision,D> DisplacementType;
     typedef itk::Image<DisplacementType,D> DeformationFieldType;
@@ -859,6 +859,40 @@ public:
         }
         return multDef;
     }
+
+    static void multiply(DeformationFieldPointerType def1, ImagePointerType weights){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+        double norm=0.0;
+        int count=0;
+        LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
+        ImageIterator imgIt(weights,weights->GetLargestPossibleRegion());
+        imgIt.GoToBegin();
+        for (def1It.GoToBegin();!def1It.IsAtEnd();++def1It,++imgIt){
+            DisplacementType t1=def1It.Get();
+            PixelType w=imgIt.Get();
+            for (int d=0;d<D;++d)
+                t1[d]=t1[d]*w;
+            def1It.Set(t1);
+        }
+    }
+    static void divide(DeformationFieldPointerType def1, ImagePointerType weights){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+        double norm=0.0;
+        int count=0;
+        LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
+        ImageIterator imgIt(weights,weights->GetLargestPossibleRegion());
+        imgIt.GoToBegin();
+        for (def1It.GoToBegin();!def1It.IsAtEnd();++def1It,++imgIt){
+            DisplacementType t1=def1It.Get();
+            PixelType w=imgIt.Get();
+            for (int d=0;d<D;++d)
+                t1[d]=t1[d]/w;
+            def1It.Set(t1);
+        }
+    }
+
     static DeformationFieldPointerType multiplyOutOfPlace(DeformationFieldPointerType def1, double scalar){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         double norm=0.0;
@@ -872,6 +906,10 @@ public:
         }
         return multDef;
     }
+
+ 
+
+    
     static DeformationFieldPointerType localSqrt(DeformationFieldPointerType def1){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType multDef=ImageUtils<DeformationFieldType>::createEmpty(def1);

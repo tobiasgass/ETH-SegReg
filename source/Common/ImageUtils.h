@@ -18,7 +18,7 @@
 #include "itkImageRegionIteratorWithIndex.h"
 #include "itkImageRegionConstIterator.h"
 #include "itkNormalizeImageFilter.h"
-
+#include "itkSmoothingRecursiveGaussianImageFilter.h"
 
 template<class ImageType>
 class ImageUtils {
@@ -316,6 +316,22 @@ public:
         }
 
     }
+    static  void add(ImagePointerType img, PixelType scalar){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        for (it1.GoToBegin();!it1.IsAtEnd();++it1){
+            it1.Set(it1.Get()+scalar);
+        }
+
+    }
+    static  void sqrtImage(ImagePointerType img){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        for (it1.GoToBegin();!it1.IsAtEnd();++it1){
+            it1.Set(sqrt(it1.Get()));
+        }
+
+    }
     static  ImagePointerType multiplyImageOutOfPlace(ImagePointerType img, double scalar){
         typedef itk::ImageRegionIterator<ImageType> IteratorType;
         ImagePointerType result=createEmpty(ConstImagePointerType(img));
@@ -324,6 +340,51 @@ public:
         for (it2.GoToBegin(),it1.GoToBegin();!it1.IsAtEnd();++it1,++it2){
             it2.Set(it1.Get()*scalar);
             //std::cout<<it2.Get()<<" "<<scalar<<" "<<it1.Get()<<std::endl;
+
+        }
+        return result;
+    }
+
+    static  ImagePointerType multiplyImageOutOfPlace(ImagePointerType img, ImagePointerType img2,bool verbose=false){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        ImagePointerType result=createEmpty(ConstImagePointerType(img));
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        IteratorType it2(img2,img2->GetLargestPossibleRegion());
+        IteratorType itRes(result,img->GetLargestPossibleRegion());
+        itRes.GoToBegin();
+        for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2,++itRes){
+            itRes.Set(it1.Get()*it2.Get());
+            //std::cout<<it2.Get()<<" "<<scalar<<" "<<it1.Get()<<std::endl;
+            if (verbose) std::cout<<itRes.Get()<<" "<<it1.Get()<<" "<<it2.Get()<<std::endl;
+
+        }
+        return result;
+    }
+
+     static  ImagePointerType localSquare(ImagePointerType img){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        ImagePointerType result=createEmpty(ConstImagePointerType(img));
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        IteratorType itRes(result,img->GetLargestPossibleRegion());
+        itRes.GoToBegin();
+        for (it1.GoToBegin();!it1.IsAtEnd();++it1,++itRes){
+            PixelType p=it1.Get();
+            itRes.Set(p*p);
+            //std::cout<<it2.Get()<<" "<<scalar<<" "<<it1.Get()<<std::endl;
+
+        }
+        return result;
+    }
+
+    static  ImagePointerType divideImageOutOfPlace(ImagePointerType img, ImagePointerType img2,bool verbose=false){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        ImagePointerType result=createEmpty(ConstImagePointerType(img));
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        IteratorType it3(img2,img2->GetLargestPossibleRegion());
+        IteratorType it2(result,img->GetLargestPossibleRegion());
+        it3.GoToBegin();
+        for (it2.GoToBegin(),it1.GoToBegin();!it1.IsAtEnd();++it1,++it2,++it3){
+            it2.Set(it1.Get()/it3.Get());
 
         }
         return result;
@@ -421,5 +482,7 @@ public:
         return res;
     }
 
+
+   
 };
 #endif // IMAGE_UTILS

@@ -71,6 +71,7 @@ public:
         string weightingName="uniform";
         bool lateFusion=false;
         bool dontCacheDeformations=false;
+        bool localSimilarityWeighting=false;
         bool graphCut=false;
         double smoothness=1.0;
         double alpha=0.5;
@@ -92,6 +93,7 @@ public:
         (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
         (*as) >> option ("gaussianReweight", gaussianReweight,"Use reweighted mean for reconstruction");
+        (*as) >> option ("localSimWeight", localSimilarityWeighting,"Use local similarities (LNCC) as weights for mean/gaussian estimation.");
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
         (*as) >> parameter ("verbose", verbose,"get verbose output",false);
@@ -264,7 +266,14 @@ public:
                         
                         ImagePointerType localCountsIndirect, localCountsTRUEIndirect;
                         GaussianEstimatorVectorImage<ImageType> gaussian;
-                        gaussian.addImage(deformationSourceTarget);
+                        if (localSimilarityWeighting){
+                            ImagePointerType deformedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,deformationSourceTarget);
+                            FloatImagePointerType localSim=FilterUtils<ImageType,FloatImageType>::LNCC(targetImageIterator->second,deformedSourceImage,m_sigma);
+                            ImageUtils<FloatImageType>::localSquare(localSim);
+                            gaussian.addImage(deformationSourceTarget,localSim);
+                        }else{
+                            gaussian.addImage(deformationSourceTarget);
+                        }
                         int count=0;
                         for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
                             string intermediateID= intermediateImageIterator->first;
@@ -296,7 +305,15 @@ public:
                                 //compute indirect path
                                 DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                 //add to accumulator
-                                gaussian.addImage(sourceTargetIndirect);
+                                if (localSimilarityWeighting){
+                                    ImagePointerType deformedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,sourceTargetIndirect);
+                                    FloatImagePointerType localSim=FilterUtils<ImageType,FloatImageType>::LNCC(targetImageIterator->second,deformedSourceImage,m_sigma);
+                                    ImageUtils<FloatImageType>::localSquare(localSim);
+                                    gaussian.addImage(sourceTargetIndirect,localSim);
+                                }else{
+                                    gaussian.addImage(sourceTargetIndirect);
+                                }
+                                
                              
                                 count++;
                                 circles++;

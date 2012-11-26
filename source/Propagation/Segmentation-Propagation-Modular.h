@@ -41,8 +41,9 @@ public:
     typedef typename  ImageUtils<ImageType>::FloatImageType FloatImageType;
     typedef typename  FloatImageType::Pointer FloatImagePointerType;
 
-    typedef typename  TransfUtils<ImageType>::DisplacementType DisplacementType;
-    typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
+    typedef  TransfUtils<ImageType,double> TransfUtilsType;
+
+    typedef typename  TransfUtilsType::DisplacementType DisplacementType; typedef typename  TransfUtilsType::DeformationFieldType DeformationFieldType;
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
     typedef typename  itk::ImageRegionIterator<ImageType> ImageIteratorType;
     typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
@@ -340,7 +341,7 @@ public:
                                         if ( intermediateID == atlasID ){
                                             deformation = secondDeformation;
                                         }else{
-                                            deformation = TransfUtils<ImageType>::composeDeformations(secondDeformation,firstDeformation);
+                                            deformation = TransfUtilsType::composeDeformations(secondDeformation,firstDeformation);
                                             weight*=globalWeights[atlasID][intermediateID];
                                         }
                                         probSeg = probabilisticTargetSegmentations[atlasID];
@@ -590,7 +591,7 @@ protected:
         typename InterpolatorType::Pointer interpolator=InterpolatorType::New();
         interpolator->SetInputImage(movingImage);
 
-        typedef typename itk::DisplacementFieldTransform<typename TransfUtils<ImageType>::DisplacementPrecision,D> DTTransformType;
+        typedef typename itk::DisplacementFieldTransform<typename DisplacementType::ComponentType ,D> DTTransformType;
         typename DTTransformType::Pointer transf=DTTransformType::New();
         transf->SetDisplacementField(deformation);
 
@@ -682,7 +683,7 @@ protected:
         ProbImageIteratorType incIt(deformedIncrement,deformedIncrement->GetLargestPossibleRegion());
 
 
-        std::pair<ImagePointerType,ImagePointerType> deformedMoving = TransfUtils<ImageType>::warpImageWithMask(movingImage,deformation);
+        std::pair<ImagePointerType,ImagePointerType> deformedMoving = TransfUtilsType::warpImageWithMask(movingImage,deformation);
         ImageNeighborhoodIteratorPointerType tIt=new ImageNeighborhoodIteratorType(m_patchRadius,targetImage,targetImage->GetLargestPossibleRegion());
         ImageNeighborhoodIteratorPointerType aIt=new ImageNeighborhoodIteratorType(m_patchRadius,deformedMoving.first,deformedMoving.first->GetLargestPossibleRegion());
         ImageNeighborhoodIteratorPointerType mIt=new ImageNeighborhoodIteratorType(m_patchRadius,deformedMoving.second,deformedMoving.second->GetLargestPossibleRegion());
@@ -809,7 +810,7 @@ protected:
     }
 
     double globalMAD(ImagePointerType target, ImagePointerType moving, DeformationFieldPointerType deformation){
-        std::pair<ImagePointerType,ImagePointerType> deformedMoving = TransfUtils<ImageType>::warpImageWithMask(moving,deformation);
+        std::pair<ImagePointerType,ImagePointerType> deformedMoving = TransfUtilsType::warpImageWithMask(moving,deformation);
         ImageIteratorType tIt(target,target->GetLargestPossibleRegion());
         ImageIteratorType mIt(deformedMoving.first,deformedMoving.first->GetLargestPossibleRegion());
         ImageIteratorType maskIt(deformedMoving.second,deformedMoving.second->GetLargestPossibleRegion());

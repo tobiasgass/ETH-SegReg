@@ -60,22 +60,42 @@ public:
     static const int D=ImageType::ImageDimension;
 private:
     DeformationFieldPointerType m_mean,m_variance;
+    FloatImagePointerType m_localWeights;
     int count;
 public:
-    void addImage(DeformationFieldPointerType img){
+    GaussianEstimatorVectorImage(){
+        m_localWeights=NULL;
+    }
+    void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
         if (!m_mean.IsNotNull()){
             count=1;
-            m_mean=ImageUtils<DeformationFieldType>::duplicate(img);
+           
+            if (weights.IsNotNull()){
+                m_localWeights=ImageUtils<FloatImageType>::duplicate(weights);
+                img=TransfUtils<ImageType>::locallyScaleDeformation(img,weights);
+            }
             m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(img,img);
+            m_mean=ImageUtils<DeformationFieldType>::duplicate(img);
+
         }else{
+            if (weights.IsNotNull()){
+                m_localWeights=FilterUtils<FloatImageType>::add(m_localWeights,weights);
+                img=TransfUtils<ImageType>::locallyScaleDeformation(img,weights);
+            }
             m_mean=TransfUtils<ImageType>::add(m_mean,img);
             m_variance=TransfUtils<ImageType>::add(m_variance,TransfUtils<ImageType>::multiplyOutOfPlace(img,img));
+           
             count++;
         }
     }
     void finalize(){
-        m_mean=TransfUtils<ImageType>::multiplyOutOfPlace(m_mean,1.0/count);
-        m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(m_variance,1.0/count);
+        if (m_localWeights.IsNotNull()){
+            TransfUtils<FloatImageType>::divide(m_mean,m_localWeights);
+            TransfUtils<FloatImageType>::divide(m_variance,m_localWeights);
+        }else{
+            m_mean=TransfUtils<ImageType>::multiplyOutOfPlace(m_mean,1.0/count);
+            m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(m_variance,1.0/count);
+        }
         m_variance=TransfUtils<ImageType>::subtract(m_variance,TransfUtils<ImageType>::multiplyOutOfPlace(m_mean,m_mean));
 
     }
