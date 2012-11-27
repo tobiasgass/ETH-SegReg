@@ -76,7 +76,9 @@ public:
         double smoothness=1.0;
         double alpha=0.5;
         m_sigma=30;
+        double m_sigmaSmooth=0.0;
         bool gaussianReweight=false;
+        int maxIter=1;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images", true);
@@ -85,10 +87,12 @@ public:
         //(*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
         //(*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
         (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+        (*as) >> parameter ("smooth", m_sigmaSmooth,"kernel size for spatial smoothing of mean-shift weighting weighting",false);
         //(*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
         (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
         //(*as) >> parameter ("radius", radius,"patch radius for NCC",false);
         (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
+        (*as) >> parameter ("maxIter", maxIter,"maximum number of mean shift iterations",false);
         (*as) >> parameter ("alpha", alpha,"update rate",false);
         (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
@@ -243,6 +247,8 @@ public:
             int circles=0;
             double globalResidual=0.0;
             double trueResidual=0.0;
+            double oldResidual=0.0;
+            int count=0;
 
             for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
@@ -260,77 +266,36 @@ public:
                         }
                         
                         //initialize accumulators
-                        DeformationFieldPointerType avgIndirectDeformation, trueIndirectDeltaSourceTarget;
-                        avgIndirectDeformation=TransfUtils<ImageType>::createEmpty(deformationSourceTarget);
-                        trueIndirectDeltaSourceTarget=TransfUtils<ImageType>::createEmpty(deformationSourceTarget);
+                        DeformationFieldPointerType avgIndirectDeformation;
                         
-                        ImagePointerType localCountsIndirect, localCountsTRUEIndirect;
-                        GaussianEstimatorVectorImage<ImageType> gaussian;
-                        if (localSimilarityWeighting){
-                            ImagePointerType deformedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,deformationSourceTarget);
-                            FloatImagePointerType localSim=FilterUtils<ImageType,FloatImageType>::LNCC(targetImageIterator->second,deformedSourceImage,m_sigma);
-                            ImageUtils<FloatImageType>::localSquare(localSim);
-                            gaussian.addImage(deformationSourceTarget,localSim);
-                        }else{
-                            gaussian.addImage(deformationSourceTarget);
-                        }
-                        int count=0;
-                        for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
-                            string intermediateID= intermediateImageIterator->first;
-                            if (targetID != intermediateID && sourceID!=intermediateID){
-                                LOGV(3)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
-                                //get all deformations for full circle
-                                DeformationFieldPointerType deformationSourceIntermed;
-                                DeformationFieldPointerType deformationIntermedTarget;
-                                if (dontCacheDeformations){
-                                    deformationSourceIntermed=ImageUtils<DeformationFieldType>::readImage(deformationFilenames[sourceID][intermediateID]);
-                                    deformationIntermedTarget=ImageUtils<DeformationFieldType>::readImage(deformationFilenames[intermediateID][targetID]);
-                                }
-                                else{
-                                    deformationSourceIntermed = deformationCache[sourceID][intermediateID];
-                                    deformationIntermedTarget = deformationCache[intermediateID][targetID];
-                                }
+                        bool converged = false ; 
+                        FastGaussianEstimatorVectorImage<ImageType> previousGaussian;
 
-                              
-
-                                //create mask of valid deformation region
-                                ImagePointerType mask=ImageType::New();
-                                mask->SetRegions(deformationSourceTarget->GetLargestPossibleRegion());
-                                mask->SetOrigin(deformationSourceTarget->GetOrigin());
-                                mask->SetSpacing(deformationSourceTarget->GetSpacing());
-                                mask->SetDirection(deformationSourceTarget->GetDirection());
-                                mask->Allocate();
-                                mask->FillBuffer(1);
-                              
-                                //compute indirect path
-                                DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
-                                //add to accumulator
-                                if (localSimilarityWeighting){
-                                    ImagePointerType deformedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,sourceTargetIndirect);
-                                    FloatImagePointerType localSim=FilterUtils<ImageType,FloatImageType>::LNCC(targetImageIterator->second,deformedSourceImage,m_sigma);
-                                    ImageUtils<FloatImageType>::localSquare(localSim);
-                                    gaussian.addImage(sourceTargetIndirect,localSim);
+                        for ( int iter = 0; iter < maxIter && !converged; ++iter) {
+                        
+                            ImagePointerType localCountsIndirect;
+                            FastGaussianEstimatorVectorImage<ImageType> gaussian;
+                           
+                            if (localSimilarityWeighting){
+                                ImagePointerType deformedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,deformationSourceTarget);
+                                FloatImagePointerType localSim=FilterUtils<ImageType,FloatImageType>::LNCC(targetImageIterator->second,deformedSourceImage,m_sigma);
+                                ImageUtils<FloatImageType>::localSquare(localSim);
+                                gaussian.initialize(deformationSourceTarget,localSim);
+                            }else{
+                                if (iter){
+                                    FloatImagePointerType px=previousGaussian.getLikelihood(deformationSourceTarget,m_sigma);
+                                    if (m_sigmaSmooth>0.0) px=FilterUtils<FloatImageType>::gaussian(px,m_sigmaSmooth);
+                                    gaussian.initialize(deformationSourceTarget,px);
+                                                                        
                                 }else{
-                                    gaussian.addImage(sourceTargetIndirect);
+                                    gaussian.initialize(deformationSourceTarget);
                                 }
-                                
-                             
-                                count++;
-                                circles++;
-                            }//if
-                        }//intermediate image
-                        gaussian.finalize();
-                        //compute T_st - 1/c sum_i(T_sit)
-                        //1. normalize sum
-                        //avgIndirecDeformation=TransfUtils<ImageType>::locallyInvertScaleDeformation(avgIndirecDeformation,localCountsIndirect);
-                        avgIndirectDeformation=gaussian.getMean();
-                        //compute re-ewighted mean
-                        if (gaussianReweight){
-                            FloatImagePointerType weightAccumulator=TransfUtils<FloatImageType>::createEmptyFloat(deformationSourceTarget);
-                            DeformationFieldPointerType weightedMean=TransfUtils<ImageType>::createEmpty(deformationSourceTarget);
+                            }
+                         
                             for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
                                 string intermediateID= intermediateImageIterator->first;
                                 if (targetID != intermediateID && sourceID!=intermediateID){
+                                    LOGV(3)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
                                     //get all deformations for full circle
                                     DeformationFieldPointerType deformationSourceIntermed;
                                     DeformationFieldPointerType deformationIntermedTarget;
@@ -342,25 +307,46 @@ public:
                                         deformationSourceIntermed = deformationCache[sourceID][intermediateID];
                                         deformationIntermedTarget = deformationCache[intermediateID][targetID];
                                     }
-                                    
+
+                              
+
+                                    //create mask of valid deformation region
+                                    ImagePointerType mask=ImageUtils<ImageType>::createEmpty(sourceImageIterator->second);
+                                    mask->FillBuffer(1);
+                              
                                     //compute indirect path
                                     DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
-                                    
-                                    //compute likelihood
-                                    FloatImagePointerType px=gaussian.getLikelihood(sourceTargetIndirect);
-                                    //accumulate weights
-                                    weightAccumulator=FilterUtils<FloatImageType>::add(weightAccumulator,px);
-                                    weightedMean=TransfUtils<ImageType>::add(weightedMean,TransfUtils<FloatImageType>::locallyScaleDeformation(sourceTargetIndirect,px));
+                                    //add to accumulator
+                                    if (localSimilarityWeighting){
+                                        ImagePointerType deformedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,sourceTargetIndirect);
+                                        FloatImagePointerType localSim=FilterUtils<ImageType,FloatImageType>::LNCC(targetImageIterator->second,deformedSourceImage,m_sigma);
+                                        ImageUtils<FloatImageType>::localSquare(localSim);
+                                        gaussian.addImage(sourceTargetIndirect,localSim);
+                                    }else{
+                                        if (iter){
+                                            FloatImagePointerType px=previousGaussian.getLikelihood(sourceTargetIndirect,m_sigma);
+                                            if (m_sigmaSmooth>0.0) px=FilterUtils<FloatImageType>::gaussian(px,m_sigmaSmooth);
+                                            gaussian.addImage(sourceTargetIndirect,px);
+                                            
+                                        }else{
+                                            gaussian.addImage(sourceTargetIndirect);
+                                        }
+                                    }
+                                    circles++;
                                 }//if
                             }//intermediate image
-                            
-                            //finalize
-                            weightedMean=TransfUtils<FloatImageType>::locallyInvertScaleDeformation(weightedMean,weightAccumulator);
-                            //pass on result
-                            avgIndirectDeformation=weightedMean;
+                            gaussian.finalize();
+                            //compute T_st - 1/c sum_i(T_sit)
+                          
+                            if (iter){
+                                double diffNorm=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(gaussian.getMean(),previousGaussian.getMean()),1.0);
+                                LOGV(2)<<VAR(iter)<<" "<<VAR(diffNorm)<<endl;
+                                converged=diffNorm<0.1;
+                            }
+                            previousGaussian=gaussian;
 
                         }
-
+                        avgIndirectDeformation=previousGaussian.getMean();
                         //store deformation
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<outputDir<<"/registration-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h+1<<".mha";
@@ -381,8 +367,19 @@ public:
                         //TMPdeformationCache[sourceID][targetID]=avgIndirecDeformation;
                         //globalResidual+=1.0*averageResidual;
                         if (trueDefListFilename!=""){
+                              //create mask of valid deformation region
+                            ImagePointerType mask=ImageUtils<ImageType>::createEmpty(sourceImageIterator->second);
+                            mask->FillBuffer(1);
+                            ImagePointerType defMask1=TransfUtils<ImageType>::warpImage(mask,deformationCache[sourceID][targetID],true);
                             DeformationFieldPointerType trueErrorSourceTarget=TransfUtils<ImageType>::subtract(deformationCache[sourceID][targetID],trueDeformations[sourceID][targetID]);
-                            trueResidual+=TransfUtils<ImageType>::computeDeformationNorm(trueErrorSourceTarget,1);
+                            double prevError=TransfUtils<ImageType>::computeDeformationNormMask(trueErrorSourceTarget,defMask1,2);
+                            oldResidual+=prevError;
+                            trueErrorSourceTarget=TransfUtils<ImageType>::subtract(avgIndirectDeformation,trueDeformations[sourceID][targetID]);
+                            ImagePointerType defMask2=TransfUtils<ImageType>::warpImage(mask,avgIndirectDeformation,true);
+                            double newError=TransfUtils<ImageType>::computeDeformationNormMask(trueErrorSourceTarget,defMask2,2);
+                            trueResidual+=newError;
+
+                            LOGV(1)<<VAR(prevError)<<" " <<VAR(newError)<<endl;
 #if 0
                             ostringstream trueErrorST;
                             trueErrorST<<outputDir<<"/error-TRUE-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
@@ -390,6 +387,7 @@ public:
 #endif
                         
                         }
+                        count++;
 
 
 
@@ -399,16 +397,17 @@ public:
               
             }//source images
             globalResidual/=circles;
-            trueResidual/=circles;
-            LOG<<VAR(circles)<<" "<<VAR(globalResidual)<<" "<<VAR(trueResidual)<<endl;
-#if 0
+            trueResidual/=count;
+            oldResidual/=count;
+            LOG<<VAR(circles)<<" "<<VAR(globalResidual)<<" "<<VAR(trueResidual)<<" "<<VAR(oldResidual)<<endl;
+#if 1
             for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
                 for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){                //iterate over targets
                     string targetID= targetImageIterator->first;
                     if (targetID !=sourceID){
-#if 0
+#if 1
                         ostringstream tmpdeformed;
                         tmpdeformed<<outputDir<<"/deformed-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
                         ImageUtils<ImageType>::writeImage(tmpdeformed.str().c_str(),TransfUtils<ImageType>::warpImage((*inputImages)[sourceID],deformationCache[sourceID][targetID]));

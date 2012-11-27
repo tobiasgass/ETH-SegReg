@@ -184,9 +184,9 @@ int main(int argc, char ** argv)
     else if (filterConfig.bulkTransformationField!=""){
         filter->setBulkTransform(ImageUtils<DeformationFieldType>::readImage(filterConfig.bulkTransformationField));
     }else{
-        LOG<<"Computing transform to move image centers on top of each other.."<<std::endl;
-        DeformationFieldPointerType transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
-        filter->setBulkTransform(transf);
+        LOG<<" NOT NOT NOT Computing transform to move image centers on top of each other.."<<std::endl;
+        //DeformationFieldPointerType transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
+        //filter->setBulkTransform(transf);
        
     }
         logResetStage;//bulk transforms

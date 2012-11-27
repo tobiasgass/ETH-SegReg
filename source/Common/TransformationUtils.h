@@ -709,7 +709,7 @@ public:
                 }
             }
         }
-        return pow(norm,1.0/exp)/count;
+        return pow(norm/count,1.0/exp);
     }
 
     static DeformationFieldPointerType warpDeformation(DeformationFieldPointerType img, DeformationFieldPointerType def){
@@ -887,8 +887,12 @@ public:
         for (def1It.GoToBegin();!def1It.IsAtEnd();++def1It,++imgIt){
             DisplacementType t1=def1It.Get();
             PixelType w=imgIt.Get();
-            for (int d=0;d<D;++d)
-                t1[d]=t1[d]/w;
+            for (int d=0;d<D;++d){
+                if (w!=0.0)
+                    t1[d]=t1[d]/w;
+                else
+                    t1[d]=0.0;
+            }
             def1It.Set(t1);
         }
     }

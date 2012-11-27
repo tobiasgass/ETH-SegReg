@@ -421,6 +421,7 @@ public:
         AddFilterPointer addFilter = AddFilterType::New();
         addFilter->SetInput1(image1);
         addFilter->SetInput2(image2);
+        addFilter->InPlaceOff();
         addFilter->Update();
         return addFilter->GetOutput();
     }
