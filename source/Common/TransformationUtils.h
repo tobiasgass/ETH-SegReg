@@ -628,6 +628,16 @@ public:
         result->FillBuffer(0.0);
         return result;
     }
+     static ImagePointerType createEmptyImage(DeformationFieldPointerType def){
+        ImagePointerType result=ImageType::New();
+        result->SetRegions(def->GetLargestPossibleRegion());
+        result->SetOrigin(def->GetOrigin());
+        result->SetSpacing(def->GetSpacing());
+        result->SetDirection(def->GetDirection());
+        result->Allocate();
+        result->FillBuffer(0.0);
+        return result;
+    }
     //#define USE_INRIA
 #ifdef USE_INRIA
     static DeformationFieldPointerType composeDeformations(DeformationFieldPointerType def1, DeformationFieldPointerType def2){

@@ -294,7 +294,7 @@ public:
                     if (var[d]>0.0){
                         double tmp=x[d]-mean[d];
                         tmp*=tmp;
-                        sum+=tmp/var[d];
+                         sum+=tmp/var[d];
                         if (ff){
                             LOG<<"wtf "<<VAR(tmp)<<" "<<VAR(sum)<<endl;
                         }
@@ -357,23 +357,25 @@ public:
     static const int D=ImageType::ImageDimension;
 
 private:
-    DeformationFieldPointerType m_mean,m_oldMean;
+    DeformationFieldPointerType m_mean,m_oldMean,m_localSigma;;
     FloatImagePointerType m_localWeights;
     ImagePointerType m_localCounts;
     int count;
     bool m_useVariance;
     double m_sigma;
 public:
-    FastGaussianEstimatorVectorImage(){
+    LocalVectorMeanShift(){
         m_localWeights=NULL;
         m_useVariance=false;
         m_localCounts=NULL;
     }
     void setSigma(double s){m_sigma=s;}
-    void initialize(DeformationFieldPointerType img){
+    void initialize(DeformationFieldPointerType img,DeformationFieldPointerType localBandwidths=NULL){
         count=1;
         m_oldMean=ImageUtils<DeformationFieldType>::duplicate(img);
         m_mean=TransfUtils<ImageType>::createEmpty(img);
+        m_localWeights=TransfUtils<FloatImageType>::createEmptyImage(img);
+        m_localSigma=localBandwidths;
     }
  
     void addImage(DeformationFieldPointerType img){
@@ -384,15 +386,37 @@ public:
         meanIt.GoToBegin();        oldIt.GoToBegin();        inputIt.GoToBegin();
         
         FloatImageIteratorType weightAccuIt;
+        DeformationImageIteratorType bandWidthIt;
         weightAccuIt=FloatImageIteratorType(m_localWeights,img->GetLargestPossibleRegion());
         weightAccuIt.GoToBegin();
-        
-
+        if (m_localSigma.IsNotNull()){
+            bandWidthIt=DeformationImageIteratorType(m_localSigma,m_localSigma->GetLargestPossibleRegion());
+        }
         for (;!meanIt.IsAtEnd();++meanIt,++oldIt,++inputIt,++weightAccuIt){
             DeformationType def=inputIt.Get();
             DeformationType oldMeanDef=oldIt.Get();
+            DeformationType sigma;
+            double divisor=m_sigma;
+            if (m_localSigma.IsNotNull()){
+                sigma=bandWidthIt.Get();
+                ++bandWidthIt;
+            }
+            double kernelValue;
+            for (int d=0;d<D;++d){
+                if (m_localSigma.IsNotNull()){
+                    if (sigma[d]>0.0){
+                        kernelValue+=pow(def[d]-oldMeanDef[d],2.0)/(sigma[d]*m_sigma);
+                    }else{
+                        kernelValue=100.0;
+                        break;
+                    }
+                }else{
+                    kernelValue+=pow(def[d]-oldMeanDef[d],2.0)/divisor;
+                }asd
+            }
+            kernelValue=exp(-0.5*kernelValue);
 
-            double kernelValue=(def-oldMeanDef).GetSquaredNorm()/m_sigma;
+            LOGV(5)<<VAR(kernelValue)<<" "<<VAR(def)<<" "<<VAR(oldMeanDef)<<endl;
             weightAccuIt.Set(weightAccuIt.Get()+kernelValue);
             def=def*kernelValue;
             meanIt.Set(meanIt.Get()+def);
@@ -400,7 +424,7 @@ public:
         count++;
         
     }
-    void finalize(){
+    bool finalize(double convergenceCriterion=0.1){
 
         DeformationImageIteratorType meanIt(m_mean,m_mean->GetLargestPossibleRegion());
         meanIt.GoToBegin();       
@@ -417,15 +441,18 @@ public:
             if (divisor){
                 meanIt.Set(meanDef/divisor);
             }else{
-                LOGV(3)<<VAR(meanDef)<<" "<<VAR(varDef)<<endl;
+                LOGV(3)<<VAR(meanDef)<<endl;
                 meanDef.Fill(0.0);
                 meanIt.Set(meanDef);
             }
         }
-
+        double diffNorm=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(m_oldMean,m_mean),1.0);
+        LOGV(2)<<VAR(diffNorm)<<endl;
         m_oldMean=m_mean;
         m_mean=TransfUtils<ImageType>::createEmpty(m_mean);
+        m_localWeights=TransfUtils<FloatImageType>::createEmptyImage(m_mean);
 
+        return (diffNorm<convergenceCriterion);
     }
 
     DeformationFieldPointerType getMean(){return m_oldMean;}

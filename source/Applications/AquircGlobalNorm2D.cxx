@@ -336,7 +336,7 @@ int main(int argc, char ** argv){
     solver->createSystem();
     solver->solve();
     solver->storeResult(outputDir);
-    //result=Solver.getResult();
+    solver->getResult();
     
     
     return 1;
