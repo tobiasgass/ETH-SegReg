@@ -412,7 +412,7 @@ public:
                     }
                 }else{
                     kernelValue+=pow(def[d]-oldMeanDef[d],2.0)/divisor;
-                }asd
+                }
             }
             kernelValue=exp(-0.5*kernelValue);
 

@@ -9,7 +9,7 @@
 #include <fstream>
 
 #include <itkInverseDisplacementFieldImageFilter.h>
-
+#include "itkVectorLinearInterpolateImageFunction.h"
 
 using namespace std;
 using namespace itk;
@@ -26,6 +26,7 @@ int main(int argc, char ** argv)
     typedef Image<PixelType,D> ImageType;
     typedef  ImageType::IndexType IndexType;
     typedef  ImageType::PointType PointType;
+    typedef  ImageType::DirectionType DirectionType;
 
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
@@ -35,21 +36,30 @@ int main(int argc, char ** argv)
     typedef ImageType::IndexType IndexType;
 
     LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(argv[1]);
+    DirectionType targetDir=deformation->GetDirection();
+    typedef itk::VectorLinearInterpolateImageFunction<LabelImageType> DefInterpolatorType;
+    DefInterpolatorType::Pointer defInterpol=DefInterpolatorType::New();
+    defInterpol->SetInputImage(deformation);
     
+    typedef DefInterpolatorType::ContinuousIndexType CIndexType;
+
     PointType p;
     p.Fill(0.0);
     deformation->SetOrigin(0.0);
     ImagePointerType referenceImage=ImageUtils<ImageType>::readImage(argv[2]);
+    DirectionType refDir=referenceImage->GetDirection();
+
     //ImagePointerType targetLandmarkImage=ImageUtils<ImageType>::createEmpty(referenceImage);
-    ImagePointerType deformedReferenceLandmarkImage=ImageUtils<ImageType>::createEmpty(referenceImage);
-    targetLandmarkImage->FillBuffer(0); deformedReferenceLandmarkImage->FillBuffer(0);
+    //ImagePointerType deformedReferenceLandmarkImage=ImageUtils<ImageType>::createEmpty(referenceImage);
     vector<PointType> landmarksReference, landmarksTarget;
     ifstream ifs(argv[3]);
     int i=0;
+    
     while ( not ifs.eof() ) {
         PointType point;
         for (int d=0;d<D;++d){
             ifs>>point[d];
+            point[d]=point[d]*refDir[d][d];
         }
         LOG<<point<<endl;
         landmarksReference.push_back(point);
@@ -59,38 +69,42 @@ int main(int argc, char ** argv)
     double sumSquareError=0.0;
     ifstream ifs2(argv[4]);
     i=0;
-    for (;i<landmarksReference.size();++i){
-        PointType idx;
+    for (;i<landmarksReference.size()-1;++i){
+        PointType pointTarget;
         for (int d=0;d<D;++d){
-            ifs2>>idx[d];
+            ifs2>>pointTarget[d];
+            pointTarget[d]=pointTarget[d]*targetDir[d][d];
         }        
-        IndexType index;
-        targetLandmarkImage->TransformPhysicalPointToIndex(idx,index);
-        targetLandmarkImage->SetPixel(index,65535);
-
-        PointType deformedReferencePoint,targetPoint=idx;
-        //referenceImage->TransformIndexToPhysicalPoint(landmarksReference[i],deformedReferencePoint);
-        //deformation->TransformIndexToPhysicalPoint(idx,targetPoint);
+        IndexType indexTarget,indexReference;
+        deformation->TransformPhysicalPointToIndex(pointTarget,indexTarget);
+        LOG<<VAR(deformation->GetOrigin())<<endl;
+        LOG<<VAR(pointTarget)<<" "<<VAR(indexTarget)<<endl;
+        PointType deformedReferencePoint;
+        referenceImage->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
         
-        referenceImage->TransformPhysicalPointToIndex(landmarksReference[i],index);
         //std::cout<<VAR(targetPoint)<<endl;
-        deformedReferencePoint= landmarksReference[i]+deformation->GetPixel(index);
-        //deformedReferencePoint+=invertedDeformation->GetPixel(landmarksReference[i]);
-        referenceImage->TransformPhysicalPointToIndex(deformedReferencePoint,index);
-        deformedReferenceLandmarkImage->SetPixel(index,65535);
-        double localSquaredError=0;
+        //deformedReferencePoint= pointTarget+deformation->GetPixel(indexTarget);
+        CIndexType cindex;
+        deformation->TransformPhysicalPointToContinuousIndex(pointTarget,cindex);
+        LOG<<VAR(landmarksReference[i])<<" "<<VAR(indexReference)<<" "<<VAR(cindex)<<endl;
+
+        deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
+
+        LOG<< VAR(pointTarget) << endl;
+        double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
         for (int d=0;d<D;++d){
-            localSquaredError+=(targetPoint[d]-deformedReferencePoint[d])*(targetPoint[d]-deformedReferencePoint[d]);
-        }
-        //std::cout<<VAR(targetPoint)<<" "<<VAR(deformedReferencePoint)<<endl;
-        std::cout<<"pt"<<i<<": "<<sqrt(localSquaredError)<<" ";
-        sumSquareError+=sqrt(localSquaredError);
+            deformedReferencePoint[d]=deformedReferencePoint[d]*targetDir[d][d];
+        }    
+        LOG<< VAR(deformedReferencePoint) << endl;
+
+        std::cout<<"pt"<<i<<": "<<(localSquaredError)<<endl;;
+        sumSquareError+=localSquaredError;
     }
-    std::cout<<std::endl<<"totalAverage: "<<(sumSquareError)/(i+1)<<std::endl;
+    std::cout<<std::endl<<"totalAverage: "<<(sumSquareError)/(i)<<std::endl;
    
     if (argc>6){
-        ImageUtils<ImageType>::writeImage(argv[5],  (ImageConstPointerType) deformedReferenceLandmarkImage );
-        ImageUtils<ImageType>::writeImage(argv[6],  (ImageConstPointerType) targetLandmarkImage );
+        // ImageUtils<ImageType>::writeImage(argv[5],  (ImageConstPointerType) deformedReferenceLandmarkImage );
+        //ImageUtils<ImageType>::writeImage(argv[6],  (ImageConstPointerType) targetLandmarkImage );
     }
 
 	return 1;
