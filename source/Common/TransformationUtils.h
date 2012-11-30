@@ -25,6 +25,8 @@
 #include <itkWarpVectorImageFilter.h>
 #include <itkAddImageFilter.h>
 #include <itkSubtractImageFilter.h>
+#include "itkFixedPointInverseDeformationFieldImageFilter.h"
+
 using namespace std;
 
 template<class ImageType, class CDisplacementPrecision=float>
@@ -54,7 +56,8 @@ public:
     typedef typename ResampleFilterType::Pointer ResampleFilterPointerType;
     typedef itk::NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
     typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
-    
+      typedef typename itk::FixedPointInverseDeformationFieldImageFilter<DeformationFieldType,DeformationFieldType> InverseDeformationFieldFilterType;
+    typedef typename InverseDeformationFieldFilterType::Pointer InverseDeformationFieldFilterPointerType;
     typedef itk::Image<float,D> FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
     typedef itk::AddImageFilter<DeformationFieldType,DeformationFieldType,
@@ -757,7 +760,7 @@ public:
         ImageIterator imageIt(normImage,def->GetLargestPossibleRegion());
         for (deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt,++count){
             DisplacementType t=deformationIt.Get();
-            double localNorm=t.GetNorm();
+            double localNorm=t.GetSquaredNorm();
             imageIt.Set(exp(-localNorm/sigma));
             norm+=localNorm;
         }
@@ -937,5 +940,17 @@ public:
         }
         return multDef;
     }
-    
+   
+
+    static DeformationFieldPointerType invert(DeformationFieldPointerType def){
+        InverseDeformationFieldFilterPointerType inverter=InverseDeformationFieldFilterType::New();
+        inverter->SetInput(def);
+        inverter->SetOutputOrigin(def->GetOrigin());
+        inverter->SetSize(def->GetLargestPossibleRegion().GetSize());
+        inverter->SetOutputSpacing(def->GetSpacing());
+        inverter->SetNumberOfIterations(10);
+        inverter->Update();
+        return inverter->GetOutput();
+
+    }
  };
