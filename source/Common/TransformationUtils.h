@@ -56,7 +56,7 @@ public:
     typedef typename ResampleFilterType::Pointer ResampleFilterPointerType;
     typedef itk::NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
     typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
-      typedef typename itk::FixedPointInverseDeformationFieldImageFilter<DeformationFieldType,DeformationFieldType> InverseDeformationFieldFilterType;
+    typedef typename itk::FixedPointInverseDeformationFieldImageFilter<DeformationFieldType,DeformationFieldType> InverseDeformationFieldFilterType;
     typedef typename InverseDeformationFieldFilterType::Pointer InverseDeformationFieldFilterPointerType;
     typedef itk::Image<float,D> FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
@@ -65,7 +65,7 @@ public:
     typedef typename AdderType::Pointer                  AdderPointer;
 
     typedef itk::SubtractImageFilter<DeformationFieldType,DeformationFieldType,
-                               DeformationFieldType>                           SubtracterType;
+                                     DeformationFieldType>                           SubtracterType;
     typedef typename SubtracterType::Pointer                  SubtracterPointer;
 public:
     static  DisplacementType zeroDisp(){
@@ -298,7 +298,7 @@ public:
         LOGV(2)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
     }
-   static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
+    static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
         LOGV(2)<<"Linearly intrapolating deformation image"<<std::endl;
         LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
@@ -324,7 +324,7 @@ public:
 
         LOGV(2)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
-   }
+    }
     static DeformationFieldPointerType scaleDeformationField(DeformationFieldPointerType labelImg, SpacingType scalingFactors){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());
@@ -631,7 +631,7 @@ public:
         result->FillBuffer(0.0);
         return result;
     }
-     static ImagePointerType createEmptyImage(DeformationFieldPointerType def){
+    static ImagePointerType createEmptyImage(DeformationFieldPointerType def){
         ImagePointerType result=ImageType::New();
         result->SetRegions(def->GetLargestPossibleRegion());
         result->SetOrigin(def->GetOrigin());
@@ -662,9 +662,7 @@ public:
 
         typename DefaultFieldInterpolatorType::Pointer interpolator=DefaultFieldInterpolatorType::New();
         interpolator->SetInputImage(leftField);
-        AdderPointer m_Adder=AdderType::New();
-        // Setup the adder to not be inplace
-        m_Adder->InPlaceOff();
+     
 
         DeformationFieldPointerType warpedLeftField=ImageUtils<DeformationFieldType>::createEmpty((DeformationFieldConstPointerType)rightField);
         
@@ -677,17 +675,12 @@ public:
             PointType p;
             rightField->TransformIndexToPhysicalPoint(index,p);
             p+=displacement;
-            leftField->TransformPhysicalPointToContinuousIndex(p,idx);
-            imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx)+displacement);
+            //leftField->TransformPhysicalPointToContinuousIndex(p,idx);
+            //imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx)+displacement);
+            imageIt.Set(interpolator->Evaluate(p)+displacement);
         }
         
-        // m_Adder->SetInput1( warpedLeftField);
-        //m_Adder->SetInput2( rightField );
-        
-        //m_Adder->GetOutput()->SetRequestedRegion( this->GetOutput()->GetRequestedRegion() );
-        //m_Adder->Update();
-
-        return warpedLeftField;//m_Adder->GetOutput();
+        return warpedLeftField;
     }
 #endif
     static double computeDeformationNorm(DeformationFieldPointerType def, double exp=2){
@@ -942,15 +935,22 @@ public:
     }
    
 
-    static DeformationFieldPointerType invert(DeformationFieldPointerType def){
+    static DeformationFieldPointerType invert(DeformationFieldPointerType def, ImagePointerType ref=NULL){
         InverseDeformationFieldFilterPointerType inverter=InverseDeformationFieldFilterType::New();
         inverter->SetInput(def);
-        inverter->SetOutputOrigin(def->GetOrigin());
-        inverter->SetSize(def->GetLargestPossibleRegion().GetSize());
-        inverter->SetOutputSpacing(def->GetSpacing());
+        if (ref.IsNotNull()){
+            inverter->SetOutputOrigin(ref->GetOrigin());
+            inverter->SetSize(ref->GetLargestPossibleRegion().GetSize());
+            inverter->SetOutputSpacing(ref->GetSpacing());
+            
+        }else{
+            inverter->SetOutputOrigin(def->GetOrigin());
+            inverter->SetSize(def->GetLargestPossibleRegion().GetSize());
+            inverter->SetOutputSpacing(def->GetSpacing());
+        }       
         inverter->SetNumberOfIterations(10);
         inverter->Update();
         return inverter->GetOutput();
-
+        
     }
- };
+};

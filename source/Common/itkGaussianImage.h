@@ -168,7 +168,7 @@ public:
     typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationImageIteratorType;
     static const int D=ImageType::ImageDimension;
 
-private:
+protected:
     DeformationFieldPointerType m_mean,m_variance;
     FloatImagePointerType m_localWeights;
     ImagePointerType m_localCounts;
@@ -180,7 +180,7 @@ public:
         m_useVariance=false;
         m_localCounts=NULL;
     }
-    void initialize(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
+  virtual   void initialize(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
         count=1;
         if (weights.IsNotNull()){
             m_localWeights=ImageUtils<FloatImageType>::duplicate(weights);
@@ -190,7 +190,7 @@ public:
         m_mean=ImageUtils<DeformationFieldType>::duplicate(img);
     }
  
-    void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
+    virtual void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
        
         DeformationImageIteratorType meanIt(m_mean,m_mean->GetLargestPossibleRegion());
         DeformationImageIteratorType varIt(m_variance,m_mean->GetLargestPossibleRegion());
@@ -209,6 +209,10 @@ public:
             DeformationType def=inputIt.Get();
             if (weights.IsNotNull()){
                 weightAccuIt.Set(weightAccuIt.Get()+weightIt.Get());
+                if (weightIt==weightIt.Begin()){
+                    //LOG<<VAR(def)<<" "<<VAR(weightIt.Get())<<endl;
+                    
+                }
                 def=def*weightIt.Get();
                 ++weightIt;
                 ++weightAccuIt;
@@ -223,7 +227,7 @@ public:
         count++;
         
     }
-    void finalize(){
+    virtual void finalize(){
 
         DeformationImageIteratorType meanIt(m_mean,m_mean->GetLargestPossibleRegion());
         DeformationImageIteratorType varIt(m_variance,m_mean->GetLargestPossibleRegion());
@@ -252,7 +256,7 @@ public:
 
                 varDef=(varDef/count - meanDef)*count/divisor;
             }else{
-                LOGV(3)<<VAR(meanDef)<<" "<<VAR(varDef)<<endl;
+                //LOGV(3)<<VAR(meanDef)<<" "<<VAR(varDef)<<endl;
                 meanDef.Fill(0.0);
                 meanIt.Set(meanDef);
                 varDef.Fill(0.0);
@@ -264,7 +268,7 @@ public:
 
     }
 
-    DeformationFieldPointerType getMean(){return m_mean;}
+    virtual DeformationFieldPointerType getMean(){return m_mean;}
     DeformationFieldPointerType getVariance(){return m_variance;}
     DeformationFieldPointerType getStdDev(){return TransfUtils<ImageType>::localSqrt(m_variance);}
 
@@ -455,8 +459,199 @@ public:
         return (diffNorm<convergenceCriterion);
     }
 
-    DeformationFieldPointerType getMean(){return m_oldMean;}
+    virtual  DeformationFieldPointerType getMean(){return m_oldMean;}
   
 
     
 };//class
+  
+template<class DeformationType>
+struct LIST{
+    LIST * pNext;
+    double           iValue;
+    DeformationType def;
+};
+
+
+template<class DeformationType>
+struct LIST<DeformationType> * insert( struct LIST<DeformationType> * pList, double i,DeformationType def, int maxLength){
+    
+    if (pList == NULL){
+        pList= new LIST<DeformationType>;
+        pList->pNext=NULL;
+        pList->iValue=i;
+        pList->def=def;
+        return pList;
+    }
+    
+    struct LIST<DeformationType> * pHead = pList;
+    
+    /* trailing pointer for efficient splice */
+    struct LIST<DeformationType> * pTrail = pList;
+    struct LIST<DeformationType> * pPrev = NULL;
+
+    int c=0;
+    /* splice head into sorted list at proper place */
+    bool ins=false;
+    while (true)
+        {
+            /* does head belong here? */
+            if ((pTrail == NULL || i  > (pTrail)->iValue ) && ! ins)
+                {
+                    //allocate new list element
+                    struct LIST<DeformationType> * pNew = new LIST<DeformationType>;
+                    pNew->iValue= i;
+                    pNew->def = def;
+                    //let new element point to previous element
+                    pNew->pNext = pTrail;
+                    
+                    //let previous element point to new element
+                    if (pPrev!=NULL)
+                        pPrev->pNext=pNew;
+                    
+                    //
+                    pPrev=pNew;
+                    if (c == 0){
+                        //new is new head
+                        pHead=pNew;
+                    }
+                    ins=true;
+                }
+            else
+                {
+                    /* no - continue down the list */
+                    pPrev=pTrail;
+                    pTrail =  (pTrail)->pNext;
+                    if (ins && c>=maxLength || pTrail == NULL){
+                        //delete pTrail;
+                        break;
+                    }
+                }
+            ++c;
+        }
+       
+    
+    return pHead;
+}
+
+template<class ImageType>
+class FastNBestGaussianVectorImage: public FastGaussianEstimatorVectorImage<ImageType>{
+
+public:
+	typedef typename ImageType::Pointer  ImagePointerType;
+	typedef typename ImageType::ConstPointer  ConstImagePointerType;
+	typedef typename ImageType::IndexType IndexType;
+	typedef typename ImageType::PixelType PixelType;
+    typedef typename ImageType::SizeType SizeType;
+    typedef typename TransfUtils<ImageType>::DisplacementType DeformationType;
+    typedef typename TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
+    typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
+    typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+    typedef typename FloatImageType::Pointer FloatImagePointerType;
+    typedef typename itk::ImageRegionIterator<ImageType> ImageIteratorType;
+    typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
+    typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationImageIteratorType;
+    static const int D=ImageType::ImageDimension;
+private:
+    int m_N;
+  
+public:    
+    typedef LIST<DeformationType> * LISTTYPE;
+    typedef typename itk::Image< LISTTYPE ,D> SortedListImageType;
+    typedef typename SortedListImageType::Pointer SortedListImagePointerType;
+    typedef typename itk::ImageRegionIterator<SortedListImageType> ListImageIteratorType;
+
+
+private:
+    SortedListImagePointerType m_sortedListImage;
+    
+public:
+    FastNBestGaussianVectorImage(){
+#if 0
+        DeformationType d;
+        double  array[5] ={1,3,2,0,5};
+        LISTTYPE l=NULL;
+        for (int i=0;i<5;++i){
+            l=insert(l,array[i],d,20);
+        }
+        while (l != NULL ){
+            LOG<<VAR(l->iValue)<<endl;
+            l=l->pNext;
+        }
+#endif
+    }
+
+    virtual void initialize(DeformationFieldPointerType img, FloatImagePointerType weights=NULL){
+        this->count=1;
+        this->m_mean=ImageUtils<DeformationFieldType>::createEmpty(img);
+        m_sortedListImage=SortedListImageType::New();
+        m_sortedListImage->SetLargestPossibleRegion(img->GetLargestPossibleRegion());
+        m_sortedListImage->SetBufferedRegion(img->GetLargestPossibleRegion());
+        m_sortedListImage->Allocate();
+        m_sortedListImage->FillBuffer(NULL);
+    }
+ 
+    void addImage(DeformationFieldPointerType img,FloatImagePointerType weights, int N=3){
+       
+        DeformationImageIteratorType inputIt(img,this->m_mean->GetLargestPossibleRegion());
+        ListImageIteratorType listIt(m_sortedListImage,m_sortedListImage->GetLargestPossibleRegion());
+        inputIt.GoToBegin(); listIt.GoToBegin();
+        
+        FloatImageIteratorType weightIt;
+        weightIt=FloatImageIteratorType(weights,weights->GetLargestPossibleRegion());
+        weightIt.GoToBegin();
+        
+        for (;!inputIt.IsAtEnd();++inputIt,++weightIt,++listIt){
+            DeformationType def=inputIt.Get();
+            if (weightIt==weightIt.Begin()){
+                //LOG<<VAR(def)<<" "<<VAR(weightIt.Get())<<endl;
+                
+            }
+            double w=weightIt.Get();
+            LISTTYPE l=listIt.Get();
+            listIt.Set(insert(l,w,def,N));
+        }    
+        m_N=N;
+        this->count++;
+        
+    }
+    virtual void finalize(){
+
+        DeformationImageIteratorType meanIt(this->m_mean,this->m_mean->GetLargestPossibleRegion());
+        ListImageIteratorType listIt(m_sortedListImage,m_sortedListImage->GetLargestPossibleRegion());
+        meanIt.GoToBegin();      listIt.GoToBegin();
+     
+        for (;!meanIt.IsAtEnd();++meanIt,++listIt){
+            
+            LISTTYPE  l=listIt.Get();
+            DeformationType meanDef;
+            meanDef.Fill(0.0);
+            double wAccumulator=0.0;
+            int c=0;
+            while (c<m_N && l != NULL ){
+                //cout<<"("<<l->iValue<<","<<l->def<<") ";
+                meanDef=meanDef+(l->def*l->iValue);
+                wAccumulator+=l->iValue;
+                l=l->pNext;
+                ++c;
+            }
+            //LOG<<VAR(wAccumulator)<<" "<<VAR(meanDef)<<endl;
+            //
+         
+            
+            if (wAccumulator > 0.0){
+                meanDef=meanDef/wAccumulator;
+                meanIt.Set(meanDef);
+                //LOG<<VAR(meanDef)<<endl;
+            }
+
+         
+
+        }
+
+    }
+    virtual DeformationFieldPointerType getMean(){return this->m_mean;}
+
+   
+};//class
+

@@ -79,6 +79,7 @@ public:
         double m_sigmaSmooth=0.0;
         bool gaussianReweight=false;
         int maxIter=1;
+        int nBestImages=100;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images", true);
@@ -94,6 +95,7 @@ public:
         (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
         (*as) >> parameter ("maxIter", maxIter,"maximum number of mean shift iterations",false);
         (*as) >> parameter ("alpha", alpha,"update rate",false);
+        (*as) >> parameter ("nBest", nBestImages,"average only n best images",false);
         (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
         (*as) >> option ("gaussianReweight", gaussianReweight,"Use reweighted mean for reconstruction");
@@ -247,8 +249,9 @@ public:
             double trueResidual=0.0;
             double oldResidual=0.0;
             int count=0;
-
-            for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
+            ImageListIteratorType sourceImageIterator=inputImages->begin();
+            ++sourceImageIterator;
+            for (;sourceImageIterator!=inputImages->end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
                 for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){                //iterate over targets
@@ -266,15 +269,16 @@ public:
                             deformationTargetSource=deformationCache[targetID][sourceID];
 
                         }
-                        DeformationFieldPointerType invTargetSource=TransfUtils<ImageType>::invert(deformationTargetSource);
-
+                        DeformationFieldPointerType invTargetSource=TransfUtils<ImageType>::invert(deformationTargetSource,targetImageIterator->second);
+                        //DeformationFieldPointerType invTargetSource=TransfUtils<ImageType>::invert(deformationTargetSource);
                         ImagePointerType targetMask=(*inputImages)[targetID];
                         
                         //initialize accumulators
                         DeformationFieldPointerType avgIndirectDeformation;
                         double finalResidual;
                         bool converged = false ; 
-                        FastGaussianEstimatorVectorImage<ImageType> weightedMeanEstimator;
+                        //FastGaussianEstimatorVectorImage<ImageType> weightedMeanEstimator;
+                        FastNBestGaussianVectorImage<ImageType> weightedMeanEstimator;
                         int localCount=0;
                         for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
                             string intermediateID= intermediateImageIterator->first;
@@ -294,18 +298,39 @@ public:
                                 }
 
                               
-
-                              
-                              
                                 //compute indirect path
                                 DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                 DeformationFieldPointerType circle=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,sourceTargetIndirect);
 
-
                                 FloatImagePointerType weights=TransfUtils<FloatImageType>::warpImage(TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle,m_sigma),invTargetSource);
+                                //FloatImagePointerType weights=TransfUtils<FloatImageType>::warpImage(TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle,m_sigma),deformationSourceIntermed);
+
+                                if (trueDefListFilename!=""){
+                                    //calculate true error of indirect source target deformation
+                                    DeformationFieldPointerType trueErrorSourceTarget=TransfUtils<ImageType>::subtract(sourceTargetIndirect,trueDeformations[sourceID][targetID]);
+                                    //weights=TransfUtils<ImageType>::computeLocalDeformationNormWeights(trueErrorSourceTarget,m_sigma);
+
+                                    FloatImagePointerType trueNorms=TransfUtils<ImageType>::computeLocalDeformationNorm(trueErrorSourceTarget);
+                                    FloatImagePointerType norms=TransfUtils<FloatImageType>::warpImage(TransfUtils<ImageType>::computeLocalDeformationNorm(circle),invTargetSource);
+#if 0
+                                    FloatImageIteratorType i1(trueNorms,trueNorms->GetLargestPossibleRegion());
+                                    i1.GoToBegin();
+                                    FloatImageIteratorType i2(norms,trueNorms->GetLargestPossibleRegion());
+                                    i2.GoToBegin();
+                                    ostringstream outfile;
+                                    outfile<<outputDir<<"/localErrors-"<<sourceID<<"-TO-"<<targetID<<"-VIA-"<<intermediateID<<".txt";
+                                    ofstream ofs(outfile.str().c_str());
+                                    for (;!i1.IsAtEnd();++i1,++i2){
+                                        ofs<<"localnorms: "<<i1.Get()<<" "<<i2.Get()<<endl;
+                                    }
+                                    ofs.close();
+#endif                               
+                                }
                                 //add to accumulator
-                                if (localCount)
-                                    weightedMeanEstimator.addImage(sourceTargetIndirect,weights);
+                                if (localCount){
+                                    weightedMeanEstimator.addImage(sourceTargetIndirect,weights,nBestImages);
+                                    //weightedMeanEstimator.addImage(sourceTargetIndirect,weights);
+                                }
                                 else
                                     weightedMeanEstimator.initialize(sourceTargetIndirect,weights);
 
@@ -319,10 +344,10 @@ public:
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<outputDir<<"/registration-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h+1<<".mha";
                         ImageUtils<DeformationFieldType>::writeImage(tmpSegmentationFilename.str().c_str(),avgIndirectDeformation);
-                        if (!dontCacheDeformations){
-                            TMPdeformationCache[sourceID][targetID]=avgIndirectDeformation;
-                            
-                        }
+                       
+                        //LOG<<VAR(avgIndirectDeformation)<<endl;
+                        //TMPdeformationCache[sourceID][targetID]=ImageUtils<DeformationFieldType>::duplicate(avgIndirectDeformation);
+                        TMPdeformationCache[sourceID].insert(std::pair<string,DeformationFieldPointerType>(targetID,avgIndirectDeformation));
 
                         
 #if 0      
@@ -370,28 +395,31 @@ public:
             trueResidual/=count;
             oldResidual/=count;
             LOG<<VAR(count)<<" "<<VAR(globalResidual)<<" "<<VAR(trueResidual)<<" "<<VAR(oldResidual)<<endl;
+            if (D==2){
+                for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
+                    //iterate over sources
+                    string sourceID= sourceImageIterator->first;
+                    for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){                //iterate over targets
+                        string targetID= targetImageIterator->first;
+                        if (targetID !=sourceID){
+                            LOG<<VAR(sourceID)<<" "<<VAR(targetID)<<endl;
+                            LOG<<"------------------------------------------------------------------------"<<endl;
+                            LOG<<VAR(TMPdeformationCache[sourceID][targetID])<<endl;
+                           if (!dontCacheDeformations){
+                                deformationCache[sourceID][targetID]= TMPdeformationCache[sourceID][targetID];
+                           }
 #if 1
-            for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
-                //iterate over sources
-                string sourceID= sourceImageIterator->first;
-                for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){                //iterate over targets
-                    string targetID= targetImageIterator->first;
-                    if (targetID !=sourceID){
-                        if (!dontCacheDeformations){
-                            deformationCache[sourceID][targetID]= TMPdeformationCache[sourceID][targetID];
-                        }
-#if 1
-                        ostringstream tmpdeformed;
-                        tmpdeformed<<outputDir<<"/deformed-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
-                        ImageUtils<ImageType>::writeImage(tmpdeformed.str().c_str(),TransfUtils<ImageType>::warpImage((*inputImages)[sourceID],deformationCache[sourceID][targetID]));
+                            ostringstream tmpdeformed;
+                            tmpdeformed<<outputDir<<"/deformed-from-"<<sourceID<<"-TO-"<<targetID<<"-hop"<<h<<".png";
+                            ImageUtils<ImageType>::writeImage(tmpdeformed.str().c_str(),TransfUtils<ImageType>::warpImage((*inputImages)[sourceID],deformationCache[sourceID][targetID]));
 #endif
                                                
                        
-
+                           
+                        }
                     }
                 }
             }
-#endif
 
         }//hops
         LOG<<"done"<<endl;
