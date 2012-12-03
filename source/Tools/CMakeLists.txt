@@ -25,7 +25,8 @@ ADD_EXECUTABLE(ComposeDeformations3D ComposeDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComposeDeformations2D ComposeDeformations2D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations2D  Utils   ${ITK_LIBRARIES}  )
-
+ADD_EXECUTABLE(AddDeformations2D AddDeformations2D.cxx )
+TARGET_LINK_LIBRARIES(AddDeformations2D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DefSetMetaParametersByReference2D DefSetMetaParametersByReference2D.cxx )
 TARGET_LINK_LIBRARIES(DefSetMetaParametersByReference2D  Utils   ${ITK_LIBRARIES}  )
 

@@ -475,15 +475,7 @@ struct LIST{
 
 template<class DeformationType>
 struct LIST<DeformationType> * insert( struct LIST<DeformationType> * pList, double i,DeformationType def, int maxLength){
-    
-    if (pList == NULL){
-        pList= new LIST<DeformationType>;
-        pList->pNext=NULL;
-        pList->iValue=i;
-        pList->def=def;
-        return pList;
-    }
-    
+ 
     struct LIST<DeformationType> * pHead = pList;
     
     /* trailing pointer for efficient splice */
@@ -493,8 +485,9 @@ struct LIST<DeformationType> * insert( struct LIST<DeformationType> * pList, dou
     int c=0;
     /* splice head into sorted list at proper place */
     bool ins=false;
-    while (true)
+    while (c<maxLength)
         {
+            
             /* does head belong here? */
             if ((pTrail == NULL || i  > (pTrail)->iValue ) && ! ins)
                 {
@@ -515,22 +508,26 @@ struct LIST<DeformationType> * insert( struct LIST<DeformationType> * pList, dou
                         //new is new head
                         pHead=pNew;
                     }
+                    //added a new element!
+                    ++c;
                     ins=true;
                 }
             else
                 {
                     /* no - continue down the list */
                     pPrev=pTrail;
-                    pTrail =  (pTrail)->pNext;
-                    if (ins && c>=maxLength || pTrail == NULL){
-                        //delete pTrail;
+                    if (ins && !pTrail)
                         break;
-                    }
+                    pTrail =  (pTrail)->pNext;
+                    
                 }
             ++c;
+            if (c>=maxLength){
+                if (pTrail){
+                    //  delete pTrail;
+                }
+            }
         }
-       
-    
     return pHead;
 }
 
@@ -580,7 +577,19 @@ public:
         }
 #endif
     }
-
+    ~FastNBestGaussianVectorImage(){
+        ListImageIteratorType listIt(m_sortedListImage,m_sortedListImage->GetLargestPossibleRegion());
+        listIt.GoToBegin();
+        for (;!listIt.IsAtEnd();++listIt){
+            LISTTYPE  l=listIt.Get();
+            while ( l != NULL ){
+                LISTTYPE tmp=l;
+                l=l->pNext;
+                delete tmp;
+            }
+        }
+    }
+    
     virtual void initialize(DeformationFieldPointerType img, FloatImagePointerType weights=NULL){
         this->count=1;
         this->m_mean=ImageUtils<DeformationFieldType>::createEmpty(img);
@@ -629,7 +638,7 @@ public:
             double wAccumulator=0.0;
             int c=0;
             while (c<m_N && l != NULL ){
-                //cout<<"("<<l->iValue<<","<<l->def<<") ";
+                //  cout<<"("<<l->iValue<<","<<l->def<<") ";
                 meanDef=meanDef+(l->def*l->iValue);
                 wAccumulator+=l->iValue;
                 l=l->pNext;
