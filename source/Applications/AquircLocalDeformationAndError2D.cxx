@@ -128,7 +128,7 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=30;
     string solverName="localnorm";
-    double w1=1.0,w3=1.0;
+    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0;
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -141,9 +141,13 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     //(*as) >> parameter ("radius", radius,"patch radius for NCC",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-    (*as) >> parameter ("lambda", lambda,"regularization",false);
-    (*as) >> parameter ("w1", w1,"weight for def1 in circle",false);
-    (*as) >> parameter ("w3", w3,"weight for def3 in circle",false);
+
+    (*as) >> parameter ("wwd", wwd,"weight for def1 in circle",false);
+    (*as) >> parameter ("wwt", wwt,"weight for def1 in circle",false);
+    (*as) >> parameter ("wws", wws,"weight for def1 in circle",false);
+    (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
+    (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
+
     (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -297,22 +301,29 @@ int main(int argc, char ** argv){
         ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
     }
     
-    AquircLocalErrorSolver<ImageType> * solver;
+    AquircLocalDeformationAndErrorSolver<ImageType> * solver;
     switch(solverType){
     case LOCALDEFORMATIONANDERROR:
         solver= new AquircLocalDeformationAndErrorSolver<ImageType>;
         break;
     }
-    solver->setCircleWeights(w1,w3);
+    
+    solver->setWeightWd(wwd);
+    solver->setWeightWs(wws);
+    solver->setWeightWT(wwt);
+    solver->setWeightWdelta(wwdelta);
+    solver->setWeightWcirc(wwcirc); 
+
     for (int h=0;h<maxHops;++h){
         solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
-        solver->SetRegularization(lambda);
+        //solver->SetRegularization(lambda);
         solver->createSystem();
         solver->solve();
         if (outputDir!=""){
 
-            solver->storeResult(outputDir,solverName);
+            solver->storeResult(outputDir);
         }
+#if 0
         map< string, map <string, DeformationFieldPointerType> > * estimatedDeforms=solver->getEstimatedDeformations();
         solver->computeError(estimatedDeforms);
         deformationCache=*estimatedDeforms;
@@ -337,6 +348,7 @@ int main(int argc, char ** argv){
 
         }
         delete estimatedDeforms;
+#endif
     }
 
     

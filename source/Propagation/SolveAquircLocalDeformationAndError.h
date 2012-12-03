@@ -13,6 +13,8 @@ class AquircLocalDeformationAndErrorSolver: public AquircGlobalDeformationNormSo
 public:
     typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
+    typedef typename  ImageType::OffsetType OffsetType;
+
     typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
     typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
     typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
@@ -23,6 +25,37 @@ public:
     typedef typename ImageType::Pointer ImagePointerType;
     typedef typename ImageType::RegionType RegionType;
     static const unsigned int D=ImageType::ImageDimension;
+protected:
+    int m_nVars,m_nEqs,m_nNonZeroes;
+    int m_numImages;
+    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations;
+    std::vector<string> * m_imageIDList;
+    bool m_additive;
+    RegionType m_regionOfInterest;
+
+private:
+    int m_nPixels;// number of pixels/voxels
+
+    int m_nEqWd; // number of equations for  observation energy E_d
+    int m_nVarWd; // number of variables for each equation of E_d;
+    double m_wWd;
+
+    int m_nEqWdelta; // number of equations for error minimizing energy E_delta
+    int m_nVarWdelta; // number of variables for each equation of E_delta;
+    double m_wWdelta;
+
+    int m_nEqWcirc; // number of equations for energy circular constraint E_circ
+    int m_nVarWcirc; // number of variables for each equation of E_circ;
+    double m_wWcirc;
+
+    int m_nEqWs; // number of equations for spatial smoothing energy E_s
+    int m_nVarWs; // number of variables for each equation of E_d;
+    double m_wWs;
+
+    int m_nEqWT; // number of equations for Transformation similarity energy E_T
+    int m_nVarWT; // number of variables for each equation of E_T
+    double m_wWT;
+
 public:
 
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI){
@@ -33,13 +66,32 @@ public:
         if (!ROI.IsNotNull()){
             this->m_ROI=FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::createEmpty(TransfUtils<ImageType>::computeLocalDeformationNorm((*m_deformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]],1.0)));
         }
-        m_nPixels=2* this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
-        m_nEqs= m_numImages*(m_numImages-1)*( m_numImages-2)*m_nPixels;
-        m_nVars= m_numImages*(m_numImages-1)*m_nPixels*2;
-        m_nNonZeroes=9*m_nEqs;
+        m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
 
-        //times 3 since we're now also constraining the def and the def+err sum
-        m_nEqs*=3;
+        int interpolationFactor;
+        interpolationFactor = 1 ; //NNinterpolation;
+        //interpolationFactor = pow(2,D); //linear interpolation
+
+        m_nEqWd  = D * m_nPixels *  m_numImages*(m_numImages-1)*(m_numImages-2); //there is one equation for each component of every pixel of every triple of images
+        m_nVarWd = 2*(interpolationFactor+2); //two variables per uniqe pair in the triple (2*2), plus linear interpolation for the third pair (2*2^D)
+
+        m_nEqWcirc =  m_nPixels * D * m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
+        m_nVarWcirc = interpolationFactor+2; // only one/2^D variables per pair
+
+        m_nEqWs =  D* m_nPixels * D * m_numImages*(m_numImages-1); //every pixel in each registration has D neighbors (in one direction), and each component separately
+        m_nVarWs = 3; //for piecewise linear regularization, 2 for piecewise constant
+
+      
+        m_nEqWdelta =  m_nPixels * D * m_numImages*(m_numImages-1); //every error at every location in each image pair
+        m_nVarWdelta = 1;
+
+        m_nEqWT = m_nPixels * D * m_numImages*(m_numImages-1); //same as Wdelta
+        m_nVarWT= 1;
+
+        m_nEqs=  m_nEqWd + m_nEqWcirc+ m_nEqWs + m_nEqWdelta+ m_nEqWT; // total number of equations
+        m_nVars= m_numImages*(m_numImages-1)*m_nPixels*D*2; // total number of free variables (error and deformation)
+        
+        m_nNonZeroes= m_nEqWd *m_nVarWd + m_nEqWcirc * m_nVarWcirc + m_nEqWs*m_nVarWs + m_nEqWdelta*m_nVarWdelta + m_nEqWT*m_nVarWT; //maximum number of non-zeros
 
         m_trueDeformations=trueDeformations;
 
@@ -52,7 +104,20 @@ public:
         (*m_deformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]]->TransformPhysicalPointToIndex(startPoint,startIndex);
         m_regionOfInterest.SetIndex(startIndex);
 
+        m_wWT=1.0;
+        m_wWs=1.0;
+        m_wWcirc=1.0;
+        m_wWdelta=1.0;
+        m_wWd=1.0;
+
     }
+
+    void setWeightWd(double w){m_wWd=w;}
+    void setWeightWT(double w){m_wWT=w;}
+    void setWeightWs(double w){m_wWs=w;}
+    void setWeightWcirc(double w){m_wWcirc=w;}
+    void setWeightWdelta(double w){m_wWdelta=w;}
+    
     
     virtual void createSystem(){
 
@@ -100,166 +165,168 @@ public:
                             //define a set of 3 images
                             int target=t;
                             DeformationFieldPointerType d2=(*m_deformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            DeformationFieldPointerType d3=(*m_deformationCache)[(*m_imageIDList)[target]][(*m_imageIDList)[source]];
+                            DeformationFieldPointerType d3=(*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[target]];
+                        
                             
-                            DeformationFieldPointerType hatd1,hatd2,hatd3;
-                            DeformationType hatDelta3;
-                            if (m_trueDeformations!=NULL){
-                                hatd1=(*m_trueDeformations)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
-                                hatd2=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                                hatd3=(*m_trueDeformations)[(*m_imageIDList)[target]][(*m_imageIDList)[source]];
-                            }
+                            //compute indirect deform
+                            DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(d2,d1);
+                            //compute difference of direct and indirect deform
+                            DeformationFieldPointerType difference = TransfUtils<ImageType>::subtract(indirectDeform,d3);
                             
-                            //compute circle
-                            DeformationFieldPointerType circle=composeDeformations(d1,d2,d3);
                             //compute norm
-                            DeformationFieldIterator it(circle,m_regionOfInterest);//this->m_ROI->GetLargestPossibleRegion());
+                            DeformationFieldIterator it(difference,m_regionOfInterest);//this->m_ROI->GetLargestPossibleRegion());
                             it.GoToBegin();
                             
                             // LOG<<VAR(dir)<<" "<<VAR(start)<<endl;
                             for (;!it.IsAtEnd();++it){
 
                                 bool valid=true;
-                                IndexType idx3=it.GetIndex(),idx2,idx1;
-                                LOGV(6)<<VAR(idx3)<<endl;
-                                PointType pt1,pt2,pt3;
-                                IndexType roiIdx1,roiIdx2,roiIdx3;
-                                d3->TransformIndexToPhysicalPoint(idx3,pt3);
-                                DeformationType delta3=d3->GetPixel(idx3);
-                                hatDelta3 = hatd3->GetPixel(idx3);
-                                this->m_ROI->TransformPhysicalPointToIndex(pt3,roiIdx3);
 
-                                LOGV(6)<<VAR(idx3)<<" "<<VAR(roiIdx3)<<endl;
+                                //get index in target domain
+                                IndexType targetIndex=it.GetIndex(),intermediateIndex,idx1;
+                                LOGV(6)<<VAR(targetIndex)<<endl;
+                                PointType ptIntermediate,ptTarget;
+                                IndexType roiIntermediateIndex,roiTargetIndex;
+                                
+                                //get physical point in target domain
+                                d3->TransformIndexToPhysicalPoint(targetIndex,ptTarget);
+                                //get corresponding point in intermediate deform
+                                DeformationType dIntermediate=d2->GetPixel(targetIndex);
+                                ptIntermediate= ptTarget + dIntermediate;
+                                
+                                //get neighbors of that point
+                                std::vector<std::pair<IndexType,double> >ptIntermediateNeighbors;
+                                //bool inside=getLinearNeighbors(d1,ptIntermediate,ptIntermediateNeighbors);
+                                bool inside=getNearestNeighbors(d1,ptIntermediate,ptIntermediateNeighbors);
 
-#if 1                       
-                                //This is the backward assumption. circle errors are in the domain of d3, and are summed backwards
+                                this->m_ROI->TransformPhysicalPointToIndex(ptTarget,roiTargetIndex);
+                                LOGV(6)<<VAR(targetIndex)<<" "<<VAR(roiTargetIndex)<<endl;
                                 
-                          
-                                pt2=pt3+delta3;
-                                
-                                //pt2=pt3+hatd3->GetPixel(idx3);
-                                d2->TransformPhysicalPointToIndex(pt2,idx2);
-                                this->m_ROI->TransformPhysicalPointToIndex(pt2,roiIdx2);
-                                // what to do when circle goes outside along the way?
-                                // skip it
-                                if ( !this->m_ROI->GetLargestPossibleRegion().IsInside(roiIdx2) ) {
-                                    LOGV(6)<<"break at "<<VAR(eq)<<" "<<VAR(c)<<" "<<VAR(idx3)<<" "<<VAR(idx2)<<endl;
-                                    //eq+=D;
-                                    //c+=3*D;
-                                    continue;
-                                }
-                                pt1=pt2+d2->GetPixel(idx2);
-                                this->m_ROI->TransformPhysicalPointToIndex(pt1,roiIdx1);
-                                //pt1=pt2+hatd2->GetPixel(idx2);
-                                d1->TransformPhysicalPointToIndex(pt1,idx1);
-                                if ( (!this->m_ROI->GetLargestPossibleRegion().IsInside(roiIdx1) )) {
-                                    LOGV(6)<<"break at "<<VAR(eq)<<" "<<VAR(c)<<" "<<VAR(idx3)<<" "<<VAR(idx2)<<endl;
-                                     //eq=eq+D;
-                                    //c+=3*D;
-                                    continue;
-                                }
-#else
-                                //fixed point estimation
-                                idx1=idx3;
-                                idx2=idx3;
-                                roiIdx1=roiIdx3;
-                                roiIdx2=roiIdx3;
-                                
-#endif
-                                
+
                                 double val=1;
-
-                                //add 1 for matlab array layout
-                                long int e1=edgeNum(source,intermediate,roiIdx1)+1;
-                                long int e2=edgeNum(intermediate,target,roiIdx2)+1;
-                                long int e3=edgeNum(target,source,roiIdx3)+1;
-                                if (e1<=0) {LOG<<VAR(e1)<<" ????? "<<endl;}
-                                if (e2<=0) {LOG<<VAR(e2)<<endl;}
-                                if (e3<=0) {LOG<<VAR(e3)<<endl; }
-                                //LOG<<VAR(e1)<<" "<<VAR(e2)<<" "<<VAR(e3)<<endl;
-                                
-                                DeformationType localDef=it.Get();
-                                
-                                PointType pt0;
-                                pt0=pt1+d1->GetPixel(idx1);
-                                
-                                LOGV(4)<<"consistency check : "<<VAR(localDef)<<" ?= "<<VAR(pt0-pt3)<<endl;
-                                
-                                maxE=max(maxE,max(e1,max(e2,e3)));
+                                DeformationType localDiscrepance=it.Get();
                                 
                                 for (unsigned int d=0;d<D;++d){
-                                    double def=localDef[d];
-                                    LOGV(6)<<VAR(e1)<<" "<<VAR(e2)<<" "<<VAR(e3)<<" "<<VAR(eq)<<" "<<VAR(c)<<endl;
-                                    //set sparse entries for error variables
+                                    double disp=localDiscrepance[d];
+                                    LOGV(3)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(target)<<" "<<VAR(roiTargetIndex)<<" "<<VAR(d)<<endl;
+                                    LOGV(3)<<VAR(edgeNumError(intermediate,target,roiTargetIndex,d))<<" "<<VAR(edgeNumDeformation(intermediate,target,roiTargetIndex,d))<<endl;
+                                    //set w_d ~ 
                                     x[c]=eq;
-                                    y[c]=e1+d;
-                                    v[c++]=val;
+                                    y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
+                                    v[c++]=val*m_wWd;
                                     x[c]=eq;
-                                    y[c]=e2+d;
-                                    v[c++]=val;
+                                    y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
+                                    v[c++]=val*m_wWd;
+                                    for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                        x[c]=eq;
+                                        y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d);
+                                        v[c++]=ptIntermediateNeighbors[i].second*val*m_wWd;
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d);
+                                        v[c++]=ptIntermediateNeighbors[i].second*val*m_wWd;
+                                    }
                                     x[c]=eq;
+                                    y[c]=edgeNumError(source,target,roiTargetIndex,d);
+                                    v[c++]=val*m_wWd;
                                     x[c]=eq;
-                                    y[c]=e3+d;
-                                    v[c++]=val;
-
-                                      //set sparse entries for true deformation variables
-                                    x[c]=eq;
-                                    y[c]=e1+d+m_nPixels;
-                                    v[c++]=val;
-                                    x[c]=eq;
-                                    y[c]=e2+d+m_nPixels;
-                                    v[c++]=val;
-                                   x[c]=eq;
-                                   y[c]=e3+d+m_nPixels;
-                                   v[c++]=val;
-
-                                    
-                                    //set rhs
-                                   //b[eq-1]=delta3[d];
-                                    b[eq-1]=def;
+                                    y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
+                                    v[c++]= - val*m_wWd;
+                                    b[eq-1]=disp;
                                     ++eq;
 
-#if 0
-                                    //set eqn for soft constraining the estimated true deformation to be similar to the original deformation
+                                    //set w_circ
                                     x[c]=eq;
-                                    y[c]=e3+d+m_nPixels;
-                                    float lambda=exp(-def*def);
-                                    LOGV(4)<<VAR(def)<<" "<<VAR(lambda)<<endl;
-                                    v[c++]=lambda*val;
-                                    b[eq-1]=lambda*delta3[d];
-                                    //b[eq-1]=lambda*hatDelta3[d];
+                                    y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
+                                    v[c++]=val* m_wWcirc;
+                                    for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is a APPROXIMIATION!!1 might be bad :o
+                                        v[c++]=ptIntermediateNeighbors[i].second*val* m_wWcirc;
+                                    }
+                                    x[c]=eq;
+                                    y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
+                                    v[c++]= - val* m_wWcirc;
+                                    b[eq-1]=0;
                                     ++eq;
-#endif
-#if 0
-                                    //constraint that estimated def + estimated error = original def
-                                    x[c]=eq;
-                                    y[c]=e3+d+m_nPixels;
-                                    v[c++]=10000;
-                                    x[c]=eq;
-                                    y[c]=e3+d;
-                                    v[c++]=10000;
-                                    b[eq-1]=10000*delta3[d];
-                                    ++eq;
-#endif                               
-                                    //constraint that sum of deformations should be zero
-                                    float lambda=1.0;//exp(-def*def);
-                                    x[c]=eq;
-                                    y[c]=e1+d+m_nPixels;
-                                    v[c++]=lambda*val;  
-                                    x[c]=eq;
-                                    y[c]=e2+d+m_nPixels;
-                                    v[c++]=lambda*val;
-                                    x[c]=eq;
-                                    y[c]=e3+d+m_nPixels;
-                                    v[c++]=lambda*val;
-                                    b[eq-1]=0.0;
 
-                                    LOGV(6)<<"did it"<<endl;
                                 }// D
                             }//image
 
                         }//if
                     }//target
+                    
+                    //pairwise energies!
+
+
+                    DeformationFieldPointerType defSourceInterm=(*this->m_deformationCache)[(*this->m_imageIDList)[source]][(*this->m_imageIDList)[intermediate]];
+                    DeformationFieldIterator it(defSourceInterm,defSourceInterm->GetLargestPossibleRegion());
+                    it.GoToBegin();
+                    for (;!it.IsAtEnd();++it){
+                        DeformationType localDef=it.Get();
+                        IndexType idx=it.GetIndex();
+                        for (int n=0;n<D;++n){
+
+                            //set w_delta
+                            //set eqn for soft constraining the error to be small
+                            x[c]=eq;
+                            y[c]= edgeNumError(source,intermediate,idx,n);
+                            v[c++]=1.0*m_wWdelta;
+                            b[eq-1]=0.0;
+                            ++eq;
+
+                            //set w_T
+                            //set eqn for soft constraining the estimated true deformation to be similar to the original deformation
+                            x[c]=eq;
+                            y[c]=edgeNumDeformation(source,intermediate,idx,n);
+                            v[c++]=1.0*m_wWT;
+                            b[eq-1]=localDef[n]*m_wWT;
+                            ++eq;
+
+#if 0
+                            //constraint that estimated def + estimated error = original def
+                            x[c]=eq;
+                            y[c]=e3+d+m_nPixels;
+                            v[c++]=10000;
+                            x[c]=eq;
+                            y[c]=e3+d;
+                            v[c++]=10000;
+                            b[eq-1]=10000*delta3[d];
+                            ++eq;
+#endif                               
+                          
+                            //spatial smootheness of estimated deformations
+                            OffsetType off,off2;
+                            off.Fill(0);
+                            off2=off;
+                            off[n]=1;
+                            off2[n]=-1;
+                            IndexType neighborIndexRight=idx+off;
+                            IndexType neighborIndexLeft=idx+off2;
+                            if (defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
+                                DeformationType neighborDefRight=defSourceInterm->GetPixel(neighborIndexRight);
+                                DeformationType neighborDefLeft=defSourceInterm->GetPixel(neighborIndexLeft);
+                                for (unsigned int d=0;d<D;++d){
+                                    LOGV(7)<<"regularizing... "<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(eq)<<" "<<VAR(c+3)<<" "<<endl;
+                                    double def=localDef[d];
+                                    double defNeighborRight=neighborDefRight[d];
+                                    double defNeighborLeft=neighborDefLeft[d];
+                                    x[c]=eq;
+                                    y[c]=edgeNumDeformation(source,intermediate,idx,d);
+                                    v[c++]=-2*this->m_wWs;
+                                    x[c]=eq;
+                                    y[c]=edgeNumDeformation(source,intermediate,neighborIndexRight,d);
+                                    v[c++]=this->m_wWs;
+                                    x[c]=eq;
+                                    y[c]=edgeNumDeformation(source,intermediate,neighborIndexLeft,d);
+                                    v[c++]=this->m_wWs;
+                                    b[eq-1]=0.0;
+                                    ++eq;
+                                }
+                            }//inside
+                            
+                        }//neighbors
+                    }//for
+
                 }//if
             }//intermediate
         }//source
@@ -306,10 +373,11 @@ public:
                     for (int p=0;!itErr.IsAtEnd();++itErr,++itDef,++itTrueDef,++itOriginalDef){
                         //get solution of eqn system
                         DeformationType dispErr,dispDef;
-                        int e=edgeNum(s,t,itErr.GetIndex());
+                        IndexType idx = itErr.GetIndex();
+                        int e=edgeNum(s,t);
                         for (unsigned int d=0;d<D;++d,++p){
-                            dispErr[d]=rData[e+d];
-                            dispDef[d]=rData[e+d+m_nPixels];
+                            dispErr[d]=rData[edgeNumError(s,t,idx,d)];
+                            dispDef[d]=rData[edgeNumDeformation(s,t,idx,d)];
                         }
                         itErr.Set(dispErr);
                         itDef.Set(dispDef);
@@ -338,51 +406,87 @@ public:
 
     std::vector<double> getResult(){
         std::vector<double> result(m_nVars);
-        double * rData=mxGetPr(this->m_result);
-        for (int i=0;i<m_nVars;++i){
-            result[i]=rData[i];
-            int n1,n2;
-            edges(i+1,n1,n2);
-            LOG<<VAR(i)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(result[i])<<endl;
-        }
         return result;
         
 
     }
-protected:
-    int m_nVars,m_nEqs,m_nNonZeroes,m_nPixels;
-    int m_numImages;
-    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations;
-    std::vector<string> * m_imageIDList;
-    bool m_additive;
-    RegionType m_regionOfInterest;
+
 
 protected:
     //return fortlaufende number of pairs n1,n2, 0..(n*(n-1)-1)
     inline long int edgeNum(int n1,int n2){ return ((n1)*(m_numImages-1) + n2 - (n2>n1));}
     
     //return edgenumber after taking into acount nPixel*2 edges per image pair
-    inline long int edgeNum(int n1,int n2,IndexType idx){ 
+    inline long int edgeNumError(int n1,int n2,IndexType idx, int D){ 
         long int offset = this->m_ROI->ComputeOffset(idx);
-        return offset*2+edgeNum(n1,n2)*m_nPixels*2 ;
+        return offset*2+edgeNum(n1,n2)*m_nPixels*D*D + 1 ;
+    }
+
+    inline long int edgeNumDeformation(int n1,int n2,IndexType idx, int D){ 
+        long int offset = this->m_ROI->ComputeOffset(idx);
+        return offset*2+(edgeNum(n1,n2)+1)*m_nPixels*D*D + 1;
     }
   
-
-    inline void edges(int edgeNum, int &n1, int &n2){
-        n1 = edgeNum/(m_numImages-1);
-        n2 =edgeNum%(m_numImages-1);
-        if (n2 ==0){
-            n2=(m_numImages-1);
-            n1--;
-        }
-        if (n2>n1) ++n2;
-        n2--;
-        
-    }
-
     //compose 3 deformations. order is left-to-right
     DeformationFieldPointerType composeDeformations(DeformationFieldPointerType d1,DeformationFieldPointerType d2,DeformationFieldPointerType d3){
         return TransfUtils<ImageType>::composeDeformations(d3,TransfUtils<ImageType>::composeDeformations(d2,d1));
 
+    }
+
+
+     inline bool getLinearNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
+        bool inside=false;
+        neighbors= std::vector<std::pair<IndexType,double> >(pow(2,D));
+        int nNeighbors=0;
+        IndexType idx1;
+        def->TransformPhysicalPointToIndex(point,idx1);
+        inside=inside || def->GetLargestPossibleRegion().IsInside(idx1);
+        if (!inside) return false;
+        PointType pt1;
+        def->TransformIndexToPhysicalPoint(idx1,pt1);
+        DeformationType dist=point-pt1;
+        if (inside){
+            neighbors[nNeighbors++]=std::make_pair(idx1,getWeight(dist,def->GetSpacing()));
+        }
+        OffsetType off;
+        off.Fill(0);
+        for (int i=1;i<pow(2,D);++i){
+            int spill=1;
+            for (int d=0;d<D;++d){
+                off[d]+=spill*sign(dist[d]);
+                if (fabs(off[d])>1){
+                    spill=1;off[d]=0;
+                }else{
+                    break;
+                }
+
+            }
+            IndexType idx=idx1+off;
+            PointType pt;
+            def->TransformIndexToPhysicalPoint(idx,pt);
+            DeformationType delta=point-pt;
+            if (def->GetLargestPossibleRegion().IsInside(idx)){
+                neighbors[nNeighbors++]=std::make_pair(idx,getWeight(delta,def->GetSpacing()));
+                inside=true;
+            }
+        }
+        neighbors.resize(nNeighbors);
+        return inside;
+    }
+  inline bool getNearestNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
+        bool inside=false;
+        neighbors= std::vector<std::pair<IndexType,double> >(1);
+        int nNeighbors=0;
+        IndexType idx1;
+        def->TransformPhysicalPointToIndex(point,idx1);
+        inside=inside || def->GetLargestPossibleRegion().IsInside(idx1);
+        PointType pt1;
+        def->TransformIndexToPhysicalPoint(idx1,pt1);
+        DeformationType dist=point-pt1;
+        if (inside){
+            neighbors[nNeighbors++]=std::make_pair(idx1,1.0);
+        }
+       
+        return inside;
     }
 };

@@ -97,3 +97,6 @@ ADD_EXECUTABLE(AquircGlobalNorm2D AquircGlobalNorm2D.cxx )
 TARGET_LINK_LIBRARIES(AquircGlobalNorm2D   Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )
 ADD_EXECUTABLE(AquircLocalErrors2D AquircLocalError2D.cxx )
 TARGET_LINK_LIBRARIES(AquircLocalErrors2D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )
+
+ADD_EXECUTABLE(AquircLocalDeformationAndError2D AquircLocalDeformationAndError2D.cxx )
+TARGET_LINK_LIBRARIES(AquircLocalDeformationAndError2D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )
