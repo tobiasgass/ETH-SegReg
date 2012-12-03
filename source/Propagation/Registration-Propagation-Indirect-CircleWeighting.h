@@ -279,6 +279,7 @@ public:
                         bool converged = false ; 
                         //FastGaussianEstimatorVectorImage<ImageType> weightedMeanEstimator;
                         FastNBestGaussianVectorImage<ImageType> weightedMeanEstimator;
+                        GaussianEstimatorScalarImage<FloatImageType> directTransformationWeightEstimator;
                         int localCount=0;
                         for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
                             string intermediateID= intermediateImageIterator->first;
@@ -300,25 +301,21 @@ public:
                               
                                 //compute indirect path
                                 DeformationFieldPointerType sourceTargetIndirect=TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
-                              
+                                //compute weights of indirect path
                                 DeformationFieldPointerType circle;
                                 FloatImagePointerType weights;
-                                if (0){
-                                    circle=TransfUtils<ImageType>::composeDeformations(deformationTargetSource,sourceTargetIndirect);
-                                    //weights=TransfUtils<FloatImageType>::warpImage(TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle,m_sigma),invTargetSource);
-                                }
-                                else{
-                                    circle=TransfUtils<ImageType>::composeDeformations(sourceTargetIndirect,deformationTargetSource);
-                                    weights=TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle,m_sigma);
-                                }
+                                circle=TransfUtils<ImageType>::composeDeformations(sourceTargetIndirect,deformationTargetSource);
+                                weights=TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle,m_sigma);
+
+
+                                
+
                                 if (m_sigmaSmooth>0.0)
                                     weights=FilterUtils<FloatImageType>::gaussian(weights, m_sigmaSmooth);
-                                //FloatImagePointerType weights=TransfUtils<FloatImageType>::warpImage(TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle,m_sigma),deformationSourceIntermed);
 
                                 if (trueDefListFilename!=""){
                                     //calculate true error of indirect source target deformation
                                     DeformationFieldPointerType trueErrorSourceTarget=TransfUtils<ImageType>::subtract(sourceTargetIndirect,trueDeformations[sourceID][targetID]);
-                                    //weights=TransfUtils<ImageType>::computeLocalDeformationNormWeights(trueErrorSourceTarget,m_sigma);
 
                                     FloatImagePointerType trueNorms=TransfUtils<ImageType>::computeLocalDeformationNorm(trueErrorSourceTarget);
                                     FloatImagePointerType norms=TransfUtils<ImageType>::computeLocalDeformationNorm(circle,m_sigma);
@@ -344,11 +341,30 @@ public:
                                 else
                                     weightedMeanEstimator.initialize(sourceTargetIndirect,weights);
 
+
+                                //compute weights of direct path
+                                DeformationFieldPointerType deformationIntermedSource;
+                                DeformationFieldPointerType deformationTargetIntermed;
+                                if (dontCacheDeformations){
+                                    deformationIntermedSource=ImageUtils<DeformationFieldType>::readImage(deformationFilenames[intermediateID][sourceID]);
+                                    deformationTargetIntermed=ImageUtils<DeformationFieldType>::readImage(deformationFilenames[targetID][intermediateID]);
+                                }
+                                else{
+                                    deformationIntermedSource = deformationCache[intermediateID][sourceID];
+                                    deformationTargetIntermed = deformationCache[targetID][intermediateID];
+
+                                }
+                                DeformationFieldPointerType circle2=TransfUtils<ImageType>::composeDeformations(deformationIntermedSource,deformationTargetIntermed);
+                                circle2=TransfUtils<ImageType>::composeDeformations(deformationSourceTarget,circle2);
+                                directTransformationWeightEstimator.addImage(TransfUtils<ImageType>::computeLocalDeformationNormWeights(circle2,m_sigma));
                                 ++localCount;
                               
                             }//if
                         }//intermediate image
+                        directTransformationWeightEstimator.finalize();
+                        weightedMeanEstimator.addImage(deformationSourceTarget,directTransformationWeightEstimator.getMean());
                         weightedMeanEstimator.finalize();
+
                         avgIndirectDeformation=weightedMeanEstimator.getMean();
                         //store deformation
                         ostringstream tmpSegmentationFilename;

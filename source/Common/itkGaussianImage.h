@@ -25,17 +25,17 @@ public:
         if (!m_mean.IsNotNull()){
             count=1;
             m_mean=ImageUtils<ImageType>::duplicate(img);
-            m_variance=ImageUtils<ImageType>::multiplyOutOfPlace(img,img);
+            m_variance=ImageUtils<ImageType>::multiplyImageOutOfPlace(img,img);
         }else{
-            m_mean=ImageUtils<ImageType>::add(m_mean,img);
-            m_variance=ImageUtils<ImageType>::add(m_mean,ImageUtils<ImageType>::multiplyOutOfPlace(img,img));
+            m_mean=FilterUtils<ImageType>::add(m_mean,img);
+            m_variance=FilterUtils<ImageType>::add(m_mean,ImageUtils<ImageType>::multiplyImageOutOfPlace(img,img));
             count++;
         }
     }
     void finalize(){
-        ImageUtils<ImageType>::multiply(m_mean,1.0/count);
-        ImageUtils<ImageType>::multiply(m_variance,1.0/count);
-        m_variance=ImageUtils<ImageType>::subtract(m_variance,ImageUtils<ImageType>::multiplyOutOfPlace(m_mean,m_mean));
+        ImageUtils<ImageType>::multiplyImage(m_mean,1.0/count);
+        ImageUtils<ImageType>::multiplyImage(m_variance,1.0/count);
+        m_variance=FilterUtils<ImageType>::substract(m_variance,ImageUtils<ImageType>::multiplyImageOutOfPlace(m_mean,m_mean));
     }
     ImagePointerType getMean(){return m_mean;}
     ImagePointerType getVariance(){return m_variance;}
