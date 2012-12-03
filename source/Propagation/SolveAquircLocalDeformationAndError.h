@@ -56,8 +56,17 @@ private:
     int m_nVarWT; // number of variables for each equation of E_T
     double m_wWT;
 
-public:
+    double m_wSum;
 
+public:
+    AquircLocalDeformationAndErrorSolver(){
+        m_wWT=1.0;
+        m_wWs=1.0;
+        m_wWcirc=1.0;
+        m_wWdelta=1.0;
+        m_wWd=1.0;
+        m_wSum=1.0;
+    }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI){
         m_imageIDList=imageIDList;
         m_deformationCache=deformationCache;
@@ -88,10 +97,13 @@ public:
         m_nEqWT = m_nPixels * D * m_numImages*(m_numImages-1); //same as Wdelta
         m_nVarWT= 1;
 
-        m_nEqs=  m_nEqWd + m_nEqWcirc+ m_nEqWs + m_nEqWdelta+ m_nEqWT; // total number of equations
+        int m_nEqSUM=m_nPixels * D * m_numImages*(m_numImages-1);
+        int m_nVarSUM=2;
+
+        m_nEqs=  m_nEqWd + m_nEqWcirc+ m_nEqWs + m_nEqWdelta+ m_nEqWT + m_nEqSUM ; // total number of equations
         m_nVars= m_numImages*(m_numImages-1)*m_nPixels*D*2; // total number of free variables (error and deformation)
         
-        m_nNonZeroes= m_nEqWd *m_nVarWd + m_nEqWcirc * m_nVarWcirc + m_nEqWs*m_nVarWs + m_nEqWdelta*m_nVarWdelta + m_nEqWT*m_nVarWT; //maximum number of non-zeros
+        m_nNonZeroes= m_nEqWd *m_nVarWd + m_nEqWcirc * m_nVarWcirc + m_nEqWs*m_nVarWs + m_nEqWdelta*m_nVarWdelta + m_nEqWT*m_nVarWT + m_nEqSUM*m_nVarSUM; //maximum number of non-zeros
 
         m_trueDeformations=trueDeformations;
 
@@ -104,11 +116,7 @@ public:
         (*m_deformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]]->TransformPhysicalPointToIndex(startPoint,startIndex);
         m_regionOfInterest.SetIndex(startIndex);
 
-        m_wWT=1.0;
-        m_wWs=1.0;
-        m_wWcirc=1.0;
-        m_wWdelta=1.0;
-        m_wWd=1.0;
+        
 
     }
 
@@ -117,7 +125,8 @@ public:
     void setWeightWs(double w){m_wWs=w;}
     void setWeightWcirc(double w){m_wWcirc=w;}
     void setWeightWdelta(double w){m_wWdelta=w;}
-    
+    void setWeightSum(double w){m_wSum=w;}
+
     
     virtual void createSystem(){
 
@@ -149,7 +158,6 @@ public:
         //attention matlab index convention?!?
         long int eq = 1;
         long int c=0;
-        long int maxE=0;
 
        
 
@@ -231,7 +239,7 @@ public:
                                     x[c]=eq;
                                     y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
                                     v[c++]= - val*m_wWd;
-                                    b[eq-1]=disp;
+                                    b[eq-1]=disp*m_wWd;
                                     ++eq;
 
                                     //set w_circ
@@ -282,17 +290,15 @@ public:
                             b[eq-1]=localDef[n]*m_wWT;
                             ++eq;
 
-#if 0
                             //constraint that estimated def + estimated error = original def
                             x[c]=eq;
-                            y[c]=e3+d+m_nPixels;
-                            v[c++]=10000;
+                            y[c]=edgeNumError(source,intermediate,idx,n);
+                            v[c++]=m_wSum;
                             x[c]=eq;
-                            y[c]=e3+d;
-                            v[c++]=10000;
-                            b[eq-1]=10000*delta3[d];
+                            y[c]=edgeNumDeformation(source,intermediate,idx,n);
+                            v[c++]=m_wSum;
+                            b[eq-1]=m_wSum*localDef[n];
                             ++eq;
-#endif                               
                           
                             //spatial smootheness of estimated deformations
                             OffsetType off,off2;
@@ -331,7 +337,6 @@ public:
             }//intermediate
         }//source
         LOG<<VAR(eq)<<" "<<VAR(c)<<endl;
-        LOG<<VAR(maxE)<<endl;
         //put variables into workspace and immediately destroy them
         engPutVariable(this->m_ep,"xCord",mxX);
         mxDestroyArray(mxX);
@@ -355,7 +360,9 @@ public:
         double trueResidual=0.0;
         double estimationResidual=0.0;
         double circleResidual=0.0;
+        double averageError=0.0;
         int c=0;
+        int c2=0;
         for (int s = 0;s<m_numImages;++s){
             for (int t=0;t<m_numImages;++t){
                 if (s!=t){
@@ -384,12 +391,13 @@ public:
                         
                         //compute errors
                         //1. compute derivation of assumption that estimatedError+estimatedDeform=originalDeform
-                        estimationResidual+=(dispErr+dispDef-itOriginalDef.Get()).GetSquaredNorm();
+                        estimationResidual+=(dispErr+dispDef-itOriginalDef.Get()).GetNorm();
                         //2. compute difference of estimated deform and true deform
-                        trueResidual+=(itTrueDef.Get()-dispDef).GetSquaredNorm();
+                        trueResidual+=(itTrueDef.Get()-dispDef).GetNorm();
                         ++c;
                     }
-
+                    averageError+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
+                    c2++;
                     ostringstream outfile;
                     outfile<<directory<<"/estimatedLocalComposedDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
                     ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
@@ -399,9 +407,10 @@ public:
                 }
             }
         }
-        estimationResidual=sqrt(estimationResidual);
-        trueResidual=sqrt(trueResidual);
-        LOG<<VAR(estimationResidual)<<" "<<VAR(trueResidual)<<" "<<VAR(c)<<endl;
+        estimationResidual=(estimationResidual)/c;
+        trueResidual=(trueResidual)/c;
+        averageError/=c2;
+        LOG<<VAR(averageError)<<" "<<VAR(estimationResidual)<<" "<<VAR(trueResidual)<<" "<<VAR(c)<<endl;
     }
 
     std::vector<double> getResult(){
@@ -417,14 +426,14 @@ protected:
     inline long int edgeNum(int n1,int n2){ return ((n1)*(m_numImages-1) + n2 - (n2>n1));}
     
     //return edgenumber after taking into acount nPixel*2 edges per image pair
-    inline long int edgeNumError(int n1,int n2,IndexType idx, int D){ 
+    inline long int edgeNumError(int n1,int n2,IndexType idx, int d){ 
         long int offset = this->m_ROI->ComputeOffset(idx);
-        return offset*2+edgeNum(n1,n2)*m_nPixels*D*D + 1 ;
+        return offset*2+edgeNum(n1,n2)*m_nPixels*D +d+ 1 ;
     }
 
-    inline long int edgeNumDeformation(int n1,int n2,IndexType idx, int D){ 
+    inline long int edgeNumDeformation(int n1,int n2,IndexType idx, int d){ 
         long int offset = this->m_ROI->ComputeOffset(idx);
-        return offset*2+(edgeNum(n1,n2)+1)*m_nPixels*D*D + 1;
+        return offset*2+(edgeNum(n1,n2)+1)*m_nPixels*D +d+ 1;
     }
   
     //compose 3 deformations. order is left-to-right

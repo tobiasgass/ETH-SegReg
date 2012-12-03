@@ -128,7 +128,7 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=30;
     string solverName="localnorm";
-    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0;
+    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100;
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -147,6 +147,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wws", wws,"weight for def1 in circle",false);
     (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
+    (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
 
     (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
@@ -313,6 +314,7 @@ int main(int argc, char ** argv){
     solver->setWeightWT(wwt);
     solver->setWeightWdelta(wwdelta);
     solver->setWeightWcirc(wwcirc); 
+    solver->setWeightSum(wwsum); 
 
     for (int h=0;h<maxHops;++h){
         solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
