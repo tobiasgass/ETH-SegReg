@@ -403,13 +403,11 @@ public:
                     DeformationFieldIterator itErr(estimatedError,estimatedError->GetLargestPossibleRegion());
                     DeformationFieldPointerType estimatedDeform=TransfUtils<ImageType>::createEmpty(this->m_ROI);//ImageUtils<DeformationFieldType>::createEmpty((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
                     DeformationFieldIterator itDef(estimatedDeform,estimatedDeform->GetLargestPossibleRegion());
-                    DeformationFieldIterator itTrueDef((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],m_regionOfInterest);
-                    DeformationFieldIterator itOriginalDef((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],m_regionOfInterest);
+                  
                     itErr.GoToBegin();
                     itDef.GoToBegin();
-                    itTrueDef.GoToBegin();
-                    itOriginalDef.GoToBegin();
-                    for (int p=0;!itErr.IsAtEnd();++itErr,++itDef,++itTrueDef,++itOriginalDef){
+                  
+                    for (int p=0;!itErr.IsAtEnd();++itErr,++itDef){
                         //get solution of eqn system
                         DeformationType dispErr,dispDef;
                         IndexType idx = itErr.GetIndex();
@@ -421,17 +419,14 @@ public:
                         itErr.Set(dispErr);
                         itDef.Set(dispDef);
                         LOGV(8)<<VAR(c)<<" "<<VAR(dispDef)<<endl;
-                        //compute errors
-                        //1. compute derivation of assumption that estimatedError+estimatedDeform=originalDeform
-                        estimationResidual+=(dispErr+dispDef-itOriginalDef.Get()).GetNorm();
-                        //2. compute difference of estimated deform and true deform
-                        trueResidual+=(itTrueDef.Get()-dispDef).GetNorm();
                         ++c;
                     }
-                    double newError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
-                    double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
-                    LOGV(1)<<VAR(oldError)<<" "<<VAR(newError)<<endl;
-                    averageError+=newError;
+                    if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                        double newError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
+                        double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
+                        LOGV(1)<<VAR(oldError)<<" "<<VAR(newError)<<endl;
+                        averageError+=newError;
+                    }
                     c2++;
                     ostringstream outfile;
                     if (directory != ""){

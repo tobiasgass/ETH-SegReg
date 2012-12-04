@@ -34,8 +34,20 @@ int main(int argc, char ** argv)
     typedef Image<LabelType,D> LabelImageType;
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
+    argstream * as=new argstream(argc,argv);
+    string refLandmarks,targetLandmarks,target="",def,output;
+    bool NN=false;
+    (*as) >> parameter ("refLandmarks", refLandmarks, " filename...", true);
+    (*as) >> parameter ("targetLandmarks", targetLandmarks, " filename...", true);
+    (*as) >> parameter ("def", def, " filename of deformation", true);
+    (*as) >> parameter ("target", target, " filename of target image", true);
+    (*as) >> help();
+    as->defaultErrorHandling();
+    
+    LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
+    ImageConstPointerType referenceImage =(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
+    deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,referenceImage);
 
-    LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(argv[1]);
     DirectionType targetDir=deformation->GetDirection();
     typedef itk::VectorLinearInterpolateImageFunction<LabelImageType> DefInterpolatorType;
     DefInterpolatorType::Pointer defInterpol=DefInterpolatorType::New();
@@ -46,13 +58,12 @@ int main(int argc, char ** argv)
     PointType p;
     p.Fill(0.0);
     deformation->SetOrigin(0.0);
-    ImagePointerType referenceImage=ImageUtils<ImageType>::readImage(argv[2]);
     DirectionType refDir=referenceImage->GetDirection();
 
     //ImagePointerType targetLandmarkImage=ImageUtils<ImageType>::createEmpty(referenceImage);
     //ImagePointerType deformedReferenceLandmarkImage=ImageUtils<ImageType>::createEmpty(referenceImage);
     vector<PointType> landmarksReference, landmarksTarget;
-    ifstream ifs(argv[3]);
+    ifstream ifs(refLandmarks.c_str());
     int i=0;
     
     while ( not ifs.eof() ) {
@@ -67,7 +78,7 @@ int main(int argc, char ** argv)
     } 
     std::cout<<"read "<<landmarksReference.size()<<" landmarks"<<std::endl;
     double sumSquareError=0.0;
-    ifstream ifs2(argv[4]);
+    ifstream ifs2(targetLandmarks.c_str());
     i=0;
     for (;i<landmarksReference.size()-1;++i){
         PointType pointTarget;

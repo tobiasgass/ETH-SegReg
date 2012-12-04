@@ -39,7 +39,7 @@ int main(int argc, char ** argv)
     (*as) >> parameter ("def", def, " filename of deformation", true);
     (*as) >> parameter ("out", output, " output filename", true);
     (*as) >> option ("NN", NN," use NN interpolation");
- (*as) >> help();
+    (*as) >> help();
     as->defaultErrorHandling();
     ImagePointerType image = ImageUtils<ImageType>::readImage(moving);
     LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
