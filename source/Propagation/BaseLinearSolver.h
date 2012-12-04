@@ -46,6 +46,7 @@ public:
         //TIME(engEvalString(m_ep, "tic;[x resnorm residual] =lsqlin(A,b,[],[],[],[],zer);toc"));
         //TIME(engEvalString(m_ep, "tic;[x resnorm residual] =lsqlin(A,b);toc"));
         TIME(engEvalString(m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub);toc"));
+        //TIME(engEvalString(m_ep, "tic; x=A\\b ; toc"));
         printf("%s", buffer+2);
          
         engEvalString(m_ep, " lambda.algorithm");

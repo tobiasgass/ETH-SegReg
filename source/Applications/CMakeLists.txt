@@ -100,3 +100,5 @@ TARGET_LINK_LIBRARIES(AquircLocalErrors2D Utils    xml2 /home/gasst/work/lib/lib
 
 ADD_EXECUTABLE(AquircLocalDeformationAndError2D AquircLocalDeformationAndError2D.cxx )
 TARGET_LINK_LIBRARIES(AquircLocalDeformationAndError2D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )
+ADD_EXECUTABLE(AquircLocalDeformationAndError3D AquircLocalDeformationAndError3D.cxx )
+TARGET_LINK_LIBRARIES(AquircLocalDeformationAndError3D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )

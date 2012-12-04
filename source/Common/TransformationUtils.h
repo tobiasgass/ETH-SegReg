@@ -212,6 +212,7 @@ public:
         resampler->SetInterpolator(interpol);
         resampler->SetTransform(affine);
         resampler->SetOutputOrigin(target->GetOrigin());
+
 		resampler->SetOutputSpacing ( target->GetSpacing() );
 		resampler->SetOutputDirection ( target->GetDirection() );
 		resampler->SetSize ( target->GetLargestPossibleRegion().GetSize() );

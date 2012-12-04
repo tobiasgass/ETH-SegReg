@@ -28,8 +28,8 @@
 #include "SolveAquircLocalDeformationAndError.h"
 
 //using namespace std;
-typedef unsigned char PixelType;
-static const unsigned int D=2 ;
+typedef short PixelType;
+static const unsigned int D=3 ;
 typedef itk::Image<PixelType,D> ImageType;
 typedef   ImageType::Pointer ImagePointerType;
 typedef   ImageType::IndexType IndexType;

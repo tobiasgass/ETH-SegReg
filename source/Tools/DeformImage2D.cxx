@@ -20,7 +20,7 @@ int main(int argc, char ** argv)
     LOG<<CLOCKS_PER_SEC<<endl;
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    typedef unsigned short PixelType;
+    typedef unsigned char PixelType;
     const unsigned int D=2;
     typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -31,31 +31,33 @@ int main(int argc, char ** argv)
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
 
-    ImagePointerType image = ImageUtils<ImageType>::readImage(argv[1]);
-    LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(argv[2]);
+    argstream * as=new argstream(argc,argv);
+    string moving,target="",def,output;
+    bool NN=false;
+    (*as) >> parameter ("moving", moving, " filename of moving image", true);
+    (*as) >> parameter ("target", target, " filename of target image", false);
+    (*as) >> parameter ("def", def, " filename of deformation", true);
+    (*as) >> parameter ("out", output, " output filename", true);
+    (*as) >> option ("NN", NN," use NN interpolation");
+ (*as) >> help();
+    as->defaultErrorHandling();
+    ImagePointerType image = ImageUtils<ImageType>::readImage(moving);
+    LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
+
+    if (target != ""){
+        ImageConstPointerType ref =(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
+        deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,ref);
+    }
   
-#if 0
-    typedef  itk::WarpImageFilter<ImageType,ImageType,LabelImageType>     WarperType;
-    typedef  WarperType::Pointer     WarperPointer;
-    WarperPointer warper=WarperType::New();
-    warper->SetInput( image);
-    warper->SetDeformationField(deformation);
-    warper->SetOutputOrigin(  image->GetOrigin() );
-    warper->SetOutputSpacing( image->GetSpacing() );
-    warper->SetOutputDirection( image->GetDirection() );
-    warper->Update();
-    ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType)  warper->GetOutput());
-#else
-    if (argc == 5){
+
+    if (NN){
         LOG<<"Performing NN interpolation"<<endl;
-        //ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) ImageUtils<ImageType>::deformSegmentationImage((ImageConstPointerType)image,deformation) );
-        ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) ImageUtils<ImageType>::normalize(TransfUtils<ImageType,Displacement>::warpImage((ImageConstPointerType)image,deformation,true) ));
+        ImageUtils<ImageType>::writeImage(output, (TransfUtils<ImageType,Displacement>::warpImage(image,deformation,true) ));
     }
     else{
         LOG<<"Performing linear interpolation"<<endl;
-        ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) TransfUtils<ImageType,Displacement>::warpImage((ImageConstPointerType)image,deformation) );
+        ImageUtils<ImageType>::writeImage(output,  TransfUtils<ImageType,Displacement>::warpImage(image,deformation) );
     }
-#endif
 
 	return 1;
 }
