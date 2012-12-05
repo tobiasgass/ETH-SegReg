@@ -337,6 +337,23 @@ public:
         exit(0);
         return labelImg;
     }
+    static      ImagePointerType warpImageWithReference(ConstImagePointerType image, DeformationFieldPointerType deformation, ImagePointerType reference, bool nnInterpol=false){
+        typedef typename itk::WarpImageFilter<ImageType,ImageType,DeformationFieldType>     WarperType;
+        typedef typename WarperType::Pointer     WarperPointer;
+        WarperPointer warper=WarperType::New();
+        if (nnInterpol){
+            NNInterpolatorPointerType nnInt=NNInterpolatorType::New();
+            warper->SetInterpolator(nnInt);
+        }
+        warper->SetInput( image);
+        warper->SetDeformationField(deformation);
+        warper->SetOutputOrigin(  reference->GetOrigin() );
+        warper->SetOutputSpacing( reference->GetSpacing() );
+        warper->SetOutputDirection( reference->GetDirection() );
+        warper->Update();
+        return warper->GetOutput();
+    }
+
     //#define ITK_WARP
 #ifdef ITK_WARP
     static      ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){

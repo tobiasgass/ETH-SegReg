@@ -4,9 +4,9 @@
 #include <iostream>
 #include "argstream.h"
 #include "ImageUtils.h"
+#include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
 
-#include "TransformationUtils.h"
 
 
 using namespace std;
@@ -25,37 +25,39 @@ int main(int argc, char ** argv)
     typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
-    typedef Vector<float,D> LabelType;
+    typedef float Displacement;
+    typedef Vector<Displacement,D> LabelType;
     typedef Image<LabelType,D> LabelImageType;
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
-    
-    ImagePointerType image = ImageUtils<ImageType>::readImage(argv[1]);
-    LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(argv[2]);
-  
-#if 0
-    typedef  itk::WarpImageFilter<ImageType,ImageType,LabelImageType>     WarperType;
-    typedef  WarperType::Pointer     WarperPointer;
-    WarperPointer warper=WarperType::New();
-    warper->SetInput( image);
-    warper->SetDeformationField(deformation);
-    warper->SetOutputOrigin(  image->GetOrigin() );
-    warper->SetOutputSpacing( image->GetSpacing() );
-    warper->SetOutputDirection( image->GetDirection() );
-    warper->Update();
 
-    ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType)  warper->GetOutput());
-#else
-       if (argc == 5){
+    argstream * as=new argstream(argc,argv);
+    string moving,target="",def,output;
+    bool NN=false;
+    (*as) >> parameter ("moving", moving, " filename of moving image", true);
+    (*as) >> parameter ("target", target, " filename of target image", false);
+    (*as) >> parameter ("def", def, " filename of deformation", true);
+    (*as) >> parameter ("out", output, " output filename", true);
+    (*as) >> option ("NN", NN," use NN interpolation");
+    (*as) >> help();
+    as->defaultErrorHandling();
+    ImagePointerType image = ImageUtils<ImageType>::readImage(moving);
+    LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
+
+    if (target != ""){
+        ImageConstPointerType ref =(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
+        deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,ref);
+    }
+  
+
+    if (NN){
         LOG<<"Performing NN interpolation"<<endl;
-        //ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) ImageUtils<ImageType>::deformSegmentationImage((ImageConstPointerType)image,deformation) );
-        ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) TransfUtils<ImageType>::warpImage((ImageConstPointerType)image,deformation,true) );
+        ImageUtils<ImageType>::writeImage(output, (TransfUtils<ImageType,Displacement>::warpImage(image,deformation,true) ));
     }
     else{
         LOG<<"Performing linear interpolation"<<endl;
-        ImageUtils<ImageType>::writeImage(argv[3],  (ImageConstPointerType) TransfUtils<ImageType>::warpImage((ImageConstPointerType)image,deformation) );
+        ImageUtils<ImageType>::writeImage(output,  TransfUtils<ImageType,Displacement>::warpImage(image,deformation) );
     }
-#endif
-    LOG<<"deformed image "<<argv[1]<<endl;
+
 	return 1;
 }

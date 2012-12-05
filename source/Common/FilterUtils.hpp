@@ -796,7 +796,7 @@ public:
         ImageUtils<OutputImage>::multiplyImage(result,0.5);
         FilterUtils<OutputImage,OutputImage>::thresholding(result,std::numeric_limits<OutputImagePixelType>::epsilon(),1.0);
 
-        ImageUtils<OutputImage>::writeImage("result.mhd",result);
+        LOGI(10,ImageUtils<OutputImage>::writeImage("result.mhd",result));
 
         return result;
 

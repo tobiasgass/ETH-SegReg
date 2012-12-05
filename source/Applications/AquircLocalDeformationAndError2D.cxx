@@ -26,6 +26,7 @@
 #include <itkSubtractImageFilter.h>
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
 #include "SolveAquircLocalDeformationAndError.h"
+#include "SolveAquircLocalDeformationAndErrorIndependentDimensions.h"
 
 //using namespace std;
 typedef unsigned char PixelType;
@@ -126,7 +127,7 @@ int main(int argc, char ** argv){
     double smoothness=1.0;
     double lambda=0.0;
     double resamplingFactor=1.0;
-    m_sigma=30;
+    m_sigma=10;
     string solverName="localnorm";
     double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100;
     bool linear=false;
@@ -137,10 +138,8 @@ int main(int argc, char ** argv){
 
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
-    (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
-    //(*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
+    (*as) >> parameter ("s", m_sigma," kernel width for lncc",false);
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-    //(*as) >> parameter ("radius", radius,"patch radius for NCC",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
 
     (*as) >> parameter ("wwd", wwd,"weight for def1 in circle",false);
@@ -198,6 +197,25 @@ int main(int argc, char ** argv){
     map<string, map<string, float> > globalWeights;
     DisplacementType zeroDisp;
     zeroDisp.Fill(0.0);
+
+    ImagePointerType origReference=ImageUtils<ImageType>::duplicate( (*inputImages)[imageIDs[0]]);
+    ImagePointerType ROI;
+    if (ROIFilename!="") {
+        ROI=ImageUtils<ImageType>::readImage(ROIFilename);
+    }else{
+        ROI=origReference;
+    }
+    if (resamplingFactor !=1.0){
+        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
+        if (true){
+            for (int t=0;t<imageIDs.size();++t){
+                string targetID=imageIDs[t];
+                (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI );
+            }
+        }
+       
+    }
+    LOG<<"WARNING ! ! EVERY IMAGE IS RESAMPLED TO FIRST ONE or ROI!11"<<endl;
     {
         ifstream ifs(deformationFileList.c_str());
         while (!ifs.eof()){
@@ -213,8 +231,8 @@ int main(int argc, char ** argv){
                     if (!dontCacheDeformations){
                         LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
                         deformationCache[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
-                        errorAccumulators[intermediateID][targetID]=ImageUtils<DeformationFieldType>::createEmpty(deformationCache[intermediateID][targetID]);
-                        errorAccumulators[intermediateID][targetID]->FillBuffer(zeroDisp);
+                        if (resamplingFactor !=1.0)
+                            deformationCache[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[intermediateID][targetID], (ConstImagePointerType)ROI);
 
                         globalWeights[intermediateID][targetID]=1.0;
                     }else{
@@ -246,6 +264,8 @@ int main(int argc, char ** argv){
                     if (!dontCacheDeformations){
                         LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
                         trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
+                        if (resamplingFactor !=1.0)
+                            trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
                         if (outputDir!=""){
                             DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
                             ostringstream trueDefNorm;
@@ -273,39 +293,16 @@ int main(int argc, char ** argv){
     }
     
             
-    ConstImagePointerType origReference=(ConstImagePointerType)ImageUtils<ImageType>::duplicate( (*inputImages)[imageIDs[0]]);
-
-    if (resamplingFactor !=1.0){
-        double resamplingError=0.0;
-        int c=0;
-        for (int t=0;t<imageIDs.size();++t){
-            string targetID=imageIDs[t];
-            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample( (*inputImages)[targetID],1.0/resamplingFactor);
-            for (int s=0;s<imageIDs.size();++s){
-                if (s!=t){
-                    string sourceID=imageIDs[s];
-                    deformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[sourceID][targetID],(ConstImagePointerType) (*inputImages)[targetID]);
-                    if (trueDefListFilename!=""){
-                        trueDeformations[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[sourceID][targetID],(ConstImagePointerType) (*inputImages)[targetID]);
-                        resamplingError+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(deformationCache[sourceID][targetID], trueDeformations[sourceID][targetID]),1);
-
-                    }
-                    ++c;
-                }
-            }
-        }
-        LOG<<VAR(resamplingError/c)<<endl;
-    }
-    ImagePointerType ROI;
-    if (ROIFilename!="") {
-        ROI=ImageUtils<ImageType>::readImage(ROIFilename);
-        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
-    }
+   
+   
     
-    AquircLocalDeformationAndErrorSolver<ImageType> * solver;
+    //AquircLocalDeformationAndErrorSolver<ImageType> * solver;
+    AquircLocalDeformationAndErrorSolverIndependentDimensions<ImageType> * solver;
+
     switch(solverType){
     case LOCALDEFORMATIONANDERROR:
-        solver= new AquircLocalDeformationAndErrorSolver<ImageType>;
+        //solver= new AquircLocalDeformationAndErrorSolver<ImageType>;
+        solver= new AquircLocalDeformationAndErrorSolverIndependentDimensions<ImageType>;
         break;
     }
     
@@ -316,12 +313,17 @@ int main(int argc, char ** argv){
     solver->setWeightWcirc(wwcirc); 
     solver->setWeightSum(wwsum); 
     solver->setLinearInterpol(linear);
+    solver->setSigma(m_sigma);
+
+    solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages);
     for (int h=0;h<maxHops;++h){
-        solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
-        //solver->SetRegularization(lambda);
+        solver->setWeightWcirc(wwcirc*pow(2,h)); 
+        //solver->setWeightWdelta(wwdelta*pow(2,h));
+
         solver->createSystem();
         solver->solve();
         solver->storeResult(outputDir);
+        
         
 #if 0
         map< string, map <string, DeformationFieldPointerType> > * estimatedDeforms=solver->getEstimatedDeformations();
