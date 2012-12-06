@@ -176,7 +176,7 @@ public:
         
             double * init=mxGetPr(mxInit);
 
-            LOG<<"creating"<<endl;
+            LOG<<"creating"<<VAR(d)<<endl;
      
 
 
@@ -197,6 +197,7 @@ public:
                         int intermediate=i;
                         DeformationFieldPointerType d1=(*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
 
+                        //triplet energies
                         for (int t=0;t<m_numImages;++t){
                             if (t!=i && t!=s){
                                 //define a set of 3 images
@@ -463,13 +464,13 @@ public:
             engEvalString(this->m_ep, "ub=[60*ones(size(A,2),1);]");
             engEvalString(this->m_ep,"save('test.mat');" );
 
-            TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub);toc"));
+            TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
             printf("%s", buffer+2);
             engEvalString(this->m_ep, " resnorm");
             printf("%s", buffer+2);
             if ((m_results[d] = engGetVariable(this->m_ep,"x")) == NULL)
                 printf("something went wrong when getting the variable.\n Result is probably wrong. \n");
-            engEvalString(this->m_ep,"clear A b init lb ub ;" );
+            engEvalString(this->m_ep,"clear A b init lb ub x;" );
         }//dimensions
     }
     virtual void solve(){}
@@ -477,8 +478,9 @@ public:
     virtual void storeResult(string directory){
         std::vector<double> result(m_nVars);
         std::vector<double*> rData(D);
-        for (int d= 0; d<D ; ++d)
+        for (int d= 0; d<D ; ++d){
              rData[d]=mxGetPr(this->m_results[d]);
+        }
         double trueResidual=0.0;
         double estimationResidual=0.0;
         double circleResidual=0.0;
@@ -536,6 +538,9 @@ public:
         trueResidual=(trueResidual)/c;
         averageError/=c2;
         LOG<<VAR(averageError)<<" "<<VAR(estimationResidual)<<" "<<VAR(trueResidual)<<" "<<VAR(c)<<endl;
+        for (int d= 0; d<D ; ++d){
+            mxDestroyArray(this->m_results[d]);
+        }
     }
 
     std::vector<double> getResult(){
