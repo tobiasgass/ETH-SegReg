@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
     }
     logSetStage("Init");
 	//define types.
-    typedef unsigned short PixelType;
+    typedef unsigned char PixelType;
 	const   unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -71,8 +71,8 @@ int main(int argc, char ** argv)
     
     //registration unary potential
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationNMI< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;

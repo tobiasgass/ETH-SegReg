@@ -1212,7 +1212,9 @@ namespace itk{
                     sm+=m;
                     count+=1;
 
-                }
+                }else if (this->m_noOutSidePolicy &&( inside && ! inBounds )){
+                    return 1e10;
+                } 
             }
             double NCC=0;
             if (count){
@@ -1236,7 +1238,7 @@ namespace itk{
             
 
             if (this->m_noOutSidePolicy  &&( ! count || count !=insideCount )){
-                return 1000.0;
+                return 1e10;
             }
 
             return result*insideCount/this->nIt.Size();
@@ -1301,13 +1303,16 @@ namespace itk{
                 double m=this->m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
                 insideCount+=inBounds;
                 bool inside=this->m_maskNeighborhoodIterator.GetPixel(i);
+               
                 if (inside && inBounds){
                     double f=this->nIt.GetPixel(i);
                     this->m_scaledTargetImage->TransformIndexToPhysicalPoint(this->nIt.GetIndex(i),neighborPoint);
                     double weight=1.0-(centerPoint-neighborPoint).GetNorm()/maxNorm;
                     sum+=weight*fabs(f-m);
                     count+=weight;
-                }
+                }else if (this->m_noOutSidePolicy &&( inside && ! inBounds )){
+                    return 1e10;
+                } 
             }
             if (count>0){
                 sum/=count;
@@ -1318,9 +1323,7 @@ namespace itk{
                 result=sum;
             }
             result=min(this->m_threshold,result);
-            if (this->m_noOutsidePolicy &&(! count || count !=insideCount )){
-                return 1000.0;
-            } 
+          
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationSAD
@@ -1389,7 +1392,9 @@ namespace itk{
                     double weight=1.0-(centerPoint-neighborPoint).GetNorm()/maxNorm;
                     sum+=weight*fabs(f-m)*fabs(f-m);
                     count+=weight;
-                }
+                }else  if (this->m_noOutSidePolicy &&( inside && ! inBounds )){
+                    return 1e10;
+                } 
             }
             if (count>0){
                 sum/=count;
@@ -1401,7 +1406,7 @@ namespace itk{
             }
             result=min(this->m_threshold,result);
             if (this->m_noOutsidePolicy &&(! count || count !=insideCount )){
-                return 1000.0;
+                return 1e10;
             } 
             return result*insideCount/this->nIt.Size();
         }
