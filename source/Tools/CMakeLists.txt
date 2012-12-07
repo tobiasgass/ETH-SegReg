@@ -30,6 +30,9 @@ TARGET_LINK_LIBRARIES(AddDeformations2D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DefSetMetaParametersByReference2D DefSetMetaParametersByReference2D.cxx )
 TARGET_LINK_LIBRARIES(DefSetMetaParametersByReference2D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(TestDeformationResampling2D TestDeformationResampling2D.cxx )
+TARGET_LINK_LIBRARIES(TestDeformationResampling2D  Utils   ${ITK_LIBRARIES}  )
+
 
 
 #Compare segmentations

@@ -180,7 +180,6 @@ namespace itk {
     void
     FixedPointInverseDeformationFieldImageFilter<TInputImage,TOutputImage>
     ::GenerateInputRequestedRegion(){
-    
     }
 
     //----------------------------------------------------------------------------

@@ -17,6 +17,7 @@
 #include <itkBSplineDeformableTransform.h>
 #include <itkWarpImageFilter.h>
 #include "itkVectorLinearInterpolateImageFunction.h"
+#include <itkVectorNearestNeighborInterpolateImageFunction.h>
 #include <itkVectorResampleImageFilter.h>
 #include "itkResampleImageFilter.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
@@ -219,6 +220,10 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
+    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
+        return bSplineInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
+    }
+
     static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
         LOGV(2)<<"Extrapolating deformation image"<<std::endl;
         LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
@@ -299,12 +304,47 @@ public:
         LOGV(2)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
     }
+
+    static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
+            return linearInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
+    }
     static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
         LOGV(2)<<"Linearly intrapolating deformation image"<<std::endl;
         LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
         typedef typename itk::VectorLinearInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
+        //typedef typename itk::VectorNearestNeighborInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
+        typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
+        typedef typename itk::VectorResampleImageFilter< DeformationFieldType , DeformationFieldType>	LabelResampleFilterType;
+        LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();
+        labelInterpolator->SetInputImage(labelImg);
+        //initialise resampler
+            
+        typename LabelResampleFilterType::Pointer resampler = LabelResampleFilterType::New();
+        //resample deformation field to target image dimension
+        resampler->SetInput( labelImg );
+        resampler->SetInterpolator( labelInterpolator );
+        resampler->SetOutputOrigin(reference->GetOrigin());
+        resampler->SetOutputSpacing ( reference->GetSpacing() );
+        resampler->SetOutputDirection ( reference->GetDirection() );
+        resampler->SetSize ( reference->GetLargestPossibleRegion().GetSize() );
+        resampler->Update();
+        fullDeformationField=resampler->GetOutput();
+
+        LOGV(2)<<"Finshed extrapolation"<<std::endl;
+        return fullDeformationField;
+    }
+
+       static DeformationFieldPointerType nearestNeighborInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
+            return nearestNeighborInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
+    }
+    static DeformationFieldPointerType nearestNeighborInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
+        LOGV(2)<<"NearestNeighborly intrapolating deformation image"<<std::endl;
+        LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        DeformationFieldPointerType fullDeformationField;
+        typedef typename itk::VectorNearestNeighborInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
         //typedef typename itk::VectorNearestNeighborInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
         typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
         typedef typename itk::VectorResampleImageFilter< DeformationFieldType , DeformationFieldType>	LabelResampleFilterType;

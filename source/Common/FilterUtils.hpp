@@ -801,6 +801,58 @@ public:
         return result;
 
     }
+    static inline OutputImagePointer LSSDNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
+        OutputImagePointer i1Cast=cast(i1);
+        OutputImagePointer i2Cast=cast(i2);
+        typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        filter->SetSigma(sigmaWidth);
 
-    
+        OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
+
+        //compute local means by concolving with gaussian
+        filter->SetInput(diff);
+        filter->Update();
+        OutputImagePointer i1Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
+       
+        OutputImagePointer result = ImageUtils<OutputImage>::createEmpty(i1Bar);
+
+        typename ImageUtils<OutputImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(i1Bar,i1Bar->GetLargestPossibleRegion());
+
+        for (resultIt.GoToBegin(), diffIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt, ++diffIt){
+            double d = diffIt.Get();
+            resultIt.Set(max(0.5,exp(-0.5 * d * d / sigmaNorm) ));
+        }
+        
+        
+        return result;
+    }
+ static inline OutputImagePointer LSADNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
+        OutputImagePointer i1Cast=cast(i1);
+        OutputImagePointer i2Cast=cast(i2);
+        typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        filter->SetSigma(sigmaWidth);
+
+        OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
+
+        //compute local means by concolving with gaussian
+        filter->SetInput(diff);
+        filter->Update();
+        OutputImagePointer i1Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
+       
+        OutputImagePointer result = ImageUtils<OutputImage>::createEmpty(i1Bar);
+
+        typename ImageUtils<OutputImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(i1Bar,i1Bar->GetLargestPossibleRegion());
+
+        for (resultIt.GoToBegin(), diffIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt, ++diffIt){
+            double d = diffIt.Get();
+            resultIt.Set(max(0.5,exp(-0.5 * fabs(d)  / sigmaNorm) ));
+        }
+        
+        
+        return result;
+    }
 };

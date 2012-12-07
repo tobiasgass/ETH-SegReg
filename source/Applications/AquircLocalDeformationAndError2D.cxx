@@ -157,7 +157,6 @@ int main(int argc, char ** argv){
     (*as) >> help();
     as->defaultErrorHandling();
        
-
     //late fusion is only well defined for maximal 1 hop.
     //it requires to explicitly compute all n!/(n-nHops) deformation paths to each image and is therefore infeasible for nHops>1
     //also strange to implement
@@ -319,7 +318,7 @@ int main(int argc, char ** argv){
     for (int h=0;h<maxHops;++h){
         solver->setWeightWcirc(wwcirc*pow(2,h)); 
         //solver->setWeightWdelta(wwdelta*pow(2,h));
-
+        //solver->setSigma(m_sigma/pow(2,h)); 
         solver->createSystem();
         solver->solve();
         solver->storeResult(outputDir);

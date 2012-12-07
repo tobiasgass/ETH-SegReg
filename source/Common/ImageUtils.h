@@ -39,7 +39,7 @@ public:
     typedef typename CharImageType::Pointer CharImagePointerType;
     typedef typename itk::Image<unsigned char,ImageType::ImageDimension> UCharImageType;
     typedef typename UCharImageType::Pointer UCharImagePointerType;
-    
+    typedef itk::ImageRegionIterator<ImageType> ImageIteratorType;
 	typedef itk::Image< PixelType , 2 > ImageType2D;
 
 	typedef itk::ImageFileReader< ImageType >  ReaderType;

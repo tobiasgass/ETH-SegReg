@@ -33,7 +33,7 @@ protected:
     int m_numImages;
     map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations, *m_updatedDeformationCache;
     std::vector<string> * m_imageIDList;
-    bool m_additive;
+    bool m_additive, m_updateDeformations;
     RegionType m_regionOfInterest;
     
     map<string,ImagePointerType> * m_imageList;
@@ -82,6 +82,8 @@ public:
         m_haveDeformationEstimate=false;
         m_updatedDeformationCache = new  map< string, map <string, DeformationFieldPointerType> > ; 
         m_results = std::vector<mxArray * >(D);
+        //m_updateDeformations=true;
+        m_updateDeformations=false;
     }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist){
         m_imageList=imagelist;
@@ -155,7 +157,8 @@ public:
         LOG<<"Creating equation system.."<<endl;
         LOG<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
         LOG<<VAR(  m_wWT)<<VAR(        m_wWs)<<" "<<VAR(m_wWcirc)<<" "<<VAR(m_wWdelta)<<" "<<VAR(m_wWd)<<" "<<VAR(m_wSum)<<endl;
-
+        double totalInconsistency = 0.0;
+        int totalCount = 0;
         for (unsigned int d = 0; d< D; ++d){
 
             mxArray *mxX=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
@@ -246,12 +249,19 @@ public:
                                     }else{
                                         inside=getNearestNeighbors(d1,ptIntermediate,ptIntermediateNeighbors);
                                     }
-                                
+
                                     //this can be used to index the circle constraint equation with the true deform if known. cheating!
                                     //or with an estimation from the previous iteration
+                                    //#define CHEATING                          
+#ifdef CHEATING
+                                    if (true  && (*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
+                                        DeformationType trueDef=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]]->GetPixel(targetIndex);
+#else
+                                  
                                     if (true && m_haveDeformationEstimate && (*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
                                         DeformationType trueDef=(*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]]->GetPixel(targetIndex);
-                                        PointType truePtIntermediate=ptTarget + trueDef;
+#endif     
+                                   PointType truePtIntermediate=ptTarget + trueDef;
                                         inside= inside && getLinearNeighbors(d1,truePtIntermediate,ptIntermediateNeighborsCircle);
                                         ++trueIt;
                                     }else{
@@ -266,6 +276,8 @@ public:
                                         DeformationType localDiscrepance=it.Get();
                                 
                                             double disp=localDiscrepance[d];
+                                            totalInconsistency += fabs(disp);
+                                            totalCount++;
                                             LOGV(9)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(target)<<" "<<VAR(roiTargetIndex)<<" "<<VAR(d)<<endl;
                                             LOGV(9)<<VAR(edgeNumError(intermediate,target,roiTargetIndex,d))<<" "<<VAR(edgeNumDeformation(intermediate,target,roiTargetIndex,d))<<endl;
                                             //set w_d ~ 
@@ -339,10 +351,11 @@ public:
                         FloatImageIterator lnccIt;
                         if (m_sigma>0.0){
                             //upsample deformation -.-, and warp source image
-                            DeformationFieldPointerType def = TransfUtils<ImageType>::bSplineInterpolateDeformationField(defSourceInterm,(ConstImagePointerType)(*m_imageList)[sourceID]);
+                            DeformationFieldPointerType def = TransfUtils<ImageType>::bSplineInterpolateDeformationField(defSourceInterm,(ConstImagePointerType)(*m_imageList)[intermediateID]);
                             ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage((ConstImagePointerType)(*m_imageList)[sourceID],def);
                             //compute lncc
-                            lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],10.0);
+                            lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],m_sigma);
+                            //lncc= FilterUtils<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[intermediateID],10,m_sigma);
                             ostringstream oss;
                             oss<<"lncc-"<<sourceID<<"-TO-"<<intermediateID;
                             if (D==2)
@@ -462,7 +475,7 @@ public:
             
             engEvalString(this->m_ep, "lb=[-60*ones(size(A,2),1)];");
             engEvalString(this->m_ep, "ub=[60*ones(size(A,2),1);]");
-            engEvalString(this->m_ep,"save('test.mat');" );
+            LOGI(6,engEvalString(this->m_ep,"save('test.mat');" ));
 
             TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
             printf("%s", buffer+2);
@@ -472,6 +485,9 @@ public:
                 printf("something went wrong when getting the variable.\n Result is probably wrong. \n");
             engEvalString(this->m_ep,"clear A b init lb ub x;" );
         }//dimensions
+
+        double averageInconsistency = totalInconsistency/totalCount;
+        LOG<<VAR(totalInconsistency)<<" "<<VAR(averageInconsistency) << endl;
     }
     virtual void solve(){}
 
@@ -485,6 +501,9 @@ public:
         double estimationResidual=0.0;
         double circleResidual=0.0;
         double averageError=0.0;
+        double averageOldError=0.0;
+        double averageInconsistency = 0.0;
+        int c3 = 0;
         int c=0;
         int c2=0;
         for (int s = 0;s<m_numImages;++s){
@@ -514,10 +533,16 @@ public:
                         ++c;
                     }
                     if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
-                        double newError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
-                        double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
+                        ImagePointerType mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
+                        mask->FillBuffer(1);
+                        mask = TransfUtils<ImageType>::warpImage(mask,estimatedDeform);
+                        double newError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
+                        mask->FillBuffer(1);
+                        mask = TransfUtils<ImageType>::warpImage(mask,(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
+                        double oldError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
                         LOGV(1)<<VAR(oldError)<<" "<<VAR(newError)<<endl;
                         averageError+=newError;
+                        averageOldError+=oldError;
                     }
                     c2++;
                     ostringstream outfile;
@@ -528,19 +553,63 @@ public:
                         outfile2<<directory<<"/estimatedLocalComposedDeformation-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
                         ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),estimatedDeform);
                     }
-                    //(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]= estimatedDeform;
-                    (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]] = estimatedDeform;
-                    m_haveDeformationEstimate = true;
+                    if (m_updateDeformations){
+                        (*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]= estimatedDeform;
+                    }else{
+                        (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]] = estimatedDeform;
+                        m_haveDeformationEstimate = true;
+                    }
+                   
                 }
             }
         }
         estimationResidual=(estimationResidual)/c;
         trueResidual=(trueResidual)/c;
         averageError/=c2;
-        LOG<<VAR(averageError)<<" "<<VAR(estimationResidual)<<" "<<VAR(trueResidual)<<" "<<VAR(c)<<endl;
+        averageOldError/=c2;
+        LOG<<VAR(averageError)<<" "<<VAR(averageOldError)<<" "<<VAR(trueResidual)<<" "<<VAR(c)<<endl;
+
         for (int d= 0; d<D ; ++d){
             mxDestroyArray(this->m_results[d]);
         }
+
+         //compute inconsistency over triplets
+        for (int s = 0;s<m_numImages;++s){
+            for (int t=0;t<m_numImages;++t){
+                DeformationFieldPointerType directDeform;
+                if (m_updateDeformations){
+                    directDeform =(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
+                }else{
+                    directDeform= (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
+                }
+                if (s!=t){
+                    for (int i=0;i<m_numImages;++i){
+                        if (i!=t && i !=s){
+                            DeformationFieldPointerType d0,d1;
+                            if (m_updateDeformations){
+                                d0 =(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
+                                d1 =(*m_deformationCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
+                            }else{
+                                d0 = (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
+                                d1 = (*m_updatedDeformationCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
+                            }
+                            ImagePointerType mask=TransfUtils<ImageType>::createEmptyImage(d0);
+                            mask->FillBuffer(1);
+                            mask = TransfUtils<ImageType>::warpImage(mask,d0);
+                            mask = TransfUtils<ImageType>::warpImage(mask,d1);
+                            
+                            DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(d1,d0);
+                            DeformationFieldPointerType diff  = TransfUtils<ImageType>::subtract(directDeform,indirectDef);
+                            double residual = TransfUtils<ImageType>::computeDeformationNormMask(diff,mask,1.0);
+                            averageInconsistency += residual;
+                            c3++;
+                        }
+                    }
+                }
+            }
+        }
+        LOG<<VAR(averageInconsistency/c3)<<endl;
+        
     }
 
     std::vector<double> getResult(){
