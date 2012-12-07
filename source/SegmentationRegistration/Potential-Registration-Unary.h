@@ -75,6 +75,7 @@ namespace itk{
         SizeType m_scaleITK,m_invertedScaleITK;
         double  m_threshold;
         bool LOGPOTENTIAL;
+        bool m_noOutSidePolicy;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -90,6 +91,7 @@ namespace itk{
             m_scaleITK.Fill(1.0);
             m_threshold=std::numeric_limits<double>::max();
             LOGPOTENTIAL=false;
+            m_noOutSidePolicy = false;
         }
         ~UnaryPotentialRegistrationNCC(){
             //delete nIt;
@@ -99,6 +101,7 @@ namespace itk{
         virtual void setCoarseImage(ImagePointerType img){}
         virtual void setThreshold(double t){m_threshold=t;}
         virtual void setLogPotential(bool b){LOGPOTENTIAL=b;}
+        virtual void setNoOutsidePolicy(bool b){ m_noOutSidePolicy = b;}
         virtual void Init(){
             assert(m_targetImage);
             assert(m_atlasImage);
@@ -1231,6 +1234,11 @@ namespace itk{
             }
             result=min(this->m_threshold,result);
             
+
+            if (this->m_noOutSidePolicy  &&( ! count || count !=insideCount )){
+                return 1000.0;
+            }
+
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationNCC
@@ -1310,7 +1318,9 @@ namespace itk{
                 result=sum;
             }
             result=min(this->m_threshold,result);
-            
+            if (this->m_noOutsidePolicy &&(! count || count !=insideCount )){
+                return 1000.0;
+            } 
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationSAD
@@ -1390,7 +1400,9 @@ namespace itk{
                 result=sum;
             }
             result=min(this->m_threshold,result);
-            
+            if (this->m_noOutsidePolicy &&(! count || count !=insideCount )){
+                return 1000.0;
+            } 
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationSSD

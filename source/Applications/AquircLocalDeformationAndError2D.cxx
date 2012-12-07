@@ -129,7 +129,7 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=10;
     string solverName="localnorm";
-    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100;
+    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0;
     bool linear=false;
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
@@ -145,6 +145,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwd", wwd,"weight for def1 in circle",false);
     (*as) >> parameter ("wwt", wwt,"weight for def1 in circle",false);
     (*as) >> parameter ("wws", wws,"weight for def1 in circle",false);
+    (*as) >> parameter ("wsdelta", wsdelta,"weight for def1 in circle",false);
     (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
@@ -177,7 +178,6 @@ int main(int argc, char ** argv){
     } 
 
    
-
     map<string,ImagePointerType> *inputImages;
     typedef  map<string, ImagePointerType>::iterator ImageListIteratorType;
     std::vector<string> imageIDs;
@@ -269,10 +269,10 @@ int main(int argc, char ** argv){
                             DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
                             ostringstream trueDefNorm;
                             trueDefNorm<<outputDir<<"/trueLocalDeformationNorm-FROM-"<<intermediateID<<"-TO-"<<targetID<<".png";
-                            LOGI(7,ImageUtils<ImageType>::writeImage(trueDefNorm.str().c_str(),FilterUtils<FloatImageType,ImageType>::truncateCast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(TransfUtils<ImageType>::computeLocalDeformationNorm(diff,1.0),50))));
+                            LOGI(8,ImageUtils<ImageType>::writeImage(trueDefNorm.str().c_str(),FilterUtils<FloatImageType,ImageType>::truncateCast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(TransfUtils<ImageType>::computeLocalDeformationNorm(diff,1.0),50))));
                             ostringstream trueDef;
                             trueDef<<outputDir<<"/trueLocalDeformationERROR-FROM-"<<intermediateID<<"-TO-"<<targetID<<".mha";
-                            LOGI(7,ImageUtils<DeformationFieldType>::writeImage(trueDef.str().c_str(),diff));
+                            LOGI(1,ImageUtils<DeformationFieldType>::writeImage(trueDef.str().c_str(),diff));
                         }
                         trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]),1);
                         ++c;
@@ -288,7 +288,7 @@ int main(int argc, char ** argv){
             
         }
         trueErrorNorm=trueErrorNorm/c;
-        LOG<<VAR(trueErrorNorm)<<endl;
+        LOGV(1)<<VAR(trueErrorNorm)<<endl;
     }
     
             
@@ -309,6 +309,7 @@ int main(int argc, char ** argv){
     solver->setWeightWs(wws);
     solver->setWeightWT(wwt);
     solver->setWeightWdelta(wwdelta);
+    solver->setWeightWsDelta(wsdelta);
     solver->setWeightWcirc(wwcirc); 
     solver->setWeightSum(wwsum); 
     solver->setLinearInterpol(linear);

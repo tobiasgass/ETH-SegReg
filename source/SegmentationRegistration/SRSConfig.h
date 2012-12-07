@@ -57,6 +57,7 @@ public:
     double ARSTolerance;
     bool centerImages;
     double toleranceBase;
+    bool penalizeOutside;
 private:
 	argstream * as;
 public:
@@ -113,6 +114,7 @@ public:
         centerImages=false;
         segmentationScalingFactor=1.0;
         toleranceBase=2.0;
+        penalizeOutside=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -221,6 +223,7 @@ public:
         (*as) >> option ("dontNormRegUn", dontNormalizeRegUnaries,"deactivate normalization of registration unary potentials across multiresolution hirarchies");
 		(*as) >> parameter ("su", unarySegmentationWeight,"weight for segmentation unary", false);
         (*as) >> option ("fullRegistrationSmoothing",fullRegPairwise ,"Regularise composed deformation instead of regularizing just the current update. Leads to non-submodular function, and is thus not usable with GC optimization.");
+        (*as) >> option ("penalizeOutside",penalizeOutside ,"Penalize registrations falling outside of moving image.");
 
         
 

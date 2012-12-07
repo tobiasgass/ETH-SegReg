@@ -220,8 +220,11 @@ namespace itk{
             if (regist || coherence){
                 m_unaryRegistrationPot->setThreshold(m_config->thresh_UnaryReg);
                 m_unaryRegistrationPot->setLogPotential(m_config->log_UnaryReg);
+                m_unaryRegistrationPot->setNoOutsidePolicy(m_config->penalizeOutside);
+
                 m_pairwiseRegistrationPot->setThreshold(m_config->thresh_PairwiseReg);
                 m_pairwiseRegistrationPot->setFullRegularization(m_config->fullRegPairwise);
+
                 
             }
             if (segment){
