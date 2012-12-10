@@ -131,6 +131,7 @@ int main(int argc, char ** argv){
     string solverName="localnorm";
     double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0;
     bool linear=false;
+    double shearing = 1.0;
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -150,6 +151,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
+    (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
 
     (*as) >> option ("linear", linear," use linear interpolation (instead of NN) when building equations for circles.");
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
@@ -316,7 +318,7 @@ int main(int argc, char ** argv){
     solver->setLinearInterpol(linear);
     solver->setSigma(m_sigma);
     solver->setLocalWeightExp(m_exponent);
-
+    solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages);
     for (int h=0;h<maxHops;++h){
         solver->setWeightWcirc(wwcirc*pow(2,h)); 

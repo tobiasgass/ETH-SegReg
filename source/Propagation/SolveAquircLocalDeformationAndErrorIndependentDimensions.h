@@ -71,6 +71,7 @@ private:
 
     double m_exponent;
     
+    double m_shearingReduction;
     bool m_linearInterpol;
     bool m_haveDeformationEstimate;
 
@@ -91,6 +92,7 @@ public:
         //m_updateDeformations=true;
         m_updateDeformations=false;
         m_exponent=1.0;
+        m_shearingReduction = 1.0;
     }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist){
         m_imageList=imagelist;
@@ -162,7 +164,7 @@ public:
     void setLinearInterpol(bool i){m_linearInterpol=i;}
     void setSigma(double s){m_sigma=s;}
     void setLocalWeightExp(double e){ m_exponent=e;}
-
+    void setShearingReduction(double r){m_shearingReduction = r;}
     virtual void createSystem(){
 
         LOG<<"Creating equation system.."<<endl;
@@ -435,18 +437,23 @@ public:
                                         off2=off;
                                         off[n]=1;
                                         off2[n]=-1;
+                                        double smoothenessWeight =this->m_wWs;
+                                        if (n!=d){
+                                            //smoothenss for shearing is different
+                                            smoothenessWeight*=m_shearingReduction;
+                                        }
                                         IndexType neighborIndexRight=idx+off;
                                         IndexType neighborIndexLeft=idx+off2;
                                         if (defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
                                             x[c]=eq;
                                             y[c]=edgeNumDeformation(source,intermediate,idx,d);
-                                            v[c++]=-2*this->m_wWs;
+                                            v[c++]=-2*smoothenessWeight;
                                             x[c]=eq;
                                             y[c]=edgeNumDeformation(source,intermediate,neighborIndexRight,d);
-                                            v[c++]=this->m_wWs;
+                                            v[c++]=smoothenessWeight;
                                             x[c]=eq;
                                             y[c]=edgeNumDeformation(source,intermediate,neighborIndexLeft,d);
-                                            v[c++]=this->m_wWs;
+                                            v[c++]=smoothenessWeight;
                                             b[eq-1]=0.0;
                                             ++eq;
                                         }
