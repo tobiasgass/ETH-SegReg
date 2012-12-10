@@ -362,7 +362,12 @@ public:
         return filter->GetOutput();
     }
 
-
+    static OutputImagePointer cast(ConstInputImagePointer image) {
+        CastFilterPointer castFilter = CastImageFilterType::New();
+        castFilter->SetInput(image);
+        castFilter->Update();
+        return castFilter->GetOutput();
+    }
 
     // cast the image to the output type
     static OutputImagePointer cast(InputImagePointer image) {
@@ -716,73 +721,80 @@ public:
     }
 
      //hellishly inefficient but "clean" implementation of local normalized cross correlation
-    static inline OutputImagePointer LNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0){
+    static inline OutputImagePointer LNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0){
+        return LNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp);
+    }
+    static inline OutputImagePointer LNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
-        typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        //typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
         typename FilterType::Pointer filter=FilterType::New();
-        filter->SetSigma(sigma);
+        //filter->SetSigma(sigma);
+        filter->SetVariance(sigma*sigma);
+        //        filter->SetMaximumKernelWidth(sigma);
+
 
         //compute local means by concolving with gaussian
         filter->SetInput(i1Cast);
         filter->Update();
         OutputImagePointer i1Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
-        //ImageUtils<OutputImage>::writeImage("i1Bar.mhd",i1Bar);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i1Bar.mhd",i1Bar));
         filter->SetInput(i2Cast);
         filter->Update();
         OutputImagePointer i2Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput());  
         FilterUtils<OutputImage,OutputImage>::lowerThresholding(i2Bar,std::numeric_limits<InputImagePixelType>::min());
-        //ImageUtils<OutputImage>::writeImage("i2Bar.mhd",i2Bar);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i2Bar.mhd",i2Bar));
         //HACK!
         //compute squares of original images
         OutputImagePointer i1Square=ImageUtils<OutputImage>::multiplyImageOutOfPlace(i1Cast,i1Cast);
         OutputImagePointer i2Square=ImageUtils<OutputImage>::multiplyImageOutOfPlace(i2Cast,i2Cast);
-        //ImageUtils<OutputImage>::writeImage("i2Square.mhd",i2Square);
-        //ImageUtils<OutputImage>::writeImage("i1Square.mhd",i1Square);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i2Square.mhd",i2Square));
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i1Square.mhd",i1Square));
 
         //compute local means of squared images by convolving with gaussian kernel
         filter->SetInput(i1Square);
         filter->Update();
         OutputImagePointer i1SquareBar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
-        //ImageUtils<OutputImage>::writeImage("i1SquareBar.mhd",i1SquareBar);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i1SquareBar.mhd",i1SquareBar));
         filter->SetInput(i2Square);
         filter->Update();
         OutputImagePointer i2SquareBar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
         FilterUtils<OutputImage,OutputImage>::lowerThresholding(i2SquareBar,0);
-        //ImageUtils<OutputImage>::writeImage("i2SquareBar.mhd",i2SquareBar);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i2SquareBar.mhd",i2SquareBar));
 
         //compute squares of local means
         OutputImagePointer i1BarSquare=ImageUtils<OutputImage>::localSquare(i1Bar);
-        //ImageUtils<OutputImage>::writeImage("i1BarSquare.mhd",i1BarSquare);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i1BarSquare.mhd",i1BarSquare));
         OutputImagePointer i2BarSquare=ImageUtils<OutputImage>::multiplyImageOutOfPlace(i2Bar,i2Bar);
-        //ImageUtils<OutputImage>::writeImage("i2BarSquare.mhd",i2BarSquare);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i2BarSquare.mhd",i2BarSquare));
 
         //multiply i1 and i2 locally
         OutputImagePointer i1i2=ImageUtils<OutputImage>::multiplyImageOutOfPlace(i1Cast,i2Cast);
-        //ImageUtils<OutputImage>::writeImage("i1i2.mhd",i1i2);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i1i2.mhd",i1i2));
         //compute local means by convolving...
         filter->SetInput(i1i2);
         filter->Update();
         OutputImagePointer i1Timesi2Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
-        //ImageUtils<OutputImage>::writeImage("i1Timesi2Bar.mhd",i1Timesi2Bar);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i1Timesi2Bar.mhd",i1Timesi2Bar));
 
         //multiply local means
         OutputImagePointer i1BarTimesi2Bar=ImageUtils<OutputImage>::multiplyImageOutOfPlace(i1Bar,i2Bar);
-        //ImageUtils<OutputImage>::writeImage("i1BarTimesi2Bar.mhd",i1BarTimesi2Bar);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("i1BarTimesi2Bar.mhd",i1BarTimesi2Bar));
 
 
         
         OutputImagePointer numerator=FilterUtils<OutputImage>::substract(i1Timesi2Bar,i1BarTimesi2Bar);
-        //ImageUtils<OutputImage>::writeImage("numerator.mhd",numerator);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("numerator.mhd",numerator));
 
         OutputImagePointer varianceI1=FilterUtils<OutputImage>::substract(i1SquareBar,i1BarSquare); 
         FilterUtils<OutputImage,OutputImage>::lowerThresholding(varianceI1,std::numeric_limits<OutputImagePixelType>::epsilon());
-        //ImageUtils<OutputImage>::writeImage("varianceI1.mhd",varianceI1);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("varianceI1.mhd",varianceI1));
        
         OutputImagePointer varianceI2=FilterUtils<OutputImage>::substract(i2SquareBar,i2BarSquare);
         FilterUtils<OutputImage,OutputImage>::lowerThresholding(varianceI2,std::numeric_limits<OutputImagePixelType>::epsilon());
 
-        //ImageUtils<OutputImage>::writeImage("varianceI2.mhd",varianceI2);
+        LOGI(6,ImageUtils<OutputImage>::writeImage("varianceI2.mhd",varianceI2));
         
         ImageUtils<OutputImage>::sqrtImage(varianceI1);
         ImageUtils<OutputImage>::sqrtImage(varianceI2);
@@ -792,16 +804,92 @@ public:
         OutputImagePointer result=ImageUtils<OutputImage>::divideImageOutOfPlace(numerator,denominator);
         //convert to weights
         
-        ImageUtils<OutputImage>::add(result,1.0);
-        ImageUtils<OutputImage>::multiplyImage(result,0.5);
-        FilterUtils<OutputImage,OutputImage>::thresholding(result,std::numeric_limits<OutputImagePixelType>::epsilon(),1.0);
+        itk::ImageRegionIterator<OutputImage> it(result,result->GetLargestPossibleRegion());
+        it.GoToBegin();
+        for (;!it.IsAtEnd();++it){
+            OutputImagePixelType r = it.Get();
+            if (r< -(OutputImagePixelType)1.0 ){
+                r = 0;
+            }else if ( r > (OutputImagePixelType)1.0){
+                r = 0;
+            }
+            r = pow((r+1.0)/2,exp);
+            
+            r = max(r,std::numeric_limits<OutputImagePixelType>::epsilon());
+            it.Set(r);
+            
+        }
+        // LOGI(6,ImageUtils<OutputImage>::add(result,1.0));
+        //        ImageUtils<OutputImage>::multiplyImage(result,0.5);
+        //        FilterUtils<OutputImage,OutputImage>::thresholding(result,std::numeric_limits<OutputImagePixelType>::epsilon(),1.0);
 
         LOGI(10,ImageUtils<OutputImage>::writeImage("result.mhd",result));
 
         return result;
 
     }
+   
     static inline OutputImagePointer LSSDNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
+        OutputImagePointer i1Cast=cast(i1);
+        OutputImagePointer i2Cast=cast(i2);
+        typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        filter->SetVariance(sigmaWidth*sigmaWidth);
+
+        OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
+        OutputImagePointer diffSquare = ImageUtils<OutputImage>::localSquare(diff);
+
+        //compute local means by concolving with gaussian
+        filter->SetInput(diffSquare);
+        filter->Update();
+        OutputImagePointer i1Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
+       
+        OutputImagePointer result = ImageUtils<OutputImage>::createEmpty(i1Bar);
+
+        typename ImageUtils<OutputImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(i1Bar,i1Bar->GetLargestPossibleRegion());
+
+        for (resultIt.GoToBegin(), diffIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt, ++diffIt){
+            double d = diffIt.Get();
+            if (d<0.0){
+                LOG<<VAR(d)<<endl;
+            }
+            resultIt.Set(max(0.001,exp( - 0.5 *  d / sigmaNorm) ));
+        }
+        
+        
+        return result;
+    }
+
+    static inline OutputImagePointer LSSD(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0){
+        return LSSD( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigmaWidth);
+    }
+    static inline OutputImagePointer LSSD(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0){
+        OutputImagePointer i1Cast=cast(i1);
+        OutputImagePointer i2Cast=cast(i2);
+        typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        filter->SetSigma(sigmaWidth);
+
+        OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
+        OutputImagePointer diffSquare = ImageUtils<OutputImage>::localSquare(diff);
+
+        //compute local means by concolving with gaussian
+        filter->SetInput(diff);
+        filter->Update();
+        OutputImagePointer i1Bar=(filter->GetOutput()); 
+
+        
+        
+        LOG<<"NYI"<<endl;
+        exit(0);
+        return i1Bar;
+    }
+
+    static inline OutputImagePointer LSAD(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0){
+        return LSAD( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigmaWidth);
+    }
+    static inline OutputImagePointer LSAD(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0){
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
@@ -822,7 +910,7 @@ public:
 
         for (resultIt.GoToBegin(), diffIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt, ++diffIt){
             double d = diffIt.Get();
-            resultIt.Set(max(0.5,exp(-0.5 * d * d / sigmaNorm) ));
+            resultIt.Set(fabs(d));
         }
         
         

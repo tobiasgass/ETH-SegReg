@@ -68,6 +68,8 @@ private:
     double m_wSum;
 
     double m_sigma;
+
+    double m_exponent;
     
     bool m_linearInterpol;
     bool m_haveDeformationEstimate;
@@ -88,6 +90,7 @@ public:
         m_results = std::vector<mxArray * >(D);
         //m_updateDeformations=true;
         m_updateDeformations=false;
+        m_exponent=1.0;
     }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist){
         m_imageList=imagelist;
@@ -158,6 +161,7 @@ public:
     void setWeightSum(double w){m_wSum=w;}
     void setLinearInterpol(bool i){m_linearInterpol=i;}
     void setSigma(double s){m_sigma=s;}
+    void setLocalWeightExp(double e){ m_exponent=e;}
 
     virtual void createSystem(){
 
@@ -361,8 +365,8 @@ public:
                                 DeformationFieldPointerType def = TransfUtils<ImageType>::bSplineInterpolateDeformationField(defSourceInterm,(ConstImagePointerType)(*m_imageList)[intermediateID]);
                                 ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage((ConstImagePointerType)(*m_imageList)[sourceID],def);
                                 //compute lncc
-                                lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],m_sigma);
-                                //lncc= FilterUtils<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[intermediateID],10,m_sigma);
+                                lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],m_sigma,m_exponent);
+                                //lncc= FilterUtils<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[intermediateID],m_sigma,m_exponent);
                                 ostringstream oss;
                                 oss<<"lncc-"<<sourceID<<"-TO-"<<intermediateID;
                                 if (D==2)
@@ -385,7 +389,6 @@ public:
                                     weight = lnccIt.Get();
                                     LOGV(6)<<VAR(weight)<<endl;
                                     ++lnccIt;
-                                    //weight*=weight;
                                 }
                         
                           

@@ -129,7 +129,7 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=10;
     string solverName="localnorm";
-    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0;
+    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0;
     bool linear=false;
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
@@ -149,6 +149,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
+    (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
 
     (*as) >> option ("linear", linear," use linear interpolation (instead of NN) when building equations for circles.");
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
@@ -314,6 +315,7 @@ int main(int argc, char ** argv){
     solver->setWeightSum(wwsum); 
     solver->setLinearInterpol(linear);
     solver->setSigma(m_sigma);
+    solver->setLocalWeightExp(m_exponent);
 
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages);
     for (int h=0;h<maxHops;++h){
