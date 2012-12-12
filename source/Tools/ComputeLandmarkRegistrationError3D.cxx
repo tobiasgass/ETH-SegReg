@@ -57,7 +57,6 @@ int main(int argc, char ** argv)
 
     PointType p;
     p.Fill(0.0);
-    deformation->SetOrigin(0.0);
     DirectionType refDir=referenceImage->GetDirection();
 
     //ImagePointerType targetLandmarkImage=ImageUtils<ImageType>::createEmpty(referenceImage);
@@ -72,7 +71,7 @@ int main(int argc, char ** argv)
             ifs>>point[d];
             point[d]=point[d]*refDir[d][d];
         }
-        LOG<<point<<endl;
+        //LOG<<point<<endl;
         landmarksReference.push_back(point);
        
     } 
@@ -88,8 +87,8 @@ int main(int argc, char ** argv)
         }        
         IndexType indexTarget,indexReference;
         deformation->TransformPhysicalPointToIndex(pointTarget,indexTarget);
-        LOG<<VAR(deformation->GetOrigin())<<endl;
-        LOG<<VAR(pointTarget)<<" "<<VAR(indexTarget)<<endl;
+        //LOG<<VAR(deformation->GetOrigin())<<endl;
+        //LOG<<VAR(pointTarget)<<" "<<VAR(indexTarget)<<endl;
         PointType deformedReferencePoint;
         referenceImage->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
         
@@ -97,20 +96,21 @@ int main(int argc, char ** argv)
         //deformedReferencePoint= pointTarget+deformation->GetPixel(indexTarget);
         CIndexType cindex;
         deformation->TransformPhysicalPointToContinuousIndex(pointTarget,cindex);
-        LOG<<VAR(landmarksReference[i])<<" "<<VAR(indexReference)<<" "<<VAR(cindex)<<endl;
+        //LOG<<VAR(landmarksReference[i])<<" "<<VAR(indexReference)<<" "<<VAR(cindex)<<endl;
 
         deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
 
-        LOG<< VAR(pointTarget) << endl;
+        //LOG<< VAR(pointTarget) << endl;
         double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
         for (int d=0;d<D;++d){
             deformedReferencePoint[d]=deformedReferencePoint[d]*targetDir[d][d];
         }    
-        LOG<< VAR(deformedReferencePoint) << endl;
+        //LOG<< VAR(deformedReferencePoint) << endl;
 
-        std::cout<<"pt"<<i<<": "<<(localSquaredError)<<endl;;
+        std::cout<<"pt"<<i<<": "<<(localSquaredError)<<" ";
         sumSquareError+=localSquaredError;
     }
+    
     std::cout<<std::endl<<"totalAverage: "<<(sumSquareError)/(i)<<std::endl;
    
     if (argc>6){
