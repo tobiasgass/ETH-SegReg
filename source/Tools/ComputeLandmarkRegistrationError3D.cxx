@@ -18,7 +18,6 @@ using namespace itk;
 
 int main(int argc, char ** argv)
 {
-    LOG<<CLOCKS_PER_SEC<<endl;
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     typedef unsigned short PixelType;
@@ -36,17 +35,26 @@ int main(int argc, char ** argv)
     typedef ImageType::IndexType IndexType;
     argstream * as=new argstream(argc,argv);
     string refLandmarks,targetLandmarks,target="",def,output;
-    bool NN=false;
+    bool linear=false;
+
     (*as) >> parameter ("refLandmarks", refLandmarks, " filename...", true);
     (*as) >> parameter ("targetLandmarks", targetLandmarks, " filename...", true);
     (*as) >> parameter ("def", def, " filename of deformation", true);
     (*as) >> parameter ("target", target, " filename of target image", true);
+    (*as) >> option ("linear", linear, " use linear upsampling of deformation");
+
     (*as) >> help();
     as->defaultErrorHandling();
     
     LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
     ImageConstPointerType referenceImage =(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
-    deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,referenceImage);
+    if (linear){
+        deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,referenceImage);
+    }else{
+        deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,referenceImage);
+    }
+
+
 
     DirectionType targetDir=deformation->GetDirection();
     typedef itk::VectorLinearInterpolateImageFunction<LabelImageType> DefInterpolatorType;
@@ -75,10 +83,11 @@ int main(int argc, char ** argv)
         landmarksReference.push_back(point);
        
     } 
-    std::cout<<"read "<<landmarksReference.size()<<" landmarks"<<std::endl;
+    //std::cout<<"read "<<landmarksReference.size()<<" landmarks"<<std::endl;
     double sumSquareError=0.0;
     ifstream ifs2(targetLandmarks.c_str());
     i=0;
+    int count = 0;
     for (;i<landmarksReference.size()-1;++i){
         PointType pointTarget;
         for (int d=0;d<D;++d){
@@ -97,21 +106,23 @@ int main(int argc, char ** argv)
         CIndexType cindex;
         deformation->TransformPhysicalPointToContinuousIndex(pointTarget,cindex);
         //LOG<<VAR(landmarksReference[i])<<" "<<VAR(indexReference)<<" "<<VAR(cindex)<<endl;
+        if (deformation->GetLargestPossibleRegion().IsInside(cindex)){
+            deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
 
-        deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
+            //LOG<< VAR(pointTarget) << endl;
+            double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
+            for (int d=0;d<D;++d){
+                deformedReferencePoint[d]=deformedReferencePoint[d]*targetDir[d][d];
+            }    
+            //LOG<< VAR(deformedReferencePoint) << endl;
 
-        //LOG<< VAR(pointTarget) << endl;
-        double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
-        for (int d=0;d<D;++d){
-            deformedReferencePoint[d]=deformedReferencePoint[d]*targetDir[d][d];
-        }    
-        //LOG<< VAR(deformedReferencePoint) << endl;
-
-        std::cout<<"pt"<<i<<": "<<(localSquaredError)<<" ";
-        sumSquareError+=localSquaredError;
+            std::cout<<"pt"<<i<<": "<<(localSquaredError)<<" ";
+            sumSquareError+=localSquaredError;
+            ++count;
+        }
     }
     
-    std::cout<<std::endl<<"totalAverage: "<<(sumSquareError)/(i)<<std::endl;
+    std::cout<<" "<<"totalAverage: "<<(sumSquareError)/(count)<<std::endl;
    
     if (argc>6){
         // ImageUtils<ImageType>::writeImage(argv[5],  (ImageConstPointerType) deformedReferenceLandmarkImage );

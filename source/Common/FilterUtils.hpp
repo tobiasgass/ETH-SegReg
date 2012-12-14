@@ -79,7 +79,7 @@ class FilterUtils {
     //    typedef itk::ConnectedComponentImageFilter<InputImage,OutputImage>  ConnectedComponentImageFilterType;
     typedef itk::RelabelComponentImageFilter<InputImage,OutputImage>  RelabelComponentImageFilterType;
     typedef itk::ShiftScaleImageFilter<InputImage,OutputImage>  ShiftScaleImageFilterType;
-    //    typedef itk::DiscreteGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+    //typedef itk::DiscreteGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
     typedef itk::SmoothingRecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
     typedef itk::FastMarchingImageFilter<OutputImage>  FastMarchingImageFilterType;
     //REMI:typedef itk::PasteImageFilter<InputImage,OutputImage>  PasteImageFilterType;
@@ -337,6 +337,7 @@ public:
 
         filter->SetInput(image);
         filter->SetSigma(variance);
+        //filter->SetVariance(variance);
         filter->Update();
 
         return filter->GetOutput();
@@ -878,11 +879,8 @@ public:
         filter->SetInput(diff);
         filter->Update();
         OutputImagePointer i1Bar=(filter->GetOutput()); 
-
         
         
-        LOG<<"NYI"<<endl;
-        exit(0);
         return i1Bar;
     }
 

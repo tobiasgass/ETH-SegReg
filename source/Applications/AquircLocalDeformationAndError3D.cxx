@@ -131,6 +131,9 @@ int main(int argc, char ** argv){
     string solverName="localnorm";
     double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0;
     bool linear=false;
+    double shearing = 1.0;
+    double m_sigmaD = 0.0;
+    double circWeightScaling = 1.0;
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -150,7 +153,9 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
-
+    (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
+    (*as) >> parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
+    (*as) >> parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
     (*as) >> option ("linear", linear," use linear interpolation (instead of NN) when building equations for circles.");
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -205,16 +210,16 @@ int main(int argc, char ** argv){
     }else{
         ROI=origReference;
     }
-    if (resamplingFactor !=1.0){
-        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
-        if (true){
-            for (int t=0;t<imageIDs.size();++t){
-                string targetID=imageIDs[t];
-                (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI );
-            }
+    ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
+    if (true){
+        for (int t=0;t<imageIDs.size();++t){
+            string targetID=imageIDs[t];
+            //(*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI );
+            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((*inputImages)[targetID],2*resamplingFactor),ROI );
         }
-       
     }
+    
+    
     LOG<<"WARNING ! ! EVERY IMAGE IS RESAMPLED TO FIRST ONE or ROI!11"<<endl;
     {
         ifstream ifs(deformationFileList.c_str());
@@ -231,9 +236,9 @@ int main(int argc, char ** argv){
                     if (!dontCacheDeformations){
                         LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
                         deformationCache[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
-                        if (resamplingFactor !=1.0)
-                            deformationCache[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[intermediateID][targetID], (ConstImagePointerType)ROI);
-
+                        //deformationCache[intermediateID][targetID]=TransfUtils<ImageType>::gaussian(deformationCache[intermediateID][targetID],resamplingFactor);
+                        deformationCache[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[intermediateID][targetID], (ConstImagePointerType)ROI);
+                        LOGV(6)<<VAR(deformationCache[intermediateID][targetID]->GetLargestPossibleRegion())<<endl;
                         globalWeights[intermediateID][targetID]=1.0;
                     }else{
                         LOGV(3)<<"Reading filename "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
@@ -264,8 +269,7 @@ int main(int argc, char ** argv){
                     if (!dontCacheDeformations){
                         LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
                         trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
-                        if (resamplingFactor !=1.0)
-                            trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
+                        trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
                         if (outputDir!=""){
                             DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
                             ostringstream trueDefNorm;
@@ -315,11 +319,12 @@ int main(int argc, char ** argv){
     solver->setWeightSum(wwsum); 
     solver->setLinearInterpol(linear);
     solver->setSigma(m_sigma);
+    solver->setSigmaD(m_sigmaD);
     solver->setLocalWeightExp(m_exponent);
-
+    solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages);
     for (int h=0;h<maxHops;++h){
-        solver->setWeightWcirc(wwcirc*pow(2,h)); 
+        solver->setWeightWcirc(wwcirc*pow(circWeightScaling,h)); 
         //solver->setWeightWdelta(wwdelta*pow(2,h));
         //solver->setSigma(m_sigma/pow(2,h)); 
         solver->createSystem();

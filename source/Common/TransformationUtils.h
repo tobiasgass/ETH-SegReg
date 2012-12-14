@@ -27,7 +27,8 @@
 #include <itkAddImageFilter.h>
 #include <itkSubtractImageFilter.h>
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
-
+#include "itkDiscreteGaussianImageFilter.h"
+#include "itkSmoothingRecursiveGaussianImageFilter.h"
 using namespace std;
 
 template<class ImageType, class CDisplacementPrecision=float>
@@ -68,6 +69,11 @@ public:
     typedef itk::SubtractImageFilter<DeformationFieldType,DeformationFieldType,
                                      DeformationFieldType>                           SubtracterType;
     typedef typename SubtracterType::Pointer                  SubtracterPointer;
+
+    typedef itk::DiscreteGaussianImageFilter<DeformationFieldType,DeformationFieldType>  DiscreteGaussianImageFilterType;
+    //typedef itk::SmoothingRecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+    typedef typename DiscreteGaussianImageFilterType::Pointer DiscreteGaussianImageFilterPointer;
+
 public:
     static  DisplacementType zeroDisp(){
         DisplacementType d;
@@ -1011,4 +1017,21 @@ public:
         return inverter->GetOutput();
         
     }
+
+    static DeformationFieldPointerType gaussian(
+                                       DeformationFieldPointerType image, float variance
+                                       ) {
+
+        DiscreteGaussianImageFilterPointer filter =
+            DiscreteGaussianImageFilterType::New();
+
+        filter->SetInput(image);
+        //filter->SetSigma(variance);
+        filter->SetVariance(variance*variance);
+        filter->Update();
+
+        return filter->GetOutput();
+    }
+
+    
 };
