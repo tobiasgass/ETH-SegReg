@@ -46,6 +46,7 @@
 #include "Log.h"
 #include "itkStatisticsImageFilter.h"
 #include "itkRescaleIntensityImageFilter.h"
+#include "itkNeighborhoodIterator.h"
 
 using namespace std;
 
@@ -63,7 +64,7 @@ class FilterUtils {
     typedef typename OutputImage::IndexType OutputImageIndex;
     typedef typename OutputImage::RegionType OutputImageRegion;
     typedef typename OutputImage::PixelType OutputImagePixelType;
-
+    typedef typename OutputImage::PointType OutputImagePointType;
 
     typedef itk::FlatStructuringElement< InputImage::ImageDimension > StructuringElementType;
     typedef typename StructuringElementType::RadiusType StructuringElementTypeRadius;
@@ -131,6 +132,40 @@ public:
 	};
     //#define  ISOTROPIC_RESAMPLING
     //resample with an uniform scaling factor
+
+     static OutputImagePointer minimumResample( InputImagePointer input, InputImagePointer reference, double radius =-1.0) {
+         OutputImagePointer result = createEmpty(reference);
+         itk::ImageRegionIteratorWithIndex<OutputImage>  resultIt(result,result->GetLargestPossibleRegion());
+         typedef typename itk::NeighborhoodIterator<InputImage> ImageNeighborhoodIteratorType;
+         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+         RadiusType r;
+         if (radius>0.0)
+             r.Fill(radius);
+         else{
+             //nyi
+             r.Fill(8);
+         }
+         ImageNeighborhoodIteratorType inputIt(r,input,input->GetLargestPossibleRegion());
+         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++resultIt){
+             InputImageIndex idx=resultIt.GetIndex();
+             OutputImagePointType pt;
+             result->TransformIndexToPhysicalPoint(idx,pt);
+             input->TransformPhysicalPointToIndex(pt,idx);
+             inputIt.SetLocation(idx);
+             double minVal=std::numeric_limits<OutputImagePixelType>::max();
+             for (int i=0;i<inputIt.Size();++i){
+                 bool inside;
+                 double value=inputIt.GetPixel(i,inside);
+                 if (inside && value<minVal)
+                     minVal=value;
+
+             }
+             resultIt.Set(minVal);
+         }
+         return result;
+    }
+
+
 #ifdef ISOTROPIC_RESAMPLING
   
     static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool nnResample=false) {
@@ -590,7 +625,6 @@ public:
                                       InputImagePointer labelImage, unsigned radius,
                                       InputImagePixelType valueToErode = 1
                                       ) {
-
         StructuringElementTypeRadius rad; rad.Fill(radius);
         StructuringElementType K = StructuringElementType::Ball( rad );
 
@@ -600,8 +634,8 @@ public:
 
         erosionFilter->SetInput( labelImage );
         erosionFilter->Update();
-
         return erosionFilter->GetOutput();
+
     }
 
 

@@ -206,7 +206,7 @@ public:
             //attention matlab index convention?!?
             long int eq = 1;
             long int c=0;
-
+            double maxAbsDisplacement=0.0;
        
 
             for (int s = 0;s<m_numImages;++s){                            
@@ -335,7 +335,7 @@ public:
                                             }else if(false &&  m_sigmaD){
                                                 //val *= 1.0/( fabs(disp)/sigmaD+1);
                                                 val *= 1.0/( fabs(disp)+m_sigmaD);
-                                            }else if (true && m_sigmaD>0.){
+                                            }else if (false && m_sigmaD>0.){
                                                 val*=exp(-localDiscrepance.GetNorm()/m_sigmaD);
                                                 //val*=1.0/(localDiscrepance.GetNorm()+m_sigmaD);
                                             }
@@ -405,9 +405,18 @@ public:
                                 oss<<".nii";
                             LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
                             //resample lncc result
-                            lncc = FilterUtils<FloatImageType>::gaussian(lncc,1.0*lncc->GetLargestPossibleRegion().GetSize()[0]/this->m_ROI->GetLargestPossibleRegion().GetSize()[0]);
-                            lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI));
-                            oss<<"-resampled.nii";
+                            if (1){
+                                lncc = FilterUtils<FloatImageType>::gaussian(lncc,m_sigmaD);
+                                lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI));
+                            }else{
+                                lncc = FilterUtils<FloatImageType>::minimumResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI), m_sigmaD);
+                            }
+                            oss<<"-resampled";
+                            if (D==2){
+                                oss<<".png";
+                            }else
+                                oss<<".nii";
+
                             LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
 
                             lnccIt=FloatImageIterator(lncc,lncc->GetLargestPossibleRegion());
@@ -425,7 +434,9 @@ public:
 
                         for (;!it.IsAtEnd();++it){
                             DeformationType localDef=it.Get();
-
+                            if (abs(localDef[d])>maxAbsDisplacement){
+                                maxAbsDisplacement=abs(localDef[d]);
+                            }
                             IndexType idx=it.GetIndex();
                             LOGV(8)<<VAR(eq)<<" "<<VAR(localDef)<<endl;
                         
@@ -445,7 +456,7 @@ public:
                                 
                             //weight based on previous estimate
                             double weight2=1.0;
-                            if (m_haveDeformationEstimate && m_sigmaD>0.0){
+                            if (false && m_haveDeformationEstimate && m_sigmaD>0.0){
                                 weight2 = exp ( - (localDef-previousIt.Get()).GetSquaredNorm() / m_sigmaD );
                                 ++previousIt;
                             }
@@ -570,9 +581,14 @@ public:
             mxDestroyArray(mxInit);
             this->haveInit=true;
             LOG<<"Solving "<<VAR(d)<<endl;
-            
-            engEvalString(this->m_ep, "lb=[-200*ones(size(A,2),1)];");
-            engEvalString(this->m_ep, "ub=[200*ones(size(A,2),1);]");
+            // mxArray *mxMax=mxCreateDoubleMatrix(1,1,mxREAL);
+            // double * mmax=( double *)mxGetData(mxMax);
+            // mmax[0]=2.0*maxAbsDisplacement;
+            // LOGV(1)<<VAR(maxAbsDisplacement)<<endl;
+            // engPutVariable(this->m_ep,"maxAbsDisplacement",mxMax);
+            // mxDestroyArray(mxMax);
+            engEvalString(this->m_ep, "lb=[-1000.0*ones(size(A,2),1)];");
+            engEvalString(this->m_ep, "ub=[1000.0*ones(size(A,2),1);]");
             LOGI(6,engEvalString(this->m_ep,"save('test.mat');" ));
 
             TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
