@@ -34,11 +34,13 @@ int main(int argc, char ** argv)
     argstream * as=new argstream(argc,argv);
     string moving,target="",def,output;
     bool NN=false;
+    bool linear = false;
     (*as) >> parameter ("moving", moving, " filename of moving image", true);
     (*as) >> parameter ("target", target, " filename of target image", false);
     (*as) >> parameter ("def", def, " filename of deformation", true);
     (*as) >> parameter ("out", output, " output filename", true);
-    (*as) >> option ("NN", NN," use NN interpolation");
+    (*as) >> option ("NN", NN," use NN interpolation of image");
+    (*as) >> option ("linear", linear," use linear interpolation of deformation field");
     (*as) >> help();
     as->defaultErrorHandling();
     ImagePointerType image = ImageUtils<ImageType>::readImage(moving);
@@ -46,7 +48,11 @@ int main(int argc, char ** argv)
 
     if (target != ""){
         ImageConstPointerType ref =(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
-        deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,ref);
+        if (linear){
+            deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,ref);
+        }else{
+            deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,ref);
+        }
     }
   
 

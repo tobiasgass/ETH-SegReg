@@ -229,7 +229,10 @@ public:
     static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
         return bSplineInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
     }
-
+    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, DeformationFieldPointerType reference){ 
+        ImagePointerType ref = createEmptyImage(reference);
+        return bSplineInterpolateDeformationField(labelImg,(ConstImagePointerType)ref);
+    }
     static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
         LOGV(2)<<"Extrapolating deformation image"<<std::endl;
         LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
@@ -313,6 +316,10 @@ public:
 
     static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
             return linearInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
+    }
+  static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, DeformationFieldPointerType reference){ 
+        ImagePointerType ref = createEmptyImage(reference);
+        return linearInterpolateDeformationField(labelImg,(ConstImagePointerType)ref);
     }
     static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
         LOGV(2)<<"Linearly intrapolating deformation image"<<std::endl;

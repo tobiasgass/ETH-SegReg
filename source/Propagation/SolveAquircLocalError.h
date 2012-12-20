@@ -85,7 +85,7 @@ public:
         }
     }
     virtual void createSystem(){
-
+        this->haveInit=false;
         LOG<<"Creating equation system.."<<endl;
         LOG<<VAR(this->m_numImages)<<" "<<VAR(this->m_nPixels)<<" "<<VAR(this->m_nEqs)<<" "<<VAR(this->m_nVars)<<" "<<VAR(this->m_nNonZeroes)<<endl;
         mxArray *mxX=mxCreateDoubleMatrix(this->m_nNonZeroes,1,mxREAL);
@@ -160,9 +160,9 @@ public:
                                     x[c]=eq;
                                     y[c]=e3+d;
                                     v[c++]=weights[2];
-
+                                    LOGV(8)<<VAR(def)<<endl;
                                     //set rhs
-                                    b[eq-1]=def;
+                                    b[eq-1]=log(fabs(def)+0.0067);
                                     ++eq;
 
                                    
@@ -245,13 +245,34 @@ public:
                 if (s!=t){
                     DeformationFieldPointerType estimatedError=ImageUtils<DeformationFieldType>::createEmpty((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]);
                     DeformationFieldIterator it(estimatedError,estimatedError->GetLargestPossibleRegion());
+                    DeformationFieldIterator itOriginalDef((*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]],(*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]->GetLargestPossibleRegion());
+                    itOriginalDef.GoToBegin();
+                    DeformationFieldIterator itTrueDef;
+                    if ((*this->m_trueDeformations)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]].IsNotNull()){
+                        itTrueDef=DeformationFieldIterator((*this->m_trueDeformations)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]],(*this->m_deformationCache)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]]->GetLargestPossibleRegion());
+                        itTrueDef.GoToBegin();
+                    }
                     it.GoToBegin();
                     for (int p=0;!it.IsAtEnd();++it){
                         DeformationType disp;
                         IndexType idx=it.GetIndex();
+                        float localErrorNorm=0.0;
                         for (unsigned int d=0;d<D;++d,++p){
-                            disp[d]=rData[edgeNum(s,t,idx)+d];
+                            double tmp=rData[edgeNum(s,t,idx)+d];
+                            disp[d]=tmp;
+                            tmp=exp(tmp);
+                            tmp*=tmp;
+                            localErrorNorm+=tmp;
+                            
                         }
+                        double trueErrorMagnitude=0.0;
+                        if ((*this->m_trueDeformations)[(*this->m_imageIDList)[s]][(*this->m_imageIDList)[t]].IsNotNull()){
+                            trueErrorMagnitude=(itOriginalDef.Get()-itTrueDef.Get()).GetNorm();
+                            ++itOriginalDef;
+                            ++itTrueDef;
+                        }
+                        localErrorNorm=sqrt(localErrorNorm);
+                        LOGV(3)<<VAR(localErrorNorm)<<" "<<VAR(trueErrorMagnitude)<<endl;
                         it.Set(disp);
                     }
 

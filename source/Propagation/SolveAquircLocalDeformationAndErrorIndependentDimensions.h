@@ -172,7 +172,7 @@ public:
 
         LOG<<"Creating equation system.."<<endl;
         LOG<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
-        LOG<<VAR(  m_wWT)<<" "<<VAR(        m_wWs)<<" "<<VAR(m_wWcirc)<<" "<<VAR(m_wWdelta)<<" "<<VAR(m_wWd)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wWsDelta)<<endl;
+        LOG<<VAR(  m_wWT)<<" "<<VAR(        m_wWs)<<" "<<VAR(m_wWcirc)<<" "<<VAR(m_wWdelta)<<" "<<VAR(m_wWd)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wWsDelta)<<" "<<VAR(m_sigma)<<" "<<VAR(m_sigmaD)<<" "<<VAR(m_exponent)<<endl;
         double totalInconsistency = 0.0;
         int totalCount = 0;
         for (unsigned int d = 0; d< D; ++d){
@@ -340,7 +340,7 @@ public:
                                                 //val*=1.0/(localDiscrepance.GetNorm()+m_sigmaD);
                                             }
                                             
-                                            LOGV(5)<<VAR(localDiscrepance.GetNorm())<<" "<<VAR(val)<<endl;
+                                            LOGV(8)<<VAR(localDiscrepance.GetNorm())<<" "<<VAR(val)<<endl;
                                             x[c]=eq;
                                             y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
                                             v[c++]=val* m_wWcirc;
@@ -348,6 +348,7 @@ public:
                                                 x[c]=eq;
                                                 y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighborsCircle[i].first,d); // this is a APPROXIMIATION!!! might be bad :o
                                                 v[c++]=ptIntermediateNeighborsCircle[i].second*val* m_wWcirc;
+                                                LOGV(8)<<VAR(i)<<" "<<VAR(ptIntermediateNeighborsCircle[i].first)<<" "<<VAR(ptIntermediateNeighborsCircle[i].second)<<endl;
                                             }
                                             x[c]=eq;
                                             y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
@@ -391,7 +392,7 @@ public:
                         FloatImageIterator lnccIt;
                         if (m_sigma>0.0){
                             //upsample deformation -.-, and warp source image
-                            DeformationFieldPointerType def = TransfUtils<ImageType>::bSplineInterpolateDeformationField(defSourceInterm,(ConstImagePointerType)(*m_imageList)[intermediateID]);
+                            DeformationFieldPointerType def = TransfUtils<ImageType>::linearInterpolateDeformationField(defSourceInterm,(ConstImagePointerType)(*m_imageList)[intermediateID]);
                             ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage((ConstImagePointerType)(*m_imageList)[sourceID],def);
                             //compute lncc
                             lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],m_sigma,m_exponent);
@@ -404,7 +405,11 @@ public:
                                 oss<<".nii";
                             LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
                             //resample lncc result
+                            lncc = FilterUtils<FloatImageType>::gaussian(lncc,1.0*lncc->GetLargestPossibleRegion().GetSize()[0]/this->m_ROI->GetLargestPossibleRegion().GetSize()[0]);
                             lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI));
+                            oss<<"-resampled.nii";
+                            LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
+
                             lnccIt=FloatImageIterator(lncc,lncc->GetLargestPossibleRegion());
                             lnccIt.GoToBegin();
                         }
@@ -566,8 +571,8 @@ public:
             this->haveInit=true;
             LOG<<"Solving "<<VAR(d)<<endl;
             
-            engEvalString(this->m_ep, "lb=[-60*ones(size(A,2),1)];");
-            engEvalString(this->m_ep, "ub=[60*ones(size(A,2),1);]");
+            engEvalString(this->m_ep, "lb=[-200*ones(size(A,2),1)];");
+            engEvalString(this->m_ep, "ub=[200*ones(size(A,2),1);]");
             LOGI(6,engEvalString(this->m_ep,"save('test.mat');" ));
 
             TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
@@ -622,23 +627,24 @@ public:
                   
                     for (int p=0;!itErr.IsAtEnd();++itErr,++itDef,++origIt){
                         //get solution of eqn system
-                        DeformationType dispErr,dispDef;
+                        DeformationType estimatedError,estimatedDeformation;
                         IndexType idx = itErr.GetIndex();
                         for (unsigned int d=0;d<D;++d,++p){
                             // minus 1 to correct for matlab indexing
-                            dispErr[d]=rData[d][edgeNumError(s,t,idx,d)-1];
-                            dispDef[d]=rData[d][edgeNumDeformation(s,t,idx,d)-1];
+                            estimatedError[d]=rData[d][edgeNumError(s,t,idx,d)-1];
+                            estimatedDeformation[d]=rData[d][edgeNumDeformation(s,t,idx,d)-1];
                         }
-                        itErr.Set(dispErr);
-                        itDef.Set(dispDef);
-                        LOGV(8)<<VAR(c)<<" "<<VAR(dispDef)<<endl;
+                        itErr.Set(estimatedError);
+                        itDef.Set(estimatedDeformation);
+                        LOGV(8)<<VAR(c)<<" "<<VAR(estimatedDeformation)<<endl;
                         if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
-                            DeformationType prefErr = origIt.Get()-trueIt.Get();
-                            DeformationType newErr = dispDef - trueIt.Get();
-                            LOGV(7)<<VAR(prefErr.GetNorm())<<" "<<VAR(dispErr.GetNorm())<<endl;
-
-                            LOGV(7)<<VAR(prefErr.GetNorm())<<" "<<VAR(newErr.GetNorm())<<endl;
-
+                            DeformationType trueErr = origIt.Get()-trueIt.Get();
+                            DeformationType estimatedDiffErr = estimatedDeformation - trueIt.Get();
+                            //LOGV(5)<<VAR(trueErr.GetNorm())<<" "<<VAR(estimatedError.GetNorm())<<endl;
+                            //LOGV(5)<<VAR(trueErr.GetNorm())<<" "<<VAR(estimatedDiffErr.GetNorm())<<endl;
+                            LOGV(5)<<VAR(trueErr)<<" "<<VAR(estimatedError)<<endl;
+                            LOGV(5)<<VAR(trueErr)<<" "<<VAR(estimatedDiffErr)<<endl;
+                           
                             ++trueIt;
                         }
                         ++c;
@@ -647,10 +653,12 @@ public:
                         ImagePointerType mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
                         mask->FillBuffer(1);
                         mask = TransfUtils<ImageType>::warpImage(mask,estimatedDeform);
-                        double newError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
+                        //double newError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
+                        double newError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
                         mask->FillBuffer(1);
                         mask = TransfUtils<ImageType>::warpImage(mask,(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
-                        double oldError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
+                        //double oldError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
+                        double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
                         LOGV(1)<<VAR(s)<<" "<<VAR(t)<<" "<<VAR(oldError)<<" "<<VAR(newError)<<endl;
                         averageError+=newError;
                         averageOldError+=oldError;

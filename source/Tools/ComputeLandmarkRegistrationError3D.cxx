@@ -47,13 +47,19 @@ int main(int argc, char ** argv)
     as->defaultErrorHandling();
     
     LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
-    ImageConstPointerType referenceImage =(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
-    if (linear){
-        deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,referenceImage);
-    }else{
-        deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,referenceImage);
+    ImageConstPointerType referenceImage;
+    if (target!=""){
+        referenceImage=(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
+        
+        if (deformation->GetLargestPossibleRegion().GetSize() != referenceImage->GetLargestPossibleRegion().GetSize()){
+            if (linear){
+                deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,referenceImage);
+            }else{
+                deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,referenceImage);
+            }
+        }
     }
-
+    
 
 
     DirectionType targetDir=deformation->GetDirection();

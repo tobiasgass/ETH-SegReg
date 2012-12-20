@@ -46,9 +46,14 @@ ADD_EXECUTABLE(ComputeLandmarkRegistrationError2D ComputeLandmarkRegistrationErr
 TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationError2D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComputeLandmarkRegistrationError3D ComputeLandmarkRegistrationError3D.cxx )
 TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationError3D Utils   ${ITK_LIBRARIES}  )
-
+ADD_EXECUTABLE(ComputeLandmarkError3D ComputeLandmarkError3D.cxx )
+TARGET_LINK_LIBRARIES(ComputeLandmarkError3D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComputeLandmarkRegistrationErrorTwoDef3D ComputeLandmarkRegistrationErrorTwoDef3D.cxx )
 TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationErrorTwoDef3D Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(ComputeDeformationError2D ComputeDeformationError2D.cxx )
 TARGET_LINK_LIBRARIES(ComputeDeformationError2D Utils   ${ITK_LIBRARIES}  )
+
+
+ADD_EXECUTABLE(SubtractDeformations3D SubtractDeformations3D.cxx )
+TARGET_LINK_LIBRARIES(SubtractDeformations3D Utils   ${ITK_LIBRARIES}  )

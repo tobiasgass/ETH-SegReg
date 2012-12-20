@@ -37,8 +37,10 @@ public:
 
         //engEvalString(m_ep, "lb=[-60*ones(size(A,2)/2,1);-20*ones(size(A,2)/2,1)]; ");
         //engEvalString(m_ep, "ub=[60*ones(size(A,2)/2,1);20*ones(size(A,2)/2,1)]; ");
-        engEvalString(m_ep, "lb=[-60*ones(size(A,2),1)];");
-        engEvalString(m_ep, "ub=[60*ones(size(A,2),1);]");
+        //engEvalString(m_ep, "lb=[-60*ones(size(A,2),1)];");
+        //engEvalString(m_ep, "ub=[60*ones(size(A,2),1);]");
+        engEvalString(m_ep, "lb=[-5*ones(size(A,2),1)];");
+        engEvalString(m_ep, "ub=[5*ones(size(A,2),1);]");
 
         engEvalString(m_ep, "size(b)");
         printf("%s", buffer+2);
@@ -51,13 +53,15 @@ public:
         engEvalString(m_ep, "options=optimset(optimset('lsqlin'),'Display','iter');");
         
         if (haveInit){
+            LOGV(3)<<"solving with initial values"<<endl;
             engEvalString(m_ep, "size(init)");
             printf("%s", buffer+2);
 
             TIME(engEvalString(m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);toc"));
         }
         else{
-            TIME(engEvalString(m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,options);toc"));
+            LOGV(3)<<"solving without initial values"<<endl;
+            TIME(engEvalString(m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,[],options);toc"));
         }
         //TIME(engEvalString(m_ep, "tic; x=A\\b ; toc"));
         printf("%s", buffer+2);

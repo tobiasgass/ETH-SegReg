@@ -210,8 +210,9 @@ int main(int argc, char ** argv){
     }else{
         ROI=origReference;
     }
-    ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
-    if (true){
+    if (resamplingFactor>1.0)
+        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
+    if (false){
         for (int t=0;t<imageIDs.size();++t){
             string targetID=imageIDs[t];
             //(*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI );
@@ -224,26 +225,44 @@ int main(int argc, char ** argv){
     {
         ifstream ifs(deformationFileList.c_str());
         while (!ifs.eof()){
-            string intermediateID,targetID,defFileName;
-            ifs >> intermediateID;
-            if (intermediateID!=""){
+            string sourceID,targetID,defFileName;
+            ifs >> sourceID;
+            if (sourceID!=""){
                 ifs >> targetID;
                 ifs >> defFileName;
-                if (inputImages->find(intermediateID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
-                    LOGV(3)<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                if (inputImages->find(sourceID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
+                    LOGV(3)<<sourceID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                     //exit(0);
                 }else{
                     if (!dontCacheDeformations){
-                        LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
-                        deformationCache[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
-                        //deformationCache[intermediateID][targetID]=TransfUtils<ImageType>::gaussian(deformationCache[intermediateID][targetID],resamplingFactor);
-                        deformationCache[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[intermediateID][targetID], (ConstImagePointerType)ROI);
-                        LOGV(6)<<VAR(deformationCache[intermediateID][targetID]->GetLargestPossibleRegion())<<endl;
-                        globalWeights[intermediateID][targetID]=1.0;
+                        LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
+                        deformationCache[sourceID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
+                        //deformationCache[sourceID][targetID]=TransfUtils<ImageType>::gaussian(deformationCache[sourceID][targetID],resamplingFactor);
+                        deformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[sourceID][targetID], (ConstImagePointerType)ROI);
+
+                        if (false){
+                            ImagePointerType deformedSource = TransfUtils<ImageType>::warpImage( (*inputImages)[sourceID] ,  deformationCache[sourceID][targetID] );
+
+                            FloatImagePointerType lncc = FilterUtils<ImageType,FloatImageType>::LNCC(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
+                            FloatImagePointerType lssd = FilterUtils<ImageType,FloatImageType>::LSSDNorm(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
+
+                            ostringstream o1,o2;
+                            o1<<"lncc-"<<sourceID<<"-"<<targetID<<".nii";
+                            o2<<"lssd-"<<sourceID<<"-"<<targetID<<".nii";
+                            
+                            LOGI(6,ImageUtils<ImageType>::writeImage(o1.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
+                            LOGI(6,ImageUtils<ImageType>::writeImage(o2.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lssd,255))));
+                            
+
+                        }
+                        
+
+                        LOGV(6)<<VAR(deformationCache[sourceID][targetID]->GetLargestPossibleRegion())<<endl;
+                        globalWeights[sourceID][targetID]=1.0;
                     }else{
-                        LOGV(3)<<"Reading filename "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
-                        deformationFilenames[intermediateID][targetID]=defFileName;
-                        globalWeights[intermediateID][targetID]=1.0;
+                        LOGV(3)<<"Reading filename "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
+                        deformationFilenames[sourceID][targetID]=defFileName;
+                        globalWeights[sourceID][targetID]=1.0;
                     }
                 }
             }

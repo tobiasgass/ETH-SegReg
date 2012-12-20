@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <iostream>
 
@@ -106,10 +105,6 @@ double computeError( map< string, map <string, DeformationFieldPointerType> >  &
   
 
 int main(int argc, char ** argv){
-
-  
-
-
     double m_sigma;
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);

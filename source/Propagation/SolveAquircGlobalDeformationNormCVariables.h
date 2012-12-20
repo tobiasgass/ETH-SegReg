@@ -30,6 +30,9 @@ public:
         m_w1=w1;
         m_w3=w3;
     }
+    virtual void SetTrueDeformations( map< string, map <string, DeformationFieldPointerType> > * deformationCache){
+        m_trueDeformations=deformationCache;
+    }
     virtual void createSystem(){
 
         mxArray *mxX=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
