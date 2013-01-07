@@ -182,6 +182,10 @@ public:
             mxArray *mxV=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
             mxArray *mxB=mxCreateDoubleMatrix(m_nEqs,1,mxREAL);
             mxArray *mxInit=mxCreateDoubleMatrix(m_nVars,1,mxREAL);
+            mxArray *mxUpperBound=mxCreateDoubleMatrix(m_nVars,1,mxREAL);
+            mxArray *mxLowerBound=mxCreateDoubleMatrix(m_nVars,1,mxREAL);
+          
+
             if ( !mxX || !mxY || !mxV || !mxB || !mxInit){
                 LOG<<"couldn't allocate memory!"<<endl;
                 exit(0);
@@ -194,7 +198,10 @@ public:
             double * b=mxGetPr(mxB);
         
             double * init=mxGetPr(mxInit);
-
+            double * lb=mxGetPr(mxLowerBound);
+            std::fill(lb,lb+m_nVars,-200);
+            double * ub=mxGetPr(mxUpperBound);
+            std::fill(ub,ub+m_nVars,200);
             LOG<<"creating"<<VAR(d)<<endl;
      
 
@@ -406,7 +413,7 @@ public:
                             LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
                             //resample lncc result
                             if (1){
-                                lncc = FilterUtils<FloatImageType>::gaussian(lncc,m_sigmaD);
+                                lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
                                 lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI));
                             }else{
                                 lncc = FilterUtils<FloatImageType>::minimumResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI), m_sigmaD);
@@ -554,9 +561,24 @@ public:
                             //set initialisation values
                             init[edgeNumError(source,intermediate,idx,d)] = 0.0;
                             init[edgeNumDeformation(source,intermediate,idx,d)] = localDef[d] ;
-                                
+
                             
-                            
+                            //set bounds on variables
+                            //error
+                            double extent=(defSourceInterm->GetLargestPossibleRegion().GetSize()[d]-1)*defSourceInterm->GetSpacing()[d];
+                            LOGV(4)<<VAR(extent)<<endl;
+                            lb[edgeNumError(source,intermediate,idx,d)] = -extent;
+                            ub[edgeNumError(source,intermediate,idx,d)] = extent;
+                            //deformation
+                            //deformation should not fall outside image bounds
+                            PointType pt;
+                            defSourceInterm->TransformIndexToPhysicalPoint(idx,pt);
+                            //warning: assumes 1 1 1 direction!
+                            //deformation can maximally go back to origin
+                            lb[edgeNumDeformation(source,intermediate,idx,d)] =  defSourceInterm->GetOrigin()[d]-pt[d] ;
+                            //deformation can maximally transform pt to extent of image
+                            ub[edgeNumDeformation(source,intermediate,idx,d)] =  defSourceInterm->GetOrigin()[d]+extent-pt[d] ;
+                            LOGV(4)<<VAR(defSourceInterm->GetOrigin()[d]-pt[d])<<" "<<VAR( defSourceInterm->GetOrigin()[d]+extent-pt[d]  )<<endl;
                            
                         }//for
 
@@ -581,14 +603,17 @@ public:
             mxDestroyArray(mxInit);
             this->haveInit=true;
             LOG<<"Solving "<<VAR(d)<<endl;
-            // mxArray *mxMax=mxCreateDoubleMatrix(1,1,mxREAL);
-            // double * mmax=( double *)mxGetData(mxMax);
-            // mmax[0]=2.0*maxAbsDisplacement;
-            // LOGV(1)<<VAR(maxAbsDisplacement)<<endl;
-            // engPutVariable(this->m_ep,"maxAbsDisplacement",mxMax);
-            // mxDestroyArray(mxMax);
-            engEvalString(this->m_ep, "lb=[-1000.0*ones(size(A,2),1)];");
-            engEvalString(this->m_ep, "ub=[1000.0*ones(size(A,2),1);]");
+            if (0){
+                engEvalString(this->m_ep, "lb=[-200.0*ones(size(A,2),1)];");
+                engEvalString(this->m_ep, "ub=[200.0*ones(size(A,2),1);]");
+            }else{
+                engPutVariable(this->m_ep,"lb",mxLowerBound);
+                engPutVariable(this->m_ep,"ub",mxUpperBound);
+            }
+            mxDestroyArray(mxLowerBound);
+            mxDestroyArray(mxUpperBound);
+
+            
             LOGI(6,engEvalString(this->m_ep,"save('test.mat');" ));
 
             TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
