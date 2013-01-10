@@ -183,13 +183,14 @@ int main(int argc, char ** argv)
     }
     else if (filterConfig.bulkTransformationField!=""){
         filter->setBulkTransform(ImageUtils<DeformationFieldType>::readImage(filterConfig.bulkTransformationField));
-    }else{
-        LOG<<" NOT NOT NOT Computing transform to move image centers on top of each other.."<<std::endl;
-        //DeformationFieldPointerType transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
-        //filter->setBulkTransform(transf);
+    }else if (filterConfig.initWithMoments){
+        //LOG<<" NOT NOT NOT Computing transform to move image centers on top of each other.."<<std::endl;
+        LOG<<"initializing deformation using moments.."<<std::endl;
+        DeformationFieldPointerType transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
+        filter->setBulkTransform(transf);
        
     }
-        logResetStage;//bulk transforms
+    logResetStage;//bulk transforms
 
     // compute SRS
     clock_t FULLstart = clock();

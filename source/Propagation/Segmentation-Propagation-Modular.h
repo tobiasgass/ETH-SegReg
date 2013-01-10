@@ -248,7 +248,7 @@ public:
                         if (weighting==GLOBAL){
                             updateProbabilisticSegmentationGlobalMetric(probabilisticTargetSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
                         }else if (weighting==LOCAL){
-                            updateProbabilisticSegmentationLocalMetric(probabilisticTargetSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
+                            updateProbabilisticSegmentationLocalMetricNew(probabilisticTargetSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
                         }
 
                     }
@@ -270,7 +270,7 @@ public:
                 else
                     outputImage=probSegmentationToSegmentationLocal(probabilisticTargetSegmentations[targetID]);
                 ostringstream tmpSegmentationFilename;
-                tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<targetID<<"-hop0"<<suffix;
+                tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-atlas"<<atlasID<<"-target"<<targetID<<"-hop0"<<suffix;
                 ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
             }
         }
@@ -367,7 +367,7 @@ public:
                                             updateProbabilisticSegmentationGlobalMetric(newProbabilisticTargetSegmentations[targetID],probSeg,weight,img1,img2,deformation,metric);
                                     
                                         }else if (weighting==LOCAL){
-                                            updateProbabilisticSegmentationLocalMetric(newProbabilisticTargetSegmentations[targetID],probSeg,weight,img1,img2,deformation,metric);
+                                            updateProbabilisticSegmentationLocalMetricNew(newProbabilisticTargetSegmentations[targetID],probSeg,weight,img1,img2,deformation,metric);
                                         }
                                     }
                                     if (verbose>=8){
@@ -400,7 +400,7 @@ public:
                     else
                         outputImage=probSegmentationToSegmentationLocal(newProbabilisticTargetSegmentations[id]);
                     ostringstream tmpSegmentationFilename;
-                    tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<id<<"-hop"<<n<<suffix;
+                    tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-atlas"<<atlasID<<"-target"<<targetID<<"-hop"<<n<<suffix;
                     ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
                     if (verbose>=5){
                         ostringstream tmpSegmentationFilename2;
@@ -452,7 +452,7 @@ protected:
         for (imgIt.GoToBegin(),probIt.GoToBegin();!imgIt.IsAtEnd();++imgIt,++probIt){
             ProbabilisticPixelType p;
             p.Fill(0.0);
-            p[(imgIt.Get()>0)]=1;
+            p[int(imgIt.Get())]=1;
             probIt.Set(p);
         }
         return result;
@@ -684,6 +684,7 @@ protected:
 
 
         std::pair<ImagePointerType,ImagePointerType> deformedMoving = TransfUtilsType::warpImageWithMask(movingImage,deformation);
+        
         ImageNeighborhoodIteratorPointerType tIt=new ImageNeighborhoodIteratorType(m_patchRadius,targetImage,targetImage->GetLargestPossibleRegion());
         ImageNeighborhoodIteratorPointerType aIt=new ImageNeighborhoodIteratorType(m_patchRadius,deformedMoving.first,deformedMoving.first->GetLargestPossibleRegion());
         ImageNeighborhoodIteratorPointerType mIt=new ImageNeighborhoodIteratorType(m_patchRadius,deformedMoving.second,deformedMoving.second->GetLargestPossibleRegion());
@@ -709,7 +710,36 @@ protected:
         }
         delete tIt; delete aIt; delete mIt;
     }
+     void updateProbabilisticSegmentationLocalMetricNew(ProbabilisticVectorImagePointerType accumulator, ProbabilisticVectorImagePointerType increment,double globalWeight, ImagePointerType targetImage, ImagePointerType movingImage,DeformationFieldPointerType deformation,MetricType metric ){
+        ProbabilisticVectorImagePointerType deformedIncrement=warpProbImage(increment,deformation);
+        ProbImageIteratorType accIt(accumulator,accumulator->GetLargestPossibleRegion());
+        ProbImageIteratorType incIt(deformedIncrement,deformedIncrement->GetLargestPossibleRegion());
 
+
+        std::pair<ImagePointerType,ImagePointerType> deformedMoving = TransfUtilsType::warpImageWithMask(movingImage,deformation);
+        FloatImagePointerType metricImage;
+        switch (metric){
+        case MSD:
+            metricImage=FilterUtils<ImageType>::LSSDNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
+            break;
+        case MAD:
+            metricImage=FilterUtils<ImageType>::LSSDNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
+            break;
+        case NCC:
+            metricImage=FilterUtils<ImageType>::efficientLNCC(deformedMoving.first, targetImage,m_patchRadius[0], m_sigma);
+            break;
+        default:
+            LOG<<"no valid metric, aborting"<<endl;
+            exit(0);
+        }
+        LOGI(5,ImageUtils<FloatImageType>::writeImage("weightImage.nii",metricImage));
+        FloatImageIteratorType weightIt(metricImage,metricImage->GetLargestPossibleRegion());
+        weightIt.GoToBegin();
+        accIt.GoToBegin();incIt.GoToBegin();
+        for (;!accIt.IsAtEnd();++accIt,++incIt, ++weightIt){
+            accIt.Set(accIt.Get()+incIt.Get()*globalWeight*weightIt.Get());
+        }
+    }
     ProbabilisticVectorImagePointerType createEmptyProbImageFromImage(ImagePointerType input){
         ProbabilisticVectorImagePointerType output=ProbabilisticVectorImageType::New();
         output->SetOrigin(input->GetOrigin());

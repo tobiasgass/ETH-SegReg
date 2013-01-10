@@ -58,6 +58,7 @@ public:
     bool centerImages;
     double toleranceBase;
     bool penalizeOutside;
+    bool initWithMoments;
 private:
 	argstream * as;
 public:
@@ -115,6 +116,7 @@ public:
         segmentationScalingFactor=1.0;
         toleranceBase=2.0;
         penalizeOutside=false;
+        initWithMoments=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -207,6 +209,7 @@ public:
         (*as) >> parameter ("tissuePriorFilename", tissuePriorFilename, "tissue prior image (file name)", false);
         (*as) >> parameter ("affineBulkTransform", affineBulkTransform, "affine bulk transfomr", false);
         (*as) >> parameter ("bulkTransformationFiled", bulkTransformationField, "bulk transformation field", false);
+        (*as) >> option ("moments", initWithMoments, "initialize deformation with moments ");
 
 		(*as) >> parameter ("ta", outputDeformedFilename, "output image (file name)", false);
 		(*as) >> parameter ("tsa", outputDeformedSegmentationFilename, "output image (file name)", false);

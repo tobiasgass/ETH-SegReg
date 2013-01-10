@@ -45,13 +45,15 @@ int main(int argc, char * argv [])
 	string groundTruth,segmentationFilename,outputFilename="";
     bool hausdorff=false;
     double threshold=1;
-    int evalLabel=-1;
+    int evalLabel=1;
     bool connectedComponent=false;
+    int labelsToEvaluate=1;
 	as >> parameter ("g", groundTruth, "groundtruth image (file name)", true);
 	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
 	as >> parameter ("o", outputFilename, "output image (file name)", false);
     as >> parameter ("t", threshold, "threshold segmentedImage (threshold)", false);
 	as >> parameter ("e", evalLabel, "label to evaluate", false);
+	as >> parameter ("labelsToEvaluate", labelsToEvaluate, "labels to evaluate", false);
     as >> option ("h", hausdorff, "compute hausdorff distance(0,1)");
 	as >> option ("l", connectedComponent, "use largest connected component in segmentation");
 	as >> help();
@@ -79,57 +81,55 @@ int main(int argc, char * argv [])
     int sum = 0;
     unsigned totalEdges = 0;
     float mean=0;
- 
-    if (evalLabel>-1){
-        groundTruthImg=selectLabel(groundTruthImg,evalLabel);   
-        segmentedImg=selectLabel(segmentedImg,evalLabel);
-    }
-    else{
-        segmentedImg= FilterUtils<LabelImage>::binaryThresholdingLow(segmentedImg, threshold);         
-        groundTruthImg= FilterUtils<LabelImage>::binaryThresholdingLow(groundTruthImg, threshold);         
-    }    
-    typedef LabelImage::ConstPointer ConstType;
-    if (connectedComponent){  
-        typedef itk::MinimumMaximumImageCalculator <LabelImage>
-            ImageCalculatorFilterType;
-        typedef itk::ConnectedComponentImageFilter<LabelImage,LabelImage>  ConnectedComponentImageFilterType;
-        ConnectedComponentImageFilterType::Pointer filter =
-            ConnectedComponentImageFilterType::New();
-        filter->SetInput(segmentedImg);
-        filter->Update();
+    for (int l=0;l<labelsToEvaluate;++l){
+        LabelImage::Pointer evalGroundTruthImage=            selectLabel(groundTruthImg,evalLabel);   
+        LabelImage::Pointer evalSegmentedImage=            selectLabel(segmentedImg,evalLabel);   
+       
+        typedef LabelImage::ConstPointer ConstType;
+        if (connectedComponent){  
+            typedef itk::MinimumMaximumImageCalculator <LabelImage>
+                ImageCalculatorFilterType;
+            typedef itk::ConnectedComponentImageFilter<LabelImage,LabelImage>  ConnectedComponentImageFilterType;
+            ConnectedComponentImageFilterType::Pointer filter =
+                ConnectedComponentImageFilterType::New();
+            filter->SetInput(evalSegmentedImage);
+            filter->Update();
     
-        typedef itk::LabelShapeKeepNObjectsImageFilter< LabelImage > LabelShapeKeepNObjectsImageFilterType;
-        LabelShapeKeepNObjectsImageFilterType::Pointer labelShapeKeepNObjectsImageFilter = LabelShapeKeepNObjectsImageFilterType::New();
-        labelShapeKeepNObjectsImageFilter->SetInput( filter->GetOutput() );
-        labelShapeKeepNObjectsImageFilter->SetBackgroundValue( 0 );
-        labelShapeKeepNObjectsImageFilter->SetNumberOfObjects( 1);
-        labelShapeKeepNObjectsImageFilter->SetAttribute( LabelShapeKeepNObjectsImageFilterType::LabelObjectType::NUMBER_OF_PIXELS);
-        labelShapeKeepNObjectsImageFilter->Update();
-        segmentedImg =  FilterUtils<LabelImage>::binaryThresholdingLow(labelShapeKeepNObjectsImageFilter->GetOutput(), 1);     //;//f->GetOutput();// FilterUtils<LabelImage>::binaryThresholding(labelShapeKeepNObjectsImageFilter->GetOutput(),1,10000);//filter->GetOutput(),1,1);
-    }
+            typedef itk::LabelShapeKeepNObjectsImageFilter< LabelImage > LabelShapeKeepNObjectsImageFilterType;
+            LabelShapeKeepNObjectsImageFilterType::Pointer labelShapeKeepNObjectsImageFilter = LabelShapeKeepNObjectsImageFilterType::New();
+            labelShapeKeepNObjectsImageFilter->SetInput( filter->GetOutput() );
+            labelShapeKeepNObjectsImageFilter->SetBackgroundValue( 0 );
+            labelShapeKeepNObjectsImageFilter->SetNumberOfObjects( 1);
+            labelShapeKeepNObjectsImageFilter->SetAttribute( LabelShapeKeepNObjectsImageFilterType::LabelObjectType::NUMBER_OF_PIXELS);
+            labelShapeKeepNObjectsImageFilter->Update();
+            evalSegmentedImage =  FilterUtils<LabelImage>::binaryThresholdingLow(labelShapeKeepNObjectsImageFilter->GetOutput(), 1);     //;//f->GetOutput();// FilterUtils<LabelImage>::binaryThresholding(labelShapeKeepNObjectsImageFilter->GetOutput(),1,10000);//filter->GetOutput(),1,1);
+        }
    
    
-    if (hausdorff){
-        typedef itk::HausdorffDistanceImageFilter<LabelImage, LabelImage> HausdorffDistanceFilterType;
-        typedef HausdorffDistanceFilterType::Pointer HDPointerType;
-        HDPointerType hdFilter=HausdorffDistanceFilterType::New();;
-        hdFilter->SetInput1(groundTruthImg);
-        hdFilter->SetInput2(segmentedImg);
-        hdFilter->SetUseImageSpacing(true);
-        hdFilter->Update();
-        mean=hdFilter->GetAverageHausdorffDistance();
-        maxAbsDistance=hdFilter->GetHausdorffDistance();
-    }
+        if (hausdorff){
+            typedef itk::HausdorffDistanceImageFilter<LabelImage, LabelImage> HausdorffDistanceFilterType;
+            typedef HausdorffDistanceFilterType::Pointer HDPointerType;
+            HDPointerType hdFilter=HausdorffDistanceFilterType::New();;
+            hdFilter->SetInput1(evalGroundTruthImage);
+            hdFilter->SetInput2(evalSegmentedImage);
+            hdFilter->SetUseImageSpacing(true);
+            hdFilter->Update();
+            mean=hdFilter->GetAverageHausdorffDistance();
+            maxAbsDistance=hdFilter->GetHausdorffDistance();
+        }
 
-    typedef itk::LabelOverlapMeasuresImageFilter<LabelImage> OverlapMeasureFilterType;
-    OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
-    filter->SetSourceImage(groundTruthImg);
-    filter->SetTargetImage(segmentedImg);
-    filter->Update();
-    double dice=filter->GetDiceCoefficient();
-    std::cout<<"Dice " << dice ;
-    std::cout<<"  Mean "<< mean;
-    std::cout<<" MaxAbs "<< maxAbsDistance;
+        typedef itk::LabelOverlapMeasuresImageFilter<LabelImage> OverlapMeasureFilterType;
+        OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
+        filter->SetSourceImage(evalGroundTruthImage);
+        filter->SetTargetImage(evalSegmentedImage);
+        filter->Update();
+        double dice=filter->GetDiceCoefficient();
+        std::cout<<"Label "<<evalLabel ;
+        std::cout<<" Dice " << dice ;
+        std::cout<<" Mean "<< mean;
+        std::cout<<" MaxAbs "<< maxAbsDistance<<" ";
+        ++evalLabel;
+    }
     std::cout<< std::endl;
     // std::cout<<"EvalG - % of bone segmented "<< float(glob.truePos) / ((glob.truePos + glob.falseNeg) / 100)<< std::endl;
 

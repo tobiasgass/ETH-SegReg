@@ -29,6 +29,7 @@
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
 #include "itkDiscreteGaussianImageFilter.h"
 #include "itkSmoothingRecursiveGaussianImageFilter.h"
+#include "itkCenteredTransformInitializer.h"
 using namespace std;
 
 template<class ImageType, class CDisplacementPrecision=float>
@@ -120,6 +121,26 @@ public:
         
     }
     static DeformationFieldPointerType computeCenteringTransform(ImagePointerType targetImage, ImagePointerType movingImage){
+#if 1
+        typedef itk::AffineTransform< double, D > TransformType;
+        typedef typename itk::CenteredTransformInitializer< 
+            TransformType, 
+            ImageType, 
+            ImageType >  TransformInitializerType;
+  
+        
+        typename TransformInitializerType::Pointer initializer = TransformInitializerType::New();
+        typename TransformType::Pointer   transform  = TransformType::New();
+
+        initializer->SetTransform(   transform );
+        initializer->SetFixedImage( targetImage);
+        initializer->SetMovingImage( movingImage );
+        initializer->MomentsOn();
+        initializer->InitializeTransform();
+        
+        return affineToDisplacementField(transform,targetImage);
+  
+#else
         DeformationFieldPointerType deformation=DeformationFieldType::New();
         deformation->SetRegions(targetImage->GetLargestPossibleRegion());
         deformation->SetOrigin(targetImage->GetOrigin());
@@ -180,7 +201,7 @@ public:
         DisplacementType translation= centerMovingPoint-centerTargetPoint;
         deformation->FillBuffer(translation);
         return deformation;
-        
+#endif        
     }
     
 

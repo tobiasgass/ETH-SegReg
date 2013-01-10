@@ -106,12 +106,12 @@ namespace itk{
             assert(m_targetImage);
             assert(m_atlasImage);
             if ( m_scale!=1.0){
-                //m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,100),m_scale);
-                //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,100),m_scale);
+                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,m_scale,false),m_scale);
+                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,m_scale,false),m_scale);
                 //m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale);
                 //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale);
-                m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),1);
-                m_scaledAtlasImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale),1);
+                //m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),1);
+                //m_scaledAtlasImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale),1);
             }else{
                 m_scaledTargetImage=m_targetImage;
                 m_scaledAtlasImage=m_atlasImage;
@@ -1253,9 +1253,13 @@ namespace itk{
             for (unsigned int i=0;i<this->nIt.Size();++i){
                 bool inBounds;
                 double m=m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
+              
+                   
                 insideCount+=inBounds;
                 bool inside=m_maskNeighborhoodIterator.GetPixel(i);
-                if (inside && inBounds){
+                if (!inside)
+                    m=0.0;
+                if ( inBounds && (inside|| this->m_noOutSidePolicy)  ){
                     double f=this->nIt.GetPixel(i);
                     sff+=f*f;
                     smm+=m*m;
@@ -1285,11 +1289,11 @@ namespace itk{
                 result=(1-(NCC))/2;
             }
             result=min(this->m_threshold,result);
-            
+#if 0            
             if (this->m_noOutSidePolicy &&( count != insideCount )){
-                return 1e10;
+                return 1e10*count/insideCount;
             } 
-          
+#endif     
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationNCC
@@ -1359,7 +1363,7 @@ namespace itk{
                 insideCount+=inBounds;
                 bool inside=this->m_maskNeighborhoodIterator.GetPixel(i);
                
-                if (inside && inBounds){
+                if (inside && (inBounds || this->m_noOutSidePolicy)){
                     double f=this->nIt.GetPixel(i);
                     this->m_scaledTargetImage->TransformIndexToPhysicalPoint(this->nIt.GetIndex(i),neighborPoint);
                     double weight=1.0-(centerPoint-neighborPoint).GetNorm()/maxNorm;

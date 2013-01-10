@@ -402,7 +402,8 @@ public:
                             DeformationFieldPointerType def = TransfUtils<ImageType>::linearInterpolateDeformationField(defSourceInterm,(ConstImagePointerType)(*m_imageList)[intermediateID]);
                             ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage((ConstImagePointerType)(*m_imageList)[sourceID],def);
                             //compute lncc
-                            lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],m_sigma,m_exponent);
+                            //lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],m_sigma,m_exponent);
+                            lncc= FilterUtils<ImageType,FloatImageType>::efficientLNCC(warpedImage,(*m_imageList)[intermediateID],m_sigma,m_exponent);
                             //lncc= FilterUtils<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[intermediateID],m_sigma,m_exponent);
                             ostringstream oss;
                             oss<<"lncc-"<<sourceID<<"-TO-"<<intermediateID;
