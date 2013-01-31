@@ -7,6 +7,7 @@ include_directories (${SRS-MRF_SOURCE_DIR}/External/TRWS)
 include_directories (${SRS-MRF_SOURCE_DIR}/External/RF) 
 include_directories (${SRS-MRF_SOURCE_DIR}/External/c-ugmix) 
 include_directories (${SRS-MRF_SOURCE_DIR}/External/maxFlow) 
+include_directories (${SRS-MRF_SOURCE_DIR}/External/GCO) 
 
 include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
 
@@ -40,6 +41,10 @@ ADD_EXECUTABLE(CompareSegmentations3D CompareSegmentations3D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations3D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(CompareSegmentations2D CompareSegmentations2D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations2D Utils   ${ITK_LIBRARIES}  )
+
+#segment 
+ADD_EXECUTABLE(SegmentProbImage3D SegmentProbImage3D.cxx )
+TARGET_LINK_LIBRARIES(SegmentProbImage3D Utils SRSMRFModels    ${ITK_LIBRARIES}  )
  
 #Compare registrations 
 ADD_EXECUTABLE(ComputeLandmarkRegistrationError2D ComputeLandmarkRegistrationError.cxx )

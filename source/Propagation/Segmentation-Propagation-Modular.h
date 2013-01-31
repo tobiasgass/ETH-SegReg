@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <iostream>
-
+#include "GCoptimization.h"
 #include "argstream.h"
 #include "Log.h"
 #include <vector>
@@ -78,6 +78,7 @@ public:
         bool dontCacheDeformations=false;
         bool graphCut=false;
         double smoothness=1.0;
+        double m_graphCutSigma=10;
         m_sigma=30;
         (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
@@ -86,6 +87,7 @@ public:
         (*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
         (*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
         (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+        (*as) >> parameter ("sigmaGC", m_graphCutSigma,"sigma for exp(- contrast/sigma) for graphcut smoothness",false);
         (*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
         (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
         (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
@@ -266,12 +268,16 @@ public:
             if (inputAtlasSegmentations->find(targetID)==inputAtlasSegmentations->end()){ 
                 ImagePointerType outputImage;
                 if (graphCut)
-                    outputImage=probSegmentationToSegmentationGraphcut(probabilisticTargetSegmentations[targetID],smoothness*inputAtlasSegmentations->size());
+                    outputImage=probSegmentationToSegmentationGraphcutMultiLabel(probabilisticTargetSegmentations[targetID],targetImageIterator->second,smoothness*inputAtlasSegmentations->size(),m_graphCutSigma);
                 else
                     outputImage=probSegmentationToSegmentationLocal(probabilisticTargetSegmentations[targetID]);
                 ostringstream tmpSegmentationFilename;
-                tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-atlas"<<atlasID<<"-target"<<targetID<<"-hop0"<<suffix;
+                tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<targetID<<"-hop0"<<suffix;
                 ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
+                ostringstream tmpSegmentationFilename2;
+                tmpSegmentationFilename2<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<targetID<<"-hop0-ProbImage.mha";
+                LOGI(4,ImageUtils<ProbabilisticVectorImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),probabilisticTargetSegmentations[targetID]));
+                
             }
         }
 
@@ -395,22 +401,19 @@ public:
                 string id= targetImageIterator->first;
                 if (inputAtlasSegmentations->find(id)==inputAtlasSegmentations->end()){ 
                     ImagePointerType outputImage;
+                    
+                    ProbabilisticVectorImagePointerType normalizedProbs=normalizeProbs(newProbabilisticTargetSegmentations[id]);
+
                     if (graphCut)
                         outputImage=probSegmentationToSegmentationGraphcut(newProbabilisticTargetSegmentations[id],smoothness*(nImages-nAtlases)*nAtlases);
                     else
                         outputImage=probSegmentationToSegmentationLocal(newProbabilisticTargetSegmentations[id]);
                     ostringstream tmpSegmentationFilename;
-                    tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-atlas"<<atlasID<<"-target"<<targetID<<"-hop"<<n<<suffix;
+                    tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<id<<"-hop"<<n<<suffix;
                     ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
-                    if (verbose>=5){
-                        ostringstream tmpSegmentationFilename2;
-
-                        tmpSegmentationFilename2<<outputDir<<"/probsegmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-id"<<id<<"-hop"<<n<<suffix;
-                        outputImage=probSegmentationToProbImageLocal(newProbabilisticTargetSegmentations[id]);
-                        ImageUtils<ImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),outputImage);
-                    
-                    }
-
+                    ostringstream tmpSegmentationFilename2;
+                    tmpSegmentationFilename2<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<id<<"-hop1-ProbImage.mha";
+                    LOGI(4,ImageUtils<ProbabilisticVectorImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),normalizedProbs));
                 }
             }
             probabilisticTargetSegmentations=newProbabilisticTargetSegmentations;
@@ -572,6 +575,119 @@ protected:
                 imgIt.Set(maxLabel);
             }
         }
+        return result;
+    }
+    ProbabilisticVectorImagePointerType normalizeProbs(ProbabilisticVectorImagePointerType img){
+        ProbImageIteratorType probIt(img,img->GetLargestPossibleRegion());
+        ProbabilisticVectorImagePointerType result=ProbabilisticVectorImageType::New();
+        result->SetOrigin(img->GetOrigin());
+        result->SetSpacing(img->GetSpacing());
+        result->SetDirection(img->GetDirection());
+        result->SetRegions(img->GetLargestPossibleRegion());
+        result->Allocate();
+        ProbImageIteratorType resultIt(result,img->GetLargestPossibleRegion());
+        resultIt.GoToBegin();
+        for (probIt.GoToBegin();!probIt.IsAtEnd();++probIt,++resultIt){
+            ProbabilisticPixelType localProbs=probIt.Get();
+            double sum=0.0;
+            //compute normalizing sum to normalize probabilities(if they're not yet normalized)
+            for (int s2=0;s2<nSegmentationLabels;++s2){
+                sum+=localProbs[s2];
+            }
+            for (int s2=0;s2<nSegmentationLabels;++s2){
+               localProbs[s2]/=sum;
+            }
+            resultIt.Set(localProbs);
+        }
+        return result;
+    }
+    ImagePointerType probSegmentationToSegmentationGraphcutMultiLabel( ProbabilisticVectorImagePointerType img, ImagePointerType segImg, double smooth, double sigma){
+        ImagePointerType result=ImageType::New();
+        result->SetOrigin(img->GetOrigin());
+        result->SetSpacing(img->GetSpacing());
+        result->SetDirection(img->GetDirection());
+        result->SetRegions(img->GetLargestPossibleRegion());
+        result->Allocate();
+
+        typedef GCoptimizationGeneralGraph MRFType;
+        //todo
+        MRFType optimizer(result->GetBufferedRegion().GetNumberOfPixels(),nSegmentationLabels);
+       
+        ProbImageIteratorType probIt(img,img->GetLargestPossibleRegion());
+       
+        //going to use sparse labels
+        //iterate over labels
+        for (unsigned int s=0;s<nSegmentationLabels;++s){
+            std::vector<GCoptimization::SparseDataCost> costs(result->GetBufferedRegion().GetNumberOfPixels());
+            //GCoptimization::SparseDataCost costs[result->GetBufferedRegion().GetNumberOfPixels()];
+            int n = 0;
+            int i=0;
+            for (probIt.GoToBegin();!probIt.IsAtEnd();++probIt,++i){
+                ProbabilisticPixelType localProbs=probIt.Get();
+                double prob=localProbs[s];
+                double sum=0.0;
+                //compute normalizing sum to normalize probabilities(if they're not yet normalized)
+                for (int s2=0;s2<nSegmentationLabels;++s2){
+                    sum+=localProbs[s2];
+                }
+                //only add site do label if prob > 0
+                if (prob>0){
+                    costs[n].site=i;
+                    //LOGV(3)<<VAR(prob)<<" "<<VAR(sum)<<endl;
+                    costs[n].cost=-log(prob/sum);
+                    ++n;
+                }
+            }
+            //resize to actual number of sites with label s
+            costs.resize(n);
+            optimizer.setDataCost(s,&costs[0],n);
+        }
+        float *smoothCosts = new float[nSegmentationLabels*nSegmentationLabels];
+        for ( int l1 = 0; l1 < nSegmentationLabels; l1++ )
+            for (int l2 = 0; l2 < nSegmentationLabels; l2++ )
+                smoothCosts[l1+l2*nSegmentationLabels] =  (l1!=l2);
+        optimizer.setSmoothCost(smoothCosts);
+        int i=0;
+        SizeType size=img->GetLargestPossibleRegion().GetSize();
+
+        ImageIteratorType imageIt(segImg,segImg->GetLargestPossibleRegion());
+        for (imageIt.GoToBegin();!imageIt.IsAtEnd();++imageIt,++i){
+            IndexType idx=imageIt.GetIndex();
+            double value=imageIt.Get();
+            for (unsigned  int d=0;d<D;++d){
+                OffsetType off;
+                off.Fill(0);
+                off[d]+=1;
+                IndexType neighborIndex=idx+off;
+                bool inside2;
+                int withinImageIndex2=ImageUtils<ImageType>::ImageIndexToLinearIndex(neighborIndex,size,inside2);
+                if (inside2){
+                    double neighborvalue=segImg->GetPixel(neighborIndex);
+                    double weight= exp(-fabs(value-neighborvalue)/sigma);
+                    optimizer.setNeighbors(i,withinImageIndex2,smooth*weight);
+                }
+            }
+        }
+        LOGV(1)<<"solving graph cut"<<endl;
+        optimizer.setVerbosity(mylog.getVerbosity());
+        try{
+            optimizer.expansion(20);
+        }catch (GCException e){
+             e.Report();
+             exit(-1);
+        }
+        LOGV(1)<<"done"<<endl;
+        ImageIteratorType imgIt(result,result->GetLargestPossibleRegion());
+        i=0;
+        for (imgIt.GoToBegin();!imgIt.IsAtEnd();++imgIt,++i){
+            int maxLabel=optimizer.whatLabel(i) ;
+            if (D==2){
+                imgIt.Set(1.0*std::numeric_limits<PixelType>::max()*maxLabel/(nSegmentationLabels-1));
+            }else{
+                imgIt.Set(maxLabel);
+            }
+        }
+        delete smoothCosts;
         return result;
     }
 
