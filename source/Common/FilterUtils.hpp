@@ -80,8 +80,8 @@ class FilterUtils {
     //    typedef itk::ConnectedComponentImageFilter<InputImage,OutputImage>  ConnectedComponentImageFilterType;
     typedef itk::RelabelComponentImageFilter<InputImage,OutputImage>  RelabelComponentImageFilterType;
     typedef itk::ShiftScaleImageFilter<InputImage,OutputImage>  ShiftScaleImageFilterType;
-    typedef itk::DiscreteGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
-    //typedef itk::SmoothingRecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+    //typedef itk::DiscreteGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+    typedef itk::SmoothingRecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
     typedef itk::FastMarchingImageFilter<OutputImage>  FastMarchingImageFilterType;
     //REMI:typedef itk::PasteImageFilter<InputImage,OutputImage>  PasteImageFilterType;
 
@@ -133,36 +133,36 @@ public:
     //#define  ISOTROPIC_RESAMPLING
     //resample with an uniform scaling factor
 
-     static OutputImagePointer minimumResample( InputImagePointer input, InputImagePointer reference, double radius =-1.0) {
-         OutputImagePointer result = createEmpty(reference);
-         itk::ImageRegionIteratorWithIndex<OutputImage>  resultIt(result,result->GetLargestPossibleRegion());
-         typedef typename itk::NeighborhoodIterator<InputImage> ImageNeighborhoodIteratorType;
-         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
-         RadiusType r;
-         if (radius>0.0)
-             r.Fill(radius);
-         else{
-             //nyi
-             r.Fill(8);
-         }
-         ImageNeighborhoodIteratorType inputIt(r,input,input->GetLargestPossibleRegion());
-         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++resultIt){
-             InputImageIndex idx=resultIt.GetIndex();
-             OutputImagePointType pt;
-             result->TransformIndexToPhysicalPoint(idx,pt);
-             input->TransformPhysicalPointToIndex(pt,idx);
-             inputIt.SetLocation(idx);
-             double minVal=std::numeric_limits<OutputImagePixelType>::max();
-             for (int i=0;i<inputIt.Size();++i){
-                 bool inside;
-                 double value=inputIt.GetPixel(i,inside);
-                 if (inside && value<minVal)
-                     minVal=value;
+    static OutputImagePointer minimumResample( InputImagePointer input, InputImagePointer reference, double radius =-1.0) {
+        OutputImagePointer result = createEmpty(reference);
+        itk::ImageRegionIteratorWithIndex<OutputImage>  resultIt(result,result->GetLargestPossibleRegion());
+        typedef typename itk::NeighborhoodIterator<InputImage> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        RadiusType r;
+        if (radius>0.0)
+            r.Fill(radius);
+        else{
+            //nyi
+            r.Fill(8);
+        }
+        ImageNeighborhoodIteratorType inputIt(r,input,input->GetLargestPossibleRegion());
+        for (resultIt.GoToBegin();!resultIt.IsAtEnd();++resultIt){
+            InputImageIndex idx=resultIt.GetIndex();
+            OutputImagePointType pt;
+            result->TransformIndexToPhysicalPoint(idx,pt);
+            input->TransformPhysicalPointToIndex(pt,idx);
+            inputIt.SetLocation(idx);
+            double minVal=std::numeric_limits<OutputImagePixelType>::max();
+            for (int i=0;i<inputIt.Size();++i){
+                bool inside;
+                double value=inputIt.GetPixel(i,inside);
+                if (inside && value<minVal)
+                    minVal=value;
 
-             }
-             resultIt.Set(minVal);
-         }
-         return result;
+            }
+            resultIt.Set(minVal);
+        }
+        return result;
     }
 
 
@@ -174,7 +174,7 @@ public:
 
         ResampleFilterPointerType resampler=ResampleFilterType::New();
         resampler->SetInput(input);
-          if (nnResample)
+        if (nnResample)
             resampler->SetInterpolator(interpolNN);
         else
             resampler->SetInterpolator(interpol);
@@ -371,8 +371,8 @@ public:
             DiscreteGaussianImageFilterType::New();
 
         filter->SetInput(image);
-        //filter->SetSigma(variance);
-        filter->SetVariance(variance);
+        filter->SetSigma(variance);
+        //filter->SetVariance(variance);
         if (!spacing)
             filter->SetUseImageSpacingOff();
         filter->Update();
@@ -527,12 +527,12 @@ public:
         return thresholder->GetOutput();
     }
 
-      static OutputImagePointer binaryThresholdingLow(
-                                                 InputImagePointer inputImage,
-                                                 InputImagePixelType lowerThreshold,
-                                                 OutputImagePixelType insideValue = 1,
-                                                 OutputImagePixelType outsideValue = 0
-                                                 ) {
+    static OutputImagePointer binaryThresholdingLow(
+                                                    InputImagePointer inputImage,
+                                                    InputImagePixelType lowerThreshold,
+                                                    OutputImagePixelType insideValue = 1,
+                                                    OutputImagePixelType outsideValue = 0
+                                                    ) {
         BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
         thresholder->SetInput(inputImage);
 
@@ -544,12 +544,12 @@ public:
 
         return thresholder->GetOutput();
     }
-      static OutputImagePointer binaryThresholdingHigh(
-                                                 InputImagePointer inputImage,
-                                                 InputImagePixelType upperThreshold,
-                                                 OutputImagePixelType insideValue = 1,
-                                                 OutputImagePixelType outsideValue = 0
-                                                 ) {
+    static OutputImagePointer binaryThresholdingHigh(
+                                                     InputImagePointer inputImage,
+                                                     InputImagePixelType upperThreshold,
+                                                     OutputImagePixelType insideValue = 1,
+                                                     OutputImagePixelType outsideValue = 0
+                                                     ) {
         BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
         thresholder->SetInput(inputImage);
         thresholder->SetUpperThreshold( upperThreshold );
@@ -600,13 +600,13 @@ public:
 
         return cast(inputImage);
     }
- // assign pixels with intensities above upperThreshold
+    // assign pixels with intensities above upperThreshold
     // value upperThreshold and below lowerThreshold value
     // lowerThreshold
     static OutputImagePointer lowerThresholding(
-                                           InputImagePointer inputImage,
-                                           InputImagePixelType lowerThreshold
-                                           ) {
+                                                InputImagePointer inputImage,
+                                                InputImagePixelType lowerThreshold
+                                                ) {
 
         itk::ImageRegionIterator<InputImage> it(
                                                 inputImage, inputImage->GetLargestPossibleRegion());
@@ -758,18 +758,18 @@ public:
         return rescaleFilter->GetOutput();
     }
 
-     //hellishly inefficient but "clean" implementation of local normalized cross correlation
+    //hellishly inefficient but "clean" implementation of local normalized cross correlation
     static inline OutputImagePointer LNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0){
         return LNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp);
     }
     static inline OutputImagePointer LNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
-        //typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
-        typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
+        typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        //typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
         typename FilterType::Pointer filter=FilterType::New();
-        //filter->SetSigma(sigma);
-        filter->SetVariance(sigma*sigma);
+        filter->SetSigma(sigma);
+        //filter->SetVariance(sigma*sigma);
         //        filter->SetMaximumKernelWidth(sigma);
 
 
@@ -870,9 +870,11 @@ public:
     static inline OutputImagePointer LSSDNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
-        typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
+        typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        //typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
         typename FilterType::Pointer filter=FilterType::New();
-        filter->SetVariance(sigmaWidth*sigmaWidth);
+        filter->SetSigma(sigmaWidth);
+        //filter->SetVariance(sigmaWidth*sigmaWidth);
 
         OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
         OutputImagePointer diffSquare = ImageUtils<OutputImage>::localSquare(diff);
@@ -892,17 +894,62 @@ public:
             if (d<0.0){
                 LOG<<VAR(d)<<endl;
             }
-            resultIt.Set(max(0.001,exp( - 0.5 *  d / sigmaNorm) ));
+            resultIt.Set(max(0.001,exp( - 0.5 *  d / sigmaNorm*sigmaNorm) ));
         }
         
         
         return result;
     }
 
+    static inline OutputImagePointer LSSDAutoNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double norm=0.0){
+        OutputImagePointer i1Cast=cast(i1);
+        OutputImagePointer i2Cast=cast(i2);
+         typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        //typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        filter->SetSigma(sigmaWidth);
+        //filter->SetVariance(sigmaWidth*sigmaWidth);
+
+        OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
+        OutputImagePointer diffSquare = ImageUtils<OutputImage>::localSquare(diff);
+
+        //compute local means by concolving with gaussian
+        filter->SetInput(diffSquare);
+        filter->Update();
+        OutputImagePointer i1Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
+
+        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(i1Bar,i1Bar->GetLargestPossibleRegion());
+        //compute normalization
+        if (norm == 0.0){
+            norm=0.0; int c=0;
+            for ( diffIt.GoToBegin(); !diffIt.IsAtEnd(); ++diffIt,++c){
+                norm+=diffIt.Get();
+            }
+            norm/=0.5*c;
+            norm=max(norm,std::numeric_limits<double>::epsilon());
+        }
+        OutputImagePointer result = ImageUtils<OutputImage>::createEmpty(i1Bar);
+
+        typename ImageUtils<OutputImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+        
+        for (resultIt.GoToBegin(), diffIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt, ++diffIt){
+            double d = diffIt.Get();
+            if (d<0.0){
+                //LOG<<VAR(d)<<endl;
+                d=0;
+            }
+            resultIt.Set(max(0.0,exp( -   d / norm) ));
+        }
+        
+        
+        return result;
+    }
     static inline OutputImagePointer LSSD(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
         return LSSD( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigmaWidth);
     }
     static inline OutputImagePointer LSSD(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
@@ -922,16 +969,29 @@ public:
     }
 
     static inline OutputImagePointer LSAD(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
         return LSAD( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigmaWidth);
     }
     static inline OutputImagePointer LSAD(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        //typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
         typename FilterType::Pointer filter=FilterType::New();
         filter->SetSigma(sigmaWidth);
+        //filter->SetVariance(sigmaWidth*sigmaWidth);
 
-        OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
+        OutputImagePointer diff =  ImageUtils<OutputImage>::createEmpty(i1Cast);
+        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(diff,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType i1It(i1Cast,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType i2It(i2Cast,i1Cast->GetLargestPossibleRegion());
+
+        //subtract and take absolute value
+        for (i2It.GoToBegin(),i1It.GoToBegin(), diffIt.GoToBegin(); !diffIt.IsAtEnd(); ++i1It, ++i2It, ++diffIt){
+            diffIt.Set(fabs(i1It.Get()-i2It.Get()));
+        }
+
 
         //compute local means by concolving with gaussian
         filter->SetInput(diff);
@@ -941,7 +1001,6 @@ public:
         OutputImagePointer result = ImageUtils<OutputImage>::createEmpty(i1Bar);
 
         typename ImageUtils<OutputImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
-        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(i1Bar,i1Bar->GetLargestPossibleRegion());
 
         for (resultIt.GoToBegin(), diffIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt, ++diffIt){
             double d = diffIt.Get();
@@ -951,14 +1010,25 @@ public:
         
         return result;
     }
- static inline OutputImagePointer LSADNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
+    static inline OutputImagePointer LSADNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        //typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
         typename FilterType::Pointer filter=FilterType::New();
         filter->SetSigma(sigmaWidth);
+        //filter->SetVariance(sigmaWidth*sigmaWidth);
+        OutputImagePointer diff =  ImageUtils<OutputImage>::createEmpty(i1Cast);
+        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(diff,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType i1It(i1Cast,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType i2It(i2Cast,i1Cast->GetLargestPossibleRegion());
 
-        OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
+        //subtract and take absolute value
+        for (i2It.GoToBegin(),i1It.GoToBegin(), diffIt.GoToBegin(); !diffIt.IsAtEnd(); ++i1It, ++i2It, ++diffIt){
+            diffIt.Set(fabs(i1It.Get()-i2It.Get()));
+        }
+
 
         //compute local means by concolving with gaussian
         filter->SetInput(diff);
@@ -968,7 +1038,6 @@ public:
         OutputImagePointer result = ImageUtils<OutputImage>::createEmpty(i1Bar);
 
         typename ImageUtils<OutputImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
-        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(i1Bar,i1Bar->GetLargestPossibleRegion());
 
         for (resultIt.GoToBegin(), diffIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt, ++diffIt){
             double d = diffIt.Get();
@@ -978,16 +1047,61 @@ public:
         
         return result;
     }
-   static inline OutputImagePointer efficientLNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0){
-           return efficientLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp);
-   }
-   static inline OutputImagePointer efficientLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
+
+    static inline OutputImagePointer LSADAutoNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double norm=0.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
+        OutputImagePointer i1Cast=cast(i1);
+        OutputImagePointer i2Cast=cast(i2);
+        typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        //typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        filter->SetSigma(sigmaWidth);
+        //filter->SetVariance(sigmaWidth*sigmaWidth);
+
+        OutputImagePointer diff = FilterUtils<OutputImage>::substract(i1Cast,i2Cast);
+        typename ImageUtils<OutputImage>::ImageIteratorType diffIt(diff,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType i1It(i1Cast,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<OutputImage>::ImageIteratorType i2It(i2Cast,i1Cast->GetLargestPossibleRegion());
+
+        //subtract and take absolute value
+        bool computeNorm=(norm==0.0);
+        int c=0;
+        for (i2It.GoToBegin(),i1It.GoToBegin(), diffIt.GoToBegin(); !diffIt.IsAtEnd(); ++i1It, ++i2It, ++diffIt){
+            diffIt.Set(fabs(i1It.Get()-i2It.Get()));
+            if (computeNorm) norm+=diffIt.Get();
+            ++c;
+        }
+        if (computeNorm) {  norm=2.0*norm/c;            norm=max(norm,std::numeric_limits<double>::epsilon());}
+        //compute local means by concolving with gaussian
+        filter->SetInput(diff);
+        filter->Update();
+        OutputImagePointer i1Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
+        OutputImagePointer result = ImageUtils<OutputImage>::createEmpty(i1Bar);
+
+        typename ImageUtils<OutputImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+
+        for (resultIt.GoToBegin(), diffIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt, ++diffIt){
+            double d = diffIt.Get();
+            //resultIt.Set(max(0.00001,exp(- fabs(d)  / norm) ));
+            resultIt.Set(max(0.0,exp(- fabs(d)  / norm) ));
+        }
+        
+        
+        return result;
+    }
+    static inline OutputImagePointer efficientLNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0){
+        return efficientLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp);
+    }
+    static inline OutputImagePointer efficientLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
+        if (exp == 0.0 ) exp == 1.0;
+        if (sigma==0.0) sigma=0.001;
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
         //typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
         typename FilterType::Pointer filter=FilterType::New();
         filter->SetSigma(sigma);
+        LOGV(5)<<VAR(sigma)<<endl;
         //filter->SetVariance(sigma*sigma);
         //        filter->SetMaximumKernelWidth(sigma);
 
@@ -1108,13 +1222,16 @@ public:
 
     static inline OutputImagePointer coarseLNCC(InputImagePointer i1,InputImagePointer i2, InputImagePointer coarseImg,double sigma=1.0, double exp = 1.0){
         return coarseLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, coarseImg,sigma,exp);
-   }
+    }
     static inline OutputImagePointer coarseLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2, InputImagePointer coarseImg,double sigma=1.0, double exp = 1.0){
+        if (exp == 0.0 ) exp == 1.0;
+        if (sigma==0.0) sigma=0.001;
         OutputImagePointer i1Cast=cast(i1);
         OutputImagePointer i2Cast=cast(i2);
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
         //typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
         typename FilterType::Pointer filter=FilterType::New();
+
         filter->SetSigma(sigma);
         //filter->SetVariance(sigma*sigma);
         //        filter->SetMaximumKernelWidth(sigma);
