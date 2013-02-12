@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <stdio.h>
@@ -57,6 +56,9 @@ public:
     typedef typename ProbabilisticVectorImageType::Pointer ProbabilisticVectorImagePointerType;
     typedef typename itk::ImageRegionIterator<ProbabilisticVectorImageType> ProbImageIteratorType;
 
+
+    typedef std::vector<std::pair<string,ImagePointerType> > ImageListType;
+
     enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
     enum WeightingType {UNIFORM,GLOBAL,LOCAL};
 protected:
@@ -81,6 +83,7 @@ public:
         double m_graphCutSigma=10;
         int useNAtlases=1000000;
         int useNTargets=1000000;
+        double globalOneHopWeight=1.0;
         m_sigma=30;
         (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
@@ -97,6 +100,7 @@ public:
         (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
         (*as) >> parameter ("useNAtlases", useNAtlases,"use the first N atlases from the list",false);
         (*as) >> parameter ("useNTargets", useNTargets,"use the first N targets as intermediate images",false);
+        (*as) >> parameter ("globalOneHopWeight", globalOneHopWeight,"global weight for one hop segmentations (vs. zero hop)",false);
         (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
         (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
@@ -159,12 +163,18 @@ public:
         }
 
       
-
-        map<string,ImagePointerType> *targetImages,*inputAtlasSegmentations, *atlasImages;
-        typedef typename map<string, ImagePointerType>::iterator ImageListIteratorType;
-        LOG<<"Reading atlas segmentations."<<endl;
-        inputAtlasSegmentations = readImageList( atlasSegmentationFileList );
         
+        ImageListType *targetImages,*inputAtlasSegmentations, *atlasImages;
+        map<string,int> *targetIDMap,*atlasSegmentationIDMap, *atlasIDMap;
+        targetIDMap=new   map<string,int> ;
+        atlasSegmentationIDMap=new   map<string,int> ;
+        atlasIDMap=new   map<string,int> ;
+
+        typedef typename ImageListType::iterator ImageListIteratorType;
+        LOG<<"Reading atlas segmentations."<<endl;
+        inputAtlasSegmentations = readImageList( atlasSegmentationFileList,atlasSegmentationIDMap );
+        
+        LOG<<VAR(atlasSegmentationIDMap)<<endl;
         if (D==2){
             //fix png segmentations
             for (ImageListIteratorType it=inputAtlasSegmentations->begin();it!=inputAtlasSegmentations->end();++it){
@@ -176,13 +186,14 @@ public:
         int nAtlases = inputAtlasSegmentations->size();
       
         LOG<<"Reading input images."<<endl;
-        targetImages = readImageList( imageFileList );
+        targetImages = readImageList( imageFileList, targetIDMap );
         int nImages = targetImages->size();
 
         if (imageFileListAtlas != ""){
-            atlasImages=readImageList(imageFileListAtlas);
+            atlasImages=readImageList(imageFileListAtlas, atlasIDMap);
         }else{
             atlasImages=targetImages;
+            atlasIDMap=targetIDMap;
         }
         
         LOGV(2)<<VAR(metric)<<" "<<VAR(weighting)<<endl;
@@ -206,7 +217,7 @@ public:
                     ifs >> defFileName;
                     //skip inter-atlas deformations
                     //if ( (    targetImages->find(intermediateID)==targetImages->end() && atlasImages->find(intermediateID)==targetImages->end()) || targetImages->find(targetID)==targetImages->end()  ){
-                    if  (    false && atlasImages->find(targetID)!=atlasImages->end() ){
+                    if  (    false && atlasSegmentationIDMap->find(targetID)!=atlasSegmentationIDMap->end() ){
                         LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                         //exit(0);
                     }else{
@@ -223,15 +234,16 @@ public:
                 }
             }
         }
+        
         if (weightListFilename!=""){
             ifstream ifs(weightListFilename.c_str());
             while (!ifs.eof()){
                 string intermediateID,targetID;
                 ifs >> intermediateID;
                 ifs >> targetID;
-                if (targetImages->find(intermediateID)==targetImages->end() || targetImages->find(targetID)==targetImages->end() ){
+                if (false)
                     LOG << intermediateID<<" or "<<targetID<<" not in image database while reading weights, skipping"<<endl;
-                }else{
+                else{
                     ifs >> globalWeights[intermediateID][targetID];
                 }
             }
@@ -240,46 +252,47 @@ public:
         logSetStage("Zero Hop");
         LOG<<"Computing"<<std::endl;
         map<string,ProbabilisticVectorImagePointerType> probabilisticSegmentations;
-        for (ImageListIteratorType atlasImageIterator=atlasImages->begin();atlasImageIterator!=atlasImages->end();++atlasImageIterator){ 
+        for (ImageListIteratorType atlasImageIterator=inputAtlasSegmentations->begin();atlasImageIterator!=inputAtlasSegmentations->end();++atlasImageIterator){ 
             //iterate over atlass
             string atlasID = atlasImageIterator->first;
-            probabilisticSegmentations[atlasID]=segmentationToProbabilisticVector((*inputAtlasSegmentations)[atlasID]);
+            LOGV(3)<<VAR(atlasID)<<endl;
+            probabilisticSegmentations[atlasID]=segmentationToProbabilisticVector(atlasImageIterator->second);
         }
         for (ImageListIteratorType targetImageIterator=targetImages->begin();targetImageIterator!=targetImages->end();++targetImageIterator){                //iterate over targets
             string targetID= targetImageIterator->first;
-            if (inputAtlasSegmentations->find(targetID)==inputAtlasSegmentations->end()){ //do not calculate segmentation for atlas images
+            if (atlasSegmentationIDMap->find(targetID)==atlasSegmentationIDMap->end()){ //do not calculate segmentation for atlas images
                 probabilisticSegmentations[targetID]=createEmptyProbImageFromImage( targetImageIterator->second);
                 int atlasN=0;
                 for (ImageListIteratorType atlasIterator=inputAtlasSegmentations->begin();
                      atlasIterator!=inputAtlasSegmentations->end() && atlasN<useNAtlases;
                      ++atlasIterator,++atlasN)
                     {//iterate over atlases
-                    string atlasID=atlasIterator->first;
-                    LOGV(4)<<VAR(atlasID)<<" "<<VAR(targetID)<<endl;
-                    DeformationFieldPointerType deformation;
-                    if (dontCacheDeformations){
-                        deformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[atlasID][targetID]);
-                    }else{
-                        deformation = deformationCache[atlasID][targetID];
-                    }
-                    ImagePointerType atlasSegmentation=atlasIterator->second;
-                    ProbabilisticVectorImagePointerType probAtlasSegmentation=segmentationToProbabilisticVector(atlasSegmentation);
-                    double weight=globalWeights[atlasID][targetID];
-                   
-                    //update
-                    if (weighting==UNIFORM || metric == NONE || (lateFusion && nAtlases==1)){
-                        updateProbabilisticSegmentationUniform(probabilisticSegmentations[targetID],probAtlasSegmentation,weight,deformation);
-                    }else{
-                        ImagePointerType targetImage= targetImageIterator->second;
-                        ImagePointerType atlasImage=(*atlasImages)[atlasID];
-                        if (weighting==GLOBAL){
-                            updateProbabilisticSegmentationGlobalMetric(probabilisticSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
-                        }else if (weighting==LOCAL){
-                            updateProbabilisticSegmentationLocalMetricNew(probabilisticSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
+                        string atlasID=atlasIterator->first;
+                        LOGV(4)<<VAR(atlasID)<<" "<<VAR(targetID)<<endl;
+                        DeformationFieldPointerType deformation;
+                        if (dontCacheDeformations){
+                            deformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[atlasID][targetID]);
+                        }else{
+                            deformation = deformationCache[atlasID][targetID];
                         }
+                        ImagePointerType atlasSegmentation=atlasIterator->second;
+                        ProbabilisticVectorImagePointerType probAtlasSegmentation=segmentationToProbabilisticVector(atlasSegmentation);
+                        double weight=globalWeights[atlasID][targetID];
+                   
+                        //update
+                        if (weighting==UNIFORM || metric == NONE || (lateFusion && nAtlases==1)){
+                            updateProbabilisticSegmentationUniform(probabilisticSegmentations[targetID],probAtlasSegmentation,weight,deformation);
+                        }else{
+                            ImagePointerType targetImage= targetImageIterator->second;
+                            ImagePointerType atlasImage=(*atlasImages)[(*atlasIDMap)[atlasID]].second;
+                            if (weighting==GLOBAL){
+                                updateProbabilisticSegmentationGlobalMetric(probabilisticSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
+                            }else if (weighting==LOCAL){
+                                updateProbabilisticSegmentationLocalMetricNew(probabilisticSegmentations[targetID],probAtlasSegmentation,weight,targetImage,atlasImage,deformation,metric);
+                            }
 
+                        }
                     }
-                }
             }
            
         }//finished zero-hop segmentation
@@ -288,7 +301,7 @@ public:
         LOGV(1)<<"Storing zero-hop segmentations."<<endl;
         for (ImageListIteratorType targetImageIterator=targetImages->begin();targetImageIterator!=targetImages->end();++targetImageIterator){
             string targetID= targetImageIterator->first;
-            if (inputAtlasSegmentations->find(targetID)==inputAtlasSegmentations->end()){ 
+            if (atlasSegmentationIDMap->find(targetID)==atlasSegmentationIDMap->end()){ 
                 ImagePointerType outputImage;
                 if (graphCut)
                     outputImage=probSegmentationToSegmentationGraphcutMultiLabel(probabilisticSegmentations[targetID],targetImageIterator->second,smoothness*inputAtlasSegmentations->size(),m_graphCutSigma);
@@ -304,6 +317,85 @@ public:
             }
         }
 
+#if 0
+        //NYI!
+        bool AREG=false;
+        if (AREG){
+            //re-sort target images to yield improving atlas reconstruction error
+            double areG=1000000.0;
+            int i=0;
+            for (ImageListIteratorType targetImageIterator=targetImages->begin();targetImageIterator!=targetImages->end() && i<useNTargets;++targetImageIterator,++i){
+                double bestARE=100000.0;
+                string bestID;
+                int bestIdx;
+                int j=i;
+                for (ImageListIteratorType targetImageIterator2=targetImageIterator;targetImageIterator2!=targetImages->end();++targetImageIterator2,++j){
+
+                    double localARE=0.0;
+                    for (ImageListIteratorType atlasIterator=inputAtlasSegmentations->begin();atlasIterator!=inputAtlasSegmentations->end() && (atlasN<useNAtlases);++atlasIterator,++atlasN){//iterate over atlases
+                        //todo: propagate atlas segmentation forward backward
+                        //todo accumulate atlas segmentations
+                        DeformationFieldPointerType firstDeformation,secondDeformation,deformation;
+                        if (dontCacheDeformations){
+                            firstDeformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[atlasID][targetID]);
+                            secondDeformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[targetID][atlasID]);
+                        }else{
+                            firstDeformation = deformationCache[atlasID][targetID];
+                            secondDeformation = deformationCache[targetID][atlasID];
+                        }
+                        
+                        deformation = TransfUtilsType::composeDeformations(secondDeformation,firstDeformation);
+                        ProbabilisticVectorImagePointerType probSeg=probabilisticSegmentations[atlasID];
+
+                        updateProbabilisticSegmentationUniform(probabilisticAtlasSegmentations[targetID],probSeg,weight,deformation);
+                        outputImage=probSegmentationToSegmentationLocal(probabilisticAtlasSegmentations[atlasID]);
+
+                        double error=Dice(outputImage,atlasIterator->second);
+
+                        localARE+=error;//TODO: compare atlas reconstruction with atlas segmentation
+                    }
+                    
+                    //check if ARE improved
+                    if (localARE<bestARE){
+                        bestID=targetImageIterator2->first;
+                        bestIdx=j;
+                    }
+                }
+                //swap in best sample at position
+                string oldID=targetImageIterator->first;
+                int oldIdx=0;
+                ImagePointerType tmp=targetImageIterator->second;
+                (*targetImages)[i]=(*targetImages)[j];
+                (*targetImages)[j]->first=oldID;
+                (*targetImages)[j]->second=tmp;
+                
+                //update accumulated atlase probabilities
+                  for (ImageListIteratorType atlasIterator=inputAtlasSegmentations->begin();atlasIterator!=inputAtlasSegmentations->end() && (atlasN<useNAtlases);++atlasIterator,++atlasN){//iterate over atlases
+                        //todo: propagate atlas segmentation forward backward
+                        //todo accumulate atlas segmentations
+                        DeformationFieldPointerType firstDeformation,secondDeformation,deformation;
+                        if (dontCacheDeformations){
+                            firstDeformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[atlasID][targetID]);
+                            secondDeformation = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[targetID][atlasID]);
+                        }else{
+                            firstDeformation = deformationCache[atlasID][targetID];
+                            secondDeformation = deformationCache[targetID][atlasID];
+                        }
+                        
+                        deformation = TransfUtilsType::composeDeformations(secondDeformation,firstDeformation);
+                        ProbabilisticVectorImagePointerType probSeg=probabilisticSegmentations[atlasID];
+
+                        updateProbabilisticSegmentationUniform(probabilisticAtlasSegmentations[targetID],probSeg,weight,deformation);
+                        outputImage=probSegmentationToSegmentationLocal(probabilisticAtlasSegmentations[atlasID]);
+
+                        double error=Dice(outputImage,atlasIterator->second);
+
+                        localARE+=error;//TODO: compare atlas reconstruction with atlas segmentation
+                    }
+                
+            }
+        }
+#endif
 
         bool converged=false; //no convergence check, yet
         logSetStage("Iterative improvement");
@@ -319,11 +411,19 @@ public:
             //targets
             for (ImageListIteratorType targetImageIterator=targetImages->begin();targetImageIterator!=targetImages->end();++targetImageIterator){
                 string targetID = targetImageIterator->first;
-                if ( inputAtlasSegmentations->find(targetID)==inputAtlasSegmentations->end()){
+                if ( atlasSegmentationIDMap->find(targetID)==atlasSegmentationIDMap->end()){
+
+                    if (0){
+                        //re-initialize
+                        // does not make sense? use zero-hop information!
                     newProbabilisticTargetSegmentations[targetID] = ImageUtils<ProbabilisticVectorImageType>::createEmpty((typename ProbabilisticVectorImageType::ConstPointer) probabilisticSegmentations[targetID]);
                     ProbabilisticPixelType p;
                     p.Fill(0.0);
                     newProbabilisticTargetSegmentations[targetID]->FillBuffer(p);
+                    }else{
+                        //initialize with zero hop likelihood
+                        newProbabilisticTargetSegmentations[targetID]=probabilisticSegmentations[targetID];
+                    }
                 }
             }
             
@@ -335,7 +435,7 @@ public:
                 for (ImageListIteratorType intermediateImageIterator=targetImages->begin();intermediateImageIterator!=targetImages->end() && (intermediateN<useNTargets);++intermediateImageIterator){//iterate over intermediate images
                     string intermediateID= intermediateImageIterator->first;
                     
-                    if ( (intermediateID==atlasID) || (inputAtlasSegmentations->find(intermediateID) == inputAtlasSegmentations->end()) ){
+                    if ( (intermediateID==atlasID) || (atlasSegmentationIDMap->find(intermediateID) == atlasSegmentationIDMap->end()) ){
                         ++intermediateN;
                         //for late fusion, we do also need the deformation from the atlas to the intermediate image
                         DeformationFieldPointerType firstDeformation;
@@ -386,7 +486,7 @@ public:
                                         probSeg = probabilisticSegmentations[intermediateID];
                                     }
                           
-                              
+                                    //weight*=globalOneHopWeight*1.0/min(useNAtlases,nAtlases);
 
                                     //UPDATE
                                     if (weighting==UNIFORM || metric == NONE){
@@ -395,7 +495,7 @@ public:
                                         ImagePointerType img1=targetImageIterator->second;
                                         ImagePointerType img2;
                                         if (lateFusion){
-                                            img2=(*atlasImages)[atlasID];
+                                            img2=(*atlasImages)[(*atlasIDMap)[atlasID]].second;
                                         }else{
                                             img2=intermediateImageIterator->second;
                                         }
@@ -429,7 +529,8 @@ public:
             LOG<<"Storing output. and checking convergence"<<endl;
             for (ImageListIteratorType targetImageIterator=targetImages->begin();targetImageIterator!=targetImages->end();++targetImageIterator){
                 string id= targetImageIterator->first;
-                if (inputAtlasSegmentations->find(id)==inputAtlasSegmentations->end()){ 
+                LOGV(4)<<VAR(id)<<endl;
+                if (atlasSegmentationIDMap->find(id)==atlasSegmentationIDMap->end()){ 
                     ImagePointerType outputImage;
                     
                     //ProbabilisticVectorImagePointerType normalizedProbs=normalizeProbs(newProbabilisticTargetSegmentations[id]);
@@ -452,13 +553,14 @@ public:
         return 1;
     }//run
 protected:
-    map<string,ImagePointerType> * readImageList(string filename){
-        map<string,ImagePointerType> * result=new  map<string,ImagePointerType>;
+    ImageListType * readImageList(string filename, map<string,int> * indexMap){
+        ImageListType * result=new  ImageListType;
         ifstream ifs(filename.c_str());
         if (!ifs){
             LOG<<"could not read "<<filename<<endl;
             exit(0);
         }
+        int c=0;
         while( ! ifs.eof() ) 
             {
                 string imageID;
@@ -469,8 +571,11 @@ protected:
                     ifs >> imageFileName;
                     LOGV(3)<<"Reading image "<<imageFileName<< " with ID "<<imageID<<endl;
                     img=ImageUtils<ImageType>::readImage(imageFileName);
-                    if (result->find(imageID)==result->end())
-                        (*result)[imageID]=img;
+                    if (indexMap->find(imageID)==indexMap->end()){
+                        (*indexMap)[imageID]=c;
+                        result->push_back(make_pair(imageID,img));
+                        ++c;
+                    }
                     else{
                         LOG<<"duplicate image ID "<<imageID<<", aborting"<<endl;
                         exit(0);
@@ -626,7 +731,7 @@ protected:
                 sum+=localProbs[s2];
             }
             for (int s2=0;s2<nSegmentationLabels;++s2){
-               localProbs[s2]/=sum;
+                localProbs[s2]/=sum;
             }
             resultIt.Set(localProbs);
         }
@@ -704,8 +809,8 @@ protected:
         try{
             optimizer.expansion(20);
         }catch (GCException e){
-             e.Report();
-             exit(-1);
+            e.Report();
+            exit(-1);
         }
         LOGV(1)<<"done"<<endl;
         ImageIteratorType imgIt(result,result->GetLargestPossibleRegion());
@@ -857,7 +962,7 @@ protected:
         }
         delete tIt; delete aIt; delete mIt;
     }
-     void updateProbabilisticSegmentationLocalMetricNew(ProbabilisticVectorImagePointerType accumulator, ProbabilisticVectorImagePointerType increment,double globalWeight, ImagePointerType targetImage, ImagePointerType movingImage,DeformationFieldPointerType deformation,MetricType metric ){
+    void updateProbabilisticSegmentationLocalMetricNew(ProbabilisticVectorImagePointerType accumulator, ProbabilisticVectorImagePointerType increment,double globalWeight, ImagePointerType targetImage, ImagePointerType movingImage,DeformationFieldPointerType deformation,MetricType metric ){
         ProbabilisticVectorImagePointerType deformedIncrement=warpProbImage(increment,deformation);
         ProbImageIteratorType accIt(accumulator,accumulator->GetLargestPossibleRegion());
         ProbImageIteratorType incIt(deformedIncrement,deformedIncrement->GetLargestPossibleRegion());

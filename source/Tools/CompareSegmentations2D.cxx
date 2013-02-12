@@ -104,7 +104,7 @@ int main(int argc, char * argv [])
         groundTruthImg=selectLabel(groundTruthImg,evalLabel);   
         segmentedImg=selectLabel(segmentedImg,evalLabel);
     }
-    ImageUtils<LabelImage>::writeImage("test.png",ImageUtils<LabelImage>::multiplyImageOutOfPlace(segmentedImg,65535));
+    //ImageUtils<LabelImage>::writeImage("test.png",ImageUtils<LabelImage>::multiplyImageOutOfPlace(segmentedImg,65535));
     if (multilabel){
         //segmentedImg=convertToBinaryImageFromMultiLabel(segmentedImg);
         std::cout<<"NYI"<<std::endl;
@@ -118,7 +118,7 @@ int main(int argc, char * argv [])
     typedef LabelImage::ConstPointer ConstType;
     if (connectedComponent){  
         LabelImage::Pointer testImage = FilterUtils<LabelImage>::relabelComponents(segmentedImg);
-        ImageUtils<LabelImage>::writeImage("relabel.png", FilterUtils<LabelImage>::normalize(testImage));
+        //ImageUtils<LabelImage>::writeImage("relabel.png", FilterUtils<LabelImage>::normalize(testImage));
 
         typedef itk::MinimumMaximumImageCalculator <LabelImage>
             ImageCalculatorFilterType;
