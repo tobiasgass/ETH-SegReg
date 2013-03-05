@@ -213,9 +213,11 @@ public:
         map<string, map<string, float> > globalWeights;
         {
             ifstream ifs(deformationFileList.c_str());
+	    LOGV(3)<<"Reading deformation filenames from " << deformationFileList << endl;
             while (!ifs.eof()){
                 string intermediateID,targetID,defFileName;
                 ifs >> intermediateID;
+		LOGV(3)<<VAR(intermediateID)<<endl;
                 if (intermediateID!=""){
                     ifs >> targetID;
                     ifs >> defFileName;
@@ -496,7 +498,7 @@ public:
                                     }
                           
                                     //weight*=globalOneHopWeight*1.0/min(useNAtlases,nAtlases);
-                                    //weight = 1.0/min(useNAtlases,nAtlases);
+                                    weight = 1.0/min(useNAtlases,nAtlases);
 
                                     //UPDATE
                                     if (weighting==UNIFORM || metric == NONE){
