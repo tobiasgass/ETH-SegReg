@@ -45,6 +45,8 @@ TARGET_LINK_LIBRARIES(CompareSegmentations2D Utils   ${ITK_LIBRARIES}  )
 #segment 
 ADD_EXECUTABLE(SegmentProbImage3D SegmentProbImage3D.cxx )
 TARGET_LINK_LIBRARIES(SegmentProbImage3D Utils SRSMRFModels    ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(SegmentProbImage2D SegmentProbImage2D.cxx )
+TARGET_LINK_LIBRARIES(SegmentProbImage2D Utils SRSMRFModels    ${ITK_LIBRARIES}  )
  
 #Compare registrations 
 ADD_EXECUTABLE(ComputeLandmarkRegistrationError2D ComputeLandmarkRegistrationError.cxx )

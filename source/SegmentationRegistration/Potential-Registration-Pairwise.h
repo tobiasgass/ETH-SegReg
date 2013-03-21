@@ -73,6 +73,7 @@ namespace itk{
             for (unsigned int d=0;d<D;++d){
                 m_maxDist+=sp[d]*sp[d];
             }
+            //m_maxDist=sqrt(m_maxDist);
         }
         virtual void setFullRegularization(bool b){ m_fullRegPairwise = b; }
         virtual inline double getPotential(PointType pt1, PointType pt2,LabelType displacement1, LabelType displacement2){
@@ -98,7 +99,11 @@ namespace itk{
             LabelType diff=displacement1-displacement2;
             //result=diff.GetSquaredNorm();
             result=diff.GetNorm();
-            //LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
+            LOGV(5)<<VAR(result) << " " << VAR(m_maxDist) << endl;
+            //if (result>3*m_maxDist) result = 100000;
+            
+
+            LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
 #else
             double axisPositionDifference;
 			for (unsigned int d=0;d<D;++d){

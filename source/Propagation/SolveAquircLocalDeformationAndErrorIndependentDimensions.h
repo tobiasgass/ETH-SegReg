@@ -20,6 +20,7 @@ public:
     typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
     typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
     typedef typename itk::ImageRegionIteratorWithIndex<DeformationFieldType> DeformationFieldIterator;
+    typedef typename itk::ImageRegionIterator<ImageType> ImageIterator;
     typedef typename DeformationFieldType::PixelType DeformationType;
     typedef typename DeformationFieldType::IndexType IndexType;
     typedef typename DeformationFieldType::PointType PointType;
@@ -37,6 +38,7 @@ protected:
     RegionType m_regionOfInterest;
     
     map<string,ImagePointerType> * m_imageList;
+    map<string,ImagePointerType> * m_segmentationList;
 
 private:
     int m_nPixels;// number of pixels/voxels
@@ -75,6 +77,8 @@ private:
     bool m_linearInterpol;
     bool m_haveDeformationEstimate;
 
+    double m_segConsisntencyWeight;
+
     std::vector<mxArray * > m_results;
 public:
     AquircLocalDeformationAndErrorSolverIndependentDimensions(){
@@ -93,7 +97,7 @@ public:
         m_updateDeformations=false;
         m_exponent=1.0;
         m_shearingReduction = 1.0;
-        
+        m_segConsisntencyWeight = 1.0;
         m_sigmaD = 0.0;
     }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist){
@@ -168,6 +172,9 @@ public:
     void setSigmaD(double s){m_sigmaD=s;}
     void setLocalWeightExp(double e){ m_exponent=e;}
     void setShearingReduction(double r){m_shearingReduction = r;}
+    void setSegmentationList(  map<string,ImagePointerType> * list){ m_segmentationList = list; }
+    void setScalingFactorForConsistentSegmentation(double scalingFactorForConsistentSegmentation){ m_segConsisntencyWeight = scalingFactorForConsistentSegmentation;}
+
     virtual void createSystem(){
 
         LOG<<"Creating equation system.."<<endl;
@@ -248,6 +255,14 @@ public:
                                     trueIt=DeformationFieldIterator((*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]],(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]]->GetLargestPossibleRegion());
                                     trueIt.GoToBegin();
                                 }
+                                
+                                ImageIterator segmentationIt;
+                                bool haveSeg=false;
+                                
+                                if (m_segmentationList->find((*m_imageIDList)[target]) != m_segmentationList->end()){
+                                    segmentationIt=ImageIterator((*m_segmentationList)[(*m_imageIDList)[target]],(*m_segmentationList)[(*m_imageIDList)[target]]->GetLargestPossibleRegion());
+                                    haveSeg = true;
+                                }
 
                                
                                 diffSumIt.GoToBegin();
@@ -297,13 +312,28 @@ public:
                                 
                                     if (inside){
                                         double val=1.0;
+                                        bool segVal=1.0;
+
+                                        //multiply val by segConsistencyWeight if deformation starts from atlas segmentation
+                                        if (haveSeg){
+                                            segVal=segmentationIt.Get()>0;
+                                            if (segVal){
+                                                val=val*m_segConsisntencyWeight;
+                                            }
+                                            ++segmentationIt;
+                                        }
+
                                         DeformationType localDiscrepance=it.Get();
                                         double disp=localDiscrepance[d];
                                         //diffSumIt.Set(diffSumIt.Get()+localDiscrepance.GetNorm());
                                         diffSumIt.Set(diffSumIt.Get()+(disp));
 
-                                        totalInconsistency += fabs(disp);
-                                        totalCount++;
+                                        //only count inconsistencies of atlas segmentation, if given
+                                        if (segVal){
+                                            totalInconsistency += fabs(disp);
+                                            totalCount++;
+                                        }
+
                                         LOGV(9)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(target)<<" "<<VAR(roiTargetIndex)<<" "<<VAR(d)<<endl;
                                         LOGV(9)<<VAR(edgeNumError(intermediate,target,roiTargetIndex,d))<<" "<<VAR(edgeNumDeformation(intermediate,target,roiTargetIndex,d))<<endl;
                                         //set w_d ~ 
@@ -333,6 +363,7 @@ public:
                                             v[c++]= - val*m_wWd;
                                             b[eq-1]= disp*m_wWd;
                                             ++eq;
+                                            
                                         }
                                     
                                         //set w_circ
@@ -365,10 +396,6 @@ public:
                                         }
                                     }//inside
                                     
-                                   
-                                    
-
-                                  
                                 }//image iterator
 
                             }//if

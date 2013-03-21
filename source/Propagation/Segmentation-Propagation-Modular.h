@@ -188,11 +188,12 @@ public:
 
 
         int nAtlases = inputAtlasSegmentations->size();
-      
+        useNAtlases=min(useNAtlases,nAtlases);
+
         LOG<<"Reading input images."<<endl;
         targetImages = readImageList( imageFileList, targetIDMap );
         int nImages = targetImages->size();
-
+        useNTargets=min(nImages,useNTargets);
         if (imageFileListAtlas != ""){
             atlasImages=readImageList(imageFileListAtlas, atlasIDMap);
         }else{
@@ -293,6 +294,11 @@ public:
                     atlasN=0;
                     for (ImageListIteratorType atlasIterator=inputAtlasSegmentations->begin();atlasIterator!=inputAtlasSegmentations->end() && (atlasN<useNAtlases);++atlasIterator,++atlasN){//iterate over atlases
                         string atlasID = atlasIterator->first;
+                        if (atlasID == targetID){
+                            LOGV(2)<<"Target equals atlas, skipping.. " <<endl;
+                            localARE=1.0;
+                            continue;
+                        }else{
                         ProbabilisticVectorImagePointerType probAtlasSeg=ImageUtils<ProbabilisticVectorImageType>::duplicate(probabilisticAtlasSelfSegmentations[atlasID]);
                         //todo: propagate atlas segmentation forward backward
                         //todo accumulate atlas segmentations
@@ -313,6 +319,7 @@ public:
                         double error=1.0-DICE(outputImage,atlasIterator->second);
                         LOGV(3)<<"Reconstructing "<<atlasID<<" using "<<targetID<<"; dice error: "<<error<<endl;
                         localARE+=error;
+                        }
                     }
                     
                     //check if ARE improved
@@ -546,7 +553,8 @@ public:
                     ImagePointerType outputImage;
                     
                     //ProbabilisticVectorImagePointerType normalizedProbs=normalizeProbs(newProbabilisticTargetSegmentations[id]);
-                    ProbabilisticVectorImagePointerType normalizedProbs=(newProbabilisticTargetSegmentations[id]);
+                    ProbabilisticVectorImagePointerType normalizedProbs=normalizeProbsSimple(newProbabilisticTargetSegmentations[id],useNAtlases, useNTargets);
+                    //ProbabilisticVectorImagePointerType normalizedProbs=(newProbabilisticTargetSegmentations[id]);
 
                     if (graphCut)
                         outputImage=probSegmentationToSegmentationGraphcut(newProbabilisticTargetSegmentations[id],smoothness*(nImages-nAtlases)*nAtlases);
@@ -744,6 +752,26 @@ protected:
             }
             for (int s2=0;s2<nSegmentationLabels;++s2){
                 localProbs[s2]/=sum;
+            }
+            resultIt.Set(localProbs);
+        }
+        return result;
+    }
+    ProbabilisticVectorImagePointerType normalizeProbsSimple(ProbabilisticVectorImagePointerType img, int nAtlases, int nImages){
+        ProbImageIteratorType probIt(img,img->GetLargestPossibleRegion());
+        ProbabilisticVectorImagePointerType result=ProbabilisticVectorImageType::New();
+        result->SetOrigin(img->GetOrigin());
+        result->SetSpacing(img->GetSpacing());
+        result->SetDirection(img->GetDirection());
+        result->SetRegions(img->GetLargestPossibleRegion());
+        result->Allocate();
+        ProbImageIteratorType resultIt(result,img->GetLargestPossibleRegion());
+        resultIt.GoToBegin();
+        for (probIt.GoToBegin();!probIt.IsAtEnd();++probIt,++resultIt){
+            ProbabilisticPixelType localProbs=probIt.Get();
+          
+            for (int s2=0;s2<nSegmentationLabels;++s2){
+                localProbs[s2]/=nAtlases*(nImages-1);
             }
             resultIt.Set(localProbs);
         }

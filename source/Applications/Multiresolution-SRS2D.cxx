@@ -18,11 +18,14 @@
 #include "Log.h"
 #include "TransformationUtils.h"
 #include "NewClassifier.h"
+#include <google/heap-profiler.h>
+
 using namespace std;
 using namespace itk;
 
 int main(int argc, char ** argv)
 {
+    //HeapProfilerStart("SRS2D");
 	//feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
@@ -247,5 +250,7 @@ int main(int argc, char ** argv)
     if (filterConfig.logFileName!=""){
         mylog.flushLog(filterConfig.logFileName);
     }
+    //HeapProfilerStop();
+
     return 1;
 }

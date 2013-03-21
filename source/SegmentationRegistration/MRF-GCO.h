@@ -41,9 +41,8 @@ public:
     typedef float (* SmoothFn)(int s1,int s2,int l1, int l2);
 protected:
     MRFType * m_optimizer;
-	double m_unarySegmentationWeight,m_pairwiseSegmentationWeight;
-	double m_unaryRegistrationWeight,m_pairwiseRegistrationWeight;
-	static double m_pairwiseSegmentationRegistrationWeight;
+    double m_unaryRegistrationWeight,m_unarySegmentationWeight;
+	static double m_pairwiseSegmentationRegistrationWeight,m_pairwiseRegistrationWeight,m_pairwiseSegmentationWeight;
 	int verbose;
     
     int nNodes, nRegNodes, nSegNodes, nEdges;
@@ -77,7 +76,9 @@ protected:
         std::cerr<<"Error! idx difference doesn make sense : "<<VAR(diff)<<std::endl;
         return -1;
     }
-#define CACHESRS
+    //#define CACHESRS
+    //#define CACHEREGISTRATION
+    //#define CACHESEGMENTATION
 public:
     static float GLOBALsmoothFunction(int node1, int node2, int label1, int label2){
         float pot=-1;
@@ -90,14 +91,23 @@ public:
             if ( (label1<GLOBALnRegLabels) || (label2<GLOBALnRegLabels) ){
                 pot=0.0;
             }else{
+#ifdef CACHESEGMENTATION
                 pot=(*segPairwise)[label1-GLOBALnRegLabels][label2-GLOBALnRegLabels][node1-GLOBALnRegNodes][getRelativeNodeIndex(node1-GLOBALnRegNodes,node2-GLOBALnRegNodes,S0,S1)];
+#else
+                pot = m_pairwiseSegmentationWeight*m_GraphModel->getPairwiseSegmentationPotential(node1-GLOBALnRegNodes,node2-GLOBALnRegNodes,label1-GLOBALnRegLabels,label2-GLOBALnRegLabels);
+#endif
             }
         }else if (node1<GLOBALnRegNodes && node2<GLOBALnRegNodes){
             //registration pairwise!
             if (label2>=GLOBALnRegLabels || label1>=GLOBALnRegLabels){
                 pot=0.0;
             }else{
+#ifdef CACHEREGISTRATION
                 pot=(*regPairwise)[label1][label2][node1][node2];
+#else
+                pot=m_pairwiseRegistrationWeight*m_GraphModel->getPairwiseRegistrationPotential(node1,node2,label1,label2);
+                  
+#endif
             }
         }else{
             //srs pairwise
@@ -250,7 +260,9 @@ public:
             tUnary+=t;
             // Pairwise potentials
             //if (regPairwise!=NULL) delete regPairwise;
+#ifdef CACHEREGISTRATION
             regPairwise= new vector<vector<vector<map<int,float> > > > (nRegLabels,vector<vector<map<int,float> > >(nRegLabels,vector<map<int,float> > (nRegNodes) ) );
+#endif
             for (int d=0;d<nRegNodes;++d){
                 m_optimizer->setLabel(d,m_zeroDisplacementLabel);
 
@@ -260,6 +272,7 @@ public:
                     for (int i=0;i<nNeighbours;++i){
                         //LOG<<d<<" "<<regNodes[d]<<" "<<i<<" "<<neighbours[i]<<std::endl;
                         m_optimizer->setNeighbors(d,neighbours[i],1);
+#ifdef CACHEREGISTRATION
                         for (int l1=0;l1<nRegLabels;++l1){
                             for (int l2=0;l2<nRegLabels;++l2){                                
                                 if (m_pairwiseRegistrationWeight>0)
@@ -268,6 +281,7 @@ public:
                                     (*regPairwise)[l1][l2][d][neighbours[i]] = 0.0;
                             }
                         }
+#endif
 
                         edgeCount++;
                     }
@@ -278,6 +292,7 @@ public:
          
             t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
             LOGV(1)<<"Registration pairwise took "<<t<<" seconds."<<endl;
+            LOGV(1)<<"Approximate size of reg pairwise: "<<1.0/(1024*1024)*nRegNodes*nRegLabels*nRegLabels*sizeof(double)<<" mb."<<endl;
 
             tPairwise+=t;
         }
@@ -312,7 +327,9 @@ public:
             //LOGV(4)<<"Allocation seg pairwise, rough theroetical size after reararanging"<<GLOBALnSegNodes*sizeof(map<int,float>)*( D*(sizeof(int)+GLOBALnSegLabels*GLOBALnSegLabels*sizeof(float)))/(1024*1024)<<"Mb"<<std::endl;
             //segPairwise= new vector<vector<vector<map<int,float> > > > (GLOBALnSegLabels,vector<vector<map<int,float> > >(GLOBALnSegLabels,vector<map<int,float> > (GLOBALnSegNodes) ) );
             //if (segPairwise!=NULL) delete segPairwise;
+#ifdef CACHESEGMENTATION
             segPairwise= new vector<vector<vector<vector<float> > > > (GLOBALnSegLabels,vector<vector<vector<float> > >(GLOBALnSegLabels,vector< vector<float> > (GLOBALnSegNodes,vector<float> (D)) ) );
+#endif
             //LOGV(4)<<"Allocated, "<<VAR(segPairwise)<<endl;
             
             //SRS potential cache
@@ -330,6 +347,7 @@ public:
                     nSegEdges++;
                     m_optimizer->setNeighbors(d+GLOBALnRegNodes,neighbours[i]+GLOBALnRegNodes,1);
                     edgeCount++;
+#ifdef CACHESEGMENTATION
                     for (int l1=0;l1<nSegLabels;++l1){
                         for (int l2=0;l2<nSegLabels;++l2){
                             LOGV(25)<<VAR(d)<<" "<<VAR(l1)<<" "<<VAR(neighbours[i])<<" "<<l2<<endl;
@@ -340,6 +358,7 @@ public:
                             }
                         }
                     }
+#endif
                     
                 }
                 if (m_register && m_coherence){
@@ -484,6 +503,8 @@ template<class T> int  GCO_SRSMRFSolver<T>::GLOBALnSegNodes=0;
 template<class T> int  GCO_SRSMRFSolver<T>::GLOBALnRegLabels=0;
 template<class T> int  GCO_SRSMRFSolver<T>::GLOBALnSegLabels=0;
 template<class T>  double GCO_SRSMRFSolver<T>::m_pairwiseSegmentationRegistrationWeight=0;
+template<class T>  double GCO_SRSMRFSolver<T>::m_pairwiseSegmentationWeight=0;
+template<class T>  double GCO_SRSMRFSolver<T>::m_pairwiseRegistrationWeight=0;
 
 // vector<vector<vector<float > > > *srsPairwise = NULL;
 // vector<vector<vector<vector<float> > > > *segPairwise = NULL;

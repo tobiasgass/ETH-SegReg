@@ -134,7 +134,7 @@ int main(int argc, char ** argv){
     double shearing = 1.0;
     double m_sigmaD = 0.0;
     double circWeightScaling = 1.0;
-    //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+    double scalingFactorForConsistentSegmentation = 1.0;
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
@@ -157,6 +157,9 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
     (*as) >> parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
     (*as) >> option ("linear", linear," use linear interpolation (instead of NN) when building equations for circles.");
+    (*as) >> parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
+    (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
+
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
     (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
@@ -191,6 +194,7 @@ int main(int argc, char ** argv){
     inputImages = readImageList( imageFileList, imageIDs );
     int nImages = inputImages->size();
         
+   
 
     if (dontCacheDeformations){
         LOG<<"Reading deformation file names."<<endl;
@@ -316,7 +320,12 @@ int main(int argc, char ** argv){
     }
     
             
-   
+    map<string,ImagePointerType> *atlasSegmentations = NULL;
+    if (atlasSegmentationFileList!=""){
+        std::vector<string> buff;
+        atlasSegmentations=readImageList(atlasSegmentationFileList,buff);
+        
+    }
    
     
     //AquircLocalDeformationAndErrorSolver<ImageType> * solver;
@@ -342,6 +351,12 @@ int main(int argc, char ** argv){
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages);
+
+    if (atlasSegmentationFileList!=""){
+        solver->setSegmentationList(atlasSegmentations);
+        solver->setScalingFactorForConsistentSegmentation(scalingFactorForConsistentSegmentation);
+    }
+
     for (int h=0;h<maxHops;++h){
         solver->setWeightWcirc(wwcirc*pow(circWeightScaling,h)); 
         //solver->setWeightWdelta(wwdelta*pow(2,h));

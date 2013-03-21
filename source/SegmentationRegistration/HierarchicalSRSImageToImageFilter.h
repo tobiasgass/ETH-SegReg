@@ -54,7 +54,6 @@
 #include "itkBSplineDeformableTransform.h"
 #include <itkWarpImageFilter.h>
 #include "itkImageRegionConstIteratorWithIndex.h"
-#include <google/heap-profiler.h>
 #include "ChamferDistanceTransform.h"
 #include "itkCastImageFilter.h"
 #include "Classifier.h"
@@ -343,7 +342,12 @@ namespace itk{
                     m_unaryRegistrationPot->SetScale(scaling);
                     m_unaryRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
+#if 1
+                    LOG<<"WARNING: patch size 11x11 for unary registration potential " << endl;
+                    m_unaryRegistrationPot->SetRadius(graph->getSpacing()*5);
+#else
                     m_unaryRegistrationPot->SetRadius(graph->getSpacing());
+#endif
 #if 0
                     m_unaryRegistrationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
                     m_unaryRegistrationPot->SetAlpha(m_config->alpha);

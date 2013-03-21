@@ -373,8 +373,8 @@ public:
         filter->SetInput(image);
         filter->SetSigma(variance);
         //filter->SetVariance(variance);
-        if (!spacing)
-            filter->SetUseImageSpacingOff();
+        //if (!spacing)
+        //  filter->SetUseImageSpacingOff();
         filter->Update();
 
         return filter->GetOutput();
