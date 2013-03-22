@@ -254,7 +254,7 @@ namespace itk{
             bool segment=m_config->segment;
             bool regist= m_config->regist;
             //results
-            ConstImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
+            ImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
             DeformationFieldPointerType fullDeformation,previousFullDeformation;
             if (regist || coherence){
                 if (m_useBulkTransform){
@@ -370,7 +370,7 @@ namespace itk{
                     m_unaryRegistrationPot->SetScale(scaling);
                     m_unaryRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
-#if 1
+#if 0
                     LOG<<"WARNING: patch size 11x11 for unary registration potential " << endl;
                     m_unaryRegistrationPot->SetRadius(graph->getSpacing()*5);
 #else
@@ -474,6 +474,9 @@ namespace itk{
                         if (! m_config->dontNormalizeRegUnaries) m_unaryRegistrationPot->setNormalize( i==0 && l>0);
                     }
                     if (coherence){
+                        if (deformedAtlasSegmentation.IsNotNull()&& segmentationScalingFactor<1.0){
+                            deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
+                        }
                         m_pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
                         TIME(m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation));
                     }
@@ -512,7 +515,7 @@ namespace itk{
                                                           m_config->unaryRegistrationWeight,///pow(sqrt(2.0),l),
                                                           m_config->pairwiseRegistrationWeight, 
                                                           m_config->unarySegmentationWeight,
-                                                          m_config->pairwiseSegmentationWeight,
+                                                          m_config->pairwiseSegmentationWeight*segmentationScalingFactor,
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
                         }else if (m_config->GCO){
@@ -521,7 +524,7 @@ namespace itk{
                                                           m_config->unaryRegistrationWeight,
                                                           m_config->pairwiseRegistrationWeight, 
                                                           m_config->unarySegmentationWeight,
-                                                          m_config->pairwiseSegmentationWeight,
+                                                          m_config->pairwiseSegmentationWeight*(segmentationScalingFactor),
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
                         }
@@ -641,8 +644,11 @@ namespace itk{
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config->displacementRescalingFactor;
                     if (segmentation.IsNotNull()&& segmentationScalingFactor<1.0){
-                        segmentation = FilterUtils<ImageType>::BSplineResample(segmentation,m_inputTargetImage,false);
+                        //segmentation = FilterUtils<ImageType>::BSplineResample(segmentation,m_inputTargetImage,false);
+                        LOGV(6)<<VAR(segmentation->GetLargestPossibleRegion().GetSize())<<endl;
+                        segmentation = FilterUtils<ImageType>::BSplineResampleSegmentation(segmentation,m_inputTargetImage);
                     }
+                 
                     if (m_config->verbose>6){
                         std::string suff;
                         if (ImageType::ImageDimension==2){

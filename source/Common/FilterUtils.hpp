@@ -309,23 +309,7 @@ public:
         return resampler->GetOutput();
     }
 
-    static OutputImagePointer BSplineResample( InputImagePointer input,  ConstInputImagePointer reference, bool smooth) {
-        BSplineInterpolatorPointerType interpol=BSplineInterpolatorType::New();
-        ResampleFilterPointerType resampler=ResampleFilterType::New();
-       if (smooth){
-            InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
-            resampler->SetInput(smoothedInput);
-        }else{
-            resampler->SetInput(input);
-        }
-        resampler->SetInterpolator(interpol);
-        resampler->SetOutputOrigin(reference->GetOrigin());
-		resampler->SetOutputSpacing ( reference->GetSpacing() );
-		resampler->SetOutputDirection ( reference->GetDirection() );
-		resampler->SetSize ( reference->GetLargestPossibleRegion().GetSize() );
-        resampler->Update();
-        return resampler->GetOutput();
-    }
+  
     static OutputImagePointer LinearResample( InputImagePointer input,  InputImagePointer reference, bool smooth) {
         return LinearResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference, smooth);
     }
@@ -352,8 +336,46 @@ public:
         return resampler->GetOutput();
     }
 
-  
+    static OutputImagePointer BSplineResampleSegmentation( InputImagePointer input,  ConstInputImagePointer reference) {
+        int nSegmentations = getMax(input)+1;
+        typedef typename itk::Image<float,InputImage::ImageDimension> FloatImageType;
+        std::vector<typename FloatImageType::Pointer> segmentationImages(nSegmentations);
 
+        typedef typename itk::ResampleImageFilter< InputImage , FloatImageType>	FloatResampleFilterType;
+        typedef typename FloatResampleFilterType::Pointer FloatResampleFilterPointerType;
+        for (int s=0;s<nSegmentations;++s){
+            BSplineInterpolatorPointerType interpol=BSplineInterpolatorType::New();
+            FloatResampleFilterPointerType resampler=FloatResampleFilterType::New();
+            resampler->SetInput(select(input,s));
+            resampler->SetInterpolator(interpol);
+            resampler->SetOutputOrigin(reference->GetOrigin());
+            resampler->SetOutputSpacing ( reference->GetSpacing() );
+            resampler->SetOutputDirection ( reference->GetDirection() );
+            resampler->SetSize ( reference->GetLargestPossibleRegion().GetSize() );
+            resampler->Update();
+            segmentationImages[s]=resampler->GetOutput();
+
+        }
+        OutputImagePointer result = createEmpty(reference);
+        itk::ImageRegionIteratorWithIndex<OutputImage>  resultIt(result,result->GetLargestPossibleRegion());
+        for (resultIt.GoToBegin();!resultIt.IsAtEnd();++resultIt){
+            OutputImageIndex idx=resultIt.GetIndex();
+            int maxLabel=-1;
+            double maxVal=-1;
+            for (int s=0;s<nSegmentations;++s){
+                float value = segmentationImages[s]->GetPixel(idx);
+                if (value>maxVal){
+                    maxVal=value;
+                    maxLabel=s;
+                }
+            }
+            resultIt.Set(maxLabel);
+        }
+
+        return result;
+    }
+    
+    
 
     /**
        Paste the region from the source image to a given position
@@ -685,7 +707,13 @@ public:
         return cast(inputImage);
     }
 
+    static OutputImagePointer select(
+                                           InputImagePointer inputImage,
+                                           InputImagePixelType value
+                                           ) {
 
+        return binaryThresholding(inputImage,value,value);
+    }
 
 
     // perform erosion (mathematical morphology) with a given label image
@@ -706,7 +734,6 @@ public:
         return erosionFilter->GetOutput();
 
     }
-
 
 
 
