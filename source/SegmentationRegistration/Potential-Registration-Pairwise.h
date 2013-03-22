@@ -99,7 +99,7 @@ namespace itk{
             LabelType diff=displacement1-displacement2;
             //result=diff.GetSquaredNorm();
             result=diff.GetNorm();
-            LOGV(5)<<VAR(result) << " " << VAR(m_maxDist) << endl;
+            LOGV(50)<<VAR(result) << " " << VAR(m_maxDist) << endl;
             //if (result>3*m_maxDist) result = 100000;
             
 

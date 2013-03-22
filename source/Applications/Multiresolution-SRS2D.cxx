@@ -112,7 +112,7 @@ int main(int argc, char ** argv)
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
     if (filterConfig.ROIFilename  != ""){
         ImagePointerType roi=ImageUtils<ImageType>::readImage(filterConfig.ROIFilename);
-        targetImage=FilterUtils<ImageType>::NNResample(targetImage,roi);
+        targetImage=FilterUtils<ImageType>::NNResample(targetImage,roi,false);
     }
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
@@ -159,16 +159,16 @@ int main(int argc, char ** argv)
         double sigma=1;
         double scale=filterConfig.downScale;
         LOG<<"Resampling images from "<< targetImage->GetLargestPossibleRegion().GetSize()<<" by a factor of"<<scale<<endl;
-        targetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetImage,sigma),scale);
-        atlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasImage,sigma),scale);
-        atlasSegmentation=FilterUtils<ImageType>::NNResample((atlasSegmentation),scale);
+        targetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetImage,sigma),scale, false);
+        atlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasImage,sigma),scale,false);
+        atlasSegmentation=FilterUtils<ImageType>::NNResample((atlasSegmentation),scale,false);
         if (filterConfig.segment){
-            targetGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetGradient),scale);
-            atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale);
+            targetGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetGradient),scale,true);
+            atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale,true);
             //targetGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetGradient,sigma),scale);
             //atlasGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasGradient,sigma),scale);
             if (filterConfig.useTissuePrior){
-                tissuePrior=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)(targetImage),sigma),scale);
+                tissuePrior=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)(targetImage),sigma),scale,false);
             }
         }
     }
@@ -225,7 +225,7 @@ int main(int argc, char ** argv)
         //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
         if (targetSegmentationEstimate){
             typedef ImageUtils<ImageType>::FloatImageType FloatImageType;
-            targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),originalTargetImage));
+            targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),originalTargetImage,false));
         }
     }
     LOG<<"Deforming Images.."<<endl;

@@ -41,6 +41,7 @@
 #include "itkPasteImageFilter.h"
 #include <itkResampleImageFilter.h>
 #include "itkLinearInterpolateImageFunction.h"
+#include "itkBSplineInterpolateImageFunction.h"
 #include "ImageUtils.cxx"
 #include <algorithm> //max,min
 #include "Log.h"
@@ -59,6 +60,7 @@ class FilterUtils {
     typedef typename InputImage::PixelType InputImagePixelType;
     typedef typename InputImage::IndexType InputImageIndex;
     typedef typename InputImage::RegionType InputImageRegion;
+    typedef typename InputImage::SpacingType SpacingType;
 
     typedef typename OutputImage::Pointer OutputImagePointer;
     typedef typename OutputImage::IndexType OutputImageIndex;
@@ -109,6 +111,8 @@ class FilterUtils {
 
     typedef typename itk::LinearInterpolateImageFunction<InputImage, double> LinearInterpolatorType;
     typedef typename LinearInterpolatorType::Pointer LinearInterpolatorPointerType;
+    typedef typename itk::BSplineInterpolateImageFunction<InputImage, double> BSplineInterpolatorType;
+    typedef typename BSplineInterpolatorType::Pointer BSplineInterpolatorPointerType;
     typedef typename itk::NearestNeighborInterpolateImageFunction<InputImage, double> NNInterpolatorType;
     typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
     typedef typename itk::ResampleImageFilter< InputImage , OutputImage>	ResampleFilterType;
@@ -168,12 +172,11 @@ public:
 
 #ifdef ISOTROPIC_RESAMPLING
   
-    static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool nnResample=false) {
+    static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool smooth,bool nnResample=false) {
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
 
         ResampleFilterPointerType resampler=ResampleFilterType::New();
-        resampler->SetInput(input);
         if (nnResample)
             resampler->SetInterpolator(interpolNN);
         else
@@ -194,6 +197,13 @@ public:
 		resampler->SetOutputDirection ( input->GetDirection() );
 		resampler->SetSize ( size );
         
+        if (smooth && scale<1.0){
+            InputImagePointer smoothedInput = gaussian(input,spacing);
+            resampler->SetInput(smoothedInput);
+        }else{
+            resampler->SetInput(input);
+        }
+
         resampler->Update();
         return resampler->GetOutput();
     }
@@ -202,12 +212,11 @@ public:
 #else
     //downscale to isotropic spacing defined by minspacing/scale
     //never upsample!
-    static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool nnResample=false) {
+    static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool smooth, bool nnResample=false) {
 
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
-        resampler->SetInput(input);
         if (nnResample)
             resampler->SetInterpolator(interpolNN);
         else
@@ -242,25 +251,37 @@ public:
 		resampler->SetOutputSpacing ( spacing );
 		resampler->SetOutputDirection ( input->GetDirection() );
 		resampler->SetSize ( size );
+        if (smooth && scale<1.0){
+            InputImagePointer smoothedInput = gaussian(input,spacing);
+            resampler->SetInput(smoothedInput);
+        }else{
+            resampler->SetInput(input);
+        }
+
         resampler->Update();
         return resampler->GetOutput();
     }
   
 #endif
-    static OutputImagePointer LinearResample( InputImagePointer input,  double scale, bool nnResample=false) {
-        return LinearResample(ConstInputImagePointer(input),scale,nnResample);
+    static OutputImagePointer LinearResample( InputImagePointer input,  double scale, bool smooth,bool nnResample=false) {
+        return LinearResample(ConstInputImagePointer(input),scale, smooth, nnResample);
     }
 
-    static OutputImagePointer NNResample( ConstInputImagePointer input,  double scale) {
-        return LinearResample(input,scale,true);
+    static OutputImagePointer NNResample( ConstInputImagePointer input,  double scale, bool smooth) {
+        return LinearResample(input,scale,smooth,true);
     }
-    static OutputImagePointer NNResample( InputImagePointer input,  double scale) {
-        return LinearResample((ConstInputImagePointer)input,scale,true);
+    static OutputImagePointer NNResample( InputImagePointer input,  double scale,bool smooth) {
+        return LinearResample((ConstInputImagePointer)input,scale,smooth,true);
     }
-    static OutputImagePointer NNResample( ConstInputImagePointer input,  ConstInputImagePointer reference) {
+    static OutputImagePointer NNResample( ConstInputImagePointer input,  ConstInputImagePointer reference, bool smooth) {
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
-        ResampleFilterPointerType resampler=ResampleFilterType::New();
-        resampler->SetInput(input);
+        ResampleFilterPointerType resampler=ResampleFilterType::New();  
+        if (smooth){
+            InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
+            resampler->SetInput(smoothedInput);
+        }else{
+            resampler->SetInput(input);
+        }
         resampler->SetInterpolator(interpol);
     
         resampler->SetOutputOrigin(reference->GetOrigin());
@@ -270,10 +291,15 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
-    static OutputImagePointer LinearResample( ConstInputImagePointer input,  ConstInputImagePointer reference) {
+    static OutputImagePointer LinearResample( ConstInputImagePointer input,  ConstInputImagePointer reference, bool smooth) {
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
-        resampler->SetInput(input);
+       if (smooth){
+            InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
+            resampler->SetInput(smoothedInput);
+        }else{
+            resampler->SetInput(input);
+        }
         resampler->SetInterpolator(interpol);
         resampler->SetOutputOrigin(reference->GetOrigin());
 		resampler->SetOutputSpacing ( reference->GetSpacing() );
@@ -282,17 +308,40 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
-    static OutputImagePointer LinearResample( InputImagePointer input,  InputImagePointer reference) {
-        return LinearResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference);
+
+    static OutputImagePointer BSplineResample( InputImagePointer input,  ConstInputImagePointer reference, bool smooth) {
+        BSplineInterpolatorPointerType interpol=BSplineInterpolatorType::New();
+        ResampleFilterPointerType resampler=ResampleFilterType::New();
+       if (smooth){
+            InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
+            resampler->SetInput(smoothedInput);
+        }else{
+            resampler->SetInput(input);
+        }
+        resampler->SetInterpolator(interpol);
+        resampler->SetOutputOrigin(reference->GetOrigin());
+		resampler->SetOutputSpacing ( reference->GetSpacing() );
+		resampler->SetOutputDirection ( reference->GetDirection() );
+		resampler->SetSize ( reference->GetLargestPossibleRegion().GetSize() );
+        resampler->Update();
+        return resampler->GetOutput();
     }
-    static OutputImagePointer NNResample( InputImagePointer input,  InputImagePointer reference) {
-        return NNResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference);
+    static OutputImagePointer LinearResample( InputImagePointer input,  InputImagePointer reference, bool smooth) {
+        return LinearResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference, smooth);
+    }
+    static OutputImagePointer NNResample( InputImagePointer input,  InputImagePointer reference, bool smooth) {
+        return NNResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference, smooth);
     }
 
-    static OutputImagePointer NNResample( InputImagePointer input,  ConstInputImagePointer reference) {
+    static OutputImagePointer NNResample( InputImagePointer input,  ConstInputImagePointer reference, bool smooth) {
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
-        resampler->SetInput(input);
+         if (smooth){
+            InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
+            resampler->SetInput(smoothedInput);
+        }else{
+            resampler->SetInput(input);
+        }
         resampler->SetInterpolator(interpol);
     
         resampler->SetOutputOrigin(reference->GetOrigin());
@@ -385,7 +434,24 @@ public:
         return gaussian(ConstInputImagePointer(image),variance,spacing);
     }
 
+    static OutputImagePointer gaussian(InputImagePointer image, SpacingType spacing){
+        
+        return gaussian(ConstInputImagePointer(image),spacing);
+        
+    }
 
+    static OutputImagePointer gaussian(ConstInputImagePointer image, SpacingType spacing
+                                       ) {
+         DiscreteGaussianImageFilterPointer filter =
+            DiscreteGaussianImageFilterType::New();
+         LOGV(4)<<"gaussian smoothing with "<<VAR(spacing)<<endl;
+        filter->SetInput(image);
+        filter->SetSigmaArray(spacing);
+       
+        filter->Update();
+        LOGV(4)<<"success"<<endl;
+        return filter->GetOutput();
+    }
 
     // relabel components according to its size.
     // Largest component 1, second largest 2, ...

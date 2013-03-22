@@ -480,9 +480,9 @@ namespace itk{
             assert(this->m_atlasGradient);
             assert(this->m_atlasImage);
             if (m_trainOnTargetROI){
-                this->m_atlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_targetImage);
-                this->m_atlasSegmentation=FilterUtils<ImageType>::NNResample(this->m_atlasSegmentation,this->m_targetImage);
-                this->m_atlasGradient=FilterUtils<ImageType>::NNResample(this->m_atlasGradient,this->m_targetImage);
+                this->m_atlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_targetImage,false);
+                this->m_atlasSegmentation=FilterUtils<ImageType>::NNResample(this->m_atlasSegmentation,this->m_targetImage,false);
+                this->m_atlasGradient=FilterUtils<ImageType>::NNResample(this->m_atlasGradient,this->m_targetImage,false);
             }
             m_classifier=ClassifierType::New();
             m_classifier->setNIntensities(3000);
@@ -507,7 +507,7 @@ namespace itk{
         void ResamplePotentials(double scale){
             m_resampledProbImages= std::vector<FloatImagePointerType>(m_probabilityImages.size());
             for (int i=0;i<m_probabilityImages.size();++i){
-                m_resampledProbImages[i]=FilterUtils<FloatImageType>::LinearResample(m_probabilityImages[i],scale);
+                m_resampledProbImages[i]=FilterUtils<FloatImageType>::LinearResample(m_probabilityImages[i],scale,true);
             }
         }
         ClassifierPointerType GetClassifier(){return m_classifier;}

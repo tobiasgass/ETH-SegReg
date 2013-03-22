@@ -319,10 +319,38 @@ namespace itk{
                 level=m_config->levels[l];
                 double labelScalingFactor=m_config->displacementScaling;
                 
-                //downsampling target image by a factor of m_config->segmentationScalingFactor for each level.
-                double segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent);
-                LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
-                m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor);
+                double segmentationScalingFactor=1.0;
+                if (m_config->segmentationScalingFactor>0.0 &&  m_config->segmentationScalingFactor!=1.0){
+                    segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent);
+                    //downsampling target image by a factor of m_config->segmentationScalingFactor for each level.
+                    LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
+                    ImagePointerType smoothedTargetImage=FilterUtils<ImageType>::gaussian(m_inputTargetImage,1.0/segmentationScalingFactor);
+                    m_targetImage=FilterUtils<ImageType>::LinearResample(smoothedTargetImage,segmentationScalingFactor,false);
+                }else if (m_config->segmentationScalingFactor == 0.0){
+                    LOG<<"Using same grid control point resolution for both registration and segmentation sub-graph!"<<endl;
+                    logSetStage("segmentation grid size estimation");
+                    //use same level of detail as used for the graph
+                    //first set up dummy graph from original target image
+                    graph->setConfig(*m_config);
+                    graph->setTargetImage(m_inputTargetImage);
+                    graph->setDisplacementFactor(labelScalingFactor);
+                    graph->initGraph(level);
+                    //use coarse graph image for resampling..
+                    LOGV(4)<<VAR(graph->getCoarseGraphImage()->GetSpacing())<<endl;
+                    //quite crude method ;)
+                    segmentationScalingFactor = 1.0*graph->getCoarseGraphImage()->GetLargestPossibleRegion().GetSize()[0]/m_inputTargetImage->GetLargestPossibleRegion().GetSize()[0];
+                    LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
+
+                    ImagePointerType smoothedTargetImage=FilterUtils<ImageType>::gaussian(m_inputTargetImage,1.0/segmentationScalingFactor);
+                    LOGV(4)<<"smoothed input image" << endl;
+                    m_targetImage=FilterUtils<ImageType>::LinearResample(smoothedTargetImage,graph->getCoarseGraphImage(),false);
+                    LOGV(4)<<"downsampled image" << endl;
+                    LOGV(4)<<VAR(graph->getCoarseGraphImage()->GetSpacing())<<endl;
+                    logResetStage;
+                } else{
+                    m_targetImage = m_inputTargetImage;
+
+                }
                 
                 if (false && l>0 && D==3){
                     LOG<<endl;
@@ -599,7 +627,7 @@ namespace itk{
                         composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
                         //deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,composedDeformation);
                         DeformationFieldPointerType lowResDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(composedDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
-                        deformedAtlasImage=FilterUtils<ImageType>::NNResample(TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef),m_targetImage);
+                        deformedAtlasImage=FilterUtils<ImageType>::NNResample(TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef),m_targetImage,false);
                         deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
                     }
                     
@@ -612,6 +640,9 @@ namespace itk{
 
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config->displacementRescalingFactor;
+                    if (segmentation.IsNotNull()&& segmentationScalingFactor<1.0){
+                        segmentation = FilterUtils<ImageType>::BSplineResample(segmentation,m_inputTargetImage,false);
+                    }
                     if (m_config->verbose>6){
                         std::string suff;
                         if (ImageType::ImageDimension==2){
@@ -627,6 +658,7 @@ namespace itk{
                         if (regist) ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedAtlasImage);
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<m_config->segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
+                     
                         if (ImageType::ImageDimension==2){
                             if (segment && segmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
                             if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));

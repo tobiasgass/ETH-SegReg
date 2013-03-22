@@ -106,8 +106,8 @@ namespace itk{
             assert(m_targetImage);
             assert(m_atlasImage);
             if ( m_scale!=1.0){
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,m_scale,false),m_scale);
-                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,m_scale,false),m_scale);
+                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,m_scale,false),m_scale,false);
+                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,m_scale,false),m_scale,false);
                 //m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale);
                 //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale);
                 //m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),1);
@@ -1058,7 +1058,7 @@ namespace itk{
 
         typedef typename LabelMapperType::LabelImageType LabelImageType;
         typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
-        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType,itk::ConstantBoundaryCondition<TImage,TImage> > ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
         
         typedef itk::TranslationTransform<double,ImageType::ImageDimension> TranslationTransformType;
@@ -1148,6 +1148,10 @@ namespace itk{
             deformedMask=result.second;
             m_atlasNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedAtlas,deformedAtlas->GetLargestPossibleRegion());
             m_maskNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedMask,deformedMask->GetLargestPossibleRegion());
+
+            LOGV(70)<<VAR(m_atlasNeighborhoodIterator.GetRadius())<<" "<<VAR(deformedAtlas->GetLargestPossibleRegion().GetSize())<<endl;
+            LOGV(70)<<VAR(this->nIt.GetRadius())<<" "<<VAR(deformedAtlas->GetLargestPossibleRegion().GetSize())<<endl;
+
             FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
             for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator){
                 IndexType coarseIndex=coarseIterator.GetIndex();
@@ -1253,7 +1257,6 @@ namespace itk{
             for (unsigned int i=0;i<this->nIt.Size();++i){
                 bool inBounds;
                 double m=m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
-              
                    
                 insideCount+=inBounds;
                 bool inside=m_maskNeighborhoodIterator.GetPixel(i);
