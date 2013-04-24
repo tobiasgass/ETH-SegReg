@@ -437,9 +437,14 @@ public:
     static OutputImagePointer gaussian(
                                        ConstInputImagePointer image, float variance, bool spacing=true
                                        ) {
+        
+        if (! image.IsNotNull()){
+            return NULL;
+        }
 
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
+
 
         filter->SetInput(image);
         filter->SetSigma(variance);

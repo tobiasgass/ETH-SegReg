@@ -74,9 +74,9 @@ protected:
    
 
     //neighbor structure for GCO
-    int * numberOfNeighborsofEachNode;
-    int ** neighbourArray; 
-    EnergyType ** weights;
+    int * m_numberOfNeighborsofEachNode;
+    int ** m_neighbourArray; 
+    EnergyType ** m_weights;
 
 public:
     static EnergyType GLOBALsmoothFunction(int node1, int node2, int label1, int label2){
@@ -188,11 +188,22 @@ public:
     }
 	~GCO_SRSMRFSolver()
     {
+
+        LOGV(1)<<"Deleting GCO_MRF Sovler " << endl;
         if (m_register) delete regPairwise;
         if (m_segment) delete segPairwise;
         if (m_coherence) delete srsPairwise;
         delete m_optimizer;
 
+        if (m_numberOfNeighborsofEachNode){
+            delete [] m_numberOfNeighborsofEachNode;
+            for (int i = 0;i< GLOBALnRegNodes+GLOBALnSegNodes; ++i){
+                delete [] m_neighbourArray[i];
+                delete [] m_weights[i];
+            }
+            delete [] m_neighbourArray;
+            delete [] m_weights;
+        }
     }
 
     virtual void setPotentialCaching(bool enableCaching){m_cachePotentials=enableCaching;}
@@ -241,10 +252,10 @@ public:
 		}
 
         //allocate neighbor structs
-        numberOfNeighborsofEachNode = new int[GLOBALnRegNodes+GLOBALnSegNodes];
-        memset(numberOfNeighborsofEachNode,0,GLOBALnRegNodes+GLOBALnSegNodes);
-        neighbourArray = new int *[GLOBALnRegNodes+GLOBALnSegNodes];
-        weights= new EnergyType *[GLOBALnRegNodes+GLOBALnSegNodes];;
+        m_numberOfNeighborsofEachNode = new int[GLOBALnRegNodes+GLOBALnSegNodes];
+        memset(m_numberOfNeighborsofEachNode,0,GLOBALnRegNodes+GLOBALnSegNodes);
+        m_neighbourArray = new int *[GLOBALnRegNodes+GLOBALnSegNodes];
+        m_weights= new EnergyType *[GLOBALnRegNodes+GLOBALnSegNodes];;
 
         logSetStage("Potential Functions");
 		//		traverse grid
@@ -294,8 +305,8 @@ public:
                     int nNeighbours=neighbours.size();
                     for (int i=0;i<nNeighbours;++i){
                         //LOG<<d<<" "<<regNodes[d]<<" "<<i<<" "<<neighbours[i]<<std::endl;
-                        //m_optimizer->setNeighbors(d,neighbours[i],1);
-                        addNeighbor(d,neighbours[i],numberOfNeighborsofEachNode,neighbourArray,weights);
+                        m_optimizer->setNeighbors(d,neighbours[i],1);
+                        //    addNeighbor(d,neighbours[i],m_numberOfNeighborsofEachNode,m_neighbourArray,m_weights);
                         if (m_cachePotentials){
                             for (int l1=0;l1<nRegLabels;++l1){
                                 for (int l2=0;l2<nRegLabels;++l2){                                
@@ -360,7 +371,7 @@ public:
                 for (int i=0;i<nNeighbours;++i){
                     nSegEdges++;
                     //m_optimizer->setNeighbors(d+GLOBALnRegNodes,neighbours[i]+GLOBALnRegNodes,1);
-                    addNeighbor(d+GLOBALnRegNodes,neighbours[i]+GLOBALnRegNodes,numberOfNeighborsofEachNode,neighbourArray,weights);
+                    addNeighbor(d+GLOBALnRegNodes,neighbours[i]+GLOBALnRegNodes,m_numberOfNeighborsofEachNode,m_neighbourArray,m_weights);
 
                     edgeCount++;
                     if (m_cachePotentials){
@@ -383,8 +394,8 @@ public:
                     if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
 
                     for (int i=0;i<nNeighbours;++i){
-                        //m_optimizer->setNeighbors(d+GLOBALnRegNodes,segRegNeighbors[i],1);
-                        addNeighbor(d+GLOBALnRegNodes,segRegNeighbors[i],numberOfNeighborsofEachNode,neighbourArray,weights);
+                        m_optimizer->setNeighbors(d+GLOBALnRegNodes,segRegNeighbors[i],1);
+                        // addNeighbor(d+GLOBALnRegNodes,segRegNeighbors[i],m_numberOfNeighborsofEachNode,m_neighbourArray,m_weights);
 
                         edgeCount++;
                         if (m_cachePotentials){
@@ -416,7 +427,7 @@ public:
             
         }
         m_optimizer->setSmoothCost(&GLOBALsmoothFunction);
-        m_optimizer->setAllNeighbors(numberOfNeighborsofEachNode,neighbourArray,weights);
+        m_optimizer->setAllNeighbors(m_numberOfNeighborsofEachNode,m_neighbourArray,m_weights);
         clock_t finish = clock();
         double t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
         //tInterpolation+=t;
@@ -512,7 +523,7 @@ public:
         LOGV(15)<<"Adding neighbors "<<id1<<" "<<id2<<" with counts "<<VAR(neighbCount[id1])<< " "<<VAR(neighbCount[id2])<<endl;
         //allocate memory if not yet allocated
         if (neighbCount[id1] == 0){
-            int nNeighbors=D;
+            int nNeighbors=2*D;
             if (id1>=GLOBALnRegLabels && m_coherence){
                 nNeighbors+=1;
             }else if (id1<GLOBALnRegLabels && m_coherence){
@@ -524,7 +535,7 @@ public:
 
         }
         if (neighbCount[id2] == 0){
-            int nNeighbors=D;
+            int nNeighbors=2*D;
             if (id2>=GLOBALnRegLabels && m_coherence){
                 nNeighbors+=1;
             }else if (id2<GLOBALnRegLabels && m_coherence){
