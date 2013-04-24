@@ -141,7 +141,7 @@ public:
                 }
             }
         }
-    
+        //LOGV(10)<<VAR(EnergyType(MULTIPLIER*pot))<<endl;
         return EnergyType(MULTIPLIER*pot);
     }
 
@@ -341,6 +341,7 @@ public:
 		            std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
                     for (int d=0;d<nSegNodes;++d){
                         costas[d].cost=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER;
+                        LOGV(10)<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER<<endl;
                         costas[d].site=d+GLOBALnRegNodes;
                         if (m_coherence && !m_register){
                             costas[d].cost+=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
