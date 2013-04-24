@@ -1132,6 +1132,8 @@ namespace itk{
         }
 #if 1
         void cachePotentials(LabelType displacement){
+            LOGV(15)<<"Caching registration unary potential for displacement "<<displacement<<endl;
+
             LabelType zeroDisp;
             zeroDisp.Fill(0.0);
             //compute average potential for zero displacement.
@@ -1153,8 +1155,10 @@ namespace itk{
             LOGV(70)<<VAR(this->nIt.GetRadius())<<" "<<VAR(deformedAtlas->GetLargestPossibleRegion().GetSize())<<endl;
 
             FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
-            for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator){
+            int c=0;
+            for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator,++c){
                 IndexType coarseIndex=coarseIterator.GetIndex();
+                LOGV(36)<<VAR(coarseIndex)<<" "<<VAR(c)<<endl;
                 PointType point;
                 m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
                 IndexType targetIndex;
@@ -1180,6 +1184,7 @@ namespace itk{
 #else
         //not actually faster :(
         void cachePotentials(LabelType displacement){
+            LOGV(15)<<"Caching registration unary potential for displacement "<<displacement<<endl;
             LabelType zeroDisp;
             zeroDisp.Fill(0.0);
             //compute average potential for zero displacement.
@@ -1201,7 +1206,7 @@ namespace itk{
             ImageIteratorType maskIterator=ImageIteratorType(deformedMask,deformedMask->GetLargestPossibleRegion());
             FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
            
-            for (maskIterator.GoToBegin(),coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator, ++ maskIterator){
+            for (maskIterator.GoToBegin(),coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator, ++maskIterator){
                 double localPot = coarseIterator.Get();
                 if (this->m_noOutSidePolicy  && !maskIterator.Get()){
                     coarseIterator.Set(1e10);
@@ -1297,6 +1302,7 @@ namespace itk{
                 return 1e10*count/insideCount;
             } 
 #endif     
+            LOGV(15)<<VAR(result*insideCount/this->nIt.Size())<<" "<< VAR(this->nIt.Size()) << std::endl;
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationNCC

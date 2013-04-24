@@ -83,8 +83,15 @@ namespace itk{
                 LOG<<"Target gradient image not allocated, aborting"<<endl;
                 exit(0);
             }
-            m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor);
-            m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_gradientImage,segmentationScalingFactor);
+            if (segmentationScalingFactor<1.0){
+                //only use gaussian smoothing if down scaling
+                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,false,true);
+                m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_gradientImage,segmentationScalingFactor,false,true);
+            }else{
+                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,false,false);
+                m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_gradientImage,segmentationScalingFactor,false,false);
+        
+            }
             if (m_scaledTargetImage.IsNull()){
                 LOG<<"Target image rescaling failed, aborting"<<endl;
                 exit(0);

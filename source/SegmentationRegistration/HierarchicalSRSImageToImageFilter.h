@@ -297,12 +297,13 @@ namespace itk{
                 m_config->nLevels=1;
                 m_config->iterationsPerLevel=1;
             }
-            bool computeLowResolutionBsplineIfPossible=true;
+            bool computeLowResolutionBsplineIfPossible=false;
             LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
             int l=0;
             if (LabelMapperType::nDisplacementSamples == 0 ) l=m_config->nLevels-1;
-            for (;l<m_config->nLevels;++l){
+            bool pixelGrid = false;
+            for (;l<m_config->nLevels  ;++l){
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":0");
                 //compute scaling factor for downsampling the images in the registration potential
                 double mantisse=(1/m_config->scale);
@@ -365,12 +366,21 @@ namespace itk{
                 graph->setDisplacementFactor(labelScalingFactor);
                 graph->initGraph(level);
                 graph->SetTargetSegmentation(m_targetSegmentationImage);
+
+                
+
+                if (graph->getCoarseGraphImage()->GetLargestPossibleRegion().GetSize() == m_inputTargetImage->GetLargestPossibleRegion().GetSize()){
+                    //do not continue after this iteration if the grid resolution is equal to the input resolution
+                    pixelGrid=true;
+                    LOG<<"Last iteration, since control grid resolution equals target image resolution" << endl;
+                }
+
                 if (regist||coherence){
                     //setup registration potentials
                     m_unaryRegistrationPot->SetScale(scaling);
                     m_unaryRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
-#if 0
+#if 1
                     LOG<<"WARNING: patch size 11x11 for unary registration potential " << endl;
                     m_unaryRegistrationPot->SetRadius(graph->getSpacing()*5);
 #else
@@ -408,7 +418,7 @@ namespace itk{
                 graph->setPairwiseCoherenceFunction(m_pairwiseCoherencePot);
                 graph->setPairwiseSegmentationFunction(m_pairwiseSegmentationPot);
 
-                if (regist){
+                if (regist && ! pixelGrid){
                     if (computeLowResolutionBsplineIfPossible && !coherence){
                         //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
                         previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
@@ -616,20 +626,27 @@ namespace itk{
                     //deformation
                     DeformationFieldPointerType composedDeformation;
 
-                    if (regist){
+                    if (regist && ! pixelGrid){
                         if (computeLowResolutionBsplineIfPossible && !coherence){
                             //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
                             fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
                         }else{
                             TIME(fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, m_targetImage));
                         }
-                    }   //fullDeformation=scaleDeformationField(fullDeformation,graph->getDisplacementFactor());
+                    }else if (regist){
+                        fullDeformation = deformation;
+                    }
    
                     //apply deformation to atlas image
                     if (regist || coherence){
                         composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
                         //deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,composedDeformation);
-                        DeformationFieldPointerType lowResDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(composedDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
+                        
+                        DeformationFieldPointerType lowResDef;
+                        if (!pixelGrid)
+                            lowResDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(composedDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
+                        else
+                            lowResDef = composedDeformation;
                         deformedAtlasImage=FilterUtils<ImageType>::NNResample(TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef),m_targetImage,false);
                         deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
                     }
@@ -691,11 +708,18 @@ namespace itk{
                     logResetStage;
                 }//iter
                 logResetStage;
-
+                if (pixelGrid){
+                    m_config->displacementScaling*=0.5;
+                }
             }//level
 
-            if (regist || coherence)
-                m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_inputTargetImage);
+            if (regist || coherence){
+                if (!pixelGrid)
+                    m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_inputTargetImage);
+                else{
+                    m_finalDeformation = previousFullDeformation;
+                }
+            }
             m_finalSegmentation=(segmentation);
             delete labelmapper;
         }//run

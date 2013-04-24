@@ -109,6 +109,7 @@ namespace itk{
             verbose=false;
             m_nSegmentationLabels=LabelMapperType::nSegmentations;
             m_nDisplacementLabels=LabelMapperType::nDisplacements;
+            m_DisplacementScalingFactor=1.0;
         };
         ~GraphModel(){
             //delete m_targetNeighborhoodIterator;
@@ -130,6 +131,8 @@ namespace itk{
             LOGV(1)<<"Full image resolution for graph initialization: "<<m_imageSize<<endl;
             m_nSegmentationNodes=1;
             m_nRegistrationNodes=1;
+            m_DisplacementScalingFactor=1.0;
+                        
             //calculate graph spacing
             setSpacing(nGraphNodesPerEdge);
             if (LabelMapperType::nDisplacementSamples){
@@ -141,6 +144,7 @@ namespace itk{
                 m_labelSpacing=0.4*m_gridSpacing/(LabelMapperType::nDisplacementSamples);
 #endif
                 LOGV(1)<<LabelMapperType::nDisplacementSamples<<" displacment samples per direction; "<<"with "<<m_labelSpacing<<" pixels spacing"<<std::endl;
+                LOGV(1)<<"Max displacement per axis: " <<m_labelSpacing * LabelMapperType::nDisplacementSamples * m_DisplacementScalingFactor <<"mm" << endl;
             }
             for (int d=0;d<(int)m_dim;++d){
 
@@ -677,7 +681,10 @@ namespace itk{
 
         typename ImageType::DirectionType getDirection(){return m_targetImage->GetDirection();}
 
-        void setDisplacementFactor(double fac){m_DisplacementScalingFactor=fac;}
+        void setDisplacementFactor(double fac){
+            m_DisplacementScalingFactor=fac;
+            LOGV(1)<<"Max displacement per axis: " <<m_labelSpacing * LabelMapperType::nDisplacementSamples * m_DisplacementScalingFactor <<"mm" << endl;
+        }
         double getMaxDisplacementFactor(){
             double maxSpacing=-1;
             for (unsigned int d=0;d<m_dim;++d){
@@ -749,6 +756,7 @@ namespace itk{
         virtual void cacheRegistrationPotentials(int labelIndex){
 #ifndef moarcaching
             LOGV(25)<<"Caching unary registration function for label " << labelIndex<<endl;
+            
             this->m_unaryRegFunction->cachePotentials(LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(labelIndex),this->getDisplacementFactor()));
 #endif
         }

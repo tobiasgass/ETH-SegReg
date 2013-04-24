@@ -30,6 +30,9 @@ template<class TGraphModel>
 class GCO_SRSMRFSolver :public BaseMRFSolver<TGraphModel>{
 public:
 
+    //typedef short EnergyType;
+    typedef float EnergyType;
+
     typedef GCO_SRSMRFSolver<TGraphModel> Self;
     typedef TGraphModel GraphModelType;
 	typedef typename GraphModelType::Pointer GraphModelPointerType;
@@ -38,7 +41,7 @@ public:
     typedef GCoptimizationGeneralGraph MRFType;
 
     typedef SmoothCostFunctor<Self> Functor;
-    typedef float (* SmoothFn)(int s1,int s2,int l1, int l2);
+    typedef EnergyType (* SmoothFn)(int s1,int s2,int l1, int l2);
 protected:
     MRFType * m_optimizer;
     double m_unaryRegistrationWeight,m_unarySegmentationWeight;
@@ -55,7 +58,9 @@ protected:
     vector<int> m_labelOrder;
     int m_zeroDisplacementLabel;
 
-    //ugly globals instead of ugly static members because of GCO
+    static const double MULTIPLIER=1.0;//e3*24466320;//e6;
+
+    //ugly  static members because of GCO
     static vector<vector<vector<map<int,float> > > > (*regPairwise);//,(*segPairwise);//(*srsPairwise);
     static vector<vector<vector<float > > > *srsPairwise;
     static vector<vector<vector<vector<float> > > > *segPairwise;
@@ -80,7 +85,7 @@ protected:
     //#define CACHEREGISTRATION
     //#define CACHESEGMENTATION
 public:
-    static float GLOBALsmoothFunction(int node1, int node2, int label1, int label2){
+    static EnergyType GLOBALsmoothFunction(int node1, int node2, int label1, int label2){
         float pot=-1;
         if (node1>node2){
             int tmp=node1;        node1=node2; node2=tmp;
@@ -128,7 +133,8 @@ public:
             }
         }
         //LOGV(25)<<VAR(pot)<<" "<<VAR(node1)<<" "<<VAR(label1)<<" " <<VAR(node2)<<" "<<VAR(label2)<<endl;
-        return pot;
+        //LOG<<VAR(pot) << " "<< VAR(MULTIPLIER*pot) << endl; 
+        return EnergyType(MULTIPLIER*pot);
     }
 
 public:
@@ -232,12 +238,15 @@ public:
             if (m_unaryRegistrationWeight>0){
                 for (int l1=0;l1<nRegLabels;++l1)
                     {
+                        for (int l2=0;l2<nRegLabels;++l2){
+                            //LOG<<l1<<" "<<l2<<" "<<GLOBALsmoothFunction(0,1,l1,l2)<<endl;
+                        }
                         int regLabel=m_labelOrder[l1];
                         GCoptimization::SparseDataCost costs[nRegNodes];
                         this->m_GraphModel->cacheRegistrationPotentials(regLabel);
                         for (int d=0;d<nRegNodes;++d){
                             costs[d].site=d;
-                            costs[d].cost=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,regLabel);
+                            costs[d].cost=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,regLabel)*MULTIPLIER;
                             if (m_coherence && !m_segment){
                                 //pretty inefficient as the reg neighbors are recomputed #registrationLabels times for each registration node.
                                 std::vector<int> regSegNeighbors=this->m_GraphModel->getRegSegNeighbors(d);
@@ -304,10 +313,8 @@ public:
 
                     //LOGV(4)<<"Allocating seg unaries for label "<<l1<<", using "<<1.0*nSegNodes*sizeof( GCoptimization::SparseDataCost ) /(1024*1024)<<" mb memory"<<std::endl;
 		            std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
-                    //GCoptimization::SparseDataCost costas[nSegNodes];
-                    //GCoptimization::SparseDataCost costs[nSegNodes];
                     for (int d=0;d<nSegNodes;++d){
-                        costas[d].cost=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1);
+                        costas[d].cost=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER;
                         costas[d].site=d+GLOBALnRegNodes;
                         if (m_coherence && !m_register){
                             costas[d].cost+=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
@@ -323,18 +330,13 @@ public:
 
             int nSegEdges=0,nSegRegEdges=0;
             //Segmentation smoothness cache
-            //LOGV(4)<<"Allocation seg pairwise, rough theroetical size :"<<GLOBALnSegLabels*GLOBALnSegLabels*GLOBALnSegNodes*sizeof(map<int,float>)*D*(sizeof(int)+sizeof(float))/(1024*1024)<<"Mb"<<std::endl;
-            //LOGV(4)<<"Allocation seg pairwise, rough theroetical size after reararanging"<<GLOBALnSegNodes*sizeof(map<int,float>)*( D*(sizeof(int)+GLOBALnSegLabels*GLOBALnSegLabels*sizeof(float)))/(1024*1024)<<"Mb"<<std::endl;
-            //segPairwise= new vector<vector<vector<map<int,float> > > > (GLOBALnSegLabels,vector<vector<map<int,float> > >(GLOBALnSegLabels,vector<map<int,float> > (GLOBALnSegNodes) ) );
-            //if (segPairwise!=NULL) delete segPairwise;
+         
 #ifdef CACHESEGMENTATION
             segPairwise= new vector<vector<vector<vector<float> > > > (GLOBALnSegLabels,vector<vector<vector<float> > >(GLOBALnSegLabels,vector< vector<float> > (GLOBALnSegNodes,vector<float> (D)) ) );
 #endif
-            //LOGV(4)<<"Allocated, "<<VAR(segPairwise)<<endl;
             
             //SRS potential cache
-            //srsPairwise= new vector<vector<vector<map<int,float> > > > (GLOBALnSegLabels,vector<vector<map<int,float> > >(GLOBALnRegLabels,vector<map<int,float> > (GLOBALnSegNodes) ) );
-            //if (srsPairwise!=NULL) delete srsPairwise;
+           
 #ifdef CACHESRS
             srsPairwise= new vector<vector<vector<float > > > (GLOBALnSegLabels,vector<vector<float > >(GLOBALnRegLabels,vector<float>(GLOBALnSegNodes) ) );
 #endif
@@ -418,7 +420,7 @@ public:
         bool random = true;
         m_optimizer->setLabelOrder(random);
 #endif
-        m_optimizer->setVerbosity(verbose>15);
+        m_optimizer->setVerbosity(verbose>5);
     }
     
 

@@ -96,11 +96,22 @@ namespace itk{
                 displacement2+=oldl2;
             }
 #if 1
+            
             LabelType diff=displacement1-displacement2;
             //result=diff.GetSquaredNorm();
             result=diff.GetNorm();
-            LOGV(50)<<VAR(result) << " " << VAR(m_maxDist) << endl;
-            //if (result>3*m_maxDist) result = 100000;
+          
+            
+            LOGV(13)<<VAR(result*1e6)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
+            //if (result > 200) result = 20000;
+#if 0
+            LOGV(15)<<VAR(result) << " " << VAR(m_maxDist) << endl;
+            if (result>sqrt(2.0*D)){
+                result = 100000;//10.0*sqrt(2*24.0*24.0);
+            }
+            else{result = 0.0;
+            }
+#endif       
             
 
             LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;

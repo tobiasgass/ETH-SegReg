@@ -71,6 +71,12 @@ TARGET_LINK_LIBRARIES(SegProp2D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xm
 ADD_EXECUTABLE(SegProp3D SegmentationPropagation-3D.cxx )
 TARGET_LINK_LIBRARIES(SegProp3D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
+#Fusion
+ADD_EXECUTABLE(SegFuse2D SegmentationFusion-2D.cxx )
+TARGET_LINK_LIBRARIES(SegFuse2D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(SegFuse3D SegmentationFusion-3D.cxx )
+TARGET_LINK_LIBRARIES(SegFuse3D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+
 #reg-propagation
 INCLUDE_DIRECTORIES(
     /usr/include/libxml2
