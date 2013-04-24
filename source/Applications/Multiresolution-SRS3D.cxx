@@ -103,10 +103,12 @@ int main(int argc, char ** argv)
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
-    ImagePointerType atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+    ImagePointerType atlasImage;
+    atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
     if (!atlasImage) {LOG<<"failed!"<<endl; exit(0);
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
-    ImagePointerType atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
+    ImagePointerType atlasSegmentation;
+    atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
     if (!atlasSegmentation) {LOG<<"failed!"<<endl; exit(0);}
     logResetStage;
     logSetStage("Preprocessing");
@@ -123,7 +125,8 @@ int main(int argc, char ** argv)
         if (filterConfig.atlasGradientFilename!=""){
             atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
         }else{
-            atlasGradient=Preprocessing<ImageType>::computeSheetness(atlasImage);
+            if (atlasImage.IsNotNull())
+                atlasGradient=Preprocessing<ImageType>::computeSheetness(atlasImage);
         }
         
         if (filterConfig.useTissuePrior){
