@@ -201,8 +201,8 @@ public:
                 delete [] m_neighbourArray[i];
                 delete [] m_weights[i];
             }
-            delete [] m_neighbourArray;
-            delete [] m_weights;
+            //delete [] m_neighbourArray;
+            //delete [] m_weights;
         }
     }
 
