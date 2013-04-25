@@ -289,8 +289,8 @@ namespace itk{
             ImagePointerType segmentation=NULL;
             if (coherence){
                 deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
-                //m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config->nSegmentations);
-                m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)m_atlasSegmentationImage);//deformedAtlasSegmentation);
+                m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config->nSegmentations);
+                m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
             }
 
             if (!coherence && !regist){
@@ -380,7 +380,7 @@ namespace itk{
                     m_unaryRegistrationPot->SetScale(scaling);
                     m_unaryRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
-#if 1
+#if 0
                     LOG<<"WARNING: patch size 11x11 for unary registration potential " << endl;
                     m_unaryRegistrationPot->SetRadius(graph->getSpacing()*5);
 #else

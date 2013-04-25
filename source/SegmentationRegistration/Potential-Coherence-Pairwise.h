@@ -144,6 +144,7 @@ namespace itk{
             m_nSegmentationLabels=max( m_nSegmentationLabels,maxFilter->GetMaximumOutput()->Get()+1);
             if (m_nSegmentationLabels>3){
                 LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(m_nSegmentationLabels)<<endl;
+                ImageUtils<ImageType>::writeImage("multilabelAtlas.nii",segImage);
             }
             m_distanceTransforms= std::vector<FloatImagePointerType>( m_nSegmentationLabels ,NULL);
             m_atlasDistanceTransformInterpolators = std::vector<FloatImageInterpolatorPointerType>( m_nSegmentationLabels ,NULL);
@@ -387,7 +388,7 @@ namespace itk{
     public:
         itkNewMacro(Self);
 
-  //edge from registration to segmentation
+        //edge from registration to segmentation
         inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
             ContinuousIndexType idx2(targetIndex2);
@@ -455,7 +456,7 @@ namespace itk{
 
         void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             if (scale !=1.0 ){
-                segImage=FilterUtils<ImageType>::NNResample(segImage,scale);
+                segImage=FilterUtils<ImageType>::NNResample(segImage,scale,false);
             }
             FloatImagePointerType dt1=getDistanceTransform(segImage, 1);
             this->m_atlasDistanceTransformInterpolator=FloatImageInterpolatorType::New();
@@ -509,7 +510,7 @@ namespace itk{
             p +=disp+this->m_baseLabelMap->GetPixel(targetIndex1);
             this->m_baseLabelMap->TransformPhysicalPointToContinuousIndex(p,idx2);
 #endif
-      int deformedAtlasSegmentation=-1;
+            int deformedAtlasSegmentation=-1;
             double distanceToDeformedSegmentation;
             if (!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
@@ -621,7 +622,7 @@ namespace itk{
     public:
         itkNewMacro(Self);
 
-         virtual void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
+        virtual void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             logSetStage("Coherence setup");
             this->m_atlasSegmentationInterpolator= SegmentationInterpolatorType::New();
             this->m_atlasSegmentationInterpolator->SetInputImage(segImage);
@@ -640,7 +641,7 @@ namespace itk{
         }
         inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
-             ContinuousIndexType idx2(targetIndex2);
+            ContinuousIndexType idx2(targetIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
 
             typename ImageType::PointType p;
@@ -674,5 +675,5 @@ namespace itk{
         }
     };//class
    
-    }//namespace
+}//namespace
 #endif /* POTENTIALS_H_ */

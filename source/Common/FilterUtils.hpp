@@ -217,6 +217,7 @@ public:
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
+        LOGV(5)<<VAR(smooth)<<" "<<VAR(nnResample)<<endl;
         if (nnResample)
             resampler->SetInterpolator(interpolNN);
         else

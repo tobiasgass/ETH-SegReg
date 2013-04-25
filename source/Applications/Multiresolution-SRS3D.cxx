@@ -104,12 +104,12 @@ int main(int argc, char ** argv)
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage;
-    atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
-    if (!atlasImage) {LOG<<"failed!"<<endl; exit(0);
+    if (filterConfig.atlasFilename!="") atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+    if (!atlasImage) {LOG<<"Warning: no atlas image loaded!"<<endl;
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation;
-    atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
-    if (!atlasSegmentation) {LOG<<"failed!"<<endl; exit(0);}
+    if (filterConfig.atlasSegmentationFilename !="")atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
+    if (!atlasSegmentation) {LOG<<"Warning: no atlas segmentation loaded!"<<endl; }
     logResetStage;
     logSetStage("Preprocessing");
     //preprocessing 1: gradients
@@ -148,8 +148,11 @@ int main(int argc, char ** argv)
         double scale=filterConfig.downScale;
         LOG<<"Resampling images from "<< targetImage->GetLargestPossibleRegion().GetSize()<<" by a factor of"<<scale<<endl;
         targetImage=FilterUtils<ImageType>::LinearResample(targetImage,scale,true);
-        atlasImage=FilterUtils<ImageType>::LinearResample(atlasImage,scale,true);
-        atlasSegmentation=FilterUtils<ImageType>::NNResample((atlasSegmentation),scale,false);
+        if (atlasImage.IsNotNull()) atlasImage=FilterUtils<ImageType>::LinearResample(atlasImage,scale,true);
+        if (atlasSegmentation.IsNotNull()) {
+            atlasSegmentation=FilterUtils<ImageType>::NNResample((atlasSegmentation),scale,false);
+            //ImageUtils<ImageType>::writeImage("testA.nii",atlasSegmentation);
+        }
         if (filterConfig.segment){
             targetGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetGradient),scale,true);
             atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale,true);
@@ -218,23 +221,23 @@ int main(int argc, char ** argv)
     //upsample?
     if (filterConfig.downScale<1){
         LOG<<"Upsampling Images.."<<endl;
-        finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
+        if (finalDeformation.IsNotNull() ) finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
         //this is more or less f***** up
         //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
         if (targetSegmentationEstimate){
             typedef ImageUtils<ImageType>::FloatImageType FloatImageType;
             typedef ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
-            ImageUtils<ImageType>::writeImage("targetSegmentationEstimateLow.nii",targetSegmentationEstimate);
+            LOGI(6,ImageUtils<ImageType>::writeImage("targetSegmentationEstimateLow.nii",targetSegmentationEstimate));
             FloatImagePointerType distanceMap=FilterUtils<ImageType,FloatImageType>::distanceMapByFastMarcher(FilterUtils<ImageType>::binaryThresholdingLow(targetSegmentationEstimate,1),1);
-            ImageUtils<FloatImageType>::writeImage("distnaceMapLow.nii",distanceMap);
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMapLow.nii",distanceMap));
             distanceMap=FilterUtils<FloatImageType>::LinearResample(distanceMap,FilterUtils<ImageType,FloatImageType>::cast(originalTargetImage),false);
-            ImageUtils<FloatImageType>::writeImage("distnaceMaphigh.nii",distanceMap);
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMaphigh.nii",distanceMap));
             targetSegmentationEstimate=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(distanceMap,0.5);
             //targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),scale));
         }
     }
 
-    if (finalDeformation ){
+    if (finalDeformation.IsNotNull() ){
         LOG<<"Deforming Images.."<<endl;
         if (filterConfig.defFilename!="")
             ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
@@ -248,7 +251,7 @@ int main(int argc, char ** argv)
     }
     
    
-    if (targetSegmentationEstimate){
+    if (targetSegmentationEstimate.IsNotNull()){
         ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
     }
     

@@ -87,11 +87,11 @@ namespace itk{
         void ResamplePotentials(double segmentationScalingFactor){
             if (segmentationScalingFactor<1.0){
                 //only use gaussian smoothing if downsampling
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,false,true);
-                m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor,false,true);
-            }else{
                 m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,false,false);
                 m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor,false,false);
+            }else{
+                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,true,false);
+                m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor,true,false);
             }
             
         }

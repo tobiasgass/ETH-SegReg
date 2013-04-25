@@ -253,7 +253,7 @@ public:
 
         //allocate neighbor structs
         m_numberOfNeighborsofEachNode = new int[GLOBALnRegNodes+GLOBALnSegNodes];
-        memset(m_numberOfNeighborsofEachNode,0,GLOBALnRegNodes+GLOBALnSegNodes);
+        memset(m_numberOfNeighborsofEachNode,0,(GLOBALnRegNodes+GLOBALnSegNodes)*sizeof(int));
         m_neighbourArray = new int *[GLOBALnRegNodes+GLOBALnSegNodes];
         m_weights= new EnergyType *[GLOBALnRegNodes+GLOBALnSegNodes];;
 
