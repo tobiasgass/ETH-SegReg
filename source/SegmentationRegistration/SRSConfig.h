@@ -59,6 +59,7 @@ public:
     double toleranceBase;
     bool penalizeOutside;
     bool initWithMoments;
+    bool normalizePotentials;
 private:
 	argstream * as;
 public:
@@ -117,6 +118,7 @@ public:
         toleranceBase=2.0;
         penalizeOutside=false;
         initWithMoments=false;
+        normalizePotentials=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -227,6 +229,7 @@ public:
 		(*as) >> parameter ("su", unarySegmentationWeight,"weight for segmentation unary", false);
         (*as) >> option ("fullRegistrationSmoothing",fullRegPairwise ,"Regularise composed deformation instead of regularizing just the current update. Leads to non-submodular function, and is thus not usable with GC optimization.");
         (*as) >> option ("penalizeOutside",penalizeOutside ,"Penalize registrations falling outside of moving image.");
+        (*as) >> option ("normalizePotentials",normalizePotentials ,"divide all potentials by the total number of the respective potential. This balances forces in the two-layer SRS graph (somewhat).");
 
         
 

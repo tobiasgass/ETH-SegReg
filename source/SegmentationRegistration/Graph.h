@@ -101,6 +101,8 @@ namespace itk{
         ConstImageNeighborhoodIteratorType m_targetNeighborhoodIterator;
         SRSConfig m_config;
         int m_maxRegSegNeighbors;
+
+        bool m_normalizePotentials;
     public:
         int getMaxRegSegNeighbors(){return m_maxRegSegNeighbors;}
         GraphModel(){
@@ -111,6 +113,7 @@ namespace itk{
             m_nSegmentationLabels=LabelMapperType::nSegmentations;
             m_nDisplacementLabels=LabelMapperType::nDisplacements;
             m_DisplacementScalingFactor=1.0;
+            m_normalizePotentials=false;
         };
         ~GraphModel(){
             //delete m_targetNeighborhoodIterator;
@@ -118,6 +121,7 @@ namespace itk{
         void setConfig(SRSConfig c){
             m_config=c;
             verbose=c.verbose;
+            m_normalizePotentials=c.normalizePotentials;
         }
         void setTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
@@ -358,6 +362,7 @@ namespace itk{
             RegistrationLabelType l=LabelMapperType::getLabel(labelIndex);
             l=LabelMapperType::scaleDisplacement(l,getDisplacementFactor());
             double result=m_unaryRegFunction->getPotential(imageIndex,l);
+            if (m_normalizePotentials) result/=m_nRegistrationNodes;
             return result;//m_nRegistrationNodes;
         }
         virtual double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
@@ -371,6 +376,8 @@ namespace itk{
                 LOG<<"unary segmentation potential <0"<<std::endl;
                 LOG<<imageIndex<<" " <<result<<std::endl;
             }
+            if (m_normalizePotentials) result/=m_nSegmentationNodes;
+
             return result;
         };
         virtual inline double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
@@ -387,7 +394,9 @@ namespace itk{
             RegistrationLabelType l1=LabelMapperType::getLabel(labelIndex1);
             l1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());
             //return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2);//m_nRegEdges;
-            return m_pairwiseRegFunction->getPotential(pt1, pt2, l1,l2);//m_nRegEdges;
+            double result=m_pairwiseRegFunction->getPotential(pt1, pt2, l1,l2);//m_nRegEdges;
+            if (m_normalizePotentials) result/=m_nRegEdges;
+            return result;
         };
          virtual double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
             assert(false);
@@ -402,7 +411,10 @@ namespace itk{
             if (weight<0){ LOG<<"weight smaller zero!! :"<<weight<<std::endl; weight=0;}
             RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
             registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
-            return m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
+            double result=m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
+            if (m_normalizePotentials) result/=m_nSegRegEdges;
+            return result;
+            
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
         }
 
@@ -432,8 +444,10 @@ namespace itk{
             //        if (true){ LOG<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
             RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
             registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
-            return weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
+            double result = weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+            if (m_normalizePotentials) result/=m_nSegRegEdges;
+            return result;
         }
         
         virtual inline double getPairwiseRegSegPotential(int nodeIndex2, int labelIndex1, int segmentationLabel){
@@ -461,8 +475,10 @@ namespace itk{
             //        if (true){ LOG<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
             RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
             registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
-            return weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
+            double result =  weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
+            if (m_normalizePotentials) result/=m_nSegRegEdges;
+            return result;
         }
         
         virtual inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
@@ -474,6 +490,8 @@ namespace itk{
             }
 
             double result=m_pairwiseSegFunction->getPotential(imageIndex1,imageIndex2,label1, label2);//m_nSegEdges;
+            if (m_normalizePotentials) result/=m_nSegEdges;
+
             return result;
         }
         virtual inline double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
@@ -766,10 +784,13 @@ namespace itk{
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType index=this->getGraphIndex(nodeIndex);
 #ifdef moarcaching
-            return  this->m_unaryRegFunction->getPotential(index,labelIndex);//this->m_nRegistrationNodes;
+            double result=  this->m_unaryRegFunction->getPotential(index,labelIndex);//this->m_nRegistrationNodes;
 #else
-            return  this->m_unaryRegFunction->getPotential(index);//this->m_nRegistrationNodes;
+            double result=  this->m_unaryRegFunction->getPotential(index);//this->m_nRegistrationNodes;
 #endif
+
+            if (this->m_normalizePotentials) result/=this->m_nRegistrationNodes;
+            return result;
 
         }
 
