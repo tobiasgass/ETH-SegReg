@@ -34,7 +34,7 @@ int main(int argc, char ** argv)
     }
     logSetStage("Init");
 	//define types.
-    typedef unsigned char PixelType;
+    typedef unsigned short PixelType;
 	const   unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -159,16 +159,18 @@ int main(int argc, char ** argv)
         double sigma=1;
         double scale=filterConfig.downScale;
         LOG<<"Resampling images from "<< targetImage->GetLargestPossibleRegion().GetSize()<<" by a factor of"<<scale<<endl;
-        targetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetImage,sigma),scale, false);
-        atlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasImage,sigma),scale,false);
+        //targetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetImage,sigma),scale, false);
+        targetImage=FilterUtils<ImageType>::LinearResample(targetImage,scale, true);
+        atlasImage=FilterUtils<ImageType>::LinearResample(atlasImage,scale,true);
+
         atlasSegmentation=FilterUtils<ImageType>::NNResample((atlasSegmentation),scale,false);
         if (filterConfig.segment){
-            targetGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetGradient),scale,true);
-            atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale,true);
+            targetGradient=FilterUtils<ImageType>::LinearResample((targetGradient),scale,true);
+            atlasGradient=FilterUtils<ImageType>::LinearResample((atlasGradient),scale,true);
             //targetGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetGradient,sigma),scale);
             //atlasGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasGradient,sigma),scale);
             if (filterConfig.useTissuePrior){
-                tissuePrior=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)(targetImage),sigma),scale,false);
+                tissuePrior=FilterUtils<ImageType>::LinearResample(targetImage,scale,true);
             }
         }
     }

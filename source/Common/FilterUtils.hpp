@@ -470,7 +470,10 @@ public:
 
     static OutputImagePointer gaussian(ConstInputImagePointer image, SpacingType spacing
                                        ) {
-         DiscreteGaussianImageFilterPointer filter =
+        if (! image.IsNotNull()){
+            return NULL;
+        }
+        DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
          LOGV(4)<<"gaussian smoothing with "<<VAR(spacing)<<endl;
         filter->SetInput(image);

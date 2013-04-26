@@ -100,8 +100,9 @@ namespace itk{
         ConstImagePointerType m_targetImage,m_targetSegmentationImage;
         ConstImageNeighborhoodIteratorType m_targetNeighborhoodIterator;
         SRSConfig m_config;
+        int m_maxRegSegNeighbors;
     public:
-
+        int getMaxRegSegNeighbors(){return m_maxRegSegNeighbors;}
         GraphModel(){
             assert(m_dim>1);
             assert(m_dim<4);
@@ -193,8 +194,10 @@ namespace itk{
             typename ConstImageNeighborhoodIteratorType::RadiusType r;
             //controls the size of the neighborhood for registration-to-segmentation edges
             double reductionFactor=1;
+            m_maxRegSegNeighbors=1;
             for (int d=0;d<(int)m_dim;++d){
-                r[d]=1;//(m_gridPixelSpacing[d]/(2*reductionFactor));
+                r[d]= m_targetImage->GetLargestPossibleRegion().GetSize()[d]/m_coarseGraphImage->GetLargestPossibleRegion().GetSize()[d];//(m_gridPixelSpacing[d]/(2*reductionFactor));
+                m_maxRegSegNeighbors*=(2*r[d]+1);
             }
             m_targetNeighborhoodIterator=ConstImageNeighborhoodIteratorType(r,m_targetImage,m_targetImage->GetLargestPossibleRegion());
             m_nSegRegEdges=m_nSegmentationNodes/pow(reductionFactor,m_dim);

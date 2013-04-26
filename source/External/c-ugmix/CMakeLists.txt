@@ -9,4 +9,7 @@ fft.cpp       mem.cpp       newmat4.cpp  newmat.h      nm_ex1.cpp    sort.cpp   
 garch.cpp     mem.h         newmat5.cpp  newmatio.h    nm_ex2.cpp    submat.cpp    tmt6.cpp      tmtd.cpp  tmtk.cpp
 hholder.cpp   myexcept.cpp  newmat6.cpp  newmatnl.cpp  nm_ex3.cpp    svd.cpp       tmt7.cpp      tmte.cpp  tmtl.cpp
 )
+IF (TCMALLOC)
+
 TARGET_LINK_LIBRARIES (ugmix tcmalloc)
+ENDIF(TCMALLOC)

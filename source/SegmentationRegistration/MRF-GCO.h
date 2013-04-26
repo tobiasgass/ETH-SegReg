@@ -43,7 +43,7 @@ protected:
     double m_lastLowerBound;
     vector<int> m_labelOrder;
     int m_zeroDisplacementLabel;
-
+    bool m_deleteRegNeighb;
     
 
     static const double MULTIPLIER=1.0;//e3*24466320;//e6;
@@ -75,8 +75,8 @@ protected:
 
     //neighbor structure for GCO
     int * m_numberOfNeighborsofEachNode;
-    int ** m_neighbourArray; 
-    EnergyType ** m_weights;
+    int ** m_neighbourArray,*m_segNeighbors,*m_regNeighbors; 
+    EnergyType ** m_weights,*m_segWeights,*m_regWeights;
 
 public:
     static EnergyType GLOBALsmoothFunction(int node1, int node2, int label1, int label2){
@@ -181,6 +181,7 @@ public:
         }
         srand ( time(NULL) );
         m_cachePotentials=false;
+        m_deleteRegNeighb=false;
       
     }
     GCO_SRSMRFSolver()  {
@@ -193,22 +194,40 @@ public:
         if (m_register) delete regPairwise;
         if (m_segment) delete segPairwise;
         if (m_coherence) delete srsPairwise;
-        delete m_optimizer;
 
         if (m_numberOfNeighborsofEachNode){
             delete [] m_numberOfNeighborsofEachNode;
+#ifdef ALLOCINDIVIDUAL
             for (int i = 0;i< GLOBALnRegNodes+GLOBALnSegNodes; ++i){
-                delete [] m_neighbourArray[i];
-                delete [] m_weights[i];
+                if ( m_neighbourArray[i]!=NULL ) delete [] m_neighbourArray[i];
+                if ( m_weights[i] !=NULL)delete [] m_weights[i];
             }
-            //delete [] m_neighbourArray;
-            //delete [] m_weights;
+#else
+            if (m_deleteRegNeighb){
+                for (int i = 0;i< GLOBALnRegNodes; ++i){
+                    delete [] m_neighbourArray[i];
+                    delete [] m_weights[i];
+                }
+            }
+            else{
+                delete [] m_regNeighbors;
+                delete [] m_regWeights;
+
+            }
+            delete [] m_segNeighbors;
+            delete [] m_segWeights;
+
+#endif
+            delete [] m_neighbourArray;
+            delete [] m_weights;
         }
+        delete m_optimizer;
+        
     }
 
     virtual void setPotentialCaching(bool enableCaching){m_cachePotentials=enableCaching;}
 
-	virtual void createGraph(){
+    virtual void createGraph(){
         clock_t start = clock();
         {
             m_segment=false; 
@@ -222,7 +241,7 @@ public:
         double t1 = (float) ((double)(endUnary - start) / CLOCKS_PER_SEC);
         tUnary+=t1;       
 
-		nNodes=this->m_GraphModel->nNodes();
+        nNodes=this->m_GraphModel->nNodes();
         nEdges=this->m_GraphModel->nEdges();
         nRegNodes=this->m_GraphModel->nRegNodes();
         nSegNodes=this->m_GraphModel->nSegNodes();
@@ -245,20 +264,67 @@ public:
         if (m_optimizer) delete m_optimizer;
         m_optimizer= new MRFType(GLOBALnSegNodes+GLOBALnRegNodes,GLOBALnRegLabels+GLOBALnSegLabels);
 		
-		//set global size variables :(
-		{
-			S0=this->m_GraphModel->getImageSize()[0];
-			S1=this->m_GraphModel->getImageSize()[1];
-		}
+        //set global size variables :(
+        {
+            S0=this->m_GraphModel->getImageSize()[0];
+            S1=this->m_GraphModel->getImageSize()[1];
+        }
 
         //allocate neighbor structs
         m_numberOfNeighborsofEachNode = new int[GLOBALnRegNodes+GLOBALnSegNodes];
         memset(m_numberOfNeighborsofEachNode,0,(GLOBALnRegNodes+GLOBALnSegNodes)*sizeof(int));
+#ifdef ALLOCINDIVIDUAL
         m_neighbourArray = new int *[GLOBALnRegNodes+GLOBALnSegNodes];
-        m_weights= new EnergyType *[GLOBALnRegNodes+GLOBALnSegNodes];;
+        memset(m_neighbourArray,NULL,(GLOBALnRegNodes+GLOBALnSegNodes)*(sizeof(int*)));
+        m_weights= new EnergyType *[GLOBALnRegNodes+GLOBALnSegNodes];
+        memset(m_weights,NULL,(GLOBALnRegNodes+GLOBALnSegNodes)*(sizeof(EnergyType*)));
+#else
+        m_neighbourArray = new int *[GLOBALnRegNodes+GLOBALnSegNodes];
+        m_weights= new EnergyType *[GLOBALnRegNodes+GLOBALnSegNodes];
+        
+        if (m_register){
+            int nNeighbors=2*D+m_coherence*this->m_GraphModel->getMaxRegSegNeighbors();
+            LOGV(6)<<VAR(nNeighbors)<<" max neighbors per registration node" <<endl;
+            if (nNeighbors<10){
+                m_regNeighbors = new int[GLOBALnRegNodes*nNeighbors];      
+                memset(m_regNeighbors,0,GLOBALnRegNodes*nNeighbors*(sizeof(int)));
+                m_regWeights = new EnergyType[GLOBALnRegNodes*nNeighbors];
+                memset(m_regWeights,1,GLOBALnRegNodes*nNeighbors*(sizeof(EnergyType)));
+                
+                for (int i=0;i<GLOBALnRegNodes;++i){
+                    m_neighbourArray[i]=&m_regNeighbors[i*nNeighbors];
+                    m_weights[i]=&m_regWeights[i*nNeighbors];
+                }
+                LOGV(6)<<"memory for reg neighbors primary structure : "<<1.0*GLOBALnRegNodes*nNeighbors*sizeof(int*)/1024/1024 <<"MB"<<endl;
+            }else{
+                LOGV(6)<<"allocating memory for registration node adjacency matrix individually.."<<endl;
+                for (int i=0;i<GLOBALnRegNodes;++i){
+                    int nLocalNeighbors=2*D+this->m_GraphModel->getRegSegNeighbors(i).size();
+                    m_neighbourArray[i]=new int[nLocalNeighbors];
+                    m_weights[i]=new EnergyType[nLocalNeighbors];
+                }
+                m_deleteRegNeighb=true;
+            }
+
+        }
+        if (m_segment){
+            int nNeighbors=2*D+m_coherence*1;
+            m_segNeighbors = new int[GLOBALnSegNodes*nNeighbors];
+            m_segWeights = new EnergyType[GLOBALnSegNodes*nNeighbors];
+            memset(m_segNeighbors,0,GLOBALnSegNodes*nNeighbors*(sizeof(int)));
+            memset(m_segWeights,1,GLOBALnSegNodes*nNeighbors*(sizeof(EnergyType)));
+
+            for (int i=0;i<GLOBALnSegNodes;++i){
+                m_neighbourArray[i+GLOBALnRegNodes]=&m_segNeighbors[i*nNeighbors];
+                m_weights[i+GLOBALnRegNodes]=&m_segWeights[i*nNeighbors];
+            }
+            LOGV(6)<<"memory for seg neighbors primary structure : "<<1.0*GLOBALnSegNodes*nNeighbors*sizeof(int*)/1024/1024 <<"MB"<<endl;
+        }
+
+#endif
 
         logSetStage("Potential Functions");
-		//		traverse grid
+        //		traverse grid
         if ( m_register){
             //RegUnaries
             clock_t startUnary = clock();
@@ -305,8 +371,8 @@ public:
                     int nNeighbours=neighbours.size();
                     for (int i=0;i<nNeighbours;++i){
                         //LOG<<d<<" "<<regNodes[d]<<" "<<i<<" "<<neighbours[i]<<std::endl;
-                        m_optimizer->setNeighbors(d,neighbours[i],1);
-                        //    addNeighbor(d,neighbours[i],m_numberOfNeighborsofEachNode,m_neighbourArray,m_weights);
+                        //m_optimizer->setNeighbors(d,neighbours[i],1);
+                        addNeighbor(d,neighbours[i],m_numberOfNeighborsofEachNode,m_neighbourArray,m_weights);
                         if (m_cachePotentials){
                             for (int l1=0;l1<nRegLabels;++l1){
                                 for (int l2=0;l2<nRegLabels;++l2){                                
@@ -338,7 +404,7 @@ public:
                 {
 
                     //LOGV(4)<<"Allocating seg unaries for label "<<l1<<", using "<<1.0*nSegNodes*sizeof( GCoptimization::SparseDataCost ) /(1024*1024)<<" mb memory"<<std::endl;
-		            std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
+                    std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
                     for (int d=0;d<nSegNodes;++d){
                         costas[d].cost=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER;
                         LOGV(10)<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER<<endl;
@@ -395,8 +461,8 @@ public:
                     if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
 
                     for (int i=0;i<nNeighbours;++i){
-                        m_optimizer->setNeighbors(d+GLOBALnRegNodes,segRegNeighbors[i],1);
-                        // addNeighbor(d+GLOBALnRegNodes,segRegNeighbors[i],m_numberOfNeighborsofEachNode,m_neighbourArray,m_weights);
+                        //m_optimizer->setNeighbors(d+GLOBALnRegNodes,segRegNeighbors[i],1);
+                        addNeighbor(d+GLOBALnRegNodes,segRegNeighbors[i],m_numberOfNeighborsofEachNode,m_neighbourArray,m_weights);
 
                         edgeCount++;
                         if (m_cachePotentials){
@@ -523,6 +589,7 @@ public:
         
         LOGV(15)<<"Adding neighbors "<<id1<<" "<<id2<<" with counts "<<VAR(neighbCount[id1])<< " "<<VAR(neighbCount[id2])<<endl;
         //allocate memory if not yet allocated
+#ifdef ALLOCINDIVIDUAL
         if (neighbCount[id1] == 0){
             int nNeighbors=2*D;
             if (id1>=GLOBALnRegLabels && m_coherence){
@@ -546,7 +613,7 @@ public:
             weights[id2]=new EnergyType[nNeighbors];
             LOGV(15)<<"allocated id2"<<endl;
         }
-
+#endif
         neighbors[id1][neighbCount[id1]]=id2;
         weights[id1][neighbCount[id1]]=1;
         neighbCount[id1]++;                       

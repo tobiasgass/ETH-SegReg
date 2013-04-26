@@ -106,8 +106,8 @@ namespace itk{
             assert(m_targetImage);
             assert(m_atlasImage);
             if ( m_scale!=1.0){
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_targetImage,m_scale,false),m_scale,false);
-                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,m_scale,false),m_scale,false);
+                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale,true);
+                m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale,true);
                 //m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale);
                 //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale);
                 //m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),1);
@@ -624,22 +624,23 @@ namespace itk{
         void SetTargetSheetness(ConstImagePointerType img){
             m_targetSheetness=img;
             if (this->m_scale!=1.0){
-                m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale);
+              m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
 
             }else{
                 m_scaledTargetSheetness=img;
             }
         }
         virtual void Init(){
+          logSetStage("InitRegUnary");
             assert(this->m_targetImage);
             assert(this->m_atlasImage);
             assert(this->m_targetSheetness);
             assert(this->m_atlasSegmentation);
             if (this->m_scale!=1.0){
-                this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale);
-                this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale);
-                this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale);
-                this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale);
+              this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
+              this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
+              this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale,false);
+              this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
             }
             assert(this->radiusSet);
             for (int d=0;d<ImageType::ImageDimension;++d){
@@ -651,6 +652,7 @@ namespace itk{
             this->m_atlasInterpolator->SetInputImage(this->m_scaledAtlasImage);
             this->m_atlasSegmentationInterpolator=NNInterpolatorType::New();
             this->m_atlasSegmentationInterpolator->SetInputImage(this->m_scaledAtlasSegmentation);
+            logResetStage;
         }
         virtual double getPotential(IndexType targetIndex, LabelType disp){
             double result=0;
@@ -883,22 +885,23 @@ namespace itk{
         void SetTargetSheetness(ConstImagePointerType img){
             m_targetSheetness=img;
             if (this->m_scale!=1.0){
-                m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale);
+              m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
 
             }else{
                 m_scaledTargetSheetness=img;
             }
         }
         virtual void Init(){
+          logSetStage("InitRegUnary");
             assert(this->m_targetImage);
             assert(this->m_atlasImage);
             assert(this->m_targetSheetness);
             assert(this->m_atlasSegmentation);
             if (this->m_scale!=1.0){
-                this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale);
-                this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale);
+              this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
+              this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
                 this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale);
-                this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale);
+                this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
             }
             assert(this->radiusSet);
             for (int d=0;d<ImageType::ImageDimension;++d){
@@ -910,6 +913,7 @@ namespace itk{
             this->m_atlasInterpolator->SetInputImage(this->m_scaledAtlasImage);
             this->m_atlasSegmentationInterpolator=NNInterpolatorType::New();
             this->m_atlasSegmentationInterpolator->SetInputImage(this->m_scaledAtlasSegmentation);
+            logResetStage;
         }
         virtual double getPotential(IndexType targetIndex, LabelType disp){
             double result=0;
@@ -1200,7 +1204,7 @@ namespace itk{
             deformedMask=result.second;
             
             FloatImagePointerType pot=localPotentials(this->m_scaledAtlasImage,this->m_scaledTargetImage);
-            pot = FilterUtils<FloatImageType>::LinearResample(pot, FilterUtils<ImageType,FloatImageType>::cast(m_coarseImage));
+            pot = FilterUtils<FloatImageType>::LinearResample(pot, FilterUtils<ImageType,FloatImageType>::cast(m_coarseImage),true);
 
             deformedMask = FilterUtils<ImageType>::NNResample(deformedMask, m_coarseImage);
             ImageIteratorType maskIterator=ImageIteratorType(deformedMask,deformedMask->GetLargestPossibleRegion());

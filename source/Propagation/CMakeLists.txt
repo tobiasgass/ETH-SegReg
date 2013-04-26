@@ -11,5 +11,5 @@ INCLUDE_DIRECTORIES(
  )
 
 
-message("statismo " ${STATISMO_INCLUDE_DIR}/Representers/ITK)
+
 
