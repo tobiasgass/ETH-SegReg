@@ -60,6 +60,7 @@ public:
     bool penalizeOutside;
     bool initWithMoments;
     bool normalizePotentials;
+    bool cachePotentials;
 private:
 	argstream * as;
 public:
@@ -119,6 +120,7 @@ public:
         penalizeOutside=false;
         initWithMoments=false;
         normalizePotentials=false;
+        cachePotentials=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -230,6 +232,7 @@ public:
         (*as) >> option ("fullRegistrationSmoothing",fullRegPairwise ,"Regularise composed deformation instead of regularizing just the current update. Leads to non-submodular function, and is thus not usable with GC optimization.");
         (*as) >> option ("penalizeOutside",penalizeOutside ,"Penalize registrations falling outside of moving image.");
         (*as) >> option ("normalizePotentials",normalizePotentials ,"divide all potentials by the total number of the respective potential. This balances forces in the two-layer SRS graph (somewhat).");
+        (*as) >> option ("cachePotentials"  ,cachePotentials,"Cache all potential function values before calling the optimizer. requires more memory, but will speed up things!.");
 
         
 

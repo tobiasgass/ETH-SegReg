@@ -198,7 +198,7 @@ public:
 		resampler->SetSize ( size );
         
         if (smooth && scale<1.0){
-            InputImagePointer smoothedInput = gaussian(input,spacing);
+            InputImagePointer smoothedInput = gaussian(input,spacing-inputSpacing);
             resampler->SetInput(smoothedInput);
         }else{
             resampler->SetInput(input);
@@ -253,7 +253,7 @@ public:
 		resampler->SetOutputDirection ( input->GetDirection() );
 		resampler->SetSize ( size );
         if (smooth && scale<1.0){
-            InputImagePointer smoothedInput = gaussian(input,spacing);
+            InputImagePointer smoothedInput = gaussian(input,spacing-inputSpacing);
             resampler->SetInput(smoothedInput);
         }else{
             resampler->SetInput(input);
@@ -278,6 +278,7 @@ public:
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();  
         if (smooth){
+            LOG<<"NN resampling with gaussian filter, DOES NOT MAKE SENSE, does it? "<<endl;
             InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
             resampler->SetInput(smoothedInput);
         }else{
@@ -296,8 +297,8 @@ public:
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
        if (smooth){
-            InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
-            resampler->SetInput(smoothedInput);
+           InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing()-input->GetSpacing());
+           resampler->SetInput(smoothedInput);
         }else{
             resampler->SetInput(input);
         }
@@ -322,8 +323,8 @@ public:
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
          if (smooth){
-            InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
-            resampler->SetInput(smoothedInput);
+             InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing()-input->GetSpacing());
+             resampler->SetInput(smoothedInput);
         }else{
             resampler->SetInput(input);
         }
@@ -473,6 +474,13 @@ public:
         if (! image.IsNotNull()){
             return NULL;
         }
+
+        for (int d=0;d<InputImage::ImageDimension;++d){
+            if (spacing[d]==0){
+                spacing[d]=1e-5;
+            }
+        }
+            
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
          LOGV(4)<<"gaussian smoothing with "<<VAR(spacing)<<endl;

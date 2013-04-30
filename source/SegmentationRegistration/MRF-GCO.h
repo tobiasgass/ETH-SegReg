@@ -188,7 +188,7 @@ public:
         
     }
 	~GCO_SRSMRFSolver()
-    {
+    { 
 
         LOGV(1)<<"Deleting GCO_MRF Sovler " << endl;
         if (m_register) delete regPairwise;
@@ -203,19 +203,22 @@ public:
                 if ( m_weights[i] !=NULL)delete [] m_weights[i];
             }
 #else
-            if (m_deleteRegNeighb){
-                for (int i = 0;i< GLOBALnRegNodes; ++i){
-                    delete [] m_neighbourArray[i];
-                    delete [] m_weights[i];
+            if (m_register){
+                if (m_deleteRegNeighb){
+                    for (int i = 0;i< GLOBALnRegNodes; ++i){
+                        delete [] m_neighbourArray[i];
+                        delete [] m_weights[i];
+                    }
                 }
-            }
-            else{
-                delete [] m_regNeighbors;
-                delete [] m_regWeights;
+                else{
+                    delete [] m_regNeighbors;
+                    delete [] m_regWeights;
 
+                }}
+            if (m_segment){
+                delete [] m_segNeighbors;
+                delete [] m_segWeights;
             }
-            delete [] m_segNeighbors;
-            delete [] m_segWeights;
 
 #endif
             delete [] m_neighbourArray;
@@ -431,7 +434,8 @@ public:
             
          
             for (int d=0;d<nSegNodes;++d){   
-                m_optimizer->setLabel(d+GLOBALnRegNodes,0+GLOBALnRegLabels);
+                int initLabel= this->m_GraphModel->GetTargetSegmentationAtIdx(d);
+                m_optimizer->setLabel(d+GLOBALnRegNodes,initLabel+GLOBALnRegLabels);
                 //pure Segmentation
                 std::vector<int> neighbours= this->m_GraphModel->getForwardSegmentationNeighbours(d);
                 int nNeighbours=neighbours.size();

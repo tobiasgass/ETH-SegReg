@@ -40,6 +40,7 @@ public:
     virtual std::vector<int> getDeformationLabels()=0;
     virtual std::vector<int> getSegmentationLabels()=0;
     virtual double optimizeOneStep(int currentIter , bool & converged)=0;
+    virtual void setPotentialCaching(bool b){} 
 
 };//MRFSolver
 

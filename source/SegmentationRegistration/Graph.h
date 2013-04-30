@@ -121,7 +121,7 @@ namespace itk{
         void setConfig(SRSConfig c){
             m_config=c;
             verbose=c.verbose;
-            m_normalizePotentials=c.normalizePotentials;
+            m_normalizePotentials=c.normalizePotentials; 
         }
         void setTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
@@ -274,6 +274,14 @@ namespace itk{
     
 
         void SetTargetSegmentation(ConstImagePointerType seg){m_targetSegmentationImage=seg;}
+        int GetTargetSegmentationAtIdx(int idx){
+            if (m_targetSegmentationImage.IsNotNull()){
+                IndexType pos=getImageIndex(idx);
+                return m_targetSegmentationImage->GetPixel(pos);
+                
+            }else
+                return 0;
+        }
      
         //return position index in coarse graph from coarse graph node index
         virtual IndexType  getGraphIndex(int nodeIndex){

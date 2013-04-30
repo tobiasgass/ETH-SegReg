@@ -159,31 +159,7 @@ namespace itk{
              
                 if (true){    
                     if (ImageType::ImageDimension==2){
-#if 0                      
-                        typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
-                        typename CasterType::Pointer caster=CasterType::New();
-                        caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
-                        caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
-                        
-                        caster->SetInput(dt1);//thresholdFilter->GetOutput());
-                        caster->Update();
-                        //ImagePointerType output=caster->GetOutput();
-                        typedef itk::ThresholdImageFilter <FloatImageType>
-                            ThresholdImageFilterType;
-                        typename ThresholdImageFilterType::Pointer thresholdFilter
-                            = ThresholdImageFilterType::New();
-                        thresholdFilter->SetInput(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(dt1,64));
-                        //thresholdFilter->ThresholdOutside(-numeric_limits<float>::max(),  numeric_limits<typename ImageType::PixelType>::max());
-                        thresholdFilter->ThresholdAbove(numeric_limits<typename ImageType::PixelType>::max());
-                        thresholdFilter->SetOutsideValue( numeric_limits<typename ImageType::PixelType>::max() );
-                        thresholdFilter->Update();
-                        FloatImagePointerType tmpIm=thresholdFilter->GetOutput();
-                        thresholdFilter->SetInput(tmpIm);
-                        thresholdFilter->ThresholdBelow(numeric_limits<typename ImageType::PixelType>::min());
-                        thresholdFilter->SetOutsideValue(numeric_limits<typename ImageType::PixelType>::min() );
-                        thresholdFilter->Update();
-                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",FilterUtils<FloatImageType,ImageType>::cast(thresholdFilter->GetOutput())));
-#else
+
                         typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
 
                         typedef itk::ThresholdImageFilter <FloatImageType>
@@ -212,7 +188,6 @@ namespace itk{
                         //                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(probImage,255))));
                         LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",out));
 
-#endif
 
                     }
                     if (ImageType::ImageDimension==3){
@@ -309,47 +284,22 @@ namespace itk{
             }
             deformedAtlasSegmentation=int(m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
             if (segmentationLabel!=deformedAtlasSegmentation){ 
-                double dist=m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);
+                double dist=m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);       
+                //double dist2=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->EvaluateAtContinuousIndex(idx2);
+              
                 result=dist;
             }
 
             bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
             bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
 
-#if 0
-            result/=m_tolerance;
-            result*=result;
-            if (targetSegmentation){
-                result=result>1.0?99999.0:result;
-            }else if (auxiliarySegmentation){
-                result=min(result,1.0);
-            }
-#elif 0
-            if (targetSegmentation){
-                if (result>m_tolerance ){
-                    result=9999999;
-                }else  {
-                    result/=m_minDists[segmentationLabel];
-                    result*=result;
-                }
-            }else if (auxiliarySegmentation ){
-                if (result>m_tolerance ){
-                    result=1;
-                }else  {
-                    result/=m_minDists[segmentationLabel];
-                    result*=result;
-                } //result=1.0;
-            }
-          
-#else 
-            //result/=m_tolerance;
+
             if (auxiliarySegmentation){
                 result=min(result,1.0);
             }
             result=0.5*result*result;//exp(result)-1;
            
             result=min(999999.0,result);
-#endif
             
             return result;
         }

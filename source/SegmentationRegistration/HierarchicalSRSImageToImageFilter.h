@@ -491,7 +491,8 @@ namespace itk{
                         TIME(m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation));
                     }
                     //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
-                    
+                    if (segment && (l>0 || i>0)) graph->SetTargetSegmentation((ConstImagePointerType)segmentation);
+
 
                     //	ok what now: create graph! solve graph! save result!Z
                     //double linearIncreasingWeight=1.0/(m_config->nLevels-l);
@@ -540,6 +541,7 @@ namespace itk{
                         }
 
                         //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
+                        mrfSolver->setPotentialCaching(m_config->cachePotentials);
                         TIME(mrfSolver->createGraph());
                         if (!m_config->evalContinuously){
                             TIME(newEnergy=mrfSolver->optimize(m_config->optIter));
