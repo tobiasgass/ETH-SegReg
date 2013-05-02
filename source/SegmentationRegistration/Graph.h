@@ -68,6 +68,10 @@ namespace itk{
         typedef int SegmentationLabelType;
         typedef typename itk::Image<SegmentationLabelType,ImageType::ImageDimension> SegmentationLabelImageType;
         typedef typename SegmentationLabelImageType::Pointer SegmentationLabelImagePointerType;
+
+        typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        typedef typename ImageUtils<FloatImageType>::ImageIteratorType FloatImageIteratorType;
     
     protected:
     
@@ -87,6 +91,9 @@ namespace itk{
         int m_nNodes,m_nVertices, m_nRegistrationNodes, m_nSegmentationNodes;
         int m_nRegEdges,m_nSegEdges,m_nSegRegEdges, m_nEdges;
         int m_nSegmentationLabels,m_nDisplacementLabels;
+
+        double m_segmentationUnaryNormalizer;
+
         //ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
         UnaryRegistrationFunctionPointerType m_unaryRegFunction;
         UnarySegmentationFunctionPointerType m_unarySegFunction;
@@ -103,6 +110,10 @@ namespace itk{
         int m_maxRegSegNeighbors;
 
         bool m_normalizePotentials;
+
+        std::vector<int> m_mapIdx1,m_mapIdx1Rev;
+        bool m_reducedSegNodes;
+
     public:
         int getMaxRegSegNeighbors(){return m_maxRegSegNeighbors;}
         GraphModel(){
@@ -114,6 +125,7 @@ namespace itk{
             m_nDisplacementLabels=LabelMapperType::nDisplacements;
             m_DisplacementScalingFactor=1.0;
             m_normalizePotentials=false;
+            m_reducedSegNodes=false;
         };
         ~GraphModel(){
             //delete m_targetNeighborhoodIterator;
@@ -187,8 +199,8 @@ namespace itk{
             LOGV(3)<<"Grid pixel spacing: "<<m_gridPixelSpacing<<std::endl;;
             //nvertices is not used!?
             if (m_dim>=2){
-               m_nRegEdges=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
-               m_nSegEdges=m_imageSize[1]*(m_imageSize[0]-1)+m_imageSize[0]*(m_imageSize[1]-1);
+                m_nRegEdges=m_gridSize[1]*(m_gridSize[0]-1)+m_gridSize[0]*(m_gridSize[1]-1);
+                m_nSegEdges=m_imageSize[1]*(m_imageSize[0]-1)+m_imageSize[0]*(m_imageSize[1]-1);
             }
             if (m_dim==3){
                 m_nRegEdges=m_nRegEdges*this->m_gridSize[2]+(this->m_gridSize[2]-1)*this->m_gridSize[1]*this->m_gridSize[0];
@@ -213,7 +225,7 @@ namespace itk{
             LOGV(2)                <<" SegRegEdges:"<<m_nSegRegEdges<<std::endl;
                          
         
-       
+            m_segmentationUnaryNormalizer=m_nSegmentationNodes;
             LOGV(1)<<" finished graph init" <<std::endl;
             logResetStage;
         }
@@ -275,12 +287,47 @@ namespace itk{
 
         void SetTargetSegmentation(ConstImagePointerType seg){m_targetSegmentationImage=seg;}
         int GetTargetSegmentationAtIdx(int idx){
+            return 0;
             if (m_targetSegmentationImage.IsNotNull()){
                 IndexType pos=getImageIndex(idx);
                 return m_targetSegmentationImage->GetPixel(pos);
                 
             }else
                 return 0;
+        }
+
+        void ReduceSegmentationNodesByCoherencePotential(double thresh){
+            FloatImagePointerType dist=m_pairwiseSegRegFunction->GetDistanceTransform(0);
+            m_reducedSegNodes=false;
+            
+            FloatImagePointerType ROI=ImageUtils<FloatImageType>::createEmpty(dist);
+            ROI->FillBuffer(0.0);
+            int actualIdx=0,concurrentIdx=0;
+            int nNodes=this->m_targetImage->GetLargestPossibleRegion().GetNumberOfPixels();
+
+            m_mapIdx1=std::vector<int>(nNodes,-1);
+            m_mapIdx1Rev=std::vector<int>(nNodes,-1);
+            for (;actualIdx<nNodes;++actualIdx){
+                
+                IndexType position1=getImageIndex(actualIdx);
+                PointType pt;
+                m_targetImage->TransformIndexToPhysicalPoint(position1,pt);
+                IndexType position2;
+                dist->TransformPhysicalPointToIndex(pt,position2);
+                float distAtPos=dist->GetPixel(position2);
+                if (distAtPos>-thresh){
+                    m_mapIdx1[actualIdx]=concurrentIdx;
+                    m_mapIdx1Rev[concurrentIdx]=actualIdx;
+                    ++concurrentIdx;
+                    ROI->SetPixel(position1,1);
+                    
+                }
+            }
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("ROI.nii",ROI));
+            m_nSegmentationNodes=concurrentIdx;
+            m_mapIdx1Rev.resize(concurrentIdx);
+            m_reducedSegNodes=true;
+
         }
      
         //return position index in coarse graph from coarse graph node index
@@ -352,12 +399,19 @@ namespace itk{
             for (unsigned int d=0;d<m_dim;++d){
                 i+=imageIndex[d]*m_imageLevelDivisors[d];
             }
+            if (m_reducedSegNodes) {
+                i=m_mapIdx1[i];
+             
+            }
             return i;
         }
 
         //return position in full image depending on fine graph nodeindex
         virtual IndexType getImageIndex(int idx){
             IndexType position;
+            if (m_reducedSegNodes) {
+                idx=m_mapIdx1Rev[idx];
+            }
             for ( int d=m_dim-1;d>=0;--d){
                 position[d]=idx/m_imageLevelDivisors[d];
                 idx-=position[d]*m_imageLevelDivisors[d];
@@ -384,7 +438,7 @@ namespace itk{
                 LOG<<"unary segmentation potential <0"<<std::endl;
                 LOG<<imageIndex<<" " <<result<<std::endl;
             }
-            if (m_normalizePotentials) result/=m_nSegmentationNodes;
+            if (m_normalizePotentials) result/=m_segmentationUnaryNormalizer;
 
             return result;
         };
@@ -406,7 +460,7 @@ namespace itk{
             if (m_normalizePotentials) result/=m_nRegEdges;
             return result;
         };
-         virtual double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
+        virtual double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
             assert(false);
             IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             IndexType imageIndex=getImageIndex(nodeIndex2);
@@ -536,7 +590,8 @@ namespace itk{
                 off.Fill(0);
                 if ((int)position[d]<(int)m_imageSize[d]-1){
                     off[d]+=1;
-                    neighbours.push_back(getImageIntegerIndex(position+off));
+                    int idx=getImageIntegerIndex(position+off);
+                    if (idx>0)neighbours.push_back(idx);
                 }
             }
             return neighbours;
@@ -548,7 +603,8 @@ namespace itk{
             for (unsigned int i=0;i<m_targetNeighborhoodIterator.Size();++i){
                 IndexType idx=m_targetNeighborhoodIterator.GetIndex(i);
                 if (m_targetImage->GetLargestPossibleRegion().IsInside(idx)){
-                    neighbours.push_back(getImageIntegerIndex(idx));
+                    int inIdx=getImageIntegerIndex(idx);
+                    if (inIdx>0) neighbours.push_back(inIdx);
                 }
             }
             return neighbours;
@@ -642,7 +698,7 @@ namespace itk{
             }
             return result;
         }
-          virtual ImagePointerType getParameterImage(){
+        virtual ImagePointerType getParameterImage(){
             ImagePointerType result=ImageType::New();
             typename ImageType::RegionType region;
             region.SetSize(m_gridSize);
@@ -665,16 +721,23 @@ namespace itk{
             LOGV(10)<<"target segmentation image: "<<result->GetLargestPossibleRegion()<<" "<<labels.size()<<" "<<m_nSegmentationLabels<<endl;
             typename itk::ImageRegionIterator<ImageType> it(result,result->GetLargestPossibleRegion());
             unsigned int i=0;
-            if (m_nSegmentationLabels && labels.size()==m_targetImage->GetBufferedRegion().GetNumberOfPixels()){
+            if (m_nSegmentationLabels){
                 for (it.GoToBegin();!it.IsAtEnd();++it,++i){
-                    assert(i<labels.size());
-                    it.Set(labels[i]);
+                    if (m_reducedSegNodes){
+                        int idx=m_mapIdx1[i];
+                        if (idx>-1){
+                            it.Set(labels[idx]);
+                        }
+                        else
+                            it.Set(0);
+                    }else{
+                        it.Set(labels[i]);
+                    }
                 }
             }else{  for (it.GoToBegin();!it.IsAtEnd();++it,++i){
                     it.Set(0);
                 }
             }
-            //assert(i==(labels.size()-1));
             return result;
         }
         SizeType getImageSize() const
@@ -781,6 +844,7 @@ namespace itk{
             this->m_unaryRegFunction->setDisplacements(displacementList);
             this->m_unaryRegFunction->compute();
 #endif
+            
         }
         virtual void cacheRegistrationPotentials(int labelIndex){
 #ifndef moarcaching

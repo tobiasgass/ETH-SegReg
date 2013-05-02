@@ -131,6 +131,7 @@ namespace itk{
 
         FloatImagePointerType GetDistanceTransform(){return  m_distanceTransform;}
 #endif        
+        FloatImagePointerType GetDistanceTransform(int label){return  m_distanceTransforms[label];}
 
         virtual void SetAtlasSegmentation(ConstImagePointerType segImage, double scale=1.0){
             logSetStage("Coherence setup");

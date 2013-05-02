@@ -396,7 +396,7 @@ public:
          
             t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
             LOGV(1)<<"Registration pairwise took "<<t<<" seconds."<<endl;
-            LOGV(1)<<"Approximate size of reg pairwise: "<<1.0/(1024*1024)*nRegNodes*nRegLabels*nRegLabels*sizeof(double)<<" mb."<<endl;
+            LOGV(1)<<"Approximate size of reg pairwise: "<<1.0/(1024*1024)*nRegNodes*nRegLabels*nRegLabels*sizeof(double)*m_cachePotentials<<" mb."<<endl;
 
             tPairwise+=t;
         }
@@ -493,8 +493,8 @@ public:
             clock_t endPairwise = clock();
             t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
             LOGV(1)<<"Segmentation + SRS pairwise took "<<t<<" seconds."<<endl;
-            LOGV(1)<<"Approximate size of seg pairwise: "<<1.0/(1024*1024)*nSegEdges*nSegLabels*nSegLabels*sizeof(double)<<" mb."<<endl;
-            LOGV(1)<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegRegEdges*nSegLabels*nRegLabels*sizeof(double)<<" mb."<<endl;
+            LOGV(1)<<"Approximate size of seg pairwise: "<<1.0/(1024*1024)*nSegEdges*nSegLabels*nSegLabels*sizeof(double)*m_cachePotentials<<" mb."<<endl;
+            LOGV(1)<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegRegEdges*nSegLabels*nRegLabels*sizeof(double)*m_cachePotentials<<" mb."<<endl;
             
         }
         m_optimizer->setSmoothCost(&GLOBALsmoothFunction);

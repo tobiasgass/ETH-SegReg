@@ -325,8 +325,7 @@ namespace itk{
                     segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent);
                     //downsampling target image by a factor of m_config->segmentationScalingFactor for each level.
                     LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
-                    ImagePointerType smoothedTargetImage=FilterUtils<ImageType>::gaussian(m_inputTargetImage,1.0/segmentationScalingFactor);
-                    m_targetImage=FilterUtils<ImageType>::LinearResample(smoothedTargetImage,segmentationScalingFactor,false);
+                    m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor,true);
                 }else if (m_config->segmentationScalingFactor == 0.0){
                     LOG<<"Using same grid control point resolution for both registration and segmentation sub-graph!"<<endl;
                     logSetStage("segmentation grid size estimation");
@@ -342,9 +341,7 @@ namespace itk{
                     segmentationScalingFactor = 1.0*graph->getCoarseGraphImage()->GetLargestPossibleRegion().GetSize()[0]/m_inputTargetImage->GetLargestPossibleRegion().GetSize()[0];
                     LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
 
-                    ImagePointerType smoothedTargetImage=FilterUtils<ImageType>::gaussian(m_inputTargetImage,1.0/segmentationScalingFactor);
-                    LOGV(4)<<"smoothed input image" << endl;
-                    m_targetImage=FilterUtils<ImageType>::LinearResample(smoothedTargetImage,graph->getCoarseGraphImage(),false);
+                    m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,(ConstImagePointerType)graph->getCoarseGraphImage(),true);
                     LOGV(4)<<"downsampled image" << endl;
                     LOGV(4)<<VAR(graph->getCoarseGraphImage()->GetSpacing())<<endl;
                     logResetStage;
@@ -423,7 +420,7 @@ namespace itk{
                         //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
                         previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
                     }else{
-                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_targetImage);
+                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_inputTargetImage);
                     }
                 }
 
@@ -493,7 +490,9 @@ namespace itk{
                     //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
                     if (segment && (l>0 || i>0)) graph->SetTargetSegmentation((ConstImagePointerType)segmentation);
 
-
+                    if (segment && coherence && m_config->segDistThresh!= -1){
+                        graph->ReduceSegmentationNodesByCoherencePotential(m_config->segDistThresh);
+                    }
                     //	ok what now: create graph! solve graph! save result!Z
                     //double linearIncreasingWeight=1.0/(m_config->nLevels-l);
                     //double expIncreasingWeight=exp(-(m_config->nLevels-l-1));
@@ -633,7 +632,7 @@ namespace itk{
                             //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
                             fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
                         }else{
-                            TIME(fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, m_targetImage));
+                            TIME(fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, m_inputTargetImage));
                         }
                     }else if (regist){
                         fullDeformation = deformation;
@@ -649,7 +648,7 @@ namespace itk{
                             lowResDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(composedDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
                         else
                             lowResDef = composedDeformation;
-                        deformedAtlasImage=FilterUtils<ImageType>::NNResample(TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef),m_targetImage,false);
+                        deformedAtlasImage=FilterUtils<ImageType>::NNResample(TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef),m_inputTargetImage,false);
                         deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
                     }
                     

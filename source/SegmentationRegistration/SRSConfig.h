@@ -61,6 +61,7 @@ public:
     bool initWithMoments;
     bool normalizePotentials;
     bool cachePotentials;
+    double segDistThresh;
 private:
 	argstream * as;
 public:
@@ -121,6 +122,7 @@ public:
         initWithMoments=false;
         normalizePotentials=false;
         cachePotentials=false;
+        segDistThresh=-1.0;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -241,7 +243,8 @@ public:
         (*as) >> parameter ("trp", thresh_PairwiseReg,"threshold for pairwise registration potential (factor of max distance).", false);
         (*as) >> parameter ("lru", log_UnaryReg,"negative log metric unary registration potential.", false);
         (*as) >> parameter ("lrp", log_PairwiseReg,"negative log metric for pairwise registration potential.", false);
-        
+        (*as) >> parameter ("tsc", segDistThresh,"if the distance to target segmentation label is greater than this threshold, the node is excluded from the segmentation graph. Only works in SRS, not in seg only currently.", false);
+
         //other params
 		(*as) >> parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
 		(*as) >> parameter ("nLevels", nLevels,"number of grid multiresolution pyramid levels", false);

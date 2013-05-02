@@ -127,7 +127,8 @@ public:
     }
     void print(){
         for (std::map<std::string, double>::iterator it = m_timings.begin(); it != m_timings.end(); ++it){
-            LOG<<m_calls[it->first]<<" calls to "<<it->first<<", total run time "<<it->second<<" seconds."<<std::endl;
+            if (m_calls.find(it->first) != m_calls.end())
+                LOG<<m_calls[it->first]<<" calls to "<<it->first<<", total run time "<<it->second<<" seconds."<<std::endl;
         }
     }
 };
