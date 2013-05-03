@@ -1243,6 +1243,7 @@ namespace itk{
         }
         virtual double getPotential(IndexType coarseIndex){
             //LOG<<"NEW BEHAVIOUR!"<<endl;
+            LOGV(90)<<" "<<VAR(currentCachedPotentials->GetLargestPossibleRegion().GetSize())<<endl;
             return  m_normalizationFactor*currentCachedPotentials->GetPixel(coarseIndex);
         }
         virtual double getPotential(IndexType coarseIndex, LabelType l){

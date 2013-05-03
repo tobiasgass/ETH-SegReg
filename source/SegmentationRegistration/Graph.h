@@ -299,7 +299,6 @@ namespace itk{
         void ReduceSegmentationNodesByCoherencePotential(double thresh){
             FloatImagePointerType dist=m_pairwiseSegRegFunction->GetDistanceTransform(0);
             m_reducedSegNodes=false;
-            
             FloatImagePointerType ROI=ImageUtils<FloatImageType>::createEmpty(dist);
             ROI->FillBuffer(0.0);
             int actualIdx=0,concurrentIdx=0;
@@ -325,6 +324,7 @@ namespace itk{
             }
             LOGI(6,ImageUtils<FloatImageType>::writeImage("ROI.nii",ROI));
             m_nSegmentationNodes=concurrentIdx;
+            LOG<<"Reduced number of segmentation nodes to "<<100.0*concurrentIdx/actualIdx<<"%; "<<actualIdx<<"->"<<concurrentIdx<<endl;
             m_mapIdx1Rev.resize(concurrentIdx);
             m_reducedSegNodes=true;
 
@@ -855,6 +855,7 @@ namespace itk{
         }
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType index=this->getGraphIndex(nodeIndex);
+            LOGV(90)<<VAR(index);
 #ifdef moarcaching
             double result=  this->m_unaryRegFunction->getPotential(index,labelIndex);//this->m_nRegistrationNodes;
 #else

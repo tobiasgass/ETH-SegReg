@@ -214,7 +214,8 @@ public:
                     delete [] m_regNeighbors;
                     delete [] m_regWeights;
 
-                }}
+                }
+            }
             if (m_segment){
                 delete [] m_segNeighbors;
                 delete [] m_segWeights;

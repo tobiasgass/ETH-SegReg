@@ -212,6 +212,7 @@ namespace itk{
             logResetStage;
         }
         FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage, int value){
+            assert(segmentationImage.IsNotNull());
             typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;
             typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
             typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
@@ -219,11 +220,14 @@ namespace itk{
             ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
             ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
             ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
+            int count=0,countAll=0;
+            
+            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2,++countAll){
                 float val=imageIt.Get();
                 imageIt2.Set(val==value);
-                
+                count+=(val==value);
             }
+            LOGV(8)<<VAR(countAll)<<" "<<VAR(count)<<" "<<VAR(value)<<endl;
             //distanceTransform->InsideIsPositiveOn();
             distanceTransform->SetInput(newImage);
             distanceTransform->SquaredDistanceOff ();

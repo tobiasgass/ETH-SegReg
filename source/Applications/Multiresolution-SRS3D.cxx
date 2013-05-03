@@ -120,13 +120,16 @@ int main(int argc, char ** argv)
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
         }else{
             targetGradient=Preprocessing<ImageType>::computeSheetness(targetImage);
+            LOGI(8,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));
                  
         }
         if (filterConfig.atlasGradientFilename!=""){
             atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
         }else{
-            if (atlasImage.IsNotNull())
+            if (atlasImage.IsNotNull()){
                 atlasGradient=Preprocessing<ImageType>::computeSheetness(atlasImage);
+                LOGI(8,ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient));
+            }
         }
         
         if (filterConfig.useTissuePrior){

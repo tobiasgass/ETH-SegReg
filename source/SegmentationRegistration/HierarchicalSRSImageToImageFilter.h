@@ -290,7 +290,7 @@ namespace itk{
             if (coherence){
                 deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
                 m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config->nSegmentations);
-                m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
+                //m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
             }
 
             if (!coherence && !regist){
@@ -322,7 +322,8 @@ namespace itk{
                 
                 double segmentationScalingFactor=1.0;
                 if (m_config->segmentationScalingFactor>0.0 &&  m_config->segmentationScalingFactor!=1.0){
-                    segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent);
+                    //segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent+1);
+                    segmentationScalingFactor=pow(m_config->segmentationScalingFactor,m_config->nLevels-l-1);
                     //downsampling target image by a factor of m_config->segmentationScalingFactor for each level.
                     LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
                     m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor,true);
