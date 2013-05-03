@@ -303,7 +303,7 @@ namespace itk{
             ROI->FillBuffer(0.0);
             int actualIdx=0,concurrentIdx=0;
             int nNodes=this->m_targetImage->GetLargestPossibleRegion().GetNumberOfPixels();
-
+            LOGV(5)<<VAR(dist->GetLargestPossibleRegion().GetSize())<<" "<<this->m_targetImage->GetLargestPossibleRegion().GetSize()<<endl;
             m_mapIdx1=std::vector<int>(nNodes,-1);
             m_mapIdx1Rev=std::vector<int>(nNodes,-1);
             for (;actualIdx<nNodes;++actualIdx){

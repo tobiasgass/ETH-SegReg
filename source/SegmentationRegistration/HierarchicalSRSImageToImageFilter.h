@@ -482,7 +482,8 @@ namespace itk{
                         if (! m_config->dontNormalizeRegUnaries) m_unaryRegistrationPot->setNormalize( i==0 && l>0);
                     }
                     if (coherence){
-                        if (deformedAtlasSegmentation.IsNotNull()&& segmentationScalingFactor<1.0){
+                        if ( l>0 && i==0 && m_config->segmentationScalingFactor<1.0){
+                            //when segmentaiton is downsampled, the first iteration at each level>0 needs to be re-warped 
                             deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
                         }
                         m_pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
