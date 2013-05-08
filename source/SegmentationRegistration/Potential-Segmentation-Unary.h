@@ -146,6 +146,9 @@ namespace itk{
             return edgeWeight;
         }
     };//class
+
+
+   
     template<class TImage>
     class UnaryPotentialSegmentationArtificial: public UnaryPotentialSegmentation<TImage>{
     public:
@@ -469,10 +472,10 @@ namespace itk{
         }
       
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
-            int s=this->m_targetGradient->GetPixel(targetIndex);
-            int bone=(300+1000)*255.0/2000;
-            int tissue=(-500+1000)*255.0/2000;
-            double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
+            int s=this->m_scaledTargetGradient->GetPixel(targetIndex);
+            int bone=(200+1000);//*255.0/2000;
+            int tissue=900;//(-500+1000);//*255.0/2000;
+            double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
             double totalCost=1;
             bool tissuePrior=false;
             //#define USEPRIOR
@@ -486,7 +489,7 @@ namespace itk{
                 //if (this->m_tissuePrior->GetPixel(targetIndex)>0.8) return 100;
                 totalCost = ( ((  imageIntensity > bone) && ( s > 0 ) ) )? 1 : 0;
 #else
-                totalCost = ( imageIntensity > bone) && ( s > 127 ) ? 1 : 0;
+                totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
                 //LOG<<totalCost<<" "<<imageIntensity<<endl;
 #endif
                 break;
@@ -503,6 +506,8 @@ namespace itk{
             return totalCost;
         }
     };//class
+
+
     template<class TImage>
     class UnaryPotentialSegmentationBoneMarcel: 
         public UnaryPotentialSegmentationUnsignedBoneMarcel<TImage>  

@@ -15,7 +15,7 @@
 #include "argstream.h"
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
-
+#include "mmalloc.h"
 
 using namespace std;
 
@@ -40,7 +40,7 @@ LabelImagePointerType selectLabel(LabelImagePointerType img, Label l){
 int main(int argc, char * argv [])
 {
 
-
+    
     argstream as(argc, argv);
 	string groundTruth,segmentationFilename,outputFilename="";
     bool hausdorff=false;
