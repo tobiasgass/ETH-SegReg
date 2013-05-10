@@ -145,7 +145,7 @@ namespace itk{
             m_nSegmentationLabels=max( m_nSegmentationLabels,maxFilter->GetMaximumOutput()->Get()+1);
             if (m_nSegmentationLabels>3){
                 LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(m_nSegmentationLabels)<<endl;
-                ImageUtils<ImageType>::writeImage("multilabelAtlas.nii",segImage);
+                LOGI(6,ImageUtils<ImageType>::writeImage("multilabelAtlas.nii",segImage));
             }
             m_distanceTransforms= std::vector<FloatImagePointerType>( m_nSegmentationLabels ,NULL);
             m_atlasDistanceTransformInterpolators = std::vector<FloatImageInterpolatorPointerType>( m_nSegmentationLabels ,NULL);
@@ -309,6 +309,77 @@ namespace itk{
             return result;
         }
     };//class
+
+     template<class TImage>
+    class PairwisePotentialMultilabelCoherence :public PairwisePotentialCoherence<TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialMultilabelCoherence            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        
+        typedef typename  itk::Vector<float,ImageType::ImageDimension>  LabelType;
+        typedef typename itk::Image<LabelType,ImageType::ImageDimension> LabelImageType;
+        typedef typename LabelImageType::Pointer LabelImagePointerType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
+        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
+
+        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
+        typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
+        
+        typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
+ 
+    public:
+        itkNewMacro(Self);
+
+          inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
+            double result=0;
+            ContinuousIndexType idx2(targetIndex2);
+            itk::Vector<float,ImageType::ImageDimension> disp=displacement;
+
+            typename ImageType::PointType p;
+            this->m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,p);
+            p +=disp;//+this->m_baseLabelMap->GetPixel(targetIndex1);
+            this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p,idx2);
+            int deformedAtlasSegmentation=-1;
+            if (!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
+                for (int d=0;d<ImageType::ImageDimension;++d){
+                    if (idx2[d]>=this->m_atlasSegmentationInterpolator->GetEndContinuousIndex()[d]){
+                        idx2[d]=this->m_atlasSegmentationInterpolator->GetEndContinuousIndex()[d]-0.5;
+                    }
+                    else if (idx2[d]<this->m_atlasSegmentationInterpolator->GetStartContinuousIndex()[d]){
+                        idx2[d]=this->m_atlasSegmentationInterpolator->GetStartContinuousIndex()[d]+0.5;
+                    }
+                }
+            }
+            deformedAtlasSegmentation=int(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
+            if (segmentationLabel!=deformedAtlasSegmentation){ 
+                double dist=this->m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);       
+                //double dist2=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->EvaluateAtContinuousIndex(idx2);
+              
+                result=dist;
+            }
+
+            result=0.5*result*result;//exp(result)-1;
+           
+            result=min(999999.0,result);
+            
+            return result;
+        }
+
+     };//class PairwisePotentialMultilabelCoherence
     template<class TImage>
     class PairwisePotentialSigmoidCoherence :public PairwisePotentialCoherence<TImage>{
     public:

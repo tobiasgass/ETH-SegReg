@@ -56,19 +56,20 @@ int main(int argc, char ** argv)
     //typedef HandcraftedBoneSegmentationClassifierMarcel<ImageType> ClassifierType;
     //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     //typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
+    //typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
     // //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     
     // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
-    // //typedef SegmentationGMMClassifier<ImageType> ClassifierType;
-    // //typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    
+    typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
+    typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     // //pairwise seg
-    // typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     // //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     // //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
+    typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
     // //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -79,7 +80,8 @@ int main(int argc, char ** argv)
     
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     
-    typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+    //typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+    typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
     // //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
     // //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
     // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;

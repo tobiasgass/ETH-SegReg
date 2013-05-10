@@ -233,6 +233,7 @@ namespace itk{
                 m_unarySegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
                 m_unarySegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
                 m_unarySegmentationPot->SetGradientScaling(m_config->pairwiseSegmentationWeight);
+                m_unarySegmentationPot->SetNSegmentationLabels(m_config->nSegmentations);
                 if (m_config->useTissuePrior){
                     m_unarySegmentationPot->SetTissuePrior(this->GetInput(5));
                     m_unarySegmentationPot->SetUseTissuePrior(m_config->useTissuePrior);
