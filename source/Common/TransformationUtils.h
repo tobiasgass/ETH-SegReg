@@ -30,6 +30,8 @@
 #include "itkDiscreteGaussianImageFilter.h"
 #include "itkSmoothingRecursiveGaussianImageFilter.h"
 #include "itkCenteredTransformInitializer.h"
+#include <itkVectorResampleImageFilter.h>
+
 using namespace std;
 
 template<class ImageType, class CDisplacementPrecision=float>
@@ -255,7 +257,26 @@ public:
         return bSplineInterpolateDeformationField(labelImg,(ConstImagePointerType)ref);
     }
     static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
-        LOGV(2)<<"Extrapolating deformation image"<<std::endl;
+        if (labelImg->GetLargestPossibleRegion().GetSize()==reference->GetLargestPossibleRegion().GetSize()){
+            return ImageUtils<DeformationFieldType>::duplicate(labelImg);
+        }
+        else if (labelImg->GetLargestPossibleRegion().GetSize()[0]>reference->GetLargestPossibleRegion().GetSize()[0]){
+            //downsampling does not need bspline interpolation
+            //note that the test for downsampling is pretty crude...
+            LOGV(2)<<"Downsampling deformation image (without smoothing)"<<std::endl;
+            LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+            typedef typename itk::VectorResampleImageFilter<DeformationFieldType,DeformationFieldType> ResamplerType;
+            typename ResamplerType::Pointer resampler=ResamplerType::New();
+            resampler->SetInput(labelImg);
+            resampler->SetSize(reference->GetLargestPossibleRegion().GetSize() );
+            resampler->SetOutputSpacing( reference->GetSpacing() );
+            resampler->SetOutputOrigin( reference->GetOrigin());
+            resampler->SetOutputDirection( reference->GetDirection());
+            resampler->Update();
+            return resampler->GetOutput();
+
+        }
+        LOGV(2)<<"Upsampling deformation image"<<std::endl;
         LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
@@ -1029,6 +1050,8 @@ public:
 
     static DeformationFieldPointerType invert(DeformationFieldPointerType def, ImagePointerType ref=NULL){
         InverseDeformationFieldFilterPointerType inverter=InverseDeformationFieldFilterType::New();
+        LOG<<"THIS DOES NOT WORK!!!"<<endl;
+        exit(0);
         inverter->SetInput(def);
         if (ref.IsNotNull()){
             inverter->SetOutputOrigin(ref->GetOrigin());
@@ -1040,7 +1063,7 @@ public:
             inverter->SetSize(def->GetLargestPossibleRegion().GetSize());
             inverter->SetOutputSpacing(def->GetSpacing());
         }       
-        inverter->SetNumberOfIterations(10);
+        inverter->SetNumberOfIterations(500);
         inverter->Update();
         return inverter->GetOutput();
         

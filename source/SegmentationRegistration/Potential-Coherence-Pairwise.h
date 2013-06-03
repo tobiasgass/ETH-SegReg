@@ -145,6 +145,7 @@ namespace itk{
             m_nSegmentationLabels=max( m_nSegmentationLabels,maxFilter->GetMaximumOutput()->Get()+1);
             if (m_nSegmentationLabels>3){
                 LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(m_nSegmentationLabels)<<endl;
+                LOG<<VAR(maxFilter->GetMaximumOutput()->Get()+1)<<endl;
                 LOGI(6,ImageUtils<ImageType>::writeImage("multilabelAtlas.nii",segImage));
             }
             m_distanceTransforms= std::vector<FloatImagePointerType>( m_nSegmentationLabels ,NULL);

@@ -660,14 +660,14 @@ namespace itk{
         }
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
             double prob= m_resampledProbImages[segmentationLabel>0]->GetPixel(targetIndex);
-            return prob;
+            //return prob;
             if (prob<=0) prob=0.00000000001;
             return -log(prob);
         }
     };
 
 
-     template<class TImage, class TClassifier>
+    template<class TImage, class TClassifier>
     class UnaryPotentialNewSegmentationMultilabelClassifier: public UnaryPotentialSegmentation<TImage> {
     public:
         //itk declarations
@@ -727,5 +727,74 @@ namespace itk{
             return -log(prob);
         }
     };
+
+      template<class TImage, class TClassifier>
+    class UnaryPotentialNewSegmentationMultilabelClassifierNoCaching: public UnaryPotentialSegmentation<TImage> {
+    public:
+        //itk declarations
+        typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching            Self;
+        typedef UnaryPotentialSegmentation<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
+
+        typedef TClassifier ClassifierType;
+        typedef typename ClassifierType::Pointer ClassifierPointerType;
+        typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
+        typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+        
+    protected:
+        ClassifierPointerType m_classifier;
+        std::vector<FloatImagePointerType> m_probabilityImages,m_resampledProbImages;
+        bool m_trainOnTargetROI;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialNewSegmentationMultilabelClassifier, Object);
+          
+        virtual void Init(){
+            m_trainOnTargetROI=true;
+            LOG<<VAR(m_trainOnTargetROI)<<std::endl;
+            m_classifier=  ClassifierType::New();
+            m_classifier->setNSegmentationLabels(max(2,this->m_nSegmentationLabels));
+            std::vector<ImageConstPointerType> atlas;
+            if (m_trainOnTargetROI){
+                this->m_atlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_targetImage,false);
+                this->m_atlasSegmentation=FilterUtils<ImageType>::NNResample(this->m_atlasSegmentation,this->m_targetImage,false);
+            }
+            atlas.push_back(this->m_atlasImage);
+            //atlas.push_back(this->m_atlasGradient);
+            m_classifier->setData(atlas,this->m_atlasSegmentation);
+            m_classifier->train();
+            std::vector<ImageConstPointerType> target;
+            target.push_back(this->m_targetImage);
+            //            target.push_back(this->m_targetGradient);
+            LOGI(10,m_probabilityImages=m_classifier->evalImage(target));
+
+        }
+        void ResamplePotentials(double scale){
+
+            this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(this->m_targetImage,scale,true);
+            this->m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(this->m_targetGradient,scale,true);
+            
+        }
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+
+            double i1=this->m_scaledTargetImage->GetPixel(targetIndex);
+            double i2=this->m_scaledTargetGradient->GetPixel(targetIndex);
+            double prob= m_classifier->getProbability(segmentationLabel,i1,i2);
+            if (prob<=0) 
+                return 10000.0;
+            else{
+                prob=min(1.0,prob);
+                return -log(prob);
+            }
+        }
+    };
+
 }//namespace
 #endif /* POTENTIALS_H_ */

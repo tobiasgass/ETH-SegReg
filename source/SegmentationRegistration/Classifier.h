@@ -1527,7 +1527,7 @@ namespace itk{
      
      
 
-        virtual void train(){
+        virtual void train(bool t, string g=""){
           
         };
 
@@ -2031,7 +2031,7 @@ namespace itk{
             ofstream myFile (filename.c_str(), ios::out | ios::binary);
             myFile.write ((char*)(&this->m_probs[0]),3*2*2*this->m_nIntensities*this->m_nIntensities*sizeof(float) );
         }
-        virtual void train(){
+        virtual void train(bool t,string f=""){
             LOG<<"reading config"<<std::endl;
             string confFile("/home/gasst/work/progs/rf/randomForest.conf");///home/gasst/work/progs/rf/src/randomForest.conf");
             HyperParameters hp;

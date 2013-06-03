@@ -32,7 +32,7 @@ public:
 protected:
     int m_nVars,m_nEqs,m_nNonZeroes;
     int m_numImages;
-    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations, *m_updatedDeformationCache;
+    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations, *m_updatedDeformationCache,*m_downSampledDeformationCache;
     std::vector<string> * m_imageIDList;
     bool m_additive, m_updateDeformations;
     RegionType m_regionOfInterest;
@@ -100,14 +100,15 @@ public:
         m_segConsisntencyWeight = 1.0;
         m_sigmaD = 0.0;
     }
-    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist){
+    virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist, map< string, map <string, DeformationFieldPointerType> > * downSampledDeformationCache){
         m_imageList=imagelist;
         m_imageIDList=imageIDList;
         m_deformationCache=deformationCache;
+        m_downSampledDeformationCache=downSampledDeformationCache;
         m_numImages=imageIDList->size();
         this->m_ROI=ROI;
         if (!ROI.IsNotNull()){
-            this->m_ROI=FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::createEmpty(TransfUtils<ImageType>::computeLocalDeformationNorm((*m_deformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]],1.0)));
+            this->m_ROI=FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::createEmpty(TransfUtils<ImageType>::computeLocalDeformationNorm((*m_downSampledDeformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]],1.0)));
         }
         m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
 
@@ -155,7 +156,7 @@ public:
         nullIdx.Fill(0);
         PointType startPoint;
         this->m_ROI->TransformIndexToPhysicalPoint(nullIdx,startPoint);
-        (*m_deformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]]->TransformPhysicalPointToIndex(startPoint,startIndex);
+        (*m_downSampledDeformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]]->TransformPhysicalPointToIndex(startPoint,startIndex);
         m_regionOfInterest.SetIndex(startIndex);
 
     }
@@ -228,7 +229,7 @@ public:
                 for (int i=0;i<m_numImages;++i){
                     if (i!=s){
                         int intermediate=i;
-                        DeformationFieldPointerType d1=(*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
+                        DeformationFieldPointerType d1=(*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
                         FloatImagePointerType diffSums=TransfUtils<FloatImageType>::createEmptyImage(d1);
                         diffSums->FillBuffer(0.0);
                         FloatImageIterator diffSumIt(diffSums,diffSums->GetLargestPossibleRegion());
@@ -237,8 +238,8 @@ public:
                             if (t!=i && t!=s){
                                 //define a set of 3 images
                                 int target=t;
-                                DeformationFieldPointerType d2=(*m_deformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                                DeformationFieldPointerType d3=(*m_deformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[target]];
+                                DeformationFieldPointerType d2=(*m_downSampledDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
+                                DeformationFieldPointerType d3=(*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[target]];
                         
                             
                                 //compute indirect deform
@@ -259,7 +260,7 @@ public:
                                 ImageIterator segmentationIt;
                                 bool haveSeg=false;
                                 
-                                if (m_segmentationList->find((*m_imageIDList)[target]) != m_segmentationList->end()){
+                                if (false && m_segmentationList->find((*m_imageIDList)[target]) != m_segmentationList->end()){
                                     segmentationIt=ImageIterator((*m_segmentationList)[(*m_imageIDList)[target]],(*m_segmentationList)[(*m_imageIDList)[target]]->GetLargestPossibleRegion());
                                     haveSeg = true;
                                 }
@@ -417,7 +418,7 @@ public:
                                  
 
                       
-                        DeformationFieldPointerType defSourceInterm=(*this->m_deformationCache)[sourceID][intermediateID];
+                        DeformationFieldPointerType defSourceInterm=(*this->m_downSampledDeformationCache)[sourceID][intermediateID];
                         DeformationFieldIterator it(defSourceInterm,m_regionOfInterest);
                         it.GoToBegin();
                         diffSumIt.GoToBegin();
@@ -426,7 +427,7 @@ public:
                         FloatImageIterator lnccIt;
                         if (m_sigma>0.0){
                             //upsample deformation -.-, and warp source image
-                            DeformationFieldPointerType def = TransfUtils<ImageType>::linearInterpolateDeformationField(defSourceInterm,(ConstImagePointerType)(*m_imageList)[intermediateID]);
+                            DeformationFieldPointerType def = (*this->m_deformationCache)[sourceID][intermediateID];
                             ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage((ConstImagePointerType)(*m_imageList)[sourceID],def);
                             //compute lncc
                             //lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],m_sigma,m_exponent);
@@ -441,8 +442,9 @@ public:
                             LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
                             //resample lncc result
                             if (1){
-                                lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
-                                lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI));
+                                //lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
+                                //lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
+                                lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
                             }else{
                                 lncc = FilterUtils<FloatImageType>::minimumResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI), m_sigmaD);
                             }
@@ -677,14 +679,14 @@ public:
             for (int t=0;t<m_numImages;++t){
                 if (s!=t){
                     //slightly(!!!) stupid creation of empty image
-                    DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::createEmpty(this->m_ROI);//ImageUtils<DeformationFieldType>::createEmpty((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
+                    DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::createEmpty(this->m_ROI);//ImageUtils<DeformationFieldType>::createEmpty((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
                     DeformationFieldIterator itErr(estimatedError,estimatedError->GetLargestPossibleRegion());
-                    DeformationFieldPointerType estimatedDeform=TransfUtils<ImageType>::createEmpty(this->m_ROI);//ImageUtils<DeformationFieldType>::createEmpty((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
+                    DeformationFieldPointerType estimatedDeform=TransfUtils<ImageType>::createEmpty(this->m_ROI);//ImageUtils<DeformationFieldType>::createEmpty((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
                     DeformationFieldIterator itDef(estimatedDeform,estimatedDeform->GetLargestPossibleRegion());
                     itErr.GoToBegin();
                     itDef.GoToBegin();
 
-                    DeformationFieldIterator origIt((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
+                    DeformationFieldIterator origIt((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
                     origIt.GoToBegin();
 
                     DeformationFieldIterator trueIt;
@@ -725,9 +727,9 @@ public:
                         //double newError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
                         double newError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
                         mask->FillBuffer(1);
-                        mask = TransfUtils<ImageType>::warpImage(mask,(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
-                        //double oldError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
-                        double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
+                        mask = TransfUtils<ImageType>::warpImage(mask,(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
+                        //double oldError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask,1);
+                        double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
                         LOGV(1)<<VAR(s)<<" "<<VAR(t)<<" "<<VAR(oldError)<<" "<<VAR(newError)<<endl;
                         averageError+=newError;
                         averageOldError+=oldError;
@@ -742,7 +744,7 @@ public:
                         ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),estimatedDeform);
                     }
                     if (m_updateDeformations){
-                        (*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]= estimatedDeform;
+                        (*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]= estimatedDeform;
                     }else{
                         (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]] = estimatedDeform;
                         m_haveDeformationEstimate = true;
@@ -766,7 +768,7 @@ public:
             for (int t=0;t<m_numImages;++t){
                 DeformationFieldPointerType directDeform;
                 if (m_updateDeformations){
-                    directDeform =(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
+                    directDeform =(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
                 }else{
                     directDeform= (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
                 }
@@ -775,8 +777,8 @@ public:
                         if (i!=t && i !=s){
                             DeformationFieldPointerType d0,d1;
                             if (m_updateDeformations){
-                                d0 =(*m_deformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
-                                d1 =(*m_deformationCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
+                                d0 =(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
+                                d1 =(*m_downSampledDeformationCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
                             }else{
                                 d0 = (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
                                 d1 = (*m_updatedDeformationCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];

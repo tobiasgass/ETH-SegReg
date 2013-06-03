@@ -36,6 +36,8 @@ TARGET_LINK_LIBRARIES(TestDeformationResampling2D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(InvertComposeDeformations3D InvertComposeDeformations3d.cxx )
 TARGET_LINK_LIBRARIES(InvertComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(InvertDeformation3D InvertDeformation3D.cxx )
+TARGET_LINK_LIBRARIES(InvertDeformation3D  Utils   ${ITK_LIBRARIES}  )
 
 
 #Compare segmentations

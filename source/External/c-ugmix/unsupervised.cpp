@@ -210,7 +210,7 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
             w[i][m]=0.0;
 		}
 	}
-#if 0  
+#if 1 
 	do{
 		if(!t) criterion = L_MAX;
 		first_flag = true;

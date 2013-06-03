@@ -128,7 +128,8 @@ namespace itk {
         OutputImagePixelType displacement;
 
         for (unsigned int i = 0; i <= m_NumberOfIterations; i++) {
-
+            double residualError=0.0;
+            int c=0;
             for (outputIt.GoToBegin(); !outputIt.IsAtEnd(); ++outputIt) {
                 index = outputIt.GetIndex();
                 outputPtr->TransformIndexToPhysicalPoint(index, pt);
@@ -139,9 +140,13 @@ namespace itk {
 
 
                 if (vectorInterpolator->IsInsideBuffer(mappedPt)) {
-                    outputIt.Set(vectorInterpolator->Evaluate(mappedPt));
+                    OutputImagePixelType negDisp=vectorInterpolator->Evaluate(mappedPt);
+                    outputIt.Set(negDisp);
+                    residualError+=fabs((negDisp-displacement).GetNorm());
+                    ++c;
                 }
             }
+            std::cout<<"Iteration "<<i<<"; avgerror: "<<residualError/c<<endl;
         }
     }
 

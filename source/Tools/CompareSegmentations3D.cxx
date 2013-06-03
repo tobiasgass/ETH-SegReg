@@ -16,7 +16,7 @@
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
 #include "mmalloc.h"
-
+#include "SegmentationMapper.hxx"
 using namespace std;
 
 const unsigned int D=3;
@@ -65,7 +65,9 @@ int main(int argc, char * argv [])
     LabelImage::Pointer segmentedImg =
         ImageUtils<LabelImage>::readImage(segmentationFilename);
 
-    
+    SegmentationMapper<LabelImage> segmentationMapper;
+    groundTruthImg=segmentationMapper.FindMapAndApplyMap(groundTruthImg);
+    segmentedImg=segmentationMapper.ApplyMap(segmentedImg);
  
     unsigned totalPixels = 0;
     
@@ -124,10 +126,13 @@ int main(int argc, char * argv [])
         filter->SetTargetImage(evalSegmentedImage);
         filter->Update();
         double dice=filter->GetDiceCoefficient();
-        std::cout<<"Label "<<evalLabel ;
+        std::cout<<"Label "<<segmentationMapper.GetInverseMappedLabel(evalLabel) ;
         std::cout<<" Dice " << dice ;
+        if (hausdorff){
         std::cout<<" Mean "<< mean;
         std::cout<<" MaxAbs "<< maxAbsDistance<<" ";
+        }
+        std::cout<<endl;
         ++evalLabel;
     }
     std::cout<< std::endl;

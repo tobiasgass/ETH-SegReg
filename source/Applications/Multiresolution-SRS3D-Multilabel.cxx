@@ -19,6 +19,7 @@
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
 #include "NewClassifier.h"
+#include "SegmentationMapper.hxx"
 using namespace std;
 using namespace itk;
 
@@ -62,17 +63,17 @@ int main(int argc, char ** argv)
     // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
     
     typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
-    typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     // //pairwise seg
-    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
-    typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-    //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
+    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    typedef PairwisePotentialSegmentationContrastWithGradient<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
-    // //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -111,7 +112,11 @@ int main(int argc, char ** argv)
     if (!atlasImage) {LOG<<"Warning: no atlas image loaded!"<<endl;
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation;
-    if (filterConfig.atlasSegmentationFilename !="")atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
+    SegmentationMapper<ImageType> segmentationMapper;
+    if (filterConfig.atlasSegmentationFilename !="") {
+        atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
+        atlasSegmentation=segmentationMapper.FindMapAndApplyMap(atlasSegmentation);
+    }
     if (!atlasSegmentation) {LOG<<"Warning: no atlas segmentation loaded!"<<endl; }
     logResetStage;
     logSetStage("Preprocessing");
@@ -221,6 +226,9 @@ int main(int argc, char ** argv)
     
     //process outputs
     ImagePointerType targetSegmentationEstimate=filter->getTargetSegmentationEstimate();
+
+    if (targetSegmentationEstimate.IsNotNull() && originalAtlasSegmentation.IsNotNull()) targetSegmentationEstimate=segmentationMapper.MapInverse(targetSegmentationEstimate);
+    if (originalAtlasSegmentation.IsNotNull()) originalAtlasSegmentation=segmentationMapper.MapInverse(originalAtlasSegmentation);
     DeformationFieldPointerType finalDeformation=filter->getFinalDeformation();
     
     delete filter;

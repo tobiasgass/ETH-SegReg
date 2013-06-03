@@ -214,6 +214,7 @@ public:
     //never upsample!
     static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool smooth, bool nnResample=false) {
 
+        if (scale == 1.0) return cast(ImageUtils<InputImage>::duplicateConst(input));
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();

@@ -11,6 +11,7 @@ ADD_LIBRARY(Utils
   SheetnessFilter.h
   Preprocessing.h
   TransformationUtils.h
+  SegmentationMapper.hxx
 )
 TARGET_LINK_LIBRARIES(Utils ${ITK_LIBRARIES}  )
 

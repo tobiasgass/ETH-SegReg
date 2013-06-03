@@ -206,6 +206,13 @@ public:
 		return duplicator->GetOutput();
 	}
 
+	static ImagePointerType duplicateConst(ConstImagePointerType img) {
+		DuplicatorPointerType duplicator = DuplicatorType::New();
+		duplicator->SetInputImage( img );
+		duplicator->Update();
+		return duplicator->GetOutput();
+	}
+
 
 	static ImagePointerType createEmpty(const RegionSizeType & size) {
 

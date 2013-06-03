@@ -244,7 +244,7 @@ namespace itk{
                 m_pairwiseSegmentationPot->SetAtlasImage(m_atlasImage);
                 m_pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
                 m_pairwiseSegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
-                m_pairwiseSegmentationPot->SetNSegmentationLabels(2);//m_config->nSegmentations);
+                m_pairwiseSegmentationPot->SetNSegmentationLabels(m_config->nSegmentations);
                 m_pairwiseSegmentationPot->Init();//m_config->pairWiseProbsFilename,m_config->train);
                 m_pairwiseSegmentationPot->evalImage(m_targetImage,(ConstImagePointerType)m_targetGradientImage);
             }

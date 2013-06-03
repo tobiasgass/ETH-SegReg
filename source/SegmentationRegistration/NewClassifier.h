@@ -323,7 +323,7 @@ namespace itk{
         virtual void train(){
             for ( int s=0;s<m_nSegmentationLabels;++s){
                 LOGV(1)<<"Training GMM for label :"<<s<<endl;
-                m_GMMs[s].estimate(2,m_observations[s]);
+                m_GMMs[s].estimate(3,m_observations[s]);
                 m_GMMs[s].display();
             }
         };
@@ -357,6 +357,7 @@ namespace itk{
                 for ( int s=0;s<m_nSegmentationLabels;++s){
                     double p=m_GMMs[s].likelihood(c);
                     p=min(1.0,p);
+                    p=max(std::numeric_limits<double>::epsilon(),p);
                     resultIterators[s].Set(-log(p));
                     ++resultIterators[s];
                 }
@@ -381,7 +382,8 @@ namespace itk{
                         LOGI(10,ImageUtils<FloatImageType>::writeImage(probabilityfilename.str().c_str(),result[s]));
                     }
 
-                }}
+                }
+            }
             return result;
         }
 
@@ -436,34 +438,52 @@ namespace itk{
             //maximal size
          
             LOGV(5)<<maxTrain<<" computed"<<std::endl;
-            
-            std::vector<ConstImageIteratorType> iterators;
-            for (unsigned int s=0;s<nFeatures;++s){
-                iterators.push_back(ConstImageIteratorType(inputImage[s],inputImage[s]->GetLargestPossibleRegion()));
-                iterators[s].GoToBegin();
-            }
             std::vector<int> counts(this->m_nSegmentationLabels,0);
             int i=0;
-            for (;!iterators[0].IsAtEnd() ; ++i)
-                {
-                    int label=0;
-                    if (labels)
-                        label= (labels->GetPixel(iterators[0].GetIndex())  );
+
+            if (nFeatures>1){
+                std::vector<ConstImageIteratorType> iterators;
+                for (unsigned int s=0;s<nFeatures;++s){
+                    iterators.push_back(ConstImageIteratorType(inputImage[s],inputImage[s]->GetLargestPossibleRegion()));
+                    iterators[s].GoToBegin();
+                }
+                for (;!iterators[0].IsAtEnd() ; ++i)
+                    {
+                        int label=0;
+                        if (labels)
+                            label= (labels->GetPixel(iterators[0].GetIndex())  );
                     
-                    // LOGV(10)<<i<<" "<<VAR(label)<<" "<<VAR(counts[label])<<" "<<nFeatures<<endl;
-                    if ( counts[label] <maxTrain){
-                        for (unsigned int f=0;f<nFeatures;++f){
-                            int intens=(iterators[f].Get());
-                            this->m_observations[label].element(f,counts[label])=intens;
-                            ++iterators[f];
-                        }
-                        counts[label]++;
-                    }else{
-                        for (unsigned int f=0;f<nFeatures;++f){
-                            ++iterators[f];
+                        // LOGV(10)<<i<<" "<<VAR(label)<<" "<<VAR(counts[label])<<" "<<nFeatures<<endl;
+                        if ( counts[label] <maxTrain){
+                            for (unsigned int f=0;f<nFeatures;++f){
+                                int intens=(iterators[f].Get());
+                                this->m_observations[label].element(f,counts[label])=intens;
+                                ++iterators[f];
+                            }
+                            counts[label]++;
+                        }else{
+                            for (unsigned int f=0;f<nFeatures;++f){
+                                ++iterators[f];
+                            }
                         }
                     }
+            }else{
+
+                typename itk::ImageRandomNonRepeatingConstIteratorWithIndex<ImageType> randomIt(labels,labels->GetLargestPossibleRegion());
+                randomIt.SetNumberOfSamples(nData);
+
+                for (randomIt.GoToBegin();!randomIt.IsAtEnd();++randomIt){
+                    int label=randomIt.Get();
+                    if ( counts[label] <maxTrain){
+                        double intens=inputImage[0]->GetPixel(randomIt.GetIndex());
+                        this->m_observations[label].element(0,counts[label])=intens;
+                        ++counts[label];
+                        ++i;
+                    }
                 }
+                    
+
+            }
             Superclass::m_nData=i;
             LOG<<"done adding data. "<<std::endl;
             LOG<<"stored "<<this->m_nData<<" samples "<<std::endl;
@@ -471,6 +491,13 @@ namespace itk{
                 LOG<<VAR(counts[s])<<endl;
             }
 
+        }
+
+        double getProbability(int label, double i1, double i2=0){
+            NEWMAT::ColumnVector c(1);
+            c.element(0)=i1;
+            //c.element(1)=i2;
+            return this->m_GMMs[label].likelihood(c);
         }
     };//class
 }//namespace

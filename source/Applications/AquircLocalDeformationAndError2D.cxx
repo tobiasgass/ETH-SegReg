@@ -215,12 +215,12 @@ int main(int argc, char ** argv){
         ROI=origReference;
     }
     if (resamplingFactor>1.0)
-        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
+        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor,false);
     if (false){
         for (int t=0;t<imageIDs.size();++t){
             string targetID=imageIDs[t];
             //(*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI );
-            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((*inputImages)[targetID],2*resamplingFactor),ROI );
+            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI,true );
         }
     }
     
