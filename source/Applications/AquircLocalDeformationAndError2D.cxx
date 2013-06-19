@@ -201,7 +201,7 @@ int main(int argc, char ** argv){
     }else{
         LOG<<"CACHING all deformations!"<<endl;
     }
-    map< string, map <string, DeformationFieldPointerType> > deformationCache, errorAccumulators, trueDeformations;
+    map< string, map <string, DeformationFieldPointerType> > deformationCache, errorAccumulators, trueDeformations,downSampledDeformationCache;
     map< string, map <string, string> > deformationFilenames;
     map<string, map<string, float> > globalWeights;
     DisplacementType zeroDisp;
@@ -242,13 +242,13 @@ int main(int argc, char ** argv){
                         LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
                         deformationCache[sourceID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
                         //deformationCache[sourceID][targetID]=TransfUtils<ImageType>::gaussian(deformationCache[sourceID][targetID],resamplingFactor);
-                        deformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[sourceID][targetID], (ConstImagePointerType)ROI);
+                        downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[sourceID][targetID], (ConstImagePointerType)ROI);
 
                         if (false){
-                            ImagePointerType deformedSource = TransfUtils<ImageType>::warpImage( (*inputImages)[sourceID] ,  deformationCache[sourceID][targetID] );
+                            ImagePointerType deformedSource = TransfUtils<ImageType>::warpImage( (*inputImages)[sourceID] , downSampledDeformationCache[sourceID][targetID] );
 
-                            FloatImagePointerType lncc = FilterUtils<ImageType,FloatImageType>::LNCC(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
-                            FloatImagePointerType lssd = FilterUtils<ImageType,FloatImageType>::LSSDNorm(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
+                            FloatImagePointerType lncc = Metrics<ImageType,FloatImageType>::LNCC(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
+                            FloatImagePointerType lssd = Metrics<ImageType,FloatImageType>::LSSDNorm(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
 
                             ostringstream o1,o2;
                             o1<<"lncc-"<<sourceID<<"-"<<targetID<<".nii";
@@ -294,7 +294,7 @@ int main(int argc, char ** argv){
                         trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
                         trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
                         if (outputDir!=""){
-                            DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
+                            DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
                             ostringstream trueDefNorm;
                             trueDefNorm<<outputDir<<"/trueLocalDeformationNorm-FROM-"<<intermediateID<<"-TO-"<<targetID<<".png";
                             LOGI(8,ImageUtils<ImageType>::writeImage(trueDefNorm.str().c_str(),FilterUtils<FloatImageType,ImageType>::truncateCast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(TransfUtils<ImageType>::computeLocalDeformationNorm(diff,1.0),50))));
@@ -302,7 +302,7 @@ int main(int argc, char ** argv){
                             trueDef<<outputDir<<"/trueLocalDeformationERROR-FROM-"<<intermediateID<<"-TO-"<<targetID<<".mha";
                             LOGI(1,ImageUtils<DeformationFieldType>::writeImage(trueDef.str().c_str(),diff));
                         }
-                        trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(deformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]),1);
+                        trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]),1);
                         ++c;
                     }  
                     
@@ -350,7 +350,8 @@ int main(int argc, char ** argv){
     solver->setSigmaD(m_sigmaD);
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
-    solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages);
+    solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
+
 
     if (atlasSegmentationFileList!=""){
         solver->setSegmentationList(atlasSegmentations);

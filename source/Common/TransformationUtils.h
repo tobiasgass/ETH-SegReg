@@ -804,13 +804,17 @@ public:
         LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
         for (deformationIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt){
             DisplacementType t=deformationIt.Get();
-            for (unsigned int d=0;d<D;++d,++count){
+            double tmp2=0.0;
+            for (unsigned int d=0;d<D;++d){
                 double tmp=pow(fabs(t[d]),exp);
-                norm+=tmp;
+                tmp2+=tmp;
             }
+            norm+=pow(tmp2,1.0/exp);
+            ++count;
         }
-        return pow(norm,1.0/exp)/count;
+        return norm/count;
     }
+    
     static double computeDeformationNormMask(DeformationFieldPointerType def, ImagePointerType mask, double exp=2){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
@@ -822,13 +826,16 @@ public:
         for (deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt){
             if (imageIt.Get()){
                 DisplacementType t=deformationIt.Get();
-                for (unsigned int d=0;d<D;++d,++count){
+                double tmp2=0.0;
+                for (unsigned int d=0;d<D;++d){
                     double tmp=pow(fabs(t[d]),exp);
-                    norm+=tmp;
+                    tmp2+=tmp;
                 }
+                norm+=pow(tmp2,1.0/exp);
+                ++count;
             }
         }
-        return pow(norm/count,1.0/exp);
+        return norm/count;
     }
 
     static DeformationFieldPointerType warpDeformation(DeformationFieldPointerType img, DeformationFieldPointerType def){

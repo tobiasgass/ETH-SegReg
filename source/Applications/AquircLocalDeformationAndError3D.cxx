@@ -27,6 +27,7 @@
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
 #include "SolveAquircLocalDeformationAndError.h"
 #include "SolveAquircLocalDeformationAndErrorIndependentDimensions.h"
+#include "Metrics.h"
 
 //using namespace std;
 typedef short PixelType;
@@ -129,11 +130,12 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=10;
     string solverName="localnorm";
-    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0;
+    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0;
     bool linear=false;
     double shearing = 1.0;
     double m_sigmaD = 0.0;
     double circWeightScaling = 1.0;
+    
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -152,6 +154,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
+    (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
     (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
     (*as) >> parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
@@ -243,8 +246,8 @@ int main(int argc, char ** argv){
                         if (false){
                             ImagePointerType deformedSource = TransfUtils<ImageType>::warpImage( (*inputImages)[sourceID] ,  downSampledDeformationCache[sourceID][targetID] );
 
-                            FloatImagePointerType lncc = FilterUtils<ImageType,FloatImageType>::LNCC(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
-                            FloatImagePointerType lssd = FilterUtils<ImageType,FloatImageType>::LSSDNorm(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
+                            FloatImagePointerType lncc = Metrics<ImageType,FloatImageType>::LNCC(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
+                            FloatImagePointerType lssd = Metrics<ImageType,FloatImageType>::LSSDNorm(deformedSource, (*inputImages)[targetID], m_sigma, m_exponent);
 
                             ostringstream o1,o2;
                             o1<<"lncc-"<<sourceID<<"-"<<targetID<<".nii";
@@ -298,7 +301,7 @@ int main(int argc, char ** argv){
                             trueDef<<outputDir<<"/trueLocalDeformationERROR-FROM-"<<intermediateID<<"-TO-"<<targetID<<".mha";
                             LOGI(1,ImageUtils<DeformationFieldType>::writeImage(trueDef.str().c_str(),diff));
                         }
-                        trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]),1);
+                        trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]));
                         ++c;
                     }  
                     
@@ -336,14 +339,16 @@ int main(int argc, char ** argv){
     solver->setWeightWsDelta(wsdelta);
     solver->setWeightWcirc(wwcirc); 
     solver->setWeightSum(wwsum); 
+    solver->setWeightInconsistencyError(wwInconsistencyError); 
+
     solver->setLinearInterpol(linear);
     solver->setSigma(m_sigma);
     solver->setSigmaD(m_sigmaD);
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
-    solver->SetVariables(&imageIDs,&downSampledDeformationCache,&trueDeformations,ROI,inputImages,&deformationCache);
+    solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
     for (int h=0;h<maxHops;++h){
-        solver->setWeightWcirc(wwcirc*pow(circWeightScaling,h)); 
+        //solver->setWeightWcirc(wwcirc*pow(circWeightScaling,h)); 
         //solver->setWeightWdelta(wwdelta*pow(2,h));
         //solver->setSigma(m_sigma/pow(2,h)); 
         solver->createSystem();

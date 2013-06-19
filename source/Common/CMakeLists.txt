@@ -12,6 +12,8 @@ ADD_LIBRARY(Utils
   Preprocessing.h
   TransformationUtils.h
   SegmentationMapper.hxx
+  Metrics.h
+  TemporalMedianImageFilter.h
 )
 TARGET_LINK_LIBRARIES(Utils ${ITK_LIBRARIES}  )
 

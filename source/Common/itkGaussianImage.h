@@ -21,6 +21,9 @@ private:
     ImagePointerType m_mean,m_variance;
     int count;
 public:
+    GaussianEstimatorScalarImage(){
+        m_mean=NULL;
+    }
     void addImage(ImagePointerType img){
         if (!m_mean.IsNotNull()){
             count=1;
@@ -28,14 +31,22 @@ public:
             m_variance=ImageUtils<ImageType>::multiplyImageOutOfPlace(img,img);
         }else{
             m_mean=FilterUtils<ImageType>::add(m_mean,img);
-            m_variance=FilterUtils<ImageType>::add(m_mean,ImageUtils<ImageType>::multiplyImageOutOfPlace(img,img));
+            m_variance=FilterUtils<ImageType>::add(m_variance,ImageUtils<ImageType>::multiplyImageOutOfPlace(img,img));
             count++;
         }
     }
     void finalize(){
+
+        ImagePointerType squaredMean=ImageUtils<ImageType>::multiplyImageOutOfPlace(m_mean,m_mean);
+        ImageUtils<ImageType>::multiplyImage(squaredMean,1.0/count);
+        LOGI(6,ImageUtils<ImageType>::writeImage("squaredMean.nii",squaredMean));
+        LOGI(6,ImageUtils<ImageType>::writeImage("preVariance.nii",m_variance));
+
         ImageUtils<ImageType>::multiplyImage(m_mean,1.0/count);
-        ImageUtils<ImageType>::multiplyImage(m_variance,1.0/count);
-        m_variance=FilterUtils<ImageType>::substract(m_variance,ImageUtils<ImageType>::multiplyImageOutOfPlace(m_mean,m_mean));
+        LOGI(6,ImageUtils<ImageType>::writeImage("mean.nii",m_mean));
+        m_variance=FilterUtils<ImageType>::substract(m_variance,squaredMean);
+        ImageUtils<ImageType>::multiplyImage(m_variance,1.0/(count-1));
+        LOGI(6,ImageUtils<ImageType>::writeImage("variance.nii",m_variance));
     }
     ImagePointerType getMean(){return m_mean;}
     ImagePointerType getVariance(){return m_variance;}

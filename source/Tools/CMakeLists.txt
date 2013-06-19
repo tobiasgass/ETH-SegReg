@@ -68,3 +68,11 @@ TARGET_LINK_LIBRARIES(ComputeDeformationError2D Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SubtractDeformations3D SubtractDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(SubtractDeformations3D Utils   ${ITK_LIBRARIES}  )
+
+#Compare images
+
+ADD_EXECUTABLE(CompareImages2D CompareImages2D.cxx )
+TARGET_LINK_LIBRARIES(CompareImages2D Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(CompareImagesAutoTransform2D CompareImagesAutoTransform2D.cxx )
+TARGET_LINK_LIBRARIES(CompareImagesAutoTransform2D Utils   ${ITK_LIBRARIES}  )

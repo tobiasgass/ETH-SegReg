@@ -323,6 +323,14 @@ public:
         }
 
     }
+    static  void expNormImage(ImagePointerType img, double scalar){
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        for (it1.GoToBegin();!it1.IsAtEnd();++it1){
+            it1.Set(exp(-it1.Get()/scalar));
+        }
+
+    }
     static  void add(ImagePointerType img, PixelType scalar){
         typedef itk::ImageRegionIterator<ImageType> IteratorType;
         IteratorType it1(img,img->GetLargestPossibleRegion());
@@ -490,6 +498,12 @@ public:
     }
 
 
-   
+    static inline void setRegion(ImagePointerType img, RegionType region, PixelType val){
+        ImageIteratorType it(img,region);
+        for (it.GoToBegin();!it.IsAtEnd();++it){
+            it.Set(val);
+        }
+
+    }
 };
 #endif // IMAGE_UTILS
