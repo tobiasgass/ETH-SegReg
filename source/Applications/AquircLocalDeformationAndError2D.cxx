@@ -129,7 +129,7 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=10;
     string solverName="localnorm";
-    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0;
+    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0;
     bool linear=false;
     double shearing = 1.0;
     double m_sigmaD = 0.0;
@@ -152,6 +152,8 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
+    (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
+
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
     (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
     (*as) >> parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
@@ -259,9 +261,13 @@ int main(int argc, char ** argv){
                             
 
                         }
-                        
-
+                        if (outputDir !=""){
+                            ostringstream trueDef2;
+                            trueDef2<<outputDir<<"/downSampledDeformation-FROM-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                            LOGI(6,ImageUtils<DeformationFieldType>::writeImage(trueDef2.str().c_str(),downSampledDeformationCache[sourceID][targetID]));
+                        }
                         LOGV(6)<<VAR(deformationCache[sourceID][targetID]->GetLargestPossibleRegion())<<endl;
+
                         globalWeights[sourceID][targetID]=1.0;
                     }else{
                         LOGV(3)<<"Reading filename "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
@@ -301,6 +307,7 @@ int main(int argc, char ** argv){
                             ostringstream trueDef;
                             trueDef<<outputDir<<"/trueLocalDeformationERROR-FROM-"<<intermediateID<<"-TO-"<<targetID<<".mha";
                             LOGI(1,ImageUtils<DeformationFieldType>::writeImage(trueDef.str().c_str(),diff));
+                          
                         }
                         trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]),1);
                         ++c;
@@ -345,6 +352,8 @@ int main(int argc, char ** argv){
     solver->setWeightWsDelta(wsdelta);
     solver->setWeightWcirc(wwcirc); 
     solver->setWeightSum(wwsum); 
+    solver->setWeightInconsistencyError(wwInconsistencyError); 
+
     solver->setLinearInterpol(linear);
     solver->setSigma(m_sigma);
     solver->setSigmaD(m_sigmaD);
