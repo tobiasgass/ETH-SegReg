@@ -28,6 +28,7 @@
 #include "itkScalarImageToHistogramGenerator.h"
 #include <limits>
 #include "itkIdentityTransform.h"
+#include "Metrics.h"
 using namespace std;
 namespace itk{
 
@@ -1048,7 +1049,7 @@ namespace itk{
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
-
+        static const int D=ImageType::ImageDimension;
         typedef TLabelMapper LabelMapperType;
         typedef typename LabelMapperType::LabelType LabelType;
         typedef typename ImageType::IndexType IndexType;
@@ -1160,24 +1161,51 @@ namespace itk{
 
             FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
             int c=0;
-            for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator,++c){
+            for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator){
                 IndexType coarseIndex=coarseIterator.GetIndex();
-                LOGV(36)<<VAR(coarseIndex)<<" "<<VAR(c)<<endl;
-                PointType point;
-                m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
-                IndexType targetIndex;
-                this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
-                double localPot=getLocalPotential(targetIndex);
-                coarseIterator.Set(localPot);
-                if (computeAverage)
-                    m_averageFixedPotential+=localPot;
+                
+                bool validPotential=true;
+                if (this->m_noOutSidePolicy){
+                    for (int d=0;d<D;++d){
+                        int idx=coarseIndex[d];
+                        int s=pot->GetLargestPossibleRegion().GetSize()[d] -1;
+                        if (idx == 0){
+                            double dx=1.0*idx+displacement.GetElement(d);
+                            if (dx<0){
+                                validPotential=false;
+                                break;
+                            }
+                        }else if (idx ==s ){
+                            double dx=1.0*idx+displacement.GetElement(d);
+                            if (dx>s){
+                                validPotential=false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                }
+                if (validPotential){
+                    LOGV(36)<<VAR(coarseIndex)<<" "<<VAR(c)<<endl;
+                    PointType point;
+                    m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
+                    IndexType targetIndex;
+                    this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
+                    double localPot=getLocalPotential(targetIndex);
+                    coarseIterator.Set(localPot);
+                    if (computeAverage)
+                        m_averageFixedPotential+=localPot;
+                    ++c;
+                }else{
+                    coarseIterator.Set(1e10);
+                }
                
             }
             currentCachedPotentials=pot;
             currentActiveDisplacement=displacement;
 
             if (computeAverage){
-                m_averageFixedPotential/= m_coarseImage->GetBufferedRegion().GetNumberOfPixels();
+                m_averageFixedPotential/= c;
                 if (m_normalize){
                     m_normalizationFactor= m_normalizationFactor*m_oldAveragePotential/m_averageFixedPotential;
                 }
@@ -1252,7 +1280,7 @@ namespace itk{
         }
 
         virtual FloatImagePointerType localPotentials(ConstImagePointerType i1, ConstImagePointerType i2){
-            return FilterUtils<ImageType,FloatImageType>::LNCC(i1,i2,i1->GetSpacing()[0]);
+            return Metrics<ImageType,FloatImageType>::LNCC(i1,i2,i1->GetSpacing()[0]);
         }
 
         virtual double getLocalPotential(IndexType targetIndex){
@@ -1353,7 +1381,7 @@ namespace itk{
         itkTypeMacro(FastRegistrationUnaryPotentialSAD, Object);
         
         virtual FloatImagePointerType localPotentials(ImagePointerType i1, ImagePointerType i2){
-            return FilterUtils<ImageType,FloatImageType>::LSAD(i1,i2,i1->GetSpacing()[0]);
+            return Metrics<ImageType,FloatImageType>::LSAD(i1,i2,i1->GetSpacing()[0]);
 
         }
 

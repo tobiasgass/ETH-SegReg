@@ -38,7 +38,7 @@ int main(int argc, char ** argv)
     //typedef DenseRegistrationLabelMapper<ImageType,BaseLabelType> LabelMapperType;
 
     //unary seg
-    typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
+     typedef HandcraftedBoneSegmentationClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
     //typedef SegmentationClassifier<ImageType> ClassifierType;
     //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
@@ -54,7 +54,8 @@ int main(int argc, char ** argv)
 
     //reg
     //typedef UnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;

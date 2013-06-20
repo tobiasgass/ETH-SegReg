@@ -241,7 +241,8 @@ int main(int argc, char ** argv){
                         LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
                         deformationCache[sourceID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
                         //deformationCache[sourceID][targetID]=TransfUtils<ImageType>::gaussian(deformationCache[sourceID][targetID],resamplingFactor);
-                        downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[sourceID][targetID], (ConstImagePointerType)ROI);
+                        //downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[sourceID][targetID], (ConstImagePointerType)ROI);
+                        downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::bSplineInterpolateDeformationField( deformationCache[sourceID][targetID], (ConstImagePointerType)ROI);
 
                         if (false){
                             ImagePointerType deformedSource = TransfUtils<ImageType>::warpImage( (*inputImages)[sourceID] ,  downSampledDeformationCache[sourceID][targetID] );

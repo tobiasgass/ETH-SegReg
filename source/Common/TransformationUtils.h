@@ -276,8 +276,8 @@ public:
             return resampler->GetOutput();
 
         }
-        LOGV(2)<<"Upsampling deformation image"<<std::endl;
-        LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+        LOGV(5)<<"Upsampling deformation image"<<std::endl;
+        LOGV(6)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
         const unsigned int SplineOrder = 3;
@@ -352,7 +352,7 @@ public:
             lIt.Set(l);
         }
 
-        LOGV(2)<<"Finshed extrapolation"<<std::endl;
+        LOGV(6)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
     }
 
@@ -364,8 +364,8 @@ public:
         return linearInterpolateDeformationField(labelImg,(ConstImagePointerType)ref);
     }
     static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
-        LOGV(2)<<"Linearly intrapolating deformation image"<<std::endl;
-        LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+        LOGV(5)<<"Linearly intrapolating deformation image"<<std::endl;
+        LOGV(6)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
         typedef typename itk::VectorLinearInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
@@ -387,7 +387,7 @@ public:
         resampler->Update();
         fullDeformationField=resampler->GetOutput();
 
-        LOGV(2)<<"Finshed extrapolation"<<std::endl;
+        LOGV(6)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
     }
 
@@ -395,8 +395,8 @@ public:
             return nearestNeighborInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
     }
     static DeformationFieldPointerType nearestNeighborInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
-        LOGV(2)<<"NearestNeighborly intrapolating deformation image"<<std::endl;
-        LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+        LOGV(5)<<"NearestNeighborly intrapolating deformation image"<<std::endl;
+        LOGV(6)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
         typedef typename itk::VectorNearestNeighborInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
@@ -418,7 +418,7 @@ public:
         resampler->Update();
         fullDeformationField=resampler->GetOutput();
 
-        LOGV(2)<<"Finshed extrapolation"<<std::endl;
+        LOGV(6)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
     }
     static DeformationFieldPointerType scaleDeformationField(DeformationFieldPointerType labelImg, SpacingType scalingFactors){
