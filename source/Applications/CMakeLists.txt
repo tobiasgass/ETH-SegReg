@@ -102,6 +102,7 @@ TARGET_LINK_LIBRARIES(RegProp3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib
 
 
 #Aquirc like stuff
+message( ${MATLAB_ENG_LIBRARY}  ${MATLAB_MX_LIBRARY})
 include_directories(${MATLAB_INCLUDE_DIR})
 ADD_EXECUTABLE(AquircGlobalNorm2D AquircGlobalNorm2D.cxx )
 TARGET_LINK_LIBRARIES(AquircGlobalNorm2D   Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )

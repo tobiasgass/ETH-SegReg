@@ -200,13 +200,14 @@ public:
         int totalCount = 0;
         for (unsigned int d = 0; d< D; ++d){
 
-            mxArray *mxX=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-            mxArray *mxY=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-            mxArray *mxV=mxCreateDoubleMatrix(m_nNonZeroes,1,mxREAL);
-            mxArray *mxB=mxCreateDoubleMatrix(m_nEqs,1,mxREAL);
-            mxArray *mxInit=mxCreateDoubleMatrix(m_nVars,1,mxREAL);
-            mxArray *mxUpperBound=mxCreateDoubleMatrix(m_nVars,1,mxREAL);
-            mxArray *mxLowerBound=mxCreateDoubleMatrix(m_nVars,1,mxREAL);
+            mxArray *mxX=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
+            mxArray *mxY=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
+            mxArray *mxV=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
+            mxArray *mxB=mxCreateDoubleMatrix((mwSize)m_nEqs,1,mxREAL);
+            
+            mxArray *mxInit=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
+            mxArray *mxUpperBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
+            mxArray *mxLowerBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
           
 
             if ( !mxX || !mxY || !mxV || !mxB || !mxInit){
@@ -459,6 +460,15 @@ public:
                                                 x[c]=eq;
                                                 y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
                                                 v[c++]=val* m_wWcirc;
+                                                
+#if 0
+                                                //EXPERIMENTAL*****************************************
+                                                x[c]=eq;
+                                                y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
+                                                v[c++]=-val*m_wWcirc;
+                                                // *****************************************************
+#endif
+
                                                 for (int i=0;i<ptIntermediateNeighborsCircle.size();++i){
                                                     x[c]=eq;
                                                     y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighborsCircle[i].first,d); // this is a APPROXIMIATION!!! might be bad :o
@@ -479,7 +489,8 @@ public:
                                                 //indirect
                                                 x[c]=eq;
                                                 y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                                v[c++]=val* m_wWincErr;
+                                                v[c++]=2*val* m_wWincErr;
+                                               
                                                 for (int i=0;i<ptIntermediateNeighborsCircle.size();++i){
                                                     x[c]=eq;
                                                     y[c]=edgeNumError(source,intermediate,ptIntermediateNeighborsCircle[i].first,d); // this is a APPROXIMIATION!!! might be bad :o
@@ -535,11 +546,7 @@ public:
                       
 
                       
-                        DeformationFieldPointerType defSourceInterm=(*this->m_downSampledDeformationCache)[sourceID][intermediateID];
-                        DeformationFieldIterator it(defSourceInterm,m_regionOfInterest);
-                        it.GoToBegin();
-                        diffSumIt.GoToBegin();
-
+                 
                         FloatImagePointerType lncc;
                         FloatImageIterator lnccIt;
                         if (m_sigma>0.0 && m_wWdelta>0.0){
@@ -604,6 +611,11 @@ public:
                             previousIt=DeformationFieldIterator(estDef,m_regionOfInterest);
                             previousIt.GoToBegin();
                         }
+                        
+                        DeformationFieldPointerType defSourceInterm=(*this->m_downSampledDeformationCache)[sourceID][intermediateID];
+                        DeformationFieldIterator it(defSourceInterm,m_regionOfInterest);
+                        it.GoToBegin();
+                        diffSumIt.GoToBegin();
 
            
 
@@ -615,6 +627,9 @@ public:
                             IndexType idx=it.GetIndex();
                             LOGV(8)<<VAR(eq)<<" "<<VAR(localDef)<<endl;
                         
+                            int edgeNumDef=edgeNumDeformation(source,intermediate,idx,d);
+                            int edgeNumErr=edgeNumError(source,intermediate,idx,d);
+
                             //intensity based weight
                             double weight=1.0;
                             if (lncc.IsNotNull()){
@@ -641,8 +656,8 @@ public:
                             //set eqn for soft constraining the error to be small
                             if (m_wWdelta>0.0){
                                 x[c]=eq;
-                                y[c]= edgeNumError(source,intermediate,idx,d);
-                                LOGV(8)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumError(source,intermediate,idx,d))<<endl;
+                                y[c]= edgeNumErr;
+                                LOGV(8)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<endl;
                                 v[c++]=1.0*m_wWdelta*weight*weight2;
                                 b[eq-1]=expectedError*weight*m_wWdelta;
                                 ++eq;
@@ -652,10 +667,10 @@ public:
                             //set eqn for soft constraining the estimated true deformation to be similar to the original deformation
                             if (m_wWT>0.0){
                                 x[c]=eq;
-                                y[c]=edgeNumDeformation(source,intermediate,idx,d);
-                                LOGV(8)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumDeformation(source,intermediate,idx,d))<<endl;
-                                v[c++]=1.0*m_wWT * weight;
-                                b[eq-1]=localDef[d]*m_wWT * weight;
+                                y[c]=edgeNumDef;
+                                LOGV(8)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<endl;
+                                v[c++]=1.0*m_wWT ;//* weight;
+                                b[eq-1]=localDef[d]*m_wWT;// * weight;
                                 ++eq;
                             }
                             
@@ -663,10 +678,10 @@ public:
                             //constraint that estimated def + estimated error = original def
                             if (m_wSum>0.0){
                                 x[c]=eq;
-                                y[c]=edgeNumError(source,intermediate,idx,d);
+                                y[c]=edgeNumDef;
                                 v[c++]=m_wSum;
                                 x[c]=eq;
-                                y[c]=edgeNumDeformation(source,intermediate,idx,d);
+                                y[c]=edgeNumErr;
                                 v[c++]=m_wSum;
                                 b[eq-1]=m_wSum*localDef[d];
                                 ++eq;
@@ -689,7 +704,7 @@ public:
                                     IndexType neighborIndexLeft=idx+off2;
                                     if (defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
                                         x[c]=eq;
-                                        y[c]=edgeNumDeformation(source,intermediate,idx,d);
+                                        y[c]=edgeNumErr;
                                         v[c++]=-2*smoothenessWeight;
                                         x[c]=eq;
                                         y[c]=edgeNumDeformation(source,intermediate,neighborIndexRight,d);
@@ -714,7 +729,7 @@ public:
                                     IndexType neighborIndexLeft=idx+off2;
                                     if (defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
                                         x[c]=eq;
-                                        y[c]=edgeNumError(source,intermediate,idx,d);
+                                        y[c]=edgeNumErr;
                                         v[c++]=-2.0;
                                         x[c]=eq;
                                         y[c]=edgeNumError(source,intermediate,neighborIndexRight,d);
@@ -747,9 +762,10 @@ public:
                                 LOGV(6)<<VAR(lowerBound)<<VAR(upperBound)<<" "<<VAR(mean)<<" "<<VAR(variance)<<endl;
                             }
                             if (m_estError){
-                                init[edgeNumError(source,intermediate,idx,d)] = 0.0;
-                                lb[edgeNumError(source,intermediate,idx,d)] = lowerBound;
-                                ub[edgeNumError(source,intermediate,idx,d)] = upperBound;
+                                LOGV(6)<<VAR(edgeNumErr)<<" "<<VAR(m_nVars)<<endl;
+                                init[edgeNumErr-1] = 0.0;
+                                lb[edgeNumErr-1] = lowerBound;
+                                ub[edgeNumErr-1] = upperBound;
                             }
                             //deformation
                             //deformation should not fall outside image bounds
@@ -758,11 +774,12 @@ public:
                             //warning: assumes 1 1 1 direction!
                             //deformation can maximally go back to origin
                             if (m_estDef){
-                                lb[edgeNumDeformation(source,intermediate,idx,d)] =  defSourceInterm->GetOrigin()[d]-pt[d] -0.0001;
+                                LOGV(6)<<VAR(edgeNumDef)<<" "<<VAR(m_nVars)<<endl;
+                                lb[edgeNumDef-1] =  -200;//defSourceInterm->GetOrigin()[d]-pt[d] -0.0001;
                                 //deformation can maximally transform pt to extent of image
-                                ub[edgeNumDeformation(source,intermediate,idx,d)] =  defSourceInterm->GetOrigin()[d]+extent-pt[d] +0.0001;
+                                ub[edgeNumDef-1] =  200;//defSourceInterm->GetOrigin()[d]+extent-pt[d] +0.0001;
                                 LOGV(4)<<VAR(pt)<<" "<<VAR(defSourceInterm->GetOrigin()[d]-pt[d])<<" "<<VAR( defSourceInterm->GetOrigin()[d]+extent-pt[d]  )<<endl;
-                                init[edgeNumDeformation(source,intermediate,idx,d)] = localDef[d] ;
+                                init[edgeNumDef-1] = localDef[d] ;
                             
                             }
                            
@@ -781,8 +798,10 @@ public:
             mxDestroyArray(mxV);
             engPutVariable(this->m_ep,"b",mxB);
             mxDestroyArray(mxB);
+
             LOG<<"Creating sparse matrix"<<endl;
             engEvalString(this->m_ep,"A=sparse(xCord,yCord,val);" );
+            LOGI(6,engEvalString(this->m_ep,"save('sparse.mat');" ));
             LOG<<"done, cleaning up"<<endl;
             //clear unnneeded variables from matlab workspace
             engEvalString(this->m_ep,"clear xCord yCord val;" );
@@ -791,9 +810,10 @@ public:
             mxDestroyArray(mxInit);
             this->haveInit=true;
             LOG<<"Solving "<<VAR(d)<<endl;
-            if (1){
-                engEvalString(this->m_ep, "lb=[-200.0*ones(size(A,2),1)];");
-                engEvalString(this->m_ep, "ub=[200.0*ones(size(A,2),1);]");
+            if (0){
+                engEvalString(this->m_ep, "lb=[-200000*ones(size(A,2),1)];");
+                engEvalString(this->m_ep, "ub=[200000*ones(size(A,2),1);]");
+                engEvalString(this->m_ep, "init=init(1:size(A,2));");
             }else{
                 engPutVariable(this->m_ep,"lb",mxLowerBound);
                 engPutVariable(this->m_ep,"ub",mxUpperBound);
@@ -802,14 +822,22 @@ public:
             mxDestroyArray(mxUpperBound);
 
             
-
-            engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter');");
-
-            //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);toc"));
-            TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag lambda output] =lsqlin(A,b,[],[],[],[],[],[],init,options);toc"));
-            printf("%s", buffer+2);
-            engEvalString(this->m_ep, " resnorm");
-            printf("%s", buffer+2);
+            if (1){
+                
+                //engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'PrecondBandWidth',Inf);");//,'Algorithm','active-set' );");
+                //solve using trust region method
+                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
+                //solve using active set method (backslash)
+                //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],init,options);toc"));
+                printf("%s", buffer+2);
+                engEvalString(this->m_ep, " resnorm");
+                printf("%s", buffer+2);
+                engEvalString(this->m_ep, "output");
+                printf("%s", buffer+2);
+            }else{
+                //solve using pseudo inverse
+                //TIME(engEvalString(this->m_ep, "tic;x = pinv(full(A))*b;toc"));
+            }
             LOGI(6,engEvalString(this->m_ep,"save('test.mat');" ));
             if ((m_results[d] = engGetVariable(this->m_ep,"x")) == NULL)
                 printf("something went wrong when getting the variable.\n Result is probably wrong. \n");
@@ -942,11 +970,16 @@ public:
             mxDestroyArray(this->m_results[d]);
         }
         double inc;
+        LOG<<"inconsistency after CLERC: "<<endl;
         if (m_updateDeformations){
             inc=computeInconsistency(m_downSampledDeformationCache,mask);
         }else{
             inc=computeInconsistency(m_updatedDeformationCache,mask);
+            LOG<<"inconsistency before CLERC: "<<endl;
+            inc=computeInconsistency(m_downSampledDeformationCache,mask);
+
         }
+        LOG<<"inconsistency of true deformations: "<<endl;
         inc=computeInconsistency(m_trueDeformations,mask);
         //inc=computeInconsistency(m_deformationCache,mask);
 
@@ -1002,31 +1035,18 @@ protected:
     //return fortlaufende number of pairs n1,n2, 0..(n*(n-1)-1)
     inline long int edgeNum(int n1,int n2){ return ((n1)*(m_numImages-1) + n2 - (n2>n1));}
  
-#if 0   
-    //alternating edgenumbering : n*def, n*err, n*def, n*err ....
-    //return edgenumber after taking into acount nPixel*2 edges per image pair
-    inline long int edgeNumDeformation(int n1,int n2,IndexType idx, int d){ 
-        long int offset = this->m_ROI->ComputeOffset(idx);
-        return offset*D+2*edgeNum(n1,n2)*m_nPixels*D +d+ 1 ;
-        //return offset*D+edgeNum(n1,n2)*m_nPixels*D +d+ 1 ;
-    }
 
-    inline long int edgeNumError(int n1,int n2,IndexType idx, int d){ 
-        long int offset = this->m_ROI->ComputeOffset(idx);
-        return offset*D+2*(edgeNum(n1,n2))*m_nPixels*D + m_nPixels*D +d+ 1;
-    }
-#else
     inline long int edgeNumDeformation(int n1,int n2,IndexType idx, int d){ 
         long int offset = this->m_ROI->ComputeOffset(idx);
-        //return offset*D+2*edgeNum(n1,n2)*m_nPixels*D +d+ 1 ;
-        return offset*internalD+edgeNum(n1,n2)*m_nPixels*internalD + 1 ;
+        //return offset*internalD+edgeNum(n1,n2)*m_nPixels*internalD + 1 ;
+        return internalD*(edgeNum(n1,n2)*m_nPixels+offset) + 1 ;
     }
 
     inline long int edgeNumError(int n1,int n2,IndexType idx, int d){ 
         return  m_nPixels*internalD*(m_numImages-1)*(m_numImages) + edgeNumDeformation(n1,n2,idx,d);
     }
 
-#endif
+
     //compose 3 deformations. order is left-to-right
     DeformationFieldPointerType composeDeformations(DeformationFieldPointerType d1,DeformationFieldPointerType d2,DeformationFieldPointerType d3){
         return TransfUtils<ImageType>::composeDeformations(d3,TransfUtils<ImageType>::composeDeformations(d2,d1));
