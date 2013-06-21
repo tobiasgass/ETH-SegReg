@@ -131,7 +131,7 @@ public:
         m_nVarWd = 2*(interpolationFactor+2); //two variables per uniqe pair in the triple (2*2), plus linear interpolation for the third pair (2*2^D)
 
         m_nEqWcirc =  (m_wWcirc>0.0)* m_nPixels * internalD * m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
-        m_nVarWcirc = interpolationFactor+2; // only one/2^D variables per pair
+        m_nVarWcirc = interpolationFactor+2 ; // only one/2^D variables per pair
         
         m_nEqWincErr =  (m_wWincErr>0.0)* m_nPixels * internalD * m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
         m_nVarWincErr = interpolationFactor+2; // only one/2^D variables per pair
@@ -775,9 +775,9 @@ public:
                             //deformation can maximally go back to origin
                             if (m_estDef){
                                 LOGV(6)<<VAR(edgeNumDef)<<" "<<VAR(m_nVars)<<endl;
-                                lb[edgeNumDef-1] =  -200;//defSourceInterm->GetOrigin()[d]-pt[d] -0.0001;
+                                lb[edgeNumDef-1] =  defSourceInterm->GetOrigin()[d]-pt[d] -0.0001;
                                 //deformation can maximally transform pt to extent of image
-                                ub[edgeNumDef-1] =  200;//defSourceInterm->GetOrigin()[d]+extent-pt[d] +0.0001;
+                                ub[edgeNumDef-1] =  defSourceInterm->GetOrigin()[d]+extent-pt[d] +0.0001;
                                 LOGV(4)<<VAR(pt)<<" "<<VAR(defSourceInterm->GetOrigin()[d]-pt[d])<<" "<<VAR( defSourceInterm->GetOrigin()[d]+extent-pt[d]  )<<endl;
                                 init[edgeNumDef-1] = localDef[d] ;
                             
@@ -824,9 +824,9 @@ public:
             
             if (1){
                 
-                //engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'PrecondBandWidth',Inf);");//,'Algorithm','active-set' );");
+                engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'PrecondBandWidth',Inf);");//,'Algorithm','active-set' );");
                 //solve using trust region method
-                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
+                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);toc"));
                 //solve using active set method (backslash)
                 //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],init,options);toc"));
                 printf("%s", buffer+2);
