@@ -13,7 +13,6 @@
 using namespace std;
 
 #define logSetStage(stage) mylog.setStage(stage)
-//#define logResetStage std::cout<<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] ";mylog.resetStage()
 #define logResetStage mylog.resetStage()
 #define logSetVerbosity(level) mylog.setVerbosity(level)
 #define VAR(x)  #x " = " << x 

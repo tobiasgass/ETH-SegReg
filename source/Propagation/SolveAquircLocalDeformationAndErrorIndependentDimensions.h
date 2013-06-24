@@ -10,6 +10,8 @@
 #include "Metrics.h"
 #include "TemporalMedianImageFilter.h"
 #include "itkGaussianImage.h"
+#include <boost/lexical_cast.hpp>
+
 template<class ImageType>
 class AquircLocalDeformationAndErrorSolverIndependentDimensions: public AquircGlobalDeformationNormSolverCVariables< ImageType>{
 public:
@@ -132,6 +134,7 @@ public:
 
         m_nEqWcirc =  (m_wWcirc>0.0)* m_nPixels * internalD * m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
         m_nVarWcirc = interpolationFactor+2 ; // only one/2^D variables per pair
+        LOG<<VAR(D)<<" "<<VAR(interpolationFactor)<<" "<<VAR(m_nVarWcirc)<<std::endl;
         
         m_nEqWincErr =  (m_wWincErr>0.0)* m_nPixels * internalD * m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
         m_nVarWincErr = interpolationFactor+2; // only one/2^D variables per pair
@@ -240,7 +243,7 @@ public:
             double maxAbsDisplacement=0.0;
             
             //0=min,1=mean,2=max,3=median,-1=off,4=gauss;
-            int accumulate=-1;
+            int accumulate=4;
             
             for (int s = 0;s<m_numImages;++s){                            
                 int source=s;
@@ -753,7 +756,7 @@ public:
                             LOGV(4)<<VAR(upperBound)<<endl;
 
                             if (accumulate == 4){
-                                double mean=gaussEstimator.getMean()->GetPixel(idx);
+                                double mean=-gaussEstimator.getMean()->GetPixel(idx);
                                 double variance=fabs(gaussEstimator.getVariance()->GetPixel(idx));
                                 if (variance==0.0)
                                     variance = 1e-10;
@@ -789,6 +792,8 @@ public:
                 }//intermediate
             }//source
             LOG<<VAR(eq)<<" "<<VAR(c)<<endl;
+            
+
             //put variables into workspace and immediately destroy them
             engPutVariable(this->m_ep,"xCord",mxX);
             mxDestroyArray(mxX);
@@ -798,6 +803,19 @@ public:
             mxDestroyArray(mxV);
             engPutVariable(this->m_ep,"b",mxB);
             mxDestroyArray(mxB);
+
+            if (0){
+                ostringstream nEqs;
+                nEqs<<"nEq="<<eq<<";";
+                engEvalString(this->m_ep,nEqs.str().c_str());
+                ostringstream nNz;
+                nNz<<"nNz="<<c<<";";
+                engEvalString(this->m_ep,nNz.str().c_str());
+                engEvalString(this->m_ep,"xCord=xCord(1:nNz+1)");
+                engEvalString(this->m_ep,"yCord=yCord(1:nNz+1)");
+                engEvalString(this->m_ep,"val=val(1:nNz+1)");
+                engEvalString(this->m_ep,"b=b(1:nEq+1)");
+            }
 
             LOG<<"Creating sparse matrix"<<endl;
             engEvalString(this->m_ep,"A=sparse(xCord,yCord,val);" );
@@ -810,7 +828,7 @@ public:
             mxDestroyArray(mxInit);
             this->haveInit=true;
             LOG<<"Solving "<<VAR(d)<<endl;
-            if (1){
+            if (0){
                 engEvalString(this->m_ep, "lb=[-200000*ones(size(A,2),1)];");
                 engEvalString(this->m_ep, "ub=[200000*ones(size(A,2),1);]");
                 engEvalString(this->m_ep, "init=init(1:size(A,2));");
@@ -826,9 +844,9 @@ public:
                 
                 engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'PrecondBandWidth',Inf);");//,'Algorithm','active-set' );");
                 //solve using trust region method
-                //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
+                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
                 //solve using active set method (backslash)
-                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],init);toc"));
+                //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],init);toc"));
                 printf("%s", buffer+2);
                 engEvalString(this->m_ep, " resnorm");
                 printf("%s", buffer+2);
