@@ -815,7 +815,7 @@ public:
         return norm/count;
     }
     
-    static double computeDeformationNormMask(DeformationFieldPointerType def, ImagePointerType mask, double exp=2){
+    static double computeDeformationNormMask(DeformationFieldPointerType def, ImagePointerType mask, double exp=2, bool verbose=false){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
         ImageIterator imageIt(mask,def->GetLargestPossibleRegion());
@@ -824,9 +824,11 @@ public:
         int count=0;
         LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
         for (deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt){
+            DisplacementType t=deformationIt.Get();
+            if (verbose) LOGV(8)<<deformationIt.GetIndex()<<" "<<t<<" "<<imageIt.Get()<<endl;
             if (imageIt.Get()){
-                DisplacementType t=deformationIt.Get();
                 double tmp2=0.0;
+            
                 for (unsigned int d=0;d<D;++d){
                     double tmp=pow(fabs(t[d]),exp);
                     tmp2+=tmp;
@@ -1091,5 +1093,19 @@ public:
         return filter->GetOutput();
     }
 
-    
+    static FloatImagePointerType getComponent(DeformationFieldPointerType def, int d){
+        FloatImagePointerType result=createEmptyFloat(def);
+        typedef itk::ImageRegionIterator<DeformationFieldType> DeformationIteratorType;
+        DeformationIteratorType defIt(def,def->GetLargestPossibleRegion());
+        typedef itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
+        FloatImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+
+        for (defIt.GoToBegin(),resultIt.GoToBegin();!defIt.IsAtEnd();++defIt,++resultIt){
+            
+            resultIt.Set(defIt.Get()[d]);
+        }
+
+        return result;
+        
+    }
 };

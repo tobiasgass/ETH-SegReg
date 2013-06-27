@@ -290,7 +290,7 @@ int main(int argc, char ** argv){
     if (resamplingFactor !=1.0){
         for (int t=0;t<imageIDs.size();++t){
             string targetID=imageIDs[t];
-            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample( (*inputImages)[targetID],1.0/resamplingFactor);
+            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample( (*inputImages)[targetID],1.0/resamplingFactor,true);
             for (int s=0;s<imageIDs.size();++s){
                 if (s!=t){
                     string sourceID=imageIDs[s];
@@ -305,7 +305,7 @@ int main(int argc, char ** argv){
     ImagePointerType ROI;
     if (ROIFilename!="") {
         ROI=ImageUtils<ImageType>::readImage(ROIFilename);
-        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
+        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor,false);
     }
     
     AquircGlobalDeformationNormSolverCVariables<ImageType> * solver;

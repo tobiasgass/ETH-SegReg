@@ -4,6 +4,8 @@
 #include "TransformationUtils.h"
 #include "Log.h"
 #include "ImageUtils.h"
+#include "Metrics.h"
+
 #include <vector>
 #include <sstream>
 #include "SolveAquircGlobalDeformationNormCVariables.h"
@@ -337,7 +339,7 @@ public:
                         DeformationFieldPointerType def = TransfUtils<ImageType>::bSplineInterpolateDeformationField(defSourceInterm,(ConstImagePointerType)(*m_imageList)[sourceID]);
                         ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage((ConstImagePointerType)(*m_imageList)[sourceID],def);
                         //compute lncc
-                        lncc= FilterUtils<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],10.0);
+                        lncc= Metrics<ImageType,FloatImageType>::LNCC(warpedImage,(*m_imageList)[intermediateID],10.0);
                         ostringstream oss;
                         oss<<"lncc-"<<sourceID<<"-TO-"<<intermediateID;
                         if (D==2)
@@ -346,7 +348,7 @@ public:
                             oss<<".nii";
                         LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
                         //resample lncc result
-                        lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI));
+                        lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
                         lnccIt=FloatImageIterator(lncc,lncc->GetLargestPossibleRegion());
                         lnccIt.GoToBegin();
                     }

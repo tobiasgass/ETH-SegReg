@@ -20,9 +20,11 @@ public:
 private:
     ImagePointerType m_mean,m_variance;
     int count;
+    bool finalized;
 public:
     GaussianEstimatorScalarImage(){
         m_mean=NULL;
+        finalized=false;
     }
     void addImage(ImagePointerType img){
         if (!m_mean.IsNotNull()){
@@ -36,19 +38,29 @@ public:
         }
     }
     void finalize(){
-
-        ImagePointerType squaredMean=ImageUtils<ImageType>::multiplyImageOutOfPlace(m_mean,m_mean);
-        ImageUtils<ImageType>::multiplyImage(squaredMean,1.0/count);
-        LOGI(6,ImageUtils<ImageType>::writeImage("squaredMean.nii",squaredMean));
-        LOGI(6,ImageUtils<ImageType>::writeImage("preVariance.nii",m_variance));
-
-        ImageUtils<ImageType>::multiplyImage(m_mean,1.0/count);
-        LOGI(6,ImageUtils<ImageType>::writeImage("mean.nii",m_mean));
-        m_variance=FilterUtils<ImageType>::substract(m_variance,squaredMean);
-        ImageUtils<ImageType>::multiplyImage(m_variance,1.0/(count-1));
-        LOGI(6,ImageUtils<ImageType>::writeImage("variance.nii",m_variance));
+        if (!finalized){
+            if (count == 0){
+                LOG<<"no images to compute statistics of..." <<endl;
+            }
+            ImagePointerType squaredMean=ImageUtils<ImageType>::multiplyImageOutOfPlace(m_mean,m_mean);
+            ImageUtils<ImageType>::multiplyImage(squaredMean,1.0/count);
+            LOGI(6,ImageUtils<ImageType>::writeImage("squaredMean.nii",squaredMean));
+            LOGI(6,ImageUtils<ImageType>::writeImage("preVariance.nii",m_variance));
+            
+            ImageUtils<ImageType>::multiplyImage(m_mean,1.0/count);
+            LOGI(6,ImageUtils<ImageType>::writeImage("mean.nii",m_mean));
+            m_variance=FilterUtils<ImageType>::substract(m_variance,squaredMean);
+            ImageUtils<ImageType>::multiplyImage(m_variance,1.0/(count-1));
+            LOGI(6,ImageUtils<ImageType>::writeImage("variance.nii",m_variance));
+            finalized = true; 
+        }
     }
-    ImagePointerType getMean(){return m_mean;}
+    ImagePointerType getMean(){
+        if (! finalized){
+            LOG<<"ESTIMATOR NOT FINALIZED " << endl;
+        }
+        return m_mean;
+    }
     ImagePointerType getVariance(){return m_variance;}
     
 };//class

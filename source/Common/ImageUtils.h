@@ -360,6 +360,7 @@ public:
         return result;
     }
 
+
     static  ImagePointerType multiplyImageOutOfPlace(ImagePointerType img, ImagePointerType img2,bool verbose=false){
         typedef itk::ImageRegionIterator<ImageType> IteratorType;
         ImagePointerType result=createEmpty(ConstImagePointerType(img));
