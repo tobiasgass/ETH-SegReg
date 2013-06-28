@@ -538,11 +538,20 @@ protected:
     inline long int edgeNumDeformation(int n1,int n2,IndexType idx, int d){ 
         long int offset = this->m_ROI->ComputeOffset(idx);
         //return offset*internalD+edgeNum(n1,n2)*m_nPixels*internalD + 1 ;
-        return internalD*(edgeNum(n1,n2)*m_nPixels+offset) + 1 ;
+        double result= internalD*(edgeNum(n1,n2)*m_nPixels+offset) + 1 ;
+        if (result > m_nVars){
+            LOG<<VAR(result)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(idx)<<endl;
+        }
+        return result;
     }
 
     inline long int edgeNumError(int n1,int n2,IndexType idx, int d){ 
-        return  m_estDef*m_nPixels*internalD*(m_numImages-1)*(m_numImages) + edgeNumDeformation(n1,n2,idx,d);
+        double result = m_estDef*m_nPixels*internalD*(m_numImages-1)*(m_numImages) + edgeNumDeformation(n1,n2,idx,d);
+        if (result>m_nVars){
+            LOG<<m_nVars<<" "<<VAR(result)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(idx)<<endl;
+            sqrt(-1);
+        }
+        return result;
     }
 
 
@@ -559,11 +568,13 @@ protected:
         int nNeighbors=0;
         IndexType idx1;
         def->TransformPhysicalPointToIndex(point,idx1);
+        if ( !def->GetLargestPossibleRegion().IsInside(idx1))
+            return false;
         for (int d=0;d<D;++d){
             double orig= def->GetOrigin()[d] ;
             double size= def->GetLargestPossibleRegion().GetSize()[d]*def->GetSpacing()[d];
             LOGV(8)<<d<<" "<<point[d]<<" "<<orig<<" "<<size<<endl;
-            if (point[d] < def->GetOrigin()[d] || point[d] > orig+size){
+            if (point[d] < def->GetOrigin()[d] || point[d] >= orig+size-0.0001 ){
                 inside = false;
                 break;
             }
@@ -597,6 +608,7 @@ protected:
             def->TransformIndexToPhysicalPoint(idx,pt);
             DeformationType delta=point-pt;
             if (def->GetLargestPossibleRegion().IsInside(idx)){
+                //LOG<<VAR(def->GetLargestPossibleRegion().GetSize())<<" "<<VAR(idx)<<endl;
                 double w=getWeight(delta,def->GetSpacing());
                 sum+=w;
                 neighbors[nNeighbors++]=std::make_pair(idx,w);
@@ -643,6 +655,7 @@ protected:
         
         //0=min,1=mean,2=max,3=median,-1=off,4=gauss;
         int accumulate=4;
+        double manualResidual=0.0;
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
             if (m_pairwiseInconsistencyStatistics.find(s)==m_pairwiseInconsistencyStatistics.end())
@@ -662,8 +675,11 @@ protected:
                         if (t!=i && i!=s){
                             //define a set of 3 images
                             int intermediate=i;
-                            DeformationFieldPointerType dSourceIntermediate=(*m_downSampledDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            DeformationFieldPointerType dIntermediateTarget=(*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
+                            DeformationFieldPointerType dIntermediateTarget = (*m_downSampledDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
+                            if (true && m_haveDeformationEstimate && (*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
+                                dIntermediateTarget=(*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
+                            }
+                            DeformationFieldPointerType dSourceIntermediate = (*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
 
                             
                             //compute indirect deform
@@ -716,7 +732,7 @@ protected:
                                 //get physical point in target domain
                                 dSourceTarget->TransformIndexToPhysicalPoint(targetIndex,ptTarget);
                                 //get corresponding point in intermediate deform
-                                DeformationType dIntermediate=dSourceIntermediate->GetPixel(targetIndex);
+                                DeformationType dIntermediate=dIntermediateTarget->GetPixel(targetIndex);
                                 ptIntermediate= ptTarget + dIntermediate;
                                 
                                 //get neighbors of that point
@@ -733,16 +749,12 @@ protected:
                                 DeformationType trueDef;
                                 bool newEstimate=false;
                                 PointType truePtIntermediate;
-#define ORACLE
+                                //#define ORACLE
                                     
 #ifdef ORACLE
                                 trueDef =(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]]->GetPixel(targetIndex);
                                 newEstimate=true;
-#else
-                                if (true && m_haveDeformationEstimate && (*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
-                                    trueDef=(*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]]->GetPixel(targetIndex);
-                                    newEstimate=true;
-                                }
+
 #endif
                                 if (newEstimate){
                                     truePtIntermediate=ptTarget + trueDef;
@@ -838,17 +850,24 @@ protected:
                                         // *****************************************************
 #endif
                                         
+                                        double defSum=0.0;
                                         for (int i=0;i<ptIntermediateNeighborsCircle.size();++i){
                                             x[c]=eq;
                                             y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighborsCircle[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
                                             v[c++]=ptIntermediateNeighborsCircle[i].second*val* m_wCircleNorm;
                                             LOGV(8)<<VAR(roiTargetIndex)<<" "<<VAR(truePtIntermediate)<<" "<<VAR(i)<<" "<<VAR(ptIntermediateNeighborsCircle[i].first)<<" "<<VAR(ptIntermediateNeighborsCircle[i].second)<<endl;
+                                            defSum+=ptIntermediateNeighborsCircle[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighborsCircle[i].first)[d];
                                         }
                                         //minus direct
                                         x[c]=eq;
                                         y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
                                         v[c++]= - val* m_wCircleNorm;
                                         
+                                        double residual= val*m_wCircleNorm*(dIntermediateTarget->GetPixel(roiTargetIndex)[d]
+                                                                           + defSum
+                                                                           - dSourceTarget->GetPixel(roiTargetIndex)[d]
+                                                                           );
+                                        manualResidual+=residual*residual;
                                         b[eq-1]=0;
                                         ++eq;
                                     }
@@ -883,7 +902,7 @@ protected:
                 }//if
             }//target
         }//source
-    
+        LOGV(1)<<VAR(manualResidual)<<endl;
     }//compute triplets
 
     void computePairwiseEnergiesAndBounds(double * x, 
@@ -1141,7 +1160,7 @@ protected:
                         
                         if (m_estError){
                             LOGV(6)<<VAR(edgeNumErr)<<" "<<VAR(m_nVars)<<endl;
-                            init[edgeNumErr-1] = trueError;//0;//meanInconsistency;
+                            init[edgeNumErr-1] = 0;//meanInconsistency;
                             lb[edgeNumErr-1]   = lowerBound;
                             ub[edgeNumErr-1]   = upperBound;
                         }
@@ -1158,8 +1177,8 @@ protected:
                             ub[edgeNumDef-1]   =  defSourceInterm->GetOrigin()[d]+extent-pt[d] +0.0001;
                             LOGV(4)<<VAR(pt)<<" "<<VAR(defSourceInterm->GetOrigin()[d]-pt[d])<<" "<<VAR( defSourceInterm->GetOrigin()[d]+extent-pt[d]  )<<endl;
                             //init[edgeNumDef-1] =  0;
-                            //init[edgeNumDef-1] =  localDef[d] ;
-                            init[edgeNumDef-1] =  (localDef[d]-trueError) ;
+                            init[edgeNumDef-1] =  localDef[d] ;
+                            //init[edgeNumDef-1] =  (localDef[d]-trueError) ;
                             
                         }
                            
