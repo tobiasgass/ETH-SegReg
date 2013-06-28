@@ -146,28 +146,44 @@ public:
 
         m_nEqFullCircleEnergy  = (m_wFullCircleEnergy>0.0)* internalD * m_nPixels *  m_numImages*(m_numImages-1)*(m_numImages-2); //there is one equation for each component of every pixel of every triple of images
         m_nVarFullCircleEnergy = 2*(interpolationFactor+2); //two variables per uniqe pair in the triple (2*2), plus linear interpolation for the third pair (2*2^D)
-
+        if ( m_nEqFullCircleEnergy  )
+            m_wFullCircleEnergy /=m_nEqFullCircleEnergy ;
+        
         m_nEqCircleNorm =  (m_wCircleNorm>0.0)* m_nPixels * internalD * m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
         m_nVarCircleNorm = interpolationFactor+2 ; // only one/2^D variables per pair
-        LOG<<VAR(D)<<" "<<VAR(interpolationFactor)<<" "<<VAR(m_nVarCircleNorm)<<std::endl;
+        if (m_nEqCircleNorm)
+            m_wCircleNorm/=m_nEqCircleNorm;
+        
         
         m_nEqErrorInconsistency =  (m_wErrorInconsistency>0.0)* m_nPixels * internalD * m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
         m_nVarErrorInconsistency = interpolationFactor+2; // only one/2^D variables per pair
+        if (m_nEqErrorInconsistency)
+            m_wErrorInconsistency/=m_nEqErrorInconsistency;
 
         m_nEqDeformationSmootheness =  (m_wDeformationSmootheness>0.0)* D* m_nPixels * internalD * m_numImages*(m_numImages-1); //every pixel in each registration has D neighbors (in one direction), and each component separately
         m_nVarDeformationSmootheness = 3; //for piecewise linear regularization, 2 for piecewise constant
+        if (m_nEqDeformationSmootheness)
+            m_wDeformationSmootheness/=m_nEqDeformationSmootheness;
 
         m_nEqErrorSmootheness =  (m_wErrorSmootheness>0.0)* D* m_nPixels * internalD * m_numImages*(m_numImages-1); //every pixel in each registration has D neighbors (in one direction), and each component separately
         m_nVarErrorSmootheness = 3; //for piecewise linear regularization, 2 for piecewise constant
+        if (m_nEqErrorSmootheness)
+            m_wErrorSmootheness/=m_nEqErrorSmootheness;
       
         m_nEqErrorNorm = (m_wErrorNorm>0.0)*  m_nPixels * internalD * m_numImages*(m_numImages-1); //every error at every location in each image pair
         m_nVarErrorNorm = 1;
+        if (m_nEqErrorNorm)
+            m_wErrorNorm/=m_nEqErrorNorm;
 
         m_nEqErrorStatistics = (m_wErrorStatistics>0.0)*  m_nPixels * internalD * m_numImages*(m_numImages-1); //every error at every location in each image pair
         m_nVarErrorStatistics = 1;
+        if (m_nEqErrorStatistics)
+            m_wErrorStatistics/=m_nEqErrorStatistics;
 
         m_nEqTransformationSimilarity =  (m_wTransformationSimilarity>0.0)*m_nPixels * internalD * m_numImages*(m_numImages-1); //same as ErrorNorm
         m_nVarTransformationSimilarity= 1;
+        if (m_nEqTransformationSimilarity)
+            m_wTransformationSimilarity/=m_nEqTransformationSimilarity;
 
         int m_nEqSUM=(m_wSum>0.0)*m_nPixels * internalD * m_numImages*(m_numImages-1);
         int m_nVarSUM=2;
@@ -317,11 +333,11 @@ public:
             
             if (1){
                 
-                engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'PrecondBandWidth',Inf);");//,'Algorithm','active-set' );");
+                engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'PrecondBandWidth',Inf,'LargeScale','on');");//,'Algorithm','active-set' );");
                 //solve using trust region method
                 TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
                 //solve using active set method (backslash)
-                //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],init);toc"));
+                //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);toc"));
                 printf("%s", buffer+2);
                 engEvalString(this->m_ep, " resnorm");
                 printf("%s", buffer+2);
@@ -362,9 +378,9 @@ public:
             for (int t=0;t<m_numImages;++t){
                 if (s!=t){
                     //slightly(!!!) stupid creation of empty image
-                    DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::createEmpty(this->m_ROI);//ImageUtils<DeformationFieldType>::createEmpty((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
+                    DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::createEmpty(this->m_ROI);
                     DeformationFieldIterator itErr(estimatedError,estimatedError->GetLargestPossibleRegion());
-                    DeformationFieldPointerType estimatedDeform=TransfUtils<ImageType>::createEmpty(this->m_ROI);//ImageUtils<DeformationFieldType>::createEmpty((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
+                    DeformationFieldPointerType estimatedDeform=TransfUtils<ImageType>::createEmpty(this->m_ROI);
                     DeformationFieldIterator itDef(estimatedDeform,estimatedDeform->GetLargestPossibleRegion());
                     itErr.GoToBegin();
                     itDef.GoToBegin();
@@ -386,15 +402,16 @@ public:
                         originalDeformation=origIt.Get();
                         for (unsigned int d=0;d<D;++d,++p){
                             // minus 1 to correct for matlab indexing
-                            if (m_estError)
+                            if (m_estError){
                                 estimatedError[d]=rData[d][edgeNumError(s,t,idx,d)-1];
+                            }
                             if (m_estDef)
                                 estimatedDeformation[d]=rData[d][edgeNumDeformation(s,t,idx,d)-1];
-                            else
-                                estimatedDeformation[d]= originalDeformation[d]-estimatedError[d];
-                            if (!m_estError && ! m_estError){
+                            
+                            if (!m_estError && m_estDef){
                                 estimatedError[d]= originalDeformation[d]-estimatedDeformation[d];
-                            }
+                            } else if (!m_estDef && m_estError)
+                                estimatedDeformation[d]= originalDeformation[d]-estimatedError[d];
                         }
                         itErr.Set(estimatedError);
                         itDef.Set(estimatedDeformation);
@@ -773,7 +790,7 @@ protected:
                                     double val=1.0;
                                     bool segVal=1.0;
 
-                                    val*=getIndexBasedWeight(roiTargetIndex,roiSize);
+                                    //val*=getIndexBasedWeight(roiTargetIndex,roiSize);
 
                                     //multiply val by segConsistencyWeight if deformation starts from atlas segmentation
                                     if (haveSeg){
@@ -932,7 +949,7 @@ protected:
                  
                     FloatImagePointerType lncc;
                     FloatImageIterator lnccIt;
-                    if (m_sigma>0.0 && m_wErrorNorm>0.0){
+                    if (m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
                         ostringstream oss;
                         oss<<"lncc-"<<sourceID<<"-TO-"<<targetID;
                         if (D==2)
@@ -1014,7 +1031,9 @@ protected:
                         double trueError  = (*this->m_downSampledDeformationCache)[sourceID][targetID]->GetPixel(idx)[d]-(*m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d];
 
                         int edgeNumDef=edgeNumDeformation(source,target,idx,d);
-                        int edgeNumErr=edgeNumError(source,target,idx,d);
+                        int edgeNumErr;
+                        if (m_estError)
+                            edgeNumErr=edgeNumError(source,target,idx,d);
 
                         //intensity based weight
                         double weight=1.0;
@@ -1105,7 +1124,7 @@ protected:
                                 IndexType neighborIndexLeft=idx+off2;
                                 if (defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
                                     x[c]=eq;
-                                    y[c]=edgeNumErr;
+                                    y[c]=edgeNumDef;
                                     v[c++]=-2*smoothenessWeight;
                                     x[c]=eq;
                                     y[c]=edgeNumDeformation(source,target,neighborIndexRight,d);
