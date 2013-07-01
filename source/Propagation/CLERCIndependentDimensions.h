@@ -193,8 +193,8 @@ public:
 
         m_nEqs=  m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm+ m_nEqDeformationSmootheness + m_nEqErrorNorm+ m_nEqTransformationSimilarity + m_nEqSUM +  m_nEqErrorSmootheness + m_nEqErrorInconsistency; // total number of equations
         
-        m_estError= m_nEqFullCircleEnergy ||  m_nEqErrorNorm || m_nEqSUM||m_nEqErrorInconsistency ||  m_nEqErrorStatistics;
-        m_estDef = m_nEqFullCircleEnergy || m_nEqTransformationSimilarity ||  m_nEqDeformationSmootheness  ||  m_nEqCircleNorm || m_nEqSUM  ;
+        m_estError= m_nEqFullCircleEnergy ||  m_nEqErrorNorm || m_nEqSUM||m_nEqErrorInconsistency ;
+        m_estDef = m_nEqFullCircleEnergy || m_nEqTransformationSimilarity ||  m_nEqDeformationSmootheness  ||  m_nEqCircleNorm || m_nEqSUM  ||  m_nEqErrorStatistics;
         m_nVars= m_numImages*(m_numImages-1)*m_nPixels*internalD *(m_estError + m_estDef); // total number of free variables (error and deformation)
         
         m_nNonZeroes=  m_nEqErrorStatistics+ m_nEqErrorSmootheness*m_nVarErrorSmootheness +m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqErrorNorm*m_nVarErrorNorm + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity + m_nEqSUM*m_nVarSUM + m_nVarErrorInconsistency*m_nEqErrorInconsistency; //maximum number of non-zeros
@@ -675,7 +675,7 @@ protected:
 
     void computeTripletEnergies(double * x, double * y, double * v, double * b, long int &c,long int & eq, unsigned int d){
         double maxAbsDisplacement=0.0;
-        
+        m_pairwiseInconsistencyStatistics=map<int, map <int,  GaussEstimatorType > >();
         //0=min,1=mean,2=max,3=median,-1=off,4=gauss;
         int accumulate=4;
         double manualResidual=0.0;
@@ -691,6 +691,8 @@ protected:
                     
                     if (m_pairwiseInconsistencyStatistics[s].find(t)==m_pairwiseInconsistencyStatistics[s].end())
                         m_pairwiseInconsistencyStatistics[s][t]=GaussEstimatorType();
+                    
+                    m_pairwiseInconsistencyStatistics[s][t].addImage(TransfUtils<ImageType>::getComponent(dSourceTarget,d));
 
                     //#define ORACLE         
                     //triplet energies
@@ -710,10 +712,12 @@ protected:
                             
                             //compute indirect deform
                             DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dIntermediateTarget,dSourceIntermediate);
+                            //DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dSourceIntermediate,dIntermediateTarget);
                             //compute difference of direct and indirect deform
                             DeformationFieldPointerType difference = TransfUtils<ImageType>::subtract(indirectDeform,dSourceTarget);
                             
                             FloatImagePointerType directionalDifference = TransfUtils<ImageType>::getComponent(difference,d);
+                            FloatImagePointerType directionalDeform = TransfUtils<ImageType>::getComponent(indirectDeform,d);
                             
                             //check if all accumulators exist
                             if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
@@ -721,8 +725,9 @@ protected:
                             if (m_pairwiseInconsistencyStatistics[i].find(t)==m_pairwiseInconsistencyStatistics[i].end())
                                 m_pairwiseInconsistencyStatistics[i][t]=GaussEstimatorType();
 
-                            m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDifference);
-                            m_pairwiseInconsistencyStatistics[i][t].addImage(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(directionalDifference,-1));
+                            //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDifference);
+                            m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDeform);
+                            //m_pairwiseInconsistencyStatistics[i][t].addImage(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(directionalDifference,-1));
 
 
                             //compute norm
@@ -953,7 +958,7 @@ protected:
                         if (defNorm!=0.0){
                             priorWeight=1.0/defNorm;
                         }else
-                            priorWeight= 10000;
+                            priorWeight= 10;
                         
                         previousIt=DeformationFieldIterator(diff,m_regionOfInterest);
                         previousIt.GoToBegin();
@@ -993,17 +998,22 @@ protected:
                                 
                         //weight based on previous estimate
                         double weight2=1.0;
-                        if (true && m_haveDeformationEstimate ){
-                            //double diffNorm=fabs(previousIt.Get()[d]);
-                            double diffNorm=previousIt.Get().GetNorm();
-                            if (diffNorm!=0.0){
-                                priorWeight=1.0/diffNorm;
-                            }else
-                                priorWeight=100;
-
-                            //LOGV(4)<<VAR(diffNorm)<<" "<<VAR(priorWeight)<<endl;
-                            priorWeight=min(max(priorWeight,0.001),10.0);
+                        double expectedError=0.0;
+                        if (m_haveDeformationEstimate){
+                            expectedError = previousIt.Get()[d];
                             ++previousIt;
+                            if (false ){
+                                //double diffNorm=fabs(previousIt.Get()[d]);
+                                double diffNorm=previousIt.Get().GetNorm();
+                                if (diffNorm!=0.0){
+                                    priorWeight=1.0/diffNorm;
+                                }else
+                                    priorWeight=100;
+                                
+                                //LOGV(4)<<VAR(diffNorm)<<" "<<VAR(priorWeight)<<endl;
+                                priorWeight=min(max(priorWeight,0.001),10.0);
+                                
+                            }
                         }
                                 
                         //set w_delta
@@ -1020,15 +1030,15 @@ protected:
 
                         //set w_delta
                         //set eqn for soft constraining the error to be small
-                        double meanInconsistency=-statisticsEstimatorSourceTarget.getMean()->GetPixel(idx);
-                        double varInconsistency=(fabs(statisticsEstimatorSourceTarget.getVariance()->GetPixel(idx)));
+                        double meanInconsistency=statisticsEstimatorSourceTarget.getMean()->GetPixel(idx);
+                        double varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget.getVariance()->GetPixel(idx))));
                         if (varInconsistency == 0.0){
                             varInconsistency = 1e-5;
                         }
                         if (m_wErrorStatistics>0.0){
-                            weight2=1.0;//1.0/(varInconsistency);
+                            weight2 = 1.0/(varInconsistency);
                             x[c]    = eq;
-                            y[c]    = edgeNumErr;
+                            y[c]    = edgeNumDef;
                             v[c++]  = 1.0*m_wErrorStatistics*weight2;
                             //b[eq-1] = m_wErrorStatistics*weight2*trueError;
                             b[eq-1] = m_wErrorStatistics*weight2*meanInconsistency;
@@ -1150,7 +1160,7 @@ protected:
                             ub[edgeNumDef-1]   =  defSourceInterm->GetOrigin()[d]+extent-pt[d] +0.0001;
                             LOGV(4)<<VAR(pt)<<" "<<VAR(defSourceInterm->GetOrigin()[d]-pt[d])<<" "<<VAR( defSourceInterm->GetOrigin()[d]+extent-pt[d]  )<<endl;
                             //init[edgeNumDef-1] =  0;
-                            init[edgeNumDef-1] =  localDef[d] ;
+                            init[edgeNumDef-1] =  localDef[d] -expectedError;
                             //init[edgeNumDef-1] =  (localDef[d]-trueError) ;
                             
                         }

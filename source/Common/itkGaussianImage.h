@@ -42,6 +42,7 @@ public:
             if (count == 0){
                 LOG<<"no images to compute statistics of..." <<endl;
             }
+            LOGV(6)<<VAR(count)<<endl;
             ImagePointerType squaredMean=ImageUtils<ImageType>::multiplyImageOutOfPlace(m_mean,m_mean);
             ImageUtils<ImageType>::multiplyImage(squaredMean,1.0/count);
             LOGI(6,ImageUtils<ImageType>::writeImage("squaredMean.nii",squaredMean));
@@ -50,7 +51,11 @@ public:
             ImageUtils<ImageType>::multiplyImage(m_mean,1.0/count);
             LOGI(6,ImageUtils<ImageType>::writeImage("mean.nii",m_mean));
             m_variance=FilterUtils<ImageType>::substract(m_variance,squaredMean);
-            ImageUtils<ImageType>::multiplyImage(m_variance,1.0/(count-1));
+            if (count>1){
+                ImageUtils<ImageType>::multiplyImage(m_variance,1.0/(count-1));
+            }else{
+                LOGV(2)<<"Warning, only one observation in gauss estimator, variance estimator will not be usefull"<<endl;
+            }
             LOGI(6,ImageUtils<ImageType>::writeImage("variance.nii",m_variance));
             finalized = true; 
         }
@@ -62,6 +67,7 @@ public:
         return m_mean;
     }
     ImagePointerType getVariance(){return m_variance;}
+
     
 };//class
 

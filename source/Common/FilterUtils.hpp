@@ -595,6 +595,7 @@ public:
         SubtractFilterPointer substractFilter = SubtractFilterType::New();
         substractFilter->SetInput1(image1);
         substractFilter->SetInput2(image2);
+        substractFilter->InPlaceOff();
         //substractFilter->SetCoordinateTolerance(1e-5);
         substractFilter->Update();
         return substractFilter->GetOutput();
