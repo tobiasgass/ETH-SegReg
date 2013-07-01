@@ -361,7 +361,7 @@ int main(int argc, char ** argv){
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
-
+    solver->computePairwiseSimilarityWeights();
 
     if (atlasSegmentationFileList!=""){
         solver->setSegmentationList(atlasSegmentations);

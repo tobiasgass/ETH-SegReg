@@ -347,6 +347,7 @@ int main(int argc, char ** argv){
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
+    solver->computePairwiseSimilarityWeights();
     for (int h=0;h<maxHops;++h){
         //solver->setWeightCircleNorm(wwcirc*pow(circWeightScaling,h)); 
         //solver->setWeightErrorNorm(wwdelta*pow(2,h));
