@@ -260,7 +260,7 @@ public:
         if (labelImg->GetLargestPossibleRegion().GetSize()==reference->GetLargestPossibleRegion().GetSize()){
             return ImageUtils<DeformationFieldType>::duplicate(labelImg);
         }
-        else if (labelImg->GetLargestPossibleRegion().GetSize()[0]>reference->GetLargestPossibleRegion().GetSize()[0]){
+        else if (false && labelImg->GetLargestPossibleRegion().GetSize()[0]>reference->GetLargestPossibleRegion().GetSize()[0]){
             //downsampling does not need bspline interpolation
             //note that the test for downsampling is pretty crude...
             LOGV(2)<<"Downsampling deformation image (without smoothing)"<<std::endl;

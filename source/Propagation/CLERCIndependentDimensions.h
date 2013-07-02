@@ -118,7 +118,7 @@ public:
         m_linearInterpol=false;
         m_haveDeformationEstimate=false;
         m_updatedDeformationCache = new  map< string, map <string, DeformationFieldPointerType> > ; 
-        m_results = std::vector<mxArray * >(D);
+        m_results = std::vector<mxArray * >(D,NULL);
         //m_updateDeformations=true;
         m_updateDeformations=false;
         m_exponent=1.0;
@@ -209,6 +209,12 @@ public:
         this->m_ROI->TransformIndexToPhysicalPoint(nullIdx,startPoint);
         (*m_downSampledDeformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]]->TransformPhysicalPointToIndex(startPoint,startIndex);
         m_regionOfInterest.SetIndex(startIndex);
+#ifdef SEPENGINE
+        if (this->m_ep){
+            engClose(this->m_ep);
+        }
+#endif
+
 
     }
 
@@ -237,7 +243,12 @@ public:
         double totalInconsistency = 0.0;
         int totalCount = 0;
         for (unsigned int d = 0; d< D; ++d){
-
+#ifdef SEPENGINE       
+            if (!(this->m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
+                fprintf(stderr, "\nCan't start MATLAB engine\n");
+                exit(EXIT_FAILURE);
+            }
+#endif
             mxArray *mxX=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
             mxArray *mxY=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
             mxArray *mxV=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
@@ -338,7 +349,6 @@ public:
 
             
             if (1){
-                
                 engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'PrecondBandWidth',Inf,'LargeScale','on');");//,'Algorithm','active-set' );");
                 //solve using trust region method
                 TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
@@ -357,13 +367,18 @@ public:
             if ((m_results[d] = engGetVariable(this->m_ep,"x")) == NULL)
                 printf("something went wrong when getting the variable.\n Result is probably wrong. \n");
             engEvalString(this->m_ep,"clear A b init lb ub x;" );
+
+            
+#ifdef SEPENGINE
+            engClose(this->m_ep);
+#endif
         }//dimensions
 
     }
     virtual void solve(){}
 
     virtual void storeResult(string directory){
-        std::vector<double> result(m_nVars);
+        //std::vector<double> result(m_nVars);
         std::vector<double*> rData(D);
         for (int d= 0; d<D ; ++d){
             rData[d]=mxGetPr(this->m_results[d]);
@@ -505,6 +520,7 @@ public:
         inc=computeInconsistency(m_trueDeformations,mask);
         //inc=computeInconsistency(m_deformationCache,mask);
 
+     
       
         
     }
@@ -951,7 +967,7 @@ protected:
 
                     DeformationFieldIterator previousIt;
                     double priorWeight=1.0;
-                    if (true && m_haveDeformationEstimate && (*m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
+                    if (true && ! m_updateDeformations && m_haveDeformationEstimate && (*m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
                         DeformationFieldPointerType estDef=(*m_updatedDeformationCache)[sourceID][targetID];
                         DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(estDef,(*m_downSampledDeformationCache)[sourceID][targetID]);
                         double defNorm=TransfUtils<ImageType>::computeDeformationNorm(diff);
@@ -1000,9 +1016,11 @@ protected:
                         double weight2=1.0;
                         double expectedError=0.0;
                         if (m_haveDeformationEstimate){
-                            expectedError = previousIt.Get()[d];
-                            ++previousIt;
+                            priorWeight=1.0;
                             if (false ){
+                                expectedError = previousIt.Get()[d];
+                                ++previousIt;
+
                                 //double diffNorm=fabs(previousIt.Get()[d]);
                                 double diffNorm=previousIt.Get().GetNorm();
                                 if (diffNorm!=0.0){
@@ -1049,6 +1067,7 @@ protected:
                         //set w_T
                         //set eqn for soft constraining the estimated true deformation to be similar to the original deformation
                         if (m_wTransformationSimilarity>0.0){
+                            //weight=1.0/sqrt(fabs(meanInconsistency));
                             x[c]    = eq;
                             y[c]    = edgeNumDef;
                             v[c++]  = 1.0*m_wTransformationSimilarity *weight*priorWeight;
