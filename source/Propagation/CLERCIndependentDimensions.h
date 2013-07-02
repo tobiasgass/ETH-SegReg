@@ -1179,7 +1179,8 @@ protected:
                             ub[edgeNumDef-1]   =  defSourceInterm->GetOrigin()[d]+extent-pt[d] +0.0001;
                             LOGV(4)<<VAR(pt)<<" "<<VAR(defSourceInterm->GetOrigin()[d]-pt[d])<<" "<<VAR( defSourceInterm->GetOrigin()[d]+extent-pt[d]  )<<endl;
                             //init[edgeNumDef-1] =  0;
-                            init[edgeNumDef-1] =  localDef[d] -expectedError;
+                            //init[edgeNumDef-1] =  localDef[d] -expectedError;
+                            init[edgeNumDef-1] =  localDef[d];
                             //init[edgeNumDef-1] =  (localDef[d]-trueError) ;
                             
                         }
