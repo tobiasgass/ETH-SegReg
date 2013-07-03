@@ -28,15 +28,17 @@ private:
    
     int m_verb;
     bool m_cachedOutput;
+    int m_timerOffset;
 public:
     MyLog(){
         m_stage="";
         m_verb=0;
         mOut=&std::cout;
         m_cachedOutput=false;
+        m_timerOffset=0;
     }
     boost::format  getStatus(){
-        unsigned int elapsed = m_timer.elapsed();
+        unsigned int elapsed = m_timer.elapsed()+m_timerOffset;
         boost::format logLine("%2d:%02d [%-50s] - ");
         logLine % (elapsed / 60);
         logLine % (elapsed % 60);
@@ -76,6 +78,7 @@ public:
             ofs <<oss->str();
         }
     }
+    void addTime(int t){m_timerOffset+=t;}
 };
 
 
@@ -84,6 +87,7 @@ public:
 MyLog mylog;
 
 
+#define LOGADDTIME(t) mylog.addTime(t)
 
 #define LOG \
     if (mylog.getVerbosity()>=30)                                        \
