@@ -35,11 +35,12 @@ public:
     static const unsigned int D=ImageType::ImageDimension;
     static const unsigned int internalD=1;
     typedef GaussianEstimatorScalarImage<FloatImageType> GaussEstimatorType;
+    typedef map< string, map <string, DeformationFieldPointerType> > DeformationCacheType;
 
 protected:
     int m_nVars,m_nEqs,m_nNonZeroes;
     int m_numImages;
-    map< string, map <string, DeformationFieldPointerType> > * m_deformationCache,* m_trueDeformations, *m_updatedDeformationCache,*m_downSampledDeformationCache;
+    DeformationCacheType * m_deformationCache,* m_trueDeformations, *m_updatedDeformationCache,*m_downSampledDeformationCache;
     std::vector<string> * m_imageIDList;
     bool m_additive, m_updateDeformations;
     RegionType m_regionOfInterest;
@@ -99,6 +100,7 @@ private:
     
     double m_shearingReduction;
     bool m_linearInterpol;
+    bool m_ORACLE;
     bool m_haveDeformationEstimate;
 
     double m_segConsisntencyWeight;
@@ -125,6 +127,7 @@ public:
         m_shearingReduction = 1.0;
         m_segConsisntencyWeight = 1.0;
         m_sigmaD = 0.0;
+        m_ORACLE=false;
     }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist, map< string, map <string, DeformationFieldPointerType> > * downSampledDeformationCache){
         m_imageList=imagelist;
@@ -217,7 +220,8 @@ public:
 
 
     }
-
+    
+    void setOracle(bool o){m_ORACLE=o;}
     void setWeightFullCircleEnergy(double w){m_wFullCircleEnergy=w;}
     void setWeightTransformationSimilarity(double w){m_wTransformationSimilarity=w;}
     void setWeightDeformationSmootheness(double w){m_wDeformationSmootheness=w;}
@@ -237,12 +241,12 @@ public:
 
      virtual void createSystem(){
         
-        LOG<<"Creating equation system.."<<endl;
-        LOG<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
-        LOG<<VAR(  m_wTransformationSimilarity)<<" "<<VAR(        m_wDeformationSmootheness)<<" "<<VAR(m_wCircleNorm)<<" "<<VAR(m_wErrorNorm)<<" "<<VAR(m_wErrorStatistics)<<" "<<VAR(m_wFullCircleEnergy)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wErrorSmootheness)<<" "<<VAR(m_sigma)<<" "<<VAR(m_sigmaD)<<" "<<VAR(m_exponent)<<endl;
-        double totalInconsistency = 0.0;
-        int totalCount = 0;
-        for (unsigned int d = 0; d< D; ++d){
+         LOGV(1)<<"Creating equation system.."<<endl;
+         LOGV(1)<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
+         LOGV(1)<<VAR(  m_wTransformationSimilarity)<<" "<<VAR(        m_wDeformationSmootheness)<<" "<<VAR(m_wCircleNorm)<<" "<<VAR(m_wErrorNorm)<<" "<<VAR(m_wErrorStatistics)<<" "<<VAR(m_wFullCircleEnergy)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wErrorSmootheness)<<" "<<VAR(m_sigma)<<" "<<VAR(m_sigmaD)<<" "<<VAR(m_exponent)<<endl;
+         double totalInconsistency = 0.0;
+         int totalCount = 0;
+         for (unsigned int d = 0; d< D; ++d){
 #ifdef SEPENGINE       
             if (!(this->m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
                 fprintf(stderr, "\nCan't start MATLAB engine\n");
@@ -276,7 +280,7 @@ public:
             std::fill(lb,lb+m_nVars,-200);
             double * ub=mxGetPr(mxUpperBound);
             std::fill(ub,ub+m_nVars,200);
-            LOG<<"creating"<<VAR(d)<<endl;
+            LOGV(1)<<"creating"<<VAR(d)<<endl;
      
 
 
@@ -296,7 +300,7 @@ public:
             computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, c,  eq,d);
 
 
-            LOG<<VAR(eq)<<" "<<VAR(c)<<endl;
+            LOGV(1)<<VAR(eq)<<" "<<VAR(c)<<endl;
             
 
             //put variables into workspace and immediately destroy them
@@ -322,17 +326,17 @@ public:
                 engEvalString(this->m_ep,"b=b(1:nEq-1)");
             }
 
-            LOG<<"Creating sparse matrix"<<endl;
+            LOGV(1)<<"Creating sparse matrix"<<endl;
             engEvalString(this->m_ep,"A=sparse(xCord,yCord,val);" );
             LOGI(6,engEvalString(this->m_ep,"save('sparse.mat');" ));
-            LOG<<"done, cleaning up"<<endl;
+            LOGV(1)<<"done, cleaning up"<<endl;
             //clear unnneeded variables from matlab workspace
             engEvalString(this->m_ep,"clear xCord yCord val;" );
 
             engPutVariable(this->m_ep,"init",mxInit);
             mxDestroyArray(mxInit);
             this->haveInit=true;
-            LOG<<"Solving "<<VAR(d)<<endl;
+            LOGV(1)<<"Solving "<<VAR(d)<<endl;
             if (1){
                 engEvalString(this->m_ep, "lb=[-200000*ones(size(A,2),1)];");
                 engEvalString(this->m_ep, "ub=[200000*ones(size(A,2),1);]");
@@ -345,7 +349,7 @@ public:
             mxDestroyArray(mxUpperBound);
 
             engEvalString(this->m_ep, "norm(A*init-b)^2");
-            printf("initialisation residual %s", buffer+2);
+            LOGI(2,printf("initialisation residual %s", buffer+2));
 
             
             if (1){
@@ -354,11 +358,11 @@ public:
                 TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);toc"));
                 //solve using active set method (backslash)
                 //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);toc"));
-                printf("%s", buffer+2);
+                LOGI(1,printf("%s", buffer+2));
                 engEvalString(this->m_ep, " resnorm");
-                printf("%s", buffer+2);
+                LOGI(1,printf("%s", buffer+2));
                 engEvalString(this->m_ep, "output");
-                printf("%s", buffer+2);
+                LOGI(2,printf("%s", buffer+2));
             }else{
                 //solve using pseudo inverse
                 //TIME(engEvalString(this->m_ep, "tic;x = pinv(full(A))*b;toc"));
@@ -377,7 +381,7 @@ public:
     }
     virtual void solve(){}
 
-    virtual void storeResult(string directory){
+    virtual DeformationCacheType* storeResult(string directory){
         //std::vector<double> result(m_nVars);
         std::vector<double*> rData(D);
         for (int d= 0; d<D ; ++d){
@@ -386,15 +390,6 @@ public:
 
         ImagePointerType mask;
         
-        double trueResidual=0.0;
-        double estimationResidual=0.0;
-        double circleResidual=0.0;
-        double averageError=0.0;
-        double averageOldError=0.0;
-        double averageInconsistency = 0.0;
-        int c3 = 0;
-        int c=0;
-        int c2=0;
         for (int s = 0;s<m_numImages;++s){
             for (int t=0;t<m_numImages;++t){
                 if (s!=t){
@@ -406,6 +401,22 @@ public:
                     itErr.GoToBegin();
                     itDef.GoToBegin();
 
+                    mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
+                    mask->FillBuffer(0);
+                    typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+                    IndexType offset;
+                    double fraction=0.7;
+                    for (int d=0;d<D;++d){
+                        offset[d]=(1.0-fraction)/2*size[d];
+                        size[d]=fraction*size[d];
+                    }
+                    
+                    typename ImageType::RegionType region;
+                    region.SetSize(size);
+                    region.SetIndex(offset);
+                    LOGV(6)<<VAR(region)<<endl;
+                    ImageUtils<ImageType>::setRegion(mask,region,1);
+                    
                     DeformationFieldIterator origIt((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
                     origIt.GoToBegin();
 
@@ -436,8 +447,7 @@ public:
                         }
                         itErr.Set(estimatedError);
                         itDef.Set(estimatedDeformation);
-                        LOGV(8)<<VAR(c)<<" "<<VAR(estimatedDeformation)<<endl;
-                        if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                        if (mask->GetPixel(itErr.GetIndex()) && (*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
                             DeformationType trueErr = origIt.Get()-trueIt.Get();
                             DeformationType estimatedDiffErr = estimatedDeformation - trueIt.Get();
                             //LOGV(5)<<VAR(trueErr.GetNorm())<<" "<<VAR(estimatedError.GetNorm())<<endl;
@@ -447,38 +457,8 @@ public:
                            
                             ++trueIt;
                         }
-                        ++c;
                     }
                     
-                    if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
-                        mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
-                        mask->FillBuffer(0);
-                        typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
-                        IndexType offset;
-                        double fraction=0.7;
-                        for (int d=0;d<D;++d){
-                            offset[d]=(1.0-fraction)/2*size[d];
-                            size[d]=fraction*size[d];
-                        }
-                        
-                        typename ImageType::RegionType region;
-                        region.SetSize(size);
-                        region.SetIndex(offset);
-                        LOGV(6)<<VAR(region)<<endl;
-                        ImageUtils<ImageType>::setRegion(mask,region,1);
-                        //mask = TransfUtils<ImageType>::warpImage(mask,estimatedDeform);
-
-                        double newError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask);
-                        //double newError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
-                        //mask->FillBuffer(1);
-                        //mask = TransfUtils<ImageType>::warpImage(mask,(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
-                        double oldError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask);
-                        //double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
-                        LOGV(1)<<VAR(s)<<" "<<VAR(t)<<" "<<VAR(oldError)<<" "<<VAR(newError)<<endl;
-                        averageError+=newError;
-                        averageOldError+=oldError;
-                    }
-                    c2++;
                     ostringstream outfile;
                     if (directory != ""){
                         outfile<<directory<<"/estimatedLocalComposedDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
@@ -497,39 +477,19 @@ public:
                 }
             }
         }
-        estimationResidual=(estimationResidual)/c;
-        trueResidual=(trueResidual)/c;
-        averageError/=c2;
-        averageOldError/=c2;
-        LOG<<VAR(averageError)<<" "<<VAR(averageOldError)<<" "<<VAR(trueResidual)<<" "<<VAR(c)<<endl;
-
+      
         for (int d= 0; d<D ; ++d){
             mxDestroyArray(this->m_results[d]);
         }
-        double inc;
-        LOG<<"inconsistency after CLERC: "<<endl;
-        if (m_updateDeformations){
-            inc=computeInconsistency(m_downSampledDeformationCache,mask);
-        }else{
-            inc=computeInconsistency(m_updatedDeformationCache,mask);
-            LOG<<"inconsistency before CLERC: "<<endl;
-            inc=computeInconsistency(m_downSampledDeformationCache,mask);
-
-        }
-        LOG<<"inconsistency of true deformations: "<<endl;
-        inc=computeInconsistency(m_trueDeformations,mask);
-        //inc=computeInconsistency(m_deformationCache,mask);
-
-     
-      
-        
+        if (m_updateDeformations)
+            return m_downSampledDeformationCache;
+        else
+            return m_updatedDeformationCache;
     }
 
     std::vector<double> getResult(){
         std::vector<double> result(m_nVars);
         return result;
-        
-
     }
 
 public:
@@ -551,7 +511,21 @@ public:
                             d0 = (*cache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
                             d1 = (*cache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
                             
-                          
+                            mask=TransfUtils<ImageType>::createEmptyImage(directDeform);
+                            mask->FillBuffer(0);
+                            typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+                            IndexType offset;
+                            double fraction=0.7;
+                            for (int d=0;d<D;++d){
+                                offset[d]=(1.0-fraction)/2*size[d];
+                                size[d]=fraction*size[d];
+                            }
+                            
+                            typename ImageType::RegionType region;
+                            region.SetSize(size);
+                            region.SetIndex(offset);
+                            LOGV(6)<<VAR(region)<<endl;
+                            ImageUtils<ImageType>::setRegion(mask,region,1);
                             
                             DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(d1,d0);
                             indirectDef=TransfUtils<ImageType>::linearInterpolateDeformationField(indirectDef,TransfUtils<ImageType>::createEmptyImage(directDeform));
@@ -564,9 +538,50 @@ public:
                 }
             }
         }
-        LOG<<VAR(averageInconsistency/c3)<<endl;
         return averageInconsistency/c3;
+        
+    }
+    
+    double computeError(map< string, map <string, DeformationFieldPointerType> > * cache, ImagePointerType mask=NULL){
+        //compute inconsistency over triplets
+        double averageError=0;
+        int c3=0;
+        for (int s = 0;s<m_numImages;++s){
+            for (int t=0;t<m_numImages;++t){
+                DeformationFieldPointerType directDeform;
+                if (s!=t){
+                    directDeform= (*cache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
 
+                    mask=TransfUtils<ImageType>::createEmptyImage(directDeform);
+                    mask->FillBuffer(0);
+                    typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+                    IndexType offset;
+                    double fraction=0.7;
+                    for (int d=0;d<D;++d){
+                        offset[d]=(1.0-fraction)/2*size[d];
+                        size[d]=fraction*size[d];
+                    }
+                    
+                    typename ImageType::RegionType region;
+                    region.SetSize(size);
+                    region.SetIndex(offset);
+                    LOGV(6)<<VAR(region)<<endl;
+                    ImageUtils<ImageType>::setRegion(mask,region,1);
+
+                    if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                        DeformationFieldPointerType trueDeform = (*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
+                        DeformationFieldPointerType diff  = TransfUtils<ImageType>::subtract(directDeform,trueDeform);
+                        double residual = TransfUtils<ImageType>::computeDeformationNormMask(diff,mask,2,true);
+                        averageError += residual;
+                        c3++;
+                    }
+                }
+            }
+        }
+        if (!c3)
+            return -1;
+        else
+            return averageError/c3;
     }
 
 protected:
@@ -647,7 +662,7 @@ protected:
             def->TransformIndexToPhysicalPoint(idx,pt);
             DeformationType delta=point-pt;
             if (def->GetLargestPossibleRegion().IsInside(idx)){
-                //LOG<<VAR(def->GetLargestPossibleRegion().GetSize())<<" "<<VAR(idx)<<endl;
+                //LOGV(1)<<VAR(def->GetLargestPossibleRegion().GetSize())<<" "<<VAR(idx)<<endl;
                 double w=getWeight(delta,def->GetSpacing());
                 sum+=w;
                 neighbors[nNeighbors++]=std::make_pair(idx,w);
@@ -697,7 +712,7 @@ protected:
         double manualResidual=0.0;
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
-            if (m_pairwiseInconsistencyStatistics.find(s)==m_pairwiseInconsistencyStatistics.end())
+            if (m_wErrorStatistics>0 && m_pairwiseInconsistencyStatistics.find(s)==m_pairwiseInconsistencyStatistics.end())
                 m_pairwiseInconsistencyStatistics[s]=map <int,  GaussEstimatorType >();
 
             for (int t=0;t<m_numImages;++t){
@@ -705,12 +720,14 @@ protected:
                     int target=t;
                     DeformationFieldPointerType dSourceTarget=(*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[target]];
                     
-                    if (m_pairwiseInconsistencyStatistics[s].find(t)==m_pairwiseInconsistencyStatistics[s].end())
-                        m_pairwiseInconsistencyStatistics[s][t]=GaussEstimatorType();
-                    
-                    m_pairwiseInconsistencyStatistics[s][t].addImage(TransfUtils<ImageType>::getComponent(dSourceTarget,d));
+                    if (m_wErrorStatistics>0.0){
+                        if (m_pairwiseInconsistencyStatistics[s].find(t)==m_pairwiseInconsistencyStatistics[s].end())
+                            m_pairwiseInconsistencyStatistics[s][t]=GaussEstimatorType();
+                        
+                        m_pairwiseInconsistencyStatistics[s][t].addImage(TransfUtils<ImageType>::getComponent(dSourceTarget,d));
+                    }
 
-                    //#define ORACLE         
+                    
                     //triplet energies
                     for (int i=0;i<m_numImages;++i){ 
                         if (t!=i && i!=s){
@@ -720,9 +737,11 @@ protected:
                             if (true && m_haveDeformationEstimate && (*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
                                 dIntermediateTarget=(*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
                             }
-#ifdef ORACLE
-                            dIntermediateTarget=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-#endif
+                            
+                            if (m_ORACLE){
+                                dIntermediateTarget=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
+                            }
+
                             DeformationFieldPointerType dSourceIntermediate = (*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
 
                             
@@ -735,16 +754,17 @@ protected:
                             FloatImagePointerType directionalDifference = TransfUtils<ImageType>::getComponent(difference,d);
                             FloatImagePointerType directionalDeform = TransfUtils<ImageType>::getComponent(indirectDeform,d);
                             
-                            //check if all accumulators exist
-                            if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
-                                m_pairwiseInconsistencyStatistics[i]=map <int,  GaussEstimatorType >();
-                            if (m_pairwiseInconsistencyStatistics[i].find(t)==m_pairwiseInconsistencyStatistics[i].end())
-                                m_pairwiseInconsistencyStatistics[i][t]=GaussEstimatorType();
-
-                            //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDifference);
-                            m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDeform);
-                            //m_pairwiseInconsistencyStatistics[i][t].addImage(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(directionalDifference,-1));
-
+                            if (m_wErrorStatistics>0.0){
+                                //check if all accumulators exist
+                                if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
+                                    m_pairwiseInconsistencyStatistics[i]=map <int,  GaussEstimatorType >();
+                                if (m_pairwiseInconsistencyStatistics[i].find(t)==m_pairwiseInconsistencyStatistics[i].end())
+                                    m_pairwiseInconsistencyStatistics[i][t]=GaussEstimatorType();
+                                
+                                //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDifference);
+                                m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDeform);
+                                //m_pairwiseInconsistencyStatistics[i][t].addImage(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(directionalDifference,-1));
+                            }
 
                             //compute norm
                             DeformationFieldIterator it(difference,m_regionOfInterest);
@@ -765,7 +785,7 @@ protected:
                             }
                             SizeType roiSize=m_regionOfInterest.GetSize();
                             
-                            // LOG<<VAR(dir)<<" "<<VAR(start)<<endl;
+                            // LOGV(1)<<VAR(dir)<<" "<<VAR(start)<<endl;
                             for (;!it.IsAtEnd();++it){
 
                                 bool valid=true;
@@ -985,8 +1005,11 @@ protected:
                     it.GoToBegin();
                     
                     
-                    GaussEstimatorType & statisticsEstimatorSourceTarget = m_pairwiseInconsistencyStatistics[s][t];
-                    statisticsEstimatorSourceTarget.finalize();
+                    GaussEstimatorType * statisticsEstimatorSourceTarget;
+                    if (m_wErrorStatistics>0.0){
+                        statisticsEstimatorSourceTarget = &m_pairwiseInconsistencyStatistics[s][t];
+                        statisticsEstimatorSourceTarget->finalize();
+                    }
 
            
 
@@ -1048,12 +1071,14 @@ protected:
 
                         //set w_delta
                         //set eqn for soft constraining the error to be small
-                        double meanInconsistency=statisticsEstimatorSourceTarget.getMean()->GetPixel(idx);
-                        double varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget.getVariance()->GetPixel(idx))));
-                        if (varInconsistency == 0.0){
-                            varInconsistency = 1e-5;
-                        }
+                        double meanInconsistency;
+                        double varInconsistency;
                         if (m_wErrorStatistics>0.0){
+                            meanInconsistency=statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
+                            varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget->getVariance()->GetPixel(idx))));
+                            if (varInconsistency == 0.0){
+                                varInconsistency = 1e-5;
+                            }
                             weight2 = 1.0/(varInconsistency);
                             x[c]    = eq;
                             y[c]    = edgeNumDef;
@@ -1154,10 +1179,11 @@ protected:
                         double upperBound = extent;
                         double lowerBound = -upperBound;
                         LOGV(4)<<VAR(upperBound)<<endl;
-
-                        lowerBound        = meanInconsistency-3*sqrt(varInconsistency);
-                        upperBound        = meanInconsistency+3*sqrt(varInconsistency);
-                        LOGV(6)<<VAR(weight)<<" "<<VAR(lowerBound)<<VAR(upperBound)<<" "<<VAR(meanInconsistency)<<" "<<VAR(varInconsistency)<<" "<<VAR(trueError)<<endl;
+                        if (m_wErrorStatistics>0.){
+                            lowerBound        = meanInconsistency-3*sqrt(varInconsistency);
+                            upperBound        = meanInconsistency+3*sqrt(varInconsistency);
+                            LOGV(6)<<VAR(weight)<<" "<<VAR(lowerBound)<<VAR(upperBound)<<" "<<VAR(meanInconsistency)<<" "<<VAR(varInconsistency)<<" "<<VAR(trueError)<<endl;
+                        }
 
                         
                         if (m_estError){
@@ -1194,7 +1220,7 @@ protected:
 public:
     void computePairwiseSimilarityWeights()
     {
-        LOG<<"Computing similarity based local weights" <<endl;
+        LOGV(1)<<"Computing similarity based local weights" <<endl;
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
             m_pairwiseLocalWeightMaps[s]=map<int,FloatImagePointerType>();

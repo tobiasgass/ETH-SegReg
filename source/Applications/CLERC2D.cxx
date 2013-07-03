@@ -134,6 +134,7 @@ int main(int argc, char ** argv){
     double m_sigmaD = 0.0;
     double circWeightScaling = 1.0;
     double scalingFactorForConsistentSegmentation = 1.0;
+    bool oracle = false;
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
@@ -165,6 +166,8 @@ int main(int argc, char ** argv){
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
     (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    (*as) >> option ("ORACLE", oracle," use true deformation for indexing variables in loops.CHEATING!!.");
+
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
     (*as) >> help();
     as->defaultErrorHandling();
@@ -203,7 +206,9 @@ int main(int argc, char ** argv){
     }else{
         LOG<<"CACHING all deformations!"<<endl;
     }
-    map< string, map <string, DeformationFieldPointerType> > deformationCache, errorAccumulators, trueDeformations,downSampledDeformationCache;
+    typedef map< string, map <string, DeformationFieldPointerType> > DeformationCacheType;
+
+    DeformationCacheType deformationCache, errorAccumulators, trueDeformations,downSampledDeformationCache;
     map< string, map <string, string> > deformationFilenames;
     map<string, map<string, float> > globalWeights;
     DisplacementType zeroDisp;
@@ -345,6 +350,7 @@ int main(int argc, char ** argv){
         break;
     }
     
+    solver->setOracle(oracle);
     solver->setWeightFullCircleEnergy(wwd);
     solver->setWeightDeformationSmootheness(wws);
     solver->setWeightTransformationSimilarity(wwt);
@@ -361,6 +367,11 @@ int main(int argc, char ** argv){
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
+    
+    double error=solver->computeError(&downSampledDeformationCache);
+    double inconsistency = solver->computeInconsistency(&downSampledDeformationCache);
+    int iter = 0;
+    LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
     solver->computePairwiseSimilarityWeights();
 
     if (atlasSegmentationFileList!=""){
@@ -368,13 +379,16 @@ int main(int argc, char ** argv){
         solver->setScalingFactorForConsistentSegmentation(scalingFactorForConsistentSegmentation);
     }
 
-    for (int h=0;h<maxHops;++h){
+    for (iter=1;iter<maxHops+1;++iter){
         //solver->setWeightCircleNorm(wwcirc*pow(circWeightScaling,h)); 
         //solver->setWeightErrorNorm(wwdelta*pow(2,h));
         //solver->setSigma(m_sigma/pow(2,h)); 
         solver->createSystem();
         solver->solve();
-        solver->storeResult(outputDir);
+        DeformationCacheType * result = solver->storeResult(outputDir);
+        error=solver->computeError(result);
+        inconsistency = solver->computeInconsistency(result);
+        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
         
 #if 0

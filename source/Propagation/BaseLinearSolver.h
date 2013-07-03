@@ -135,7 +135,7 @@ public:
     }
     
     virtual void createSystem()=0;
-    virtual void storeResult(string directory)=0;
+    //virtual void storeResult(string directory)=0;
 protected:
     mxArray *m_A, *m_result,*m_b,*m_residual;
     Engine *m_ep;

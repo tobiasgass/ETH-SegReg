@@ -150,7 +150,7 @@ public:
         
 
     }
-    virtual void storeResult(string directory){}
+    //virtual void storeResult(string directory){}
 
 protected:
     int m_nVars,m_nEqs,m_nNonZeroes;
