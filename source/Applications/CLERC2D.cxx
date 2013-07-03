@@ -65,35 +65,7 @@ enum SolverType {LOCALDEFORMATIONANDERROR};
 
 
 
-map<string,ImagePointerType> * readImageList(string filename,std::vector<string> & imageIDs){
-    map<string,ImagePointerType> * result=new  map<string,ImagePointerType>;
-    ifstream ifs(filename.c_str());
-    if (!ifs){
-        LOG<<"could not read "<<filename<<endl;
-        exit(0);
-    }
-    while( ! ifs.eof() ) 
-        {
-            string imageID;
-            ifs >> imageID;                
-            if (imageID!=""){
-                imageIDs.push_back(imageID);
-                ImagePointerType img;
-                string imageFileName ;
-                ifs >> imageFileName;
-                LOGV(3)<<"Reading image "<<imageFileName<< " with ID "<<imageID<<endl;
 
-                img=ImageUtils<ImageType>::readImage(imageFileName);
-                if (result->find(imageID)==result->end())
-                    (*result)[imageID]=img;
-                else{
-                    LOG<<"duplicate image ID "<<imageID<<", aborting"<<endl;
-                    exit(0);
-                }
-            }
-        }
-    return result;
-}        
   
 
 double computeError( map< string, map <string, DeformationFieldPointerType> >  & defs,  map< string, map <string, DeformationFieldPointerType> > & trueDefs){
@@ -196,7 +168,7 @@ int main(int argc, char ** argv){
     typedef  map<string, ImagePointerType>::iterator ImageListIteratorType;
     std::vector<string> imageIDs;
     LOG<<"Reading input images."<<endl;
-    inputImages = readImageList( imageFileList, imageIDs );
+    inputImages = ImageUtils<ImageType>::readImageList( imageFileList, imageIDs );
     int nImages = inputImages->size();
         
    
@@ -335,7 +307,7 @@ int main(int argc, char ** argv){
     map<string,ImagePointerType> *atlasSegmentations = NULL;
     if (atlasSegmentationFileList!=""){
         std::vector<string> buff;
-        atlasSegmentations=readImageList(atlasSegmentationFileList,buff);
+        atlasSegmentations=ImageUtils<ImageType>::readImageList(atlasSegmentationFileList,buff);
         
     }
    
@@ -368,8 +340,8 @@ int main(int argc, char ** argv){
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
     
-    double error=solver->computeError(&downSampledDeformationCache);
-    double inconsistency = solver->computeInconsistency(&downSampledDeformationCache);
+    double error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
+    double inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
     int iter = 0;
     LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
     solver->computePairwiseSimilarityWeights();
@@ -386,8 +358,8 @@ int main(int argc, char ** argv){
         solver->createSystem();
         solver->solve();
         DeformationCacheType * result = solver->storeResult(outputDir);
-        error=solver->computeError(result);
-        inconsistency = solver->computeInconsistency(result);
+        error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
+        inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
         

@@ -98,6 +98,7 @@ public:
     GaussianEstimatorVectorImage(){
         m_localWeights=NULL;
         m_useVariance=false;
+        count = 0;
     }
     void initialize(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
         count=1;
@@ -109,15 +110,23 @@ public:
         m_mean=ImageUtils<DeformationFieldType>::duplicate(img);
     }
     void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
-        
+        if (count == 0){
+            count=1;
+            if (weights.IsNotNull()){
+                m_localWeights=ImageUtils<FloatImageType>::duplicate(weights);
+                img=TransfUtils<ImageType>::locallyScaleDeformation(img,weights);
+            }
+            m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(img,img);
+            m_mean=ImageUtils<DeformationFieldType>::duplicate(img);
+        }else{
             if (weights.IsNotNull()){
                 m_localWeights=FilterUtils<FloatImageType>::add(m_localWeights,weights);
                 img=TransfUtils<ImageType>::locallyScaleDeformation(img,weights);
             }
             m_mean=TransfUtils<ImageType>::add(m_mean,img);
             m_variance=TransfUtils<ImageType>::add(m_variance,TransfUtils<ImageType>::multiplyOutOfPlace(img,img));
-           
             count++;
+        }
        
     }
     void finalize(){
@@ -126,7 +135,7 @@ public:
             TransfUtils<FloatImageType>::divide(m_variance,m_localWeights);
         }else{
             m_mean=TransfUtils<ImageType>::multiplyOutOfPlace(m_mean,1.0/count);
-            m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(m_variance,1.0/count);
+            m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(m_variance,1.0/(count-1));
         }
         m_variance=TransfUtils<ImageType>::subtract(m_variance,TransfUtils<ImageType>::multiplyOutOfPlace(m_mean,m_mean));
     }

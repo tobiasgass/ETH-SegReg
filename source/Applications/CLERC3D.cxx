@@ -128,13 +128,14 @@ int main(int argc, char ** argv){
     double lambda=0.0;
     double resamplingFactor=1.0;
     m_sigma=10;
-    string solverName="localnorm";
+    string solverName="localdeformationanderror";
     double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0;
     bool linear=false;
     double shearing = 1.0;
     double m_sigmaD = 0.0;
     double circWeightScaling = 1.0;
-    
+    bool oracle = false;
+
     //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -162,6 +163,8 @@ int main(int argc, char ** argv){
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
     (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    (*as) >> option ("ORACLE", oracle," use true deformation for indexing variables in loops.CHEATING!!.");
+
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
     (*as) >> help();
     as->defaultErrorHandling();
@@ -199,7 +202,9 @@ int main(int argc, char ** argv){
     }else{
         LOG<<"CACHING all deformations!"<<endl;
     }
-    map< string, map <string, DeformationFieldPointerType> > deformationCache, errorAccumulators, trueDeformations,downSampledDeformationCache;
+    typedef map< string, map <string, DeformationFieldPointerType> > DeformationCacheType;
+
+    DeformationCacheType deformationCache, errorAccumulators, trueDeformations,downSampledDeformationCache;
     map< string, map <string, string> > deformationFilenames;
     map<string, map<string, float> > globalWeights;
     DisplacementType zeroDisp;
@@ -331,6 +336,7 @@ int main(int argc, char ** argv){
         solver= new CLERCIndependentDimensions<ImageType>;
         break;
     }
+    solver->setOracle(oracle);
     
     solver->setWeightFullCircleEnergy(wwd);
     solver->setWeightDeformationSmootheness(wws);
@@ -340,22 +346,32 @@ int main(int argc, char ** argv){
     solver->setWeightCircleNorm(wwcirc); 
     solver->setWeightSum(wwsum); 
     solver->setWeightInconsistencyError(wwInconsistencyError); 
-
+ 
     solver->setLinearInterpol(linear);
     solver->setSigma(m_sigma);
     solver->setSigmaD(m_sigmaD);
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
+
+    double error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
+    double inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
+    int iter = 0;
+    LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
     solver->computePairwiseSimilarityWeights();
-    for (int h=0;h<maxHops;++h){
+
+  
+
+    for (iter=1;iter<maxHops+1;++iter){
         //solver->setWeightCircleNorm(wwcirc*pow(circWeightScaling,h)); 
         //solver->setWeightErrorNorm(wwdelta*pow(2,h));
         //solver->setSigma(m_sigma/pow(2,h)); 
         solver->createSystem();
         solver->solve();
-        solver->storeResult(outputDir);
-        
+        DeformationCacheType * result = solver->storeResult(outputDir);
+        error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
+        inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
+        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
 #if 0
         map< string, map <string, DeformationFieldPointerType> > * estimatedDeforms=solver->getEstimatedDeformations();

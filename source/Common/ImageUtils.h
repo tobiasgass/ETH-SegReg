@@ -506,5 +506,36 @@ public:
         }
 
     }
+
+
+    static std::map<std::string,ImagePointerType> * readImageList(std::string filename,std::vector<std::string> & imageIDs){
+        std::map<std::string,ImagePointerType> * result=new  std::map<std::string,ImagePointerType>;
+
+        std::ifstream ifs(filename.c_str());
+        if (!ifs){
+            std::cerr<<"could not read "<<filename<<std::endl;
+            exit(0);
+        }
+        while( ! ifs.eof() ) 
+            {
+                std::string imageID;
+                ifs >> imageID;                
+                if (imageID!=""){
+                    imageIDs.push_back(imageID);
+                    ImagePointerType img;
+                    std::string imageFileName ;
+                    ifs >> imageFileName;
+                    
+                    img=ImageUtils<ImageType>::readImage(imageFileName);
+                    if (result->find(imageID)==result->end())
+                        (*result)[imageID]=img;
+                    else{
+                        std::cerr<<"duplicate image ID "<<imageID<<", aborting"<<std::endl;
+                        exit(0);
+                    }
+                }
+            }
+        return result;
+    }        
 };
 #endif // IMAGE_UTILS
