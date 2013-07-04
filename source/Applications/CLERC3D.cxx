@@ -129,7 +129,7 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=10;
     string solverName="localdeformationanderror";
-    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0;
+    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0,wErrorStatistics=1.0;
     bool linear=false;
     double shearing = 1.0;
     double m_sigmaD = 0.0;
@@ -155,6 +155,8 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
     (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
+    (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"weight for error variable being forced to be similar to the inconsitency statistics",false);
+
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
     (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
     (*as) >> parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
@@ -336,8 +338,8 @@ int main(int argc, char ** argv){
         solver= new CLERCIndependentDimensions<ImageType>;
         break;
     }
-    solver->setOracle(oracle);
     
+    solver->setOracle(oracle);
     solver->setWeightFullCircleEnergy(wwd);
     solver->setWeightDeformationSmootheness(wws);
     solver->setWeightTransformationSimilarity(wwt);
@@ -346,7 +348,8 @@ int main(int argc, char ** argv){
     solver->setWeightCircleNorm(wwcirc); 
     solver->setWeightSum(wwsum); 
     solver->setWeightInconsistencyError(wwInconsistencyError); 
- 
+    solver->setWeightErrorStatistics(wErrorStatistics); 
+
     solver->setLinearInterpol(linear);
     solver->setSigma(m_sigma);
     solver->setSigmaD(m_sigmaD);
@@ -369,8 +372,8 @@ int main(int argc, char ** argv){
         solver->createSystem();
         solver->solve();
         DeformationCacheType * result = solver->storeResult(outputDir);
-        error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
-        inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
+        error=TransfUtils<ImageType>::computeError(result,&trueDeformations,&imageIDs);
+        inconsistency = TransfUtils<ImageType>::computeInconsistency(result,&imageIDs);
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
 #if 0

@@ -358,8 +358,8 @@ int main(int argc, char ** argv){
         solver->createSystem();
         solver->solve();
         DeformationCacheType * result = solver->storeResult(outputDir);
-        error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
-        inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
+        error=TransfUtils<ImageType>::computeError(result,&trueDeformations,&imageIDs);
+        inconsistency = TransfUtils<ImageType>::computeInconsistency(result,&imageIDs);
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
         
