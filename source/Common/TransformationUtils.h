@@ -73,8 +73,8 @@ public:
                                      DeformationFieldType>                           SubtracterType;
     typedef typename SubtracterType::Pointer                  SubtracterPointer;
 
-    typedef itk::DiscreteGaussianImageFilter<DeformationFieldType,DeformationFieldType>  DiscreteGaussianImageFilterType;
-    //typedef itk::SmoothingRecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+    //typedef itk::DiscreteGaussianImageFilter<DeformationFieldType,DeformationFieldType>  DiscreteGaussianImageFilterType;
+    typedef itk::SmoothingRecursiveGaussianImageFilter<DeformationFieldType,DeformationFieldType>  DiscreteGaussianImageFilterType;
     typedef typename DiscreteGaussianImageFilterType::Pointer DiscreteGaussianImageFilterPointer;
     
     typedef map< string, map <string, DeformationFieldPointerType> > DeformationCacheType;
@@ -250,25 +250,33 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
-    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
-        return bSplineInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
+    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference,bool smooth=false){ 
+        return bSplineInterpolateDeformationField(labelImg,(ConstImagePointerType)reference,smooth);
     }
-    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, DeformationFieldPointerType reference){ 
+    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, DeformationFieldPointerType reference,bool smooth=false){ 
         ImagePointerType ref = createEmptyImage(reference);
-        return bSplineInterpolateDeformationField(labelImg,(ConstImagePointerType)ref);
+        return bSplineInterpolateDeformationField(labelImg,(ConstImagePointerType)ref,smooth);
     }
-    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
+    static DeformationFieldPointerType bSplineInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference,bool smooth=false){ 
         if (labelImg->GetLargestPossibleRegion().GetSize()==reference->GetLargestPossibleRegion().GetSize()){
             return ImageUtils<DeformationFieldType>::duplicate(labelImg);
         }
-        else if (false && labelImg->GetLargestPossibleRegion().GetSize()[0]>reference->GetLargestPossibleRegion().GetSize()[0]){
+        else if ( labelImg->GetLargestPossibleRegion().GetSize()[0]>reference->GetLargestPossibleRegion().GetSize()[0]){
             //downsampling does not need bspline interpolation
             //note that the test for downsampling is pretty crude...
-            LOGV(2)<<"Downsampling deformation image (without smoothing)"<<std::endl;
-            LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
             typedef typename itk::VectorResampleImageFilter<DeformationFieldType,DeformationFieldType> ResamplerType;
             typename ResamplerType::Pointer resampler=ResamplerType::New();
-            resampler->SetInput(labelImg);
+            if (smooth){
+                DeformationFieldPointerType smoothedInput = gaussian(labelImg,reference->GetSpacing()-labelImg->GetSpacing());
+                resampler->SetInput(smoothedInput);
+                LOGV(2)<<"Downsampling deformation image (with smoothing)"<<std::endl;
+
+            }else{
+                resampler->SetInput(labelImg);
+                LOGV(2)<<"Downsampling deformation image (without smoothing)"<<std::endl;
+            }
+            LOGV(3)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+
             resampler->SetSize(reference->GetLargestPossibleRegion().GetSize() );
             resampler->SetOutputSpacing( reference->GetSpacing() );
             resampler->SetOutputOrigin( reference->GetOrigin());
@@ -1087,8 +1095,22 @@ public:
             DiscreteGaussianImageFilterType::New();
 
         filter->SetInput(image);
-        //filter->SetSigma(variance);
-        filter->SetVariance(variance*variance);
+        filter->SetSigma(variance);
+        //filter->SetVariance(variance*variance);
+        filter->Update();
+
+        return filter->GetOutput();
+    }
+
+    static DeformationFieldPointerType gaussian(
+                                       DeformationFieldPointerType image, SpacingType spacing
+                                       ) {
+
+        DiscreteGaussianImageFilterPointer filter =
+            DiscreteGaussianImageFilterType::New();
+
+        filter->SetInput(image);
+        filter->SetSigmaArray(spacing);
         filter->Update();
 
         return filter->GetOutput();
@@ -1169,7 +1191,7 @@ public:
                 DeformationFieldPointerType directDeform;
                
                 directDeform= (*cache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
-               
+                if (directDeform.IsNotNull()){
                 if (s!=t){
                     for (int i=0;i<m_numImages;++i){
                         if (i!=t && i !=s){
@@ -1204,8 +1226,11 @@ public:
                     }
                 }
             }
+            }
         }
-        return averageInconsistency/c3;
+        if (c3)
+            return averageInconsistency/c3;
+        else return -1;
         
     }
     

@@ -965,7 +965,7 @@ protected:
                         IndexType idx=it.GetIndex();
                         LOGV(8)<<VAR(eq)<<" "<<VAR(localDef)<<endl;
                         
-                        double trueError  = (*this->m_downSampledDeformationCache)[sourceID][targetID]->GetPixel(idx)[d]-(*m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d];
+                        //double trueError  = (*this->m_downSampledDeformationCache)[sourceID][targetID]->GetPixel(idx)[d]-(*m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d];
 
                         int edgeNumDef=edgeNumDeformation(source,target,idx,d);
                         int edgeNumErr;
@@ -1032,7 +1032,7 @@ protected:
                             v[c++]  = 1.0*m_wErrorStatistics*weight2;
                             //b[eq-1] = m_wErrorStatistics*weight2*trueError;
                             b[eq-1] = m_wErrorStatistics*weight2*meanInconsistency;
-                            LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(meanInconsistency)<<" "<<VAR(weight2)<<" "<<VAR(trueError)<<endl;
+                            //LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(meanInconsistency)<<" "<<VAR(weight2)<<" "<<VAR(trueError)<<endl;
                             ++eq;
                         }
 
@@ -1129,7 +1129,7 @@ protected:
                         if (m_wErrorStatistics>0.){
                             lowerBound        = meanInconsistency-3*sqrt(varInconsistency);
                             upperBound        = meanInconsistency+3*sqrt(varInconsistency);
-                            LOGV(6)<<VAR(weight)<<" "<<VAR(lowerBound)<<VAR(upperBound)<<" "<<VAR(meanInconsistency)<<" "<<VAR(varInconsistency)<<" "<<VAR(trueError)<<endl;
+                            //LOGV(6)<<VAR(weight)<<" "<<VAR(lowerBound)<<VAR(upperBound)<<" "<<VAR(meanInconsistency)<<" "<<VAR(varInconsistency)<<" "<<VAR(trueError)<<endl;
                         }
 
                         

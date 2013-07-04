@@ -275,7 +275,8 @@ int main(int argc, char ** argv){
                     if (!dontCacheDeformations){
                         LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
                         trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
-                        trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
+                        //trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
+                        trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::bSplineInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
                         if (outputDir!=""){
                             DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
                             ostringstream trueDefNorm;
@@ -302,7 +303,9 @@ int main(int argc, char ** argv){
         trueErrorNorm=trueErrorNorm/c;
         LOGV(1)<<VAR(trueErrorNorm)<<endl;
     }
-    
+    double trueInc=TransfUtils<ImageType>::computeInconsistency(&trueDeformations,&imageIDs);
+    LOGV(1)<<VAR(trueInc)<<endl;
+
             
     map<string,ImagePointerType> *atlasSegmentations = NULL;
     if (atlasSegmentationFileList!=""){
