@@ -101,7 +101,7 @@ int main(int argc, char ** argv){
     m_sigma=10;
     string solverName="localnorm";
     double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0,wErrorStatistics=1.0;
-    bool linear=false;
+    bool nearestneighb=false;
     double shearing = 1.0;
     double m_sigmaD = 0.0;
     double circWeightScaling = 1.0;
@@ -131,7 +131,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
     (*as) >> parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
     (*as) >> parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
-    (*as) >> option ("linear", linear," use linear interpolation (instead of NN) when building equations for circles.");
+    (*as) >> option ("nearestneighb", nearestneighb," use nearestneighb interpolation (instead of NN) when building equations for circles.");
     (*as) >> parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
     (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
 
@@ -336,7 +336,7 @@ int main(int argc, char ** argv){
     solver->setWeightInconsistencyError(wwInconsistencyError); 
     solver->setWeightErrorStatistics(wErrorStatistics); 
 
-    solver->setLinearInterpol(linear);
+    solver->setLinearInterpol(!nearestneighb);
     solver->setSigma(m_sigma);
     solver->setSigmaD(m_sigmaD);
     solver->setLocalWeightExp(m_exponent);

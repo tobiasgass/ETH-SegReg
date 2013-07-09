@@ -1148,7 +1148,7 @@ public:
                     mask->FillBuffer(0);
                     typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
                     IndexType offset;
-                    double fraction=0.7;
+                    double fraction=0.9;
                     for (int d=0;d<D;++d){
                         offset[d]=(1.0-fraction)/2*size[d];
                         size[d]=fraction*size[d];
@@ -1204,7 +1204,7 @@ public:
                             mask->FillBuffer(0);
                             typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
                             IndexType offset;
-                            double fraction=0.7;
+                            double fraction=0.9;
                             for (int d=0;d<D;++d){
                                 offset[d]=(1.0-fraction)/2*size[d];
                                 size[d]=fraction*size[d];

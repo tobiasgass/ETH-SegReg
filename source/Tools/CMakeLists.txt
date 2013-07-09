@@ -40,6 +40,9 @@ ADD_EXECUTABLE(InvertDeformation3D InvertDeformation3D.cxx )
 TARGET_LINK_LIBRARIES(InvertDeformation3D  Utils   ${ITK_LIBRARIES}  )
 
 
+ADD_EXECUTABLE(AddNoiseToImage3D AddNoiseToImage3D.cxx )
+TARGET_LINK_LIBRARIES(AddNoiseToImage3D  Utils   ${ITK_LIBRARIES}  )
+
 #Compare segmentations
 ADD_EXECUTABLE(CompareSegmentations3D CompareSegmentations3D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations3D Utils   ${ITK_LIBRARIES}  )

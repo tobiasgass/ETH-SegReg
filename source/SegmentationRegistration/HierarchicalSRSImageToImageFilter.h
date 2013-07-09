@@ -652,7 +652,9 @@ namespace itk{
                         else
                             lowResDef = composedDeformation;
                         deformedAtlasImage=FilterUtils<ImageType>::NNResample(TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef),m_targetImage,false);
-                        deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
+                        if (m_atlasSegmentationImage.IsNotNull()){
+                            deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
+                        }
                     }
                     
       

@@ -239,14 +239,14 @@ public:
     void setSegmentationList(  map<string,ImagePointerType> * list){ m_segmentationList = list; }
     void setScalingFactorForConsistentSegmentation(double scalingFactorForConsistentSegmentation){ m_segConsisntencyWeight = scalingFactorForConsistentSegmentation;}
 
-     virtual void createSystem(){
+    virtual void createSystem(){
         
-         LOGV(1)<<"Creating equation system.."<<endl;
-         LOGV(1)<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
-         LOGV(1)<<VAR(  m_wTransformationSimilarity)<<" "<<VAR(        m_wDeformationSmootheness)<<" "<<VAR(m_wCircleNorm)<<" "<<VAR(m_wErrorNorm)<<" "<<VAR(m_wErrorStatistics)<<" "<<VAR(m_wFullCircleEnergy)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wErrorSmootheness)<<" "<<VAR(m_sigma)<<" "<<VAR(m_sigmaD)<<" "<<VAR(m_exponent)<<endl;
-         double totalInconsistency = 0.0;
-         int totalCount = 0;
-         for (unsigned int d = 0; d< D; ++d){
+        LOGV(1)<<"Creating equation system.."<<endl;
+        LOGV(1)<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
+        LOGV(1)<<VAR(  m_wTransformationSimilarity)<<" "<<VAR(        m_wDeformationSmootheness)<<" "<<VAR(m_wCircleNorm)<<" "<<VAR(m_wErrorNorm)<<" "<<VAR(m_wErrorStatistics)<<" "<<VAR(m_wFullCircleEnergy)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wErrorSmootheness)<<" "<<VAR(m_sigma)<<" "<<VAR(m_sigmaD)<<" "<<VAR(m_exponent)<<endl;
+        double totalInconsistency = 0.0;
+        int totalCount = 0;
+        for (unsigned int d = 0; d< D; ++d){
 #ifdef SEPENGINE       
             if (!(this->m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
                 fprintf(stderr, "\nCan't start MATLAB engine\n");
@@ -854,9 +854,9 @@ protected:
                                         v[c++]= - val* m_wCircleNorm;
                                         
                                         double residual= val*m_wCircleNorm*(dIntermediateTarget->GetPixel(roiTargetIndex)[d]
-                                                                           + defSum
-                                                                           - dSourceTarget->GetPixel(roiTargetIndex)[d]
-                                                                           );
+                                                                            + defSum
+                                                                            - dSourceTarget->GetPixel(roiTargetIndex)[d]
+                                                                            );
                                         manualResidual+=residual*residual;
                                         b[eq-1]=0;
                                         ++eq;
@@ -1195,7 +1195,12 @@ public:
                                                                                               
                         lncc=TransfUtils<ImageType>::computeLocalDeformationNormWeights(diff,m_exponent);
 #else
-                        DeformationFieldPointerType def = (*this->m_deformationCache)[sourceID][targetID];
+                        DeformationFieldPointerType def ;
+                        if ( (*this->m_deformationCache)[sourceID][targetID].IsNotNull()){
+                            def=(*this->m_deformationCache)[sourceID][targetID];
+                        }else{
+                            def=TransfUtils<ImageType>::bSplineInterpolateDeformationField( (*this->m_downSampledDeformationCache)[sourceID][targetID], (ConstImagePointerType)(*m_imageList)[targetID]);
+                        }
                         ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage((ConstImagePointerType)(*m_imageList)[sourceID],def);
                         //compute lncc
                         lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
@@ -1252,7 +1257,7 @@ public:
             if (distance==0.0){
                 localWeight=0.0;
             }else{
-            //compute falloff
+                //compute falloff
                 localWeight=max(0.0,1.0+1.0/(distance));
             }
             //take max
@@ -1261,5 +1266,93 @@ public:
 
         }
         return weight;
+    }
+
+    double computeLandmarkRegistrationError(DeformationCacheType * deformations, map<string,string> landmarkFilenames,std::vector<string> imageIDs, map<string,ImagePointerType> * images){
+
+        int nImages=imageIDs.size();
+        typedef typename  ImageType::DirectionType DirectionType;
+        
+        typedef typename itk::VectorLinearInterpolateImageFunction<DeformationFieldType> DefInterpolatorType;
+        
+        typedef typename DefInterpolatorType::ContinuousIndexType CIndexType;
+        
+        PointType p;
+        p.Fill(0.0);
+        
+        double sumSquareError=0.0;
+        int count = 0;
+
+        for (int source=0;source<nImages;++source){
+            string sourceID=imageIDs[source];
+            for (int target=0;target<nImages;++target){
+                if (source!=target){
+                    string targetID=imageIDs[target];
+                    DeformationFieldPointerType def=(*deformations)[sourceID][targetID];
+                    ImagePointerType reference=(*images)[targetID];
+                    DirectionType refDir=reference->GetDirection();
+
+                    if (def->GetLargestPossibleRegion().GetSize() != reference->GetLargestPossibleRegion().GetSize()){
+                        //def=TransfUtils<ImageType>::bSplineInterpolateDeformationField(def,reference);
+                    }
+                    typename DefInterpolatorType::Pointer defInterpol=DefInterpolatorType::New();
+        
+                    defInterpol->SetInputImage(def);
+                    DirectionType targetDir=def->GetDirection();
+                    vector<PointType> landmarksReference, landmarksTarget;
+                    string refLandmarks=landmarkFilenames[sourceID];
+                    string targetLandmarks=landmarkFilenames[targetID];
+                    ifstream ifs(refLandmarks.c_str());
+                    int i=0;
+                      
+                    while ( not ifs.eof() ) {
+                        PointType point;
+                        for (int d=0;d<D;++d){
+                            ifs>>point[d];
+                            point[d]=point[d]*refDir[d][d];
+                        }
+                        //LOG<<point<<endl;
+                        landmarksReference.push_back(point);
+                          
+                    } 
+                    //std::cout<<"read "<<landmarksReference.size()<<" landmarks"<<std::endl;
+                    ifstream ifs2(targetLandmarks.c_str());
+                    i=0;
+                    for (;i<landmarksReference.size()-1;++i){
+                        PointType pointTarget;
+                        for (int d=0;d<D;++d){
+                            ifs2>>pointTarget[d];
+                            pointTarget[d]=pointTarget[d]*targetDir[d][d];
+                        }        
+                        IndexType indexTarget,indexReference;
+                        def->TransformPhysicalPointToIndex(pointTarget,indexTarget);
+                        //LOG<<VAR(def->GetOrigin())<<endl;
+                        //LOG<<VAR(pointTarget)<<" "<<VAR(indexTarget)<<endl;
+                        PointType deformedReferencePoint;
+                        reference->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
+                          
+                        //std::cout<<VAR(targetPoint)<<endl;
+                        //deformedReferencePoint= pointTarget+def->GetPixel(indexTarget);
+                        CIndexType cindex;
+                        def->TransformPhysicalPointToContinuousIndex(pointTarget,cindex);
+                        //LOG<<VAR(landmarksReference[i])<<" "<<VAR(indexReference)<<" "<<VAR(cindex)<<endl;
+                        if (def->GetLargestPossibleRegion().IsInside(cindex)){
+                            deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
+                              
+                            //LOG<< VAR(pointTarget) << endl;
+                            double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
+                           
+                              
+                            LOGV(6)<<"pt"<<i<<": "<<(localSquaredError)<<" ";
+                            sumSquareError+=localSquaredError;
+                            ++count;
+                        }
+                    }
+                      
+                }
+            }
+        }
+        return sumSquareError/count;
+      
     }
 };

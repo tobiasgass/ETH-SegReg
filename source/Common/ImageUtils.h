@@ -19,6 +19,8 @@
 #include "itkImageRegionConstIterator.h"
 #include "itkNormalizeImageFilter.h"
 #include "itkSmoothingRecursiveGaussianImageFilter.h"
+#include <boost/random.hpp>
+#include "time.h"
 
 template<class ImageType>
 class ImageUtils {
@@ -537,5 +539,26 @@ public:
             }
         return result;
     }        
+
+
+    static ImagePointerType addNoise(ImagePointerType img, double var=0.01, double mean=0.0){
+
+        static boost::minstd_rand randgen(static_cast<unsigned>(time(0)));
+		static boost::normal_distribution<> dist(mean, var);
+		static boost::variate_generator<boost::minstd_rand, boost::normal_distribution<> > r(randgen, dist);
+
+
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        ImagePointerType result=createEmpty(ConstImagePointerType(img));
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        IteratorType it2(result,img->GetLargestPossibleRegion());
+        for (it2.GoToBegin(),it1.GoToBegin();!it1.IsAtEnd();++it1,++it2){
+            double randVal=r();
+            it2.Set(it1.Get()+randVal);
+            //std::cout<<it2.Get()<<" "<<randVal<<" "<<it1.Get()<<std::endl;
+        }
+        return result;
+
+    }
 };
 #endif // IMAGE_UTILS
