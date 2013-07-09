@@ -1181,63 +1181,16 @@ public:
                  
                     FloatImagePointerType lncc;
                     if (m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
-                        ostringstream oss;
-                        oss<<"lncc-"<<sourceID<<"-TO-"<<targetID;
-                        if (D==2)
-                            oss<<".png";
-                        else
-                            oss<<".nii";
-
-#if 0 //#ifdef ORACLE
-                        DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(
-                                                                                          (*this->m_downSampledDeformationCache)[sourceID][targetID],
-                                                                                          (*m_trueDeformations)[sourceID][targetID]
-                                                                                          );
-                                                                                              
-                        lncc=TransfUtils<ImageType>::computeLocalDeformationNormWeights(diff,m_exponent);
-#else
-                        DeformationFieldPointerType def ;
+                      
+                        DeformationFieldPointerType def;
+                        ImagePointerType targetImage=(*m_imageList)[targetID];
+                        ImagePointerType sourceImage=(*m_imageList)[sourceID];
                         if ( (*this->m_deformationCache)[sourceID][targetID].IsNotNull()){
                             def=(*this->m_deformationCache)[sourceID][targetID];
                         }else{
-                            def=TransfUtils<ImageType>::bSplineInterpolateDeformationField( (*this->m_downSampledDeformationCache)[sourceID][targetID], (ConstImagePointerType)(*m_imageList)[targetID]);
+                            def=(*this->m_downSampledDeformationCache)[sourceID][targetID];
                         }
-                        ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage((ConstImagePointerType)(*m_imageList)[sourceID],def);
-                        //compute lncc
-                        lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
-                        //lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
-                        //lncc= Metrics<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
-                        //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(*m_imageList)[targetID],m_sigma);
-                        //lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,(*m_imageList)[targetID],m_sigma,2,"lssd");
-                        //FloatImagePointerType laplacian=FilterUtils<ImageType,FloatImageType>::laplacian((*m_imageList)[targetID],m_sigma);
-                        if (0){
-                            FloatImagePointerType laplacian=FilterUtils<ImageType,FloatImageType>::normalizedLaplacianWeighting((*m_imageList)[targetID],m_sigma,m_exponent);
-                            ostringstream oss2;
-                            oss2<<"laplacian-"<<sourceID<<"-TO-"<<targetID<<".nii";
-                                
-                            LOGI(6,ImageUtils<ImageType>::writeImage(oss2.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(laplacian,255))));
-                                
-                            lncc=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,laplacian);
-                        }
-                        LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
-                        //resample lncc result
-                        if (1){
-                            //lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
-                            //lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
-                            lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
-                        }else{
-                            lncc = FilterUtils<FloatImageType>::minimumResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI), m_sigmaD);
-                        }
-#endif
-
-                          
-                        oss<<"-resampled";
-                        if (D==2){
-                            oss<<".png";
-                        }else
-                            oss<<".nii";
-                        LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
-
+                        lncc=getLocalWeightMap(def, targetImage, sourceImage);
                       
                     }
                     m_pairwiseLocalWeightMaps[s][t]=lncc;
@@ -1247,6 +1200,66 @@ public:
         LOGV(1)<<"done"<<endl;
     }//computePairwiseSimWeights
 
+
+    FloatImagePointerType getLocalWeightMap(DeformationFieldPointerType def,ImagePointerType targetImage, ImagePointerType movingImage,string sourceID="",string targetID=""){
+        FloatImagePointerType lncc;
+#if 0 //#ifdef ORACLE
+        DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(
+                                                                          (*this->m_downSampledDeformationCache)[sourceID][targetID],
+                                                                          (*m_trueDeformations)[sourceID][targetID]
+                                                                          );
+        
+        lncc=TransfUtils<ImageType>::computeLocalDeformationNormWeights(diff,m_exponent);
+#else
+        def=TransfUtils<ImageType>::bSplineInterpolateDeformationField( (*this->m_downSampledDeformationCache)[sourceID][targetID], (ConstImagePointerType)(*m_imageList)[targetID]);
+        
+        ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage(movingImage,def);
+        //compute lncc
+        lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+        //lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
+        //lncc= Metrics<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
+        //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(*m_imageList)[targetID],m_sigma);
+        //lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,(*m_imageList)[targetID],m_sigma,2,"lssd");
+        //FloatImagePointerType laplacian=FilterUtils<ImageType,FloatImageType>::laplacian((*m_imageList)[targetID],m_sigma);
+
+        ostringstream oss;
+        oss<<"lncc-"<<sourceID<<"-TO-"<<targetID;
+        if (D==2)
+            oss<<".png";
+        else
+            oss<<".nii";
+
+
+        if (0){
+            FloatImagePointerType laplacian=FilterUtils<ImageType,FloatImageType>::normalizedLaplacianWeighting((*m_imageList)[targetID],m_sigma,m_exponent);
+            ostringstream oss2;
+            oss2<<"laplacian-"<<sourceID<<"-TO-"<<targetID<<".nii";
+            
+            LOGI(6,ImageUtils<ImageType>::writeImage(oss2.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(laplacian,255))));
+            
+            lncc=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,laplacian);
+        }
+        LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
+        //resample lncc result
+        if (1){
+            //lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
+            //lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
+            lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
+        }else{
+            lncc = FilterUtils<FloatImageType>::minimumResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI), m_sigmaD);
+        }
+#endif
+        
+        
+        oss<<"-resampled";
+        if (D==2){
+            oss<<".png";
+        }else
+            oss<<".nii";
+        LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
+        
+        return lncc;
+    }
 
     double getIndexBasedWeight(IndexType idx,SizeType size){
         double weight=100.0;
