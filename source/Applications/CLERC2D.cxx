@@ -90,6 +90,7 @@ int main(int argc, char ** argv){
     int radius=3;
     int maxHops=1;
     bool updateDeformations=false;
+    bool locallyUpdateDeformations=false;
     string metricName="NCC";
     string weightingName="uniform";
     bool lateFusion=false;
@@ -103,7 +104,6 @@ int main(int argc, char ** argv){
     double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0,wErrorStatistics=1.0;
     bool nearestneighb=false;
     double shearing = 1.0;
-    double m_sigmaD = 0.0;
     double circWeightScaling = 1.0;
     double scalingFactorForConsistentSegmentation = 1.0;
     bool oracle = false;
@@ -128,10 +128,10 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"weight for error variable being forced to be similar to the inconsitency statistics",false);
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
+    (*as) >> option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
 
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
     (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
-    (*as) >> parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
     (*as) >> parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
     (*as) >> option ("nearestneighb", nearestneighb," use nearestneighb interpolation (instead of NN) when building equations for circles.");
     (*as) >> parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
@@ -342,7 +342,7 @@ int main(int argc, char ** argv){
 
     solver->setLinearInterpol(!nearestneighb);
     solver->setSigma(m_sigma);
-    solver->setSigmaD(m_sigmaD);
+    solver->setLocallyUpdateDeformations(locallyUpdateDeformations);
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
@@ -351,7 +351,7 @@ int main(int argc, char ** argv){
     double inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
     int iter = 0;
     LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
-    solver->computePairwiseSimilarityWeights();
+    
 
     if (atlasSegmentationFileList!=""){
         solver->setSegmentationList(atlasSegmentations);

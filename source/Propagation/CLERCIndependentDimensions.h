@@ -49,7 +49,7 @@ protected:
     map<string,ImagePointerType> * m_segmentationList;
 
     map< int, map <int, GaussEstimatorType > > m_pairwiseInconsistencyStatistics;
-    map< int, map <int, FloatImagePointerType > > m_pairwiseLocalWeightMaps;
+    map< int, map <int, FloatImagePointerType > > * m_pairwiseLocalWeightMaps, * m_updatedPairwiseLocalWeightMaps;
 
 private:
     int m_nPixels;// number of pixels/voxels
@@ -65,8 +65,7 @@ private:
     int m_nEqTransformationSimilarity; // number of equations for Transformation similarity energy E_T
     int m_nVarTransformationSimilarity; // number of variables for each equation of E_T
     double m_wTransformationSimilarity;
-
-
+    
     int m_nEqErrorInconsistency; // number of equations for energy incErrular constraint E_incErr
     int m_nVarErrorInconsistency; // number of variables for each equation of E_incErr;
     double m_wErrorInconsistency;
@@ -94,7 +93,9 @@ private:
     
     double m_wSum;
 
-    double m_sigma, m_sigmaD;
+    double m_sigma;
+    
+    bool m_locallyUpdateDeformationEstimate;
 
     double m_exponent;
     
@@ -126,8 +127,11 @@ public:
         m_exponent=1.0;
         m_shearingReduction = 1.0;
         m_segConsisntencyWeight = 1.0;
-        m_sigmaD = 0.0;
+        m_locallyUpdateDeformationEstimate = false;
         m_ORACLE=false;
+        m_pairwiseLocalWeightMaps=NULL;
+        m_updatedPairwiseLocalWeightMaps=NULL;
+
     }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist, map< string, map <string, DeformationFieldPointerType> > * downSampledDeformationCache){
         m_imageList=imagelist;
@@ -186,21 +190,24 @@ public:
 
         m_nEqTransformationSimilarity =  (m_wTransformationSimilarity>0.0)*m_nPixels * internalD * m_numImages*(m_numImages-1); //same as ErrorNorm
         m_nVarTransformationSimilarity= 1;
-        if (m_nEqTransformationSimilarity)
+        if (m_nEqTransformationSimilarity){
             m_wTransformationSimilarity/=m_nEqTransformationSimilarity;
+        }
+        
+      
 
         int m_nEqSUM=(m_wSum>0.0)*m_nPixels * internalD * m_numImages*(m_numImages-1);
         if (m_nEqSUM)
             m_wSum/=m_nEqSUM;
         int m_nVarSUM=2;
 
-        m_nEqs=  m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm+ m_nEqDeformationSmootheness + m_nEqErrorNorm+ m_nEqTransformationSimilarity + m_nEqSUM +  m_nEqErrorSmootheness + m_nEqErrorInconsistency; // total number of equations
+        m_nEqs=   m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm+ m_nEqDeformationSmootheness + m_nEqErrorNorm+ m_nEqTransformationSimilarity + m_nEqSUM +  m_nEqErrorSmootheness + m_nEqErrorInconsistency; // total number of equations
         
         m_estError= m_nEqFullCircleEnergy ||  m_nEqErrorNorm || m_nEqSUM||m_nEqErrorInconsistency ;
         m_estDef = m_nEqFullCircleEnergy || m_nEqTransformationSimilarity ||  m_nEqDeformationSmootheness  ||  m_nEqCircleNorm || m_nEqSUM  ||  m_nEqErrorStatistics;
         m_nVars= m_numImages*(m_numImages-1)*m_nPixels*internalD *(m_estError + m_estDef); // total number of free variables (error and deformation)
         
-        m_nNonZeroes=  m_nEqErrorStatistics+ m_nEqErrorSmootheness*m_nVarErrorSmootheness +m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqErrorNorm*m_nVarErrorNorm + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity + m_nEqSUM*m_nVarSUM + m_nVarErrorInconsistency*m_nEqErrorInconsistency; //maximum number of non-zeros
+        m_nNonZeroes= m_nEqErrorStatistics+ m_nEqErrorSmootheness*m_nVarErrorSmootheness +m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqErrorNorm*m_nVarErrorNorm + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity + m_nEqSUM*m_nVarSUM + m_nVarErrorInconsistency*m_nEqErrorInconsistency; //maximum number of non-zeros
 
         m_trueDeformations=trueDeformations;
 
@@ -233,18 +240,19 @@ public:
     void setWeightInconsistencyError(double w){m_wErrorInconsistency=w;}
     void setLinearInterpol(bool i){m_linearInterpol=i;}
     void setSigma(double s){m_sigma=s;}
-    void setSigmaD(double s){m_sigmaD=s;}
+
     void setLocalWeightExp(double e){ m_exponent=e;}
     void setShearingReduction(double r){m_shearingReduction = r;}
     void setSegmentationList(  map<string,ImagePointerType> * list){ m_segmentationList = list; }
     void setScalingFactorForConsistentSegmentation(double scalingFactorForConsistentSegmentation){ m_segConsisntencyWeight = scalingFactorForConsistentSegmentation;}
-
     void setUpdateDeformations(bool b){m_updateDeformations=b;}
+    void setLocallyUpdateDeformations(bool s){m_locallyUpdateDeformationEstimate=s;}
+    
     virtual void createSystem(){
         
         LOGV(1)<<"Creating equation system.."<<endl;
         LOGV(1)<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
-        LOGV(1)<<VAR(  m_wTransformationSimilarity)<<" "<<VAR(        m_wDeformationSmootheness)<<" "<<VAR(m_wCircleNorm)<<" "<<VAR(m_wErrorNorm)<<" "<<VAR(m_wErrorStatistics)<<" "<<VAR(m_wFullCircleEnergy)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wErrorSmootheness)<<" "<<VAR(m_sigma)<<" "<<VAR(m_sigmaD)<<" "<<VAR(m_exponent)<<endl;
+        LOGV(1)<<VAR(  m_wTransformationSimilarity)<<" "<<VAR(        m_wDeformationSmootheness)<<" "<<VAR(m_wCircleNorm)<<" "<<VAR(m_wErrorNorm)<<" "<<VAR(m_wErrorStatistics)<<" "<<VAR(m_wFullCircleEnergy)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wErrorSmootheness)<<" "<<VAR(m_sigma)<<" "<<VAR(m_locallyUpdateDeformationEstimate)<<" "<<VAR(m_exponent)<<endl;
         double totalInconsistency = 0.0;
         int totalCount = 0;
         for (unsigned int d = 0; d< D; ++d){
@@ -295,8 +303,24 @@ public:
         
             
             computeTripletEnergies( x,  y, v,  b, c,  eq,d);
-            if (m_updateDeformations){
-                computePairwiseSimilarityWeights();
+
+            //get local similarity weights
+            if ( m_pairwiseLocalWeightMaps==NULL || m_updateDeformations){
+                if (m_pairwiseLocalWeightMaps!=NULL){
+                    delete  m_pairwiseLocalWeightMaps;
+                }
+                if (m_deformationCache!=NULL){
+                    m_pairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_deformationCache);
+                }else{
+                    m_pairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_downSampledDeformationCache);
+                }
+            }
+            //get local similarity weights for updated deformations
+            if (m_haveDeformationEstimate && ! m_updateDeformations){
+                if (m_updatedPairwiseLocalWeightMaps!=NULL){
+                    delete m_updatedPairwiseLocalWeightMaps;
+                }
+                m_updatedPairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_updatedDeformationCache);
             }
             computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, c,  eq,d);
 
@@ -928,7 +952,7 @@ protected:
                     FloatImagePointerType lncc;
                     FloatImageIterator lnccIt;
                     if (m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
-                        lncc=m_pairwiseLocalWeightMaps[s][t];
+                        lncc=(*m_pairwiseLocalWeightMaps)[s][t];
                         lnccIt=FloatImageIterator(lncc,lncc->GetLargestPossibleRegion());
                         lnccIt.GoToBegin();
                     }
@@ -959,7 +983,11 @@ protected:
                         statisticsEstimatorSourceTarget->finalize();
                     }
 
-           
+                    FloatImagePointerType newLocalWeights;
+                    if (m_locallyUpdateDeformationEstimate && ! m_updateDeformations && m_haveDeformationEstimate && (*m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
+                        newLocalWeights=(*m_updatedPairwiseLocalWeightMaps)[s][t];
+                    }
+
 
                     for (;!it.IsAtEnd();++it){
                         DeformationType localDef=it.Get();
@@ -1036,20 +1064,34 @@ protected:
                             //LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(meanInconsistency)<<" "<<VAR(weight2)<<" "<<VAR(trueError)<<endl;
                             ++eq;
                         }
-
+                        
+                        double localWeight=-1;
+                        double localUpdatedDef;
+                        //get local similarity weight for updated deformation if available
+                        if (m_locallyUpdateDeformationEstimate  &&  m_haveDeformationEstimate && ! m_updateDeformations){
+                            localWeight=newLocalWeights->GetPixel(idx);
+                            localUpdatedDef=(*m_updatedDeformationCache)[sourceID][targetID]->GetPixel(idx)[d];
+                        }
+                        
                         //set w_T
                         //set eqn for soft constraining the estimated true deformation to be similar to the original deformation
                         if (m_wTransformationSimilarity>0.0){
                             //weight=1.0/sqrt(fabs(meanInconsistency));
+                            double localDisp  =localDef[d];
+                            if (localWeight>weight){
+                                localDisp=localUpdatedDef;
+                                weight=localWeight;
+                            }
                             x[c]    = eq;
                             y[c]    = edgeNumDef;
                             v[c++]  = 1.0*m_wTransformationSimilarity *weight*priorWeight;
                             //b[eq-1] = (localDef[d]-trueError)*m_wTransformationSimilarity;// * weight;
-                            b[eq-1] = localDef[d]*m_wTransformationSimilarity * weight*priorWeight;
+                            b[eq-1] = localDisp*m_wTransformationSimilarity * weight*priorWeight;
                             ++eq;
                             LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(priorWeight)<<endl;
                         }
                             
+                      
                             
                         //constraint that estimated def + estimated error = original def
                         if (m_wSum>0.0){
@@ -1166,12 +1208,13 @@ protected:
         }//source
     }//computePairwiseEnergiesAndBounds
 public:
-    void computePairwiseSimilarityWeights()
+    map< int, map<int,FloatImagePointerType> > * computePairwiseSimilarityWeights(DeformationCacheType * cache)
     {
+        map< int, map<int,FloatImagePointerType> > * result = new map< int, map<int,FloatImagePointerType> >;
         LOGV(1)<<"Computing similarity based local weights" <<endl;
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
-            m_pairwiseLocalWeightMaps[s]=map<int,FloatImagePointerType>();
+            (*result)[s]=map<int,FloatImagePointerType>();
             for (int t=0;t<m_numImages;++t){
                 if (t!=s){
                     int target=t;
@@ -1185,19 +1228,17 @@ public:
                         DeformationFieldPointerType def;
                         ImagePointerType targetImage=(*m_imageList)[targetID];
                         ImagePointerType sourceImage=(*m_imageList)[sourceID];
-                        if ( (*this->m_deformationCache)[sourceID][targetID].IsNotNull()){
-                            def=(*this->m_deformationCache)[sourceID][targetID];
-                        }else{
-                            def=(*this->m_downSampledDeformationCache)[sourceID][targetID];
-                        }
+                      
+                        def=(*cache)[sourceID][targetID];
                         lncc=getLocalWeightMap(def, targetImage, sourceImage);
                       
                     }
-                    m_pairwiseLocalWeightMaps[s][t]=lncc;
+                    (*result)[s][t]=lncc;
                 }
             }
         }
         LOGV(1)<<"done"<<endl;
+        return result;
     }//computePairwiseSimWeights
 
 
@@ -1211,7 +1252,8 @@ public:
         
         lncc=TransfUtils<ImageType>::computeLocalDeformationNormWeights(diff,m_exponent);
 #else
-        def=TransfUtils<ImageType>::bSplineInterpolateDeformationField( (*this->m_downSampledDeformationCache)[sourceID][targetID], (ConstImagePointerType)(*m_imageList)[targetID]);
+        //def=TransfUtils<ImageType>::bSplineInterpolateDeformationField( def, targetImage);
+        def=TransfUtils<ImageType>::linearInterpolateDeformationField( def, targetImage);
         
         ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage(movingImage,def);
         //compute lncc
@@ -1241,13 +1283,9 @@ public:
         }
         LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
         //resample lncc result
-        if (1){
-            //lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
-            //lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
-            lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
-        }else{
-            lncc = FilterUtils<FloatImageType>::minimumResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI), m_sigmaD);
-        }
+        //lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
+        //lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
+        lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
 #endif
         
         
