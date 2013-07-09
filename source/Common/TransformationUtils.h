@@ -493,6 +493,7 @@ public:
     }
     static std::pair<ImagePointerType,ImagePointerType> warpImageWithMask(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
         //assert(segmentationImage->GetLargestPossibleRegion().GetSize()==deformation->GetLargestPossibleRegion().GetSize());
+        logSetStage("warping image");
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
         LabelIterator deformationIt(deformation,deformation->GetLargestPossibleRegion());
@@ -544,6 +545,8 @@ public:
             }
         }
         pair<ImagePointerType,ImagePointerType> result=std::make_pair(deformed,mask);
+        LOGV(7)<<VAR(image->GetLargestPossibleRegion().GetSize())<<" "<<deformation->GetLargestPossibleRegion().GetSize()<<" "<<deformed->GetLargestPossibleRegion().GetSize()<<endl;
+        logResetStage;
         return result;
     }
 #endif

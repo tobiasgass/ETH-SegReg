@@ -89,7 +89,7 @@ int main(int argc, char ** argv){
     double pWeight=1.0;
     int radius=3;
     int maxHops=1;
-    bool uniformUpdate=true;
+    bool updateDeformations=false;
     string metricName="NCC";
     string weightingName="uniform";
     bool lateFusion=false;
@@ -126,6 +126,8 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
     (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
     (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"weight for error variable being forced to be similar to the inconsitency statistics",false);
+
+    (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
 
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
     (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
@@ -199,7 +201,8 @@ int main(int argc, char ** argv){
         for (int t=0;t<imageIDs.size();++t){
             string targetID=imageIDs[t];
             //(*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI );
-            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI,true );
+            //(*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI,false );
+            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],1.0/resamplingFactor,true );
         }
     }
     
@@ -335,6 +338,7 @@ int main(int argc, char ** argv){
     solver->setWeightSum(wwsum); 
     solver->setWeightInconsistencyError(wwInconsistencyError); 
     solver->setWeightErrorStatistics(wErrorStatistics); 
+    solver->setUpdateDeformations(updateDeformations); 
 
     solver->setLinearInterpol(!nearestneighb);
     solver->setSigma(m_sigma);

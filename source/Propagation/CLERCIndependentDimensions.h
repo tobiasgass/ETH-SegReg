@@ -239,6 +239,7 @@ public:
     void setSegmentationList(  map<string,ImagePointerType> * list){ m_segmentationList = list; }
     void setScalingFactorForConsistentSegmentation(double scalingFactorForConsistentSegmentation){ m_segConsisntencyWeight = scalingFactorForConsistentSegmentation;}
 
+    void setUpdateDeformations(bool b){m_updateDeformations=b;}
     virtual void createSystem(){
         
         LOGV(1)<<"Creating equation system.."<<endl;
