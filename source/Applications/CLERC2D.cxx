@@ -339,10 +339,10 @@ int main(int argc, char ** argv){
     solver->setWeightInconsistencyError(wwInconsistencyError); 
     solver->setWeightErrorStatistics(wErrorStatistics); 
     solver->setUpdateDeformations(updateDeformations); 
+    solver->setLocallyUpdateDeformations(locallyUpdateDeformations);
 
     solver->setLinearInterpol(!nearestneighb);
     solver->setSigma(m_sigma);
-    solver->setLocallyUpdateDeformations(locallyUpdateDeformations);
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);

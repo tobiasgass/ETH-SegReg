@@ -255,6 +255,9 @@ public:
         LOGV(1)<<VAR(  m_wTransformationSimilarity)<<" "<<VAR(        m_wDeformationSmootheness)<<" "<<VAR(m_wCircleNorm)<<" "<<VAR(m_wErrorNorm)<<" "<<VAR(m_wErrorStatistics)<<" "<<VAR(m_wFullCircleEnergy)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wErrorSmootheness)<<" "<<VAR(m_sigma)<<" "<<VAR(m_locallyUpdateDeformationEstimate)<<" "<<VAR(m_exponent)<<endl;
         double totalInconsistency = 0.0;
         int totalCount = 0;
+
+        bool haveLocalWeights=false;
+
         for (unsigned int d = 0; d< D; ++d){
 #ifdef SEPENGINE       
             if (!(this->m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
@@ -305,22 +308,25 @@ public:
             computeTripletEnergies( x,  y, v,  b, c,  eq,d);
 
             //get local similarity weights
-            if ( m_pairwiseLocalWeightMaps==NULL || m_updateDeformations){
-                if (m_pairwiseLocalWeightMaps!=NULL){
-                    delete  m_pairwiseLocalWeightMaps;
+            if (!haveLocalWeights){
+                if ( m_pairwiseLocalWeightMaps==NULL || m_updateDeformations){
+                    if (m_pairwiseLocalWeightMaps!=NULL){
+                        delete  m_pairwiseLocalWeightMaps;
+                    }
+                    if (m_deformationCache!=NULL){
+                        m_pairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_deformationCache);
+                    }else{
+                        m_pairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_downSampledDeformationCache);
+                    }
                 }
-                if (m_deformationCache!=NULL){
-                    m_pairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_deformationCache);
-                }else{
-                    m_pairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_downSampledDeformationCache);
+                //get local similarity weights for updated deformations
+                if (m_haveDeformationEstimate && ! m_updateDeformations){
+                    if (m_updatedPairwiseLocalWeightMaps!=NULL){
+                        delete m_updatedPairwiseLocalWeightMaps;
+                    }
+                    m_updatedPairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_updatedDeformationCache);
                 }
-            }
-            //get local similarity weights for updated deformations
-            if (m_haveDeformationEstimate && ! m_updateDeformations){
-                if (m_updatedPairwiseLocalWeightMaps!=NULL){
-                    delete m_updatedPairwiseLocalWeightMaps;
-                }
-                m_updatedPairwiseLocalWeightMaps=computePairwiseSimilarityWeights(m_updatedDeformationCache);
+                haveLocalWeights=true;
             }
             computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, c,  eq,d);
 
