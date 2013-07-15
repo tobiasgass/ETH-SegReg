@@ -688,7 +688,7 @@ public:
     }
 
 
-    static OutputImagePointer localMetricAutocorrelation(InputImagePointer img1, InputImagePointer img2,double sigma,int nSamples,string metric, double normalizer=0.0){
+    static OutputImagePointer localMetricAutocorrelation(InputImagePointer img1, InputImagePointer img2,double sigma,int nSamples,string metric, double expo=1.0){
 
         OutputImagePointer centerMetric; 
         string acc="mean";
@@ -762,10 +762,19 @@ public:
         if (eval=="diff"){
             // l= 0.5 + (\hat l - mu)/(2*\hat l)
             OutputImagePointer diff=FilterUtils<OutputImage>::substract(centerMetric,accumulator);
+            centerMetric=FilterUtils<OutputImage>::lowerThresholding(centerMetric,1e-10);
             centerMetric=ImageUtils<OutputImage>::divideImageOutOfPlace(diff,centerMetric);
             ImageUtils<OutputImage>::multiplyImage(centerMetric,0.5);
             ImageUtils<OutputImage>::add(centerMetric,0.5);
             centerMetric=FilterUtils<OutputImage>::thresholding(centerMetric,0,1);
+            typename ImageUtils<OutputImage>::ImageIteratorType resultIt(centerMetric,centerMetric->GetLargestPossibleRegion());
+            
+            if (expo !=1.0){
+                for (resultIt.GoToBegin();!resultIt.IsAtEnd();++resultIt){
+                    resultIt.Set(pow(resultIt.Get(),expo));
+                }
+            }
+
         }else if (eval == "exp" ){
         
             

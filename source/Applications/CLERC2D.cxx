@@ -362,6 +362,9 @@ int main(int argc, char ** argv){
         //solver->setWeightCircleNorm(wwcirc*pow(circWeightScaling,h)); 
         //solver->setWeightErrorNorm(wwdelta*pow(2,h));
         //solver->setSigma(m_sigma/pow(2,h)); 
+        //LOGV(1)<<" Setting sim weight to "<<VAR(wwt*inconsistency)<<endl;
+        //solver->setWeightTransformationSimilarity(wwt*inconsistency);
+
         solver->createSystem();
         solver->solve();
         DeformationCacheType * result = solver->storeResult(outputDir);

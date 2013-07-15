@@ -39,7 +39,7 @@ public:
     }
     boost::format  getStatus(){
         unsigned int elapsed = m_timer.elapsed()+m_timerOffset;
-        boost::format logLine("%2d:%02d [%-50s] - ");
+        boost::format logLine("%4d:%02d [%-50s] - ");
         logLine % (elapsed / 60);
         logLine % (elapsed % 60);
         logLine % m_stage;

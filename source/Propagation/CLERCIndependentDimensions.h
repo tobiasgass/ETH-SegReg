@@ -18,7 +18,7 @@ public:
     typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
     typedef typename  ImageType::OffsetType OffsetType;
-    typedef typename DeformationFieldType::SpacingType SpacingType;
+    typedef typename  DeformationFieldType::SpacingType SpacingType;
 
     typedef typename ImageType::SizeType SizeType;
     typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
@@ -131,6 +131,7 @@ public:
         m_ORACLE=false;
         m_pairwiseLocalWeightMaps=NULL;
         m_updatedPairwiseLocalWeightMaps=NULL;
+        m_nEqTransformationSimilarity=0;
 
     }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist, map< string, map <string, DeformationFieldPointerType> > * downSampledDeformationCache){
@@ -230,7 +231,12 @@ public:
     
     void setOracle(bool o){m_ORACLE=o;}
     void setWeightFullCircleEnergy(double w){m_wFullCircleEnergy=w;}
-    void setWeightTransformationSimilarity(double w){m_wTransformationSimilarity=w;}
+    void setWeightTransformationSimilarity(double w){
+        m_wTransformationSimilarity=w;  
+        if (m_nEqTransformationSimilarity){
+            m_wTransformationSimilarity/=m_nEqTransformationSimilarity;
+        }
+    }
     void setWeightDeformationSmootheness(double w){m_wDeformationSmootheness=w;}
     void setWeightErrorSmootheness(double w){m_wErrorSmootheness=w;}
     void setWeightErrorNorm(double w){m_wErrorNorm=w;}
@@ -320,7 +326,7 @@ public:
                     }
                 }
                 //get local similarity weights for updated deformations
-                if (m_haveDeformationEstimate && ! m_updateDeformations){
+                if (m_locallyUpdateDeformationEstimate && m_haveDeformationEstimate && ! m_updateDeformations){
                     if (m_updatedPairwiseLocalWeightMaps!=NULL){
                         delete m_updatedPairwiseLocalWeightMaps;
                     }
@@ -428,6 +434,9 @@ public:
         for (int s = 0;s<m_numImages;++s){
             for (int t=0;t<m_numImages;++t){
                 if (s!=t){
+
+                    string sourceID=(*this->m_imageIDList)[s];
+                    string targetID = (*this->m_imageIDList)[t];
                     //slightly(!!!) stupid creation of empty image
                     DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::createEmpty(this->m_ROI);
                     DeformationFieldIterator itErr(estimatedError,estimatedError->GetLargestPossibleRegion());
@@ -495,7 +504,45 @@ public:
                             ++trueIt;
                         }
                     }
+
+#if 0
+                    FloatImagePointerType localSim=getLocalWeightMap(estimatedDeform,(*m_imageList)[targetID],(*m_imageList)[sourceID]);
+                    origIt.GoToBegin();
+                    DeformationFieldIterator newIt(estimatedDeform,estimatedDeform->GetLargestPossibleRegion());
+                    newIt.GoToBegin();
+                    FloatImageIterator oldLocalSim((*m_pairwiseLocalWeightMaps)[s][t],(*m_pairwiseLocalWeightMaps)[s][t]->GetLargestPossibleRegion());
+                    oldLocalSim.GoToBegin();
+                    FloatImageIterator newLocalSim(localSim,localSim->GetLargestPossibleRegion());
+                    newLocalSim.GoToBegin();
+                    for (;!newLocalSim.IsAtEnd();++origIt,++newIt,++oldLocalSim,++newLocalSim){
+                        DeformationType newDef;
+                        double newSim=newLocalSim.Get();
+                        double oldSim=oldLocalSim.Get();
+
+#if 0                       
+                        newDef=newIt.Get()*newSim+origIt.Get()*oldSim;
+                        newDef=newDef*0.5*(newSim+oldSim);
+                        newIt.Set(newDef);
+                        oldLocalSim.Set(0.5*(newSim+oldSim));
+#else
+                        
+                        //if (newSim<oldLocalSim.Get()){
+                        if (! (oldSim==0.0) && newSim/oldSim < 0.7){
+                            //origIt.Set(newIt.Get());
+                            newIt.Set(origIt.Get());
+
+                        }else{
+                            oldLocalSim.Set(newSim);
+                        }
+
+#endif
+                    }
                     
+
+#endif                    
+
+
+
                     if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
                         mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
                         mask->FillBuffer(0);
@@ -700,7 +747,7 @@ protected:
                         if (m_pairwiseInconsistencyStatistics[s].find(t)==m_pairwiseInconsistencyStatistics[s].end())
                             m_pairwiseInconsistencyStatistics[s][t]=GaussEstimatorType();
                         
-                        m_pairwiseInconsistencyStatistics[s][t].addImage(TransfUtils<ImageType>::getComponent(dSourceTarget,d));
+                        //m_pairwiseInconsistencyStatistics[s][t].addImage(TransfUtils<ImageType>::getComponent(dSourceTarget,d));
                     }
 
                     
@@ -710,26 +757,18 @@ protected:
                             //define a set of 3 images
                             int intermediate=i;
                             
-                            DeformationFieldPointerType dIntermediateTarget = (*m_downSampledDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            if (m_ORACLE){
-                                dIntermediateTarget=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            }else if (true && m_haveDeformationEstimate && (*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
-                                dIntermediateTarget=(*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            }
-                            
-
                             DeformationFieldPointerType dSourceIntermediate = (*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
-
-                            
-                            //compute indirect deform
+                            DeformationFieldPointerType dIntermediateTarget = (*m_downSampledDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
                             DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dIntermediateTarget,dSourceIntermediate);
+                            DeformationFieldPointerType difference = TransfUtils<ImageType>::subtract(indirectDeform,dSourceTarget);
+
+                            //compute indirect deform
                             //DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dSourceIntermediate,dIntermediateTarget);
                             //compute difference of direct and indirect deform
-                            DeformationFieldPointerType difference = TransfUtils<ImageType>::subtract(indirectDeform,dSourceTarget);
                             
                             FloatImagePointerType directionalDifference = TransfUtils<ImageType>::getComponent(difference,d);
                             FloatImagePointerType directionalDeform = TransfUtils<ImageType>::getComponent(indirectDeform,d);
-                            
+                            FloatImagePointerType diffNorm = TransfUtils<ImageType>::computeLocalDeformationNorm(difference);
                             if (m_wErrorStatistics>0.0){
                                 //check if all accumulators exist
                                 if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
@@ -738,9 +777,23 @@ protected:
                                     m_pairwiseInconsistencyStatistics[i][t]=GaussEstimatorType();
                                 
                                 //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDifference);
-                                m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDeform);
+                                //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDeform);
+                                m_pairwiseInconsistencyStatistics[s][t].addImage(diffNorm);
                                 //m_pairwiseInconsistencyStatistics[i][t].addImage(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(directionalDifference,-1));
                             }
+
+                            //use updated deform for constructing circle
+                            if (m_ORACLE){
+                                dIntermediateTarget=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
+                            }else if (true && m_haveDeformationEstimate && (*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
+                                dIntermediateTarget=(*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
+                            }
+                            
+
+                            
+
+                            
+                         
 
                             //compute norm
                             DeformationFieldIterator it(difference,m_regionOfInterest);
@@ -1055,7 +1108,7 @@ protected:
                         //set eqn for soft constraining the error to be small
                         double meanInconsistency;
                         double varInconsistency;
-                        if (m_wErrorStatistics>0.0){
+                        if (false && m_wErrorStatistics>0.0){
                             meanInconsistency=statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
                             varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget->getVariance()->GetPixel(idx))));
                             if (varInconsistency == 0.0){
@@ -1088,6 +1141,7 @@ protected:
                                 localDisp=localUpdatedDef;
                                 weight=localWeight;
                             }
+                            //weight=1.0/statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
                             x[c]    = eq;
                             y[c]    = edgeNumDef;
                             v[c++]  = 1.0*m_wTransformationSimilarity *weight*priorWeight;
@@ -1267,7 +1321,7 @@ public:
         //lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
         //lncc= Metrics<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
         //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(*m_imageList)[targetID],m_sigma);
-        //lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,(*m_imageList)[targetID],m_sigma,2,"lssd");
+        //lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,targetImage,m_sigma,2,"lssd",m_exponent);
         //FloatImagePointerType laplacian=FilterUtils<ImageType,FloatImageType>::laplacian((*m_imageList)[targetID],m_sigma);
 
         ostringstream oss;
@@ -1401,11 +1455,12 @@ public:
                             double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
                            
                               
-                            LOGV(6)<<"pt"<<i<<": "<<(localSquaredError)<<" ";
+                            LOGI(2,std::cout<<"pt"<<i<<": "<<(localSquaredError)<<" ");
                             sumSquareError+=localSquaredError;
                             ++count;
                         }
                     }
+                    LOGI(2,std::cout<<endl);
                       
                 }
             }

@@ -216,6 +216,7 @@ public:
         (*as) >> parameter ("affineBulkTransform", affineBulkTransform, "affine bulk transfomr", false);
         (*as) >> parameter ("bulkTransformationFiled", bulkTransformationField, "bulk transformation field", false);
         (*as) >> option ("moments", initWithMoments, "initialize deformation with moments ");
+        (*as) >> option ("center", centerImages, "initialize deformation with centeringTransfom ");
 
 		(*as) >> parameter ("ta", outputDeformedFilename, "output image (file name)", false);
 		(*as) >> parameter ("tsa", outputDeformedSegmentationFilename, "output image (file name)", false);
