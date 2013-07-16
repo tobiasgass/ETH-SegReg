@@ -1200,13 +1200,18 @@ public:
                 if (s!=t){
                 DeformationFieldPointerType directDeform;
                 bool estimatedDeform=false;
+                bool skip=false;
                 directDeform= (*cache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
                 if (!directDeform.IsNotNull()){
-                    directDeform= (*trueCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
+                    if (trueCache && (*trueCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                        directDeform= (*trueCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
+                    }else{
+                        skip = true;
+                    }
                 }else{
                     estimatedDeform=true;
                 }
-                if (s!=t){
+                if (! skip && s!=t){
                     for (int i=0;i<m_numImages;++i){
                         if (i!=t && i !=s){
                             DeformationFieldPointerType d0,d1;
@@ -1215,15 +1220,23 @@ public:
                             if (d0.IsNotNull()){
                                 estimatedDeform=true;
                             }else{
-                                d0 = (*trueCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
+                                if (trueCache && (*trueCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]].IsNotNull()){
+                                    d0 = (*trueCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
+                                }else{
+                                    skip=true;
+                                }
                             }
                             d1 = (*cache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
                             if (d1.IsNotNull()){
                                 estimatedDeform=true;
                             }else{
-                                d1 = (*trueCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
+                                if (trueCache && (*trueCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]].IsNotNull()){
+                                    d1 = (*trueCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
+                                }else{
+                                    skip = true;
+                                }
                             }
-                            if (estimatedDeform){
+                            if (! skip && estimatedDeform){
                                 mask=TransfUtils<ImageType>::createEmptyImage(directDeform);
                                 mask->FillBuffer(0);
                                 typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();

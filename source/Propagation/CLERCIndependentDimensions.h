@@ -407,15 +407,16 @@ public:
 
             
             if (1){
-                engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'PrecondBandWidth',Inf,'LargeScale','on');");//,'Algorithm','active-set' );");
+                engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-24,'LargeScale','on');");//,'Algorithm','active-set' );");
                 //solve using trust region method
-                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);t=toc;"));
+                //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
+                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);t=toc"));
                 mxArray * time=engGetVariable(this->m_ep,"t");
                 double * t = ( double *) mxGetData(time);
                 LOGADDTIME((int)(t[0]));
                 mxDestroyArray(time);
                 //solve using active set method (backslash)
-                //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);toc"));
+                
                 LOGI(1,printf("%s", buffer+2));
                 engEvalString(this->m_ep, " resnorm");
                 LOGI(1,printf("%s", buffer+2));
@@ -771,11 +772,15 @@ protected:
                     string targetID=(*m_imageIDList)[target];
                     DeformationFieldPointerType dSourceTarget;
                     bool estSourceTarget=false;
+                    bool skip=false;
                     if ((*m_downSampledDeformationCache)[sourceID][targetID].IsNotNull()){
                         dSourceTarget=(*m_downSampledDeformationCache)[sourceID][targetID];
                         estSourceTarget=true;
                     }else{
-                        dSourceTarget=(*m_trueDeformations)[sourceID][targetID];
+                        if ((*m_trueDeformations)[sourceID][targetID].IsNotNull())
+                            dSourceTarget=(*m_trueDeformations)[sourceID][targetID];
+                        else
+                            skip=true;
                     }
                     
                     if (m_wErrorStatistics>0.0){
@@ -799,7 +804,10 @@ protected:
                                 dSourceIntermediate=(*m_downSampledDeformationCache)[sourceID][intermediateID];
                                 estSourceIntermediate=true;
                             }else{
-                                dSourceIntermediate=(*m_trueDeformations)[sourceID][intermediateID];
+                                if ((*m_trueDeformations)[sourceID][intermediateID].IsNotNull())
+                                    dSourceIntermediate=(*m_trueDeformations)[sourceID][intermediateID];
+                                else
+                                    skip=true;
                             }
 
                             DeformationFieldPointerType dIntermediateTarget;
@@ -809,11 +817,14 @@ protected:
                                 dIntermediateTarget=(*m_downSampledDeformationCache)[intermediateID][targetID];
                                 estIntermediateTarget=true;
                             }else{
-                                dIntermediateTarget=(*m_trueDeformations)[intermediateID][targetID];
+                                if ((*m_trueDeformations)[intermediateID][targetID].IsNotNull())
+                                    dIntermediateTarget=(*m_trueDeformations)[intermediateID][targetID];
+                                else
+                                    skip = true;
                             }
 
                             //check if any of the deformations of the loop should be estimated
-                            if (estIntermediateTarget || estSourceTarget || estSourceIntermediate){
+                            if (! skip && (estIntermediateTarget || estSourceTarget || estSourceIntermediate)){
 
 
                                 DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dIntermediateTarget,dSourceIntermediate);
