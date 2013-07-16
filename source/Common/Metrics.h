@@ -163,7 +163,8 @@ public:
             if (d<0.0){
                 //LOG<<VAR(d)<<endl;
             }
-            resultIt.Set(max(0.001,exp( - 0.5 *  d / sigmaNorm*sigmaNorm) ));
+            //LOGV(1)<<VAR(d)<<" "<<VAR(sigmaNorm)<<" "<<VAR(max(0.001,exp( - 0.5 *  d / (sigmaNorm*sigmaNorm))))<<endl;
+            resultIt.Set(max(0.001,exp( - 0.5 *  d / (sigmaNorm*sigmaNorm)) ));
         }
         
         

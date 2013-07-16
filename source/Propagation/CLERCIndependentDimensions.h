@@ -50,7 +50,7 @@ protected:
 
     map< int, map <int, GaussEstimatorType > > m_pairwiseInconsistencyStatistics;
     map< int, map <int, FloatImagePointerType > > * m_pairwiseLocalWeightMaps, * m_updatedPairwiseLocalWeightMaps;
-
+    string m_metric;
 private:
     int m_nPixels;// number of pixels/voxels
 
@@ -65,6 +65,10 @@ private:
     int m_nEqTransformationSimilarity; // number of equations for Transformation similarity energy E_T
     int m_nVarTransformationSimilarity; // number of variables for each equation of E_T
     double m_wTransformationSimilarity;
+
+    int m_nEqTransformationSymmetry; // number of equations for Transformation similarity energy E_T
+    int m_nVarTransformationSymmetry; // number of variables for each equation of E_T
+    double m_wTransformationSymmetry;
     
     int m_nEqErrorInconsistency; // number of equations for energy incErrular constraint E_incErr
     int m_nVarErrorInconsistency; // number of variables for each equation of E_incErr;
@@ -132,7 +136,8 @@ public:
         m_pairwiseLocalWeightMaps=NULL;
         m_updatedPairwiseLocalWeightMaps=NULL;
         m_nEqTransformationSimilarity=0;
-
+        m_metric="lncc";
+        m_wTransformationSymmetry=0.0;
     }
     virtual void SetVariables(std::vector<string> * imageIDList, map< string, map <string, DeformationFieldPointerType> > * deformationCache, map< string, map <string, DeformationFieldPointerType> > * trueDeformations,ImagePointerType ROI, map<string,ImagePointerType> * imagelist, map< string, map <string, DeformationFieldPointerType> > * downSampledDeformationCache){
         m_imageList=imagelist;
@@ -194,7 +199,12 @@ public:
         if (m_nEqTransformationSimilarity){
             m_wTransformationSimilarity/=m_nEqTransformationSimilarity;
         }
-        
+
+        m_nEqTransformationSymmetry =  (m_wTransformationSymmetry>0.0)*m_nPixels * internalD * m_numImages*(m_numImages-1); //same as ErrorNorm
+        m_nVarTransformationSymmetry= interpolationFactor;
+        if (m_nEqTransformationSymmetry){
+            m_wTransformationSymmetry/=m_nEqTransformationSymmetry;
+        }
       
 
         int m_nEqSUM=(m_wSum>0.0)*m_nPixels * internalD * m_numImages*(m_numImages-1);
@@ -202,13 +212,13 @@ public:
             m_wSum/=m_nEqSUM;
         int m_nVarSUM=2;
 
-        m_nEqs=   m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm+ m_nEqDeformationSmootheness + m_nEqErrorNorm+ m_nEqTransformationSimilarity + m_nEqSUM +  m_nEqErrorSmootheness + m_nEqErrorInconsistency; // total number of equations
+        m_nEqs= m_nEqTransformationSymmetry+  m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm+ m_nEqDeformationSmootheness + m_nEqErrorNorm+ m_nEqTransformationSimilarity + m_nEqSUM +  m_nEqErrorSmootheness + m_nEqErrorInconsistency; // total number of equations
         
         m_estError= m_nEqFullCircleEnergy ||  m_nEqErrorNorm || m_nEqSUM||m_nEqErrorInconsistency ;
         m_estDef = m_nEqFullCircleEnergy || m_nEqTransformationSimilarity ||  m_nEqDeformationSmootheness  ||  m_nEqCircleNorm || m_nEqSUM  ||  m_nEqErrorStatistics;
         m_nVars= m_numImages*(m_numImages-1)*m_nPixels*internalD *(m_estError + m_estDef); // total number of free variables (error and deformation)
         
-        m_nNonZeroes= m_nEqErrorStatistics+ m_nEqErrorSmootheness*m_nVarErrorSmootheness +m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqErrorNorm*m_nVarErrorNorm + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity + m_nEqSUM*m_nVarSUM + m_nVarErrorInconsistency*m_nEqErrorInconsistency; //maximum number of non-zeros
+        m_nNonZeroes=m_nEqTransformationSymmetry*m_nVarTransformationSymmetry+ m_nEqErrorStatistics+ m_nEqErrorSmootheness*m_nVarErrorSmootheness +m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqErrorNorm*m_nVarErrorNorm + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity + m_nEqSUM*m_nVarSUM + m_nVarErrorInconsistency*m_nEqErrorInconsistency; //maximum number of non-zeros
 
         m_trueDeformations=trueDeformations;
 
@@ -218,7 +228,7 @@ public:
         nullIdx.Fill(0);
         PointType startPoint;
         this->m_ROI->TransformIndexToPhysicalPoint(nullIdx,startPoint);
-        (*m_downSampledDeformationCache)[(*m_imageIDList)[0]][(*m_imageIDList)[1]]->TransformPhysicalPointToIndex(startPoint,startIndex);
+        (*m_imageList)[(*m_imageIDList)[0]]->TransformPhysicalPointToIndex(startPoint,startIndex);
         m_regionOfInterest.SetIndex(startIndex);
 #ifdef SEPENGINE
         if (this->m_ep){
@@ -237,6 +247,13 @@ public:
             m_wTransformationSimilarity/=m_nEqTransformationSimilarity;
         }
     }
+    void setWeightTransformationSymmetry(double w){
+        m_wTransformationSymmetry=w;  
+        if (m_nEqTransformationSymmetry){
+            m_wTransformationSymmetry/=m_nEqTransformationSymmetry;
+        }
+    }
+    
     void setWeightDeformationSmootheness(double w){m_wDeformationSmootheness=w;}
     void setWeightErrorSmootheness(double w){m_wErrorSmootheness=w;}
     void setWeightErrorNorm(double w){m_wErrorNorm=w;}
@@ -253,7 +270,7 @@ public:
     void setScalingFactorForConsistentSegmentation(double scalingFactorForConsistentSegmentation){ m_segConsisntencyWeight = scalingFactorForConsistentSegmentation;}
     void setUpdateDeformations(bool b){m_updateDeformations=b;}
     void setLocallyUpdateDeformations(bool s){m_locallyUpdateDeformationEstimate=s;}
-    
+    void setMetric(string m){m_metric=m;}
     virtual void createSystem(){
         
         LOGV(1)<<"Creating equation system.."<<endl;
@@ -434,7 +451,6 @@ public:
         for (int s = 0;s<m_numImages;++s){
             for (int t=0;t<m_numImages;++t){
                 if (s!=t){
-
                     string sourceID=(*this->m_imageIDList)[s];
                     string targetID = (*this->m_imageIDList)[t];
                     //slightly(!!!) stupid creation of empty image
@@ -461,130 +477,140 @@ public:
                     LOGV(6)<<VAR(region)<<endl;
                     ImageUtils<ImageType>::setRegion(mask,region,1);
                     
-                    DeformationFieldIterator origIt((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
-                    origIt.GoToBegin();
+                    
+                    DeformationFieldPointerType oldDeformation;
+                    
+                    if ((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                        oldDeformation=(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
 
-                    DeformationFieldIterator trueIt;
-                    if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
-                        trueIt=DeformationFieldIterator((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
-                        trueIt.GoToBegin();
-                    }
+                        DeformationFieldIterator origIt(oldDeformation,oldDeformation->GetLargestPossibleRegion());
+                        origIt.GoToBegin();
+
+                        DeformationFieldIterator trueIt;
+                        if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                            trueIt=DeformationFieldIterator((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]->GetLargestPossibleRegion());
+                            trueIt.GoToBegin();
+                        }
 
                    
-                    for (int p=0;!itErr.IsAtEnd();++itErr,++itDef,++origIt){
-                        //get solution of eqn system
-                        DeformationType estimatedError,estimatedDeformation,originalDeformation;
-                        IndexType idx = itErr.GetIndex();
-                        originalDeformation=origIt.Get();
-                        for (unsigned int d=0;d<D;++d,++p){
-                            // minus 1 to correct for matlab indexing
-                            if (m_estError){
-                                estimatedError[d]=rData[d][edgeNumError(s,t,idx,d)-1];
-                            }
-                            if (m_estDef)
-                                estimatedDeformation[d]=rData[d][edgeNumDeformation(s,t,idx,d)-1];
+                        for (int p=0;!itErr.IsAtEnd();++itErr,++itDef,++origIt){
+                            //get solution of eqn system
+                            DeformationType estimatedError,estimatedDeformation,originalDeformation;
+                            IndexType idx = itErr.GetIndex();
+                            originalDeformation=origIt.Get();
+                            for (unsigned int d=0;d<D;++d,++p){
+                                // minus 1 to correct for matlab indexing
+                                if (m_estError){
+                                    estimatedError[d]=rData[d][edgeNumError(s,t,idx,d)-1];
+                                }
+                                if (m_estDef)
+                                    estimatedDeformation[d]=rData[d][edgeNumDeformation(s,t,idx,d)-1];
                             
-                            if (!m_estError && m_estDef){
-                                estimatedError[d]= originalDeformation[d]-estimatedDeformation[d];
-                            } else if (!m_estDef && m_estError)
-                                estimatedDeformation[d]= originalDeformation[d]-estimatedError[d];
-                        }
-                        itErr.Set(estimatedError);
-                        itDef.Set(estimatedDeformation);
+                                if (!m_estError && m_estDef){
+                                    estimatedError[d]= originalDeformation[d]-estimatedDeformation[d];
+                                } else if (!m_estDef && m_estError)
+                                    estimatedDeformation[d]= originalDeformation[d]-estimatedError[d];
+                            }
+                            itErr.Set(estimatedError);
+                            itDef.Set(estimatedDeformation);
 
 
-                        if (mask->GetPixel(itErr.GetIndex()) && (*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
-                            DeformationType trueErr = origIt.Get()-trueIt.Get();
-                            DeformationType estimatedDiffErr = estimatedDeformation - trueIt.Get();
-                            //LOGV(5)<<VAR(trueErr.GetNorm())<<" "<<VAR(estimatedError.GetNorm())<<endl;
-                            //LOGV(5)<<VAR(trueErr.GetNorm())<<" "<<VAR(estimatedDiffErr.GetNorm())<<endl;
-                            LOGV(5)<<VAR(trueErr)<<" "<<VAR(estimatedError)<<endl;
-                            LOGV(5)<<VAR(trueErr)<<" "<<VAR(estimatedDiffErr)<<endl;
+                            if (mask->GetPixel(itErr.GetIndex()) && (*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                                DeformationType trueErr = origIt.Get()-trueIt.Get();
+                                DeformationType estimatedDiffErr = estimatedDeformation - trueIt.Get();
+                                //LOGV(5)<<VAR(trueErr.GetNorm())<<" "<<VAR(estimatedError.GetNorm())<<endl;
+                                //LOGV(5)<<VAR(trueErr.GetNorm())<<" "<<VAR(estimatedDiffErr.GetNorm())<<endl;
+                                LOGV(5)<<VAR(trueErr)<<" "<<VAR(estimatedError)<<endl;
+                                LOGV(5)<<VAR(trueErr)<<" "<<VAR(estimatedDiffErr)<<endl;
                            
-                            ++trueIt;
+                                ++trueIt;
+                            }
                         }
-                    }
 
 #if 0
-                    FloatImagePointerType localSim=getLocalWeightMap(estimatedDeform,(*m_imageList)[targetID],(*m_imageList)[sourceID]);
-                    origIt.GoToBegin();
-                    DeformationFieldIterator newIt(estimatedDeform,estimatedDeform->GetLargestPossibleRegion());
-                    newIt.GoToBegin();
-                    FloatImageIterator oldLocalSim((*m_pairwiseLocalWeightMaps)[s][t],(*m_pairwiseLocalWeightMaps)[s][t]->GetLargestPossibleRegion());
-                    oldLocalSim.GoToBegin();
-                    FloatImageIterator newLocalSim(localSim,localSim->GetLargestPossibleRegion());
-                    newLocalSim.GoToBegin();
-                    for (;!newLocalSim.IsAtEnd();++origIt,++newIt,++oldLocalSim,++newLocalSim){
-                        DeformationType newDef;
-                        double newSim=newLocalSim.Get();
-                        double oldSim=oldLocalSim.Get();
+                        FloatImagePointerType localSim=getLocalWeightMap(estimatedDeform,(*m_imageList)[targetID],(*m_imageList)[sourceID]);
+                        origIt.GoToBegin();
+                        DeformationFieldIterator newIt(estimatedDeform,estimatedDeform->GetLargestPossibleRegion());
+                        newIt.GoToBegin();
+                        FloatImageIterator oldLocalSim((*m_pairwiseLocalWeightMaps)[s][t],(*m_pairwiseLocalWeightMaps)[s][t]->GetLargestPossibleRegion());
+                        oldLocalSim.GoToBegin();
+                        FloatImageIterator newLocalSim(localSim,localSim->GetLargestPossibleRegion());
+                        newLocalSim.GoToBegin();
+                        for (;!newLocalSim.IsAtEnd();++origIt,++newIt,++oldLocalSim,++newLocalSim){
+                            DeformationType newDef;
+                            double newSim=newLocalSim.Get();
+                            double oldSim=oldLocalSim.Get();
 
 #if 0                       
-                        newDef=newIt.Get()*newSim+origIt.Get()*oldSim;
-                        newDef=newDef*0.5*(newSim+oldSim);
-                        newIt.Set(newDef);
-                        oldLocalSim.Set(0.5*(newSim+oldSim));
+                            newDef=newIt.Get()*newSim+origIt.Get()*oldSim;
+                            newDef=newDef*0.5*(newSim+oldSim);
+                            newIt.Set(newDef);
+                            oldLocalSim.Set(0.5*(newSim+oldSim));
 #else
                         
-                        //if (newSim<oldLocalSim.Get()){
-                        if (! (oldSim==0.0) && newSim/oldSim < 0.7){
-                            //origIt.Set(newIt.Get());
-                            newIt.Set(origIt.Get());
+                            //if (newSim<oldLocalSim.Get()){
+                            if (! (oldSim==0.0) && newSim/oldSim < 0.7){
+                                //origIt.Set(newIt.Get());
+                                newIt.Set(origIt.Get());
 
-                        }else{
-                            oldLocalSim.Set(newSim);
-                        }
+                            }else{
+                                oldLocalSim.Set(newSim);
+                            }
 
 #endif
-                    }
+                        }
                     
 
 #endif                    
 
 
 
-                    if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
-                        mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
-                        mask->FillBuffer(0);
-                        typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
-                        IndexType offset;
-                        double fraction=0.7;
-                        for (int d=0;d<D;++d){
-                            offset[d]=(1.0-fraction)/2*size[d];
-                            size[d]=fraction*size[d];
-                        }
+                        if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                            mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
+                            mask->FillBuffer(0);
+                            typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+                            IndexType offset;
+                            double fraction=0.9;
+                            for (int d=0;d<D;++d){
+                                offset[d]=(1.0-fraction)/2*size[d];
+                                size[d]=fraction*size[d];
+                            }
                         
-                        typename ImageType::RegionType region;
-                        region.SetSize(size);
-                        region.SetIndex(offset);
-                        LOGV(6)<<VAR(region)<<endl;
-                        ImageUtils<ImageType>::setRegion(mask,region,1);
-                        //mask = TransfUtils<ImageType>::warpImage(mask,estimatedDeform);
+                            typename ImageType::RegionType region;
+                            region.SetSize(size);
+                            region.SetIndex(offset);
+                            LOGV(6)<<VAR(region)<<endl;
+                            ImageUtils<ImageType>::setRegion(mask,region,1);
+                            //mask = TransfUtils<ImageType>::warpImage(mask,estimatedDeform);
 
-                        double newError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask);
-                        //double newError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
-                        //mask->FillBuffer(1);
-                        //mask = TransfUtils<ImageType>::warpImage(mask,(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
-                        double oldError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask);
-                        //double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
-                        LOGV(1)<<VAR(s)<<" "<<VAR(t)<<" "<<VAR(oldError)<<" "<<VAR(newError)<<endl;
+                            double newError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask);
+                            //double newError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(estimatedDeform,(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
+                            //mask->FillBuffer(1);
+                            //mask = TransfUtils<ImageType>::warpImage(mask,(*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]);
+                            double oldError=TransfUtils<ImageType>::computeDeformationNormMask(TransfUtils<ImageType>::subtract((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),mask);
+                            //double oldError=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract((*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]],(*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]),1);
+                            LOGV(1)<<VAR(s)<<" "<<VAR(t)<<" "<<VAR(oldError)<<" "<<VAR(newError)<<endl;
                      
-                    }
-                    ostringstream outfile;
-                    if (directory != ""){
-                        outfile<<directory<<"/estimatedLocalComposedDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
-                        ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
-                        ostringstream outfile2;
-                        outfile2<<directory<<"/estimatedLocalComposedDeformation-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
-                        ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),estimatedDeform);
-                    }
-                    if (m_updateDeformations){
-                        (*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]= estimatedDeform;
-                    }else{
-                        (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]] = estimatedDeform;
-                        m_haveDeformationEstimate = true;
-                    }
+                        }
+                        ostringstream outfile;
+                        if (directory != ""){
+                            outfile<<directory<<"/estimatedLocalComposedDeformationError-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
+                            ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
+                            ostringstream outfile2;
+                            outfile2<<directory<<"/estimatedLocalComposedDeformation-FROM-"<<(*m_imageIDList)[s]<<"-TO-"<<(*m_imageIDList)[t]<<".mha";
+                            ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),estimatedDeform);
+                        }
+                        if (m_updateDeformations){
+                            (*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]= estimatedDeform;
+                        }else{
+                            (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]] = estimatedDeform;
+                            m_haveDeformationEstimate = true;
+                        }
                    
+                    }else{
+                        (*m_downSampledDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]=NULL;
+                        (*m_updatedDeformationCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]]=NULL;
+                    }
                 }
             }
         }
@@ -735,13 +761,22 @@ protected:
         double manualResidual=0.0;
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
+            string sourceID=(*m_imageIDList)[source];
             if (m_wErrorStatistics>0 && m_pairwiseInconsistencyStatistics.find(s)==m_pairwiseInconsistencyStatistics.end())
                 m_pairwiseInconsistencyStatistics[s]=map <int,  GaussEstimatorType >();
 
             for (int t=0;t<m_numImages;++t){
                 if (t!=s){
                     int target=t;
-                    DeformationFieldPointerType dSourceTarget=(*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[target]];
+                    string targetID=(*m_imageIDList)[target];
+                    DeformationFieldPointerType dSourceTarget;
+                    bool estSourceTarget=false;
+                    if ((*m_downSampledDeformationCache)[sourceID][targetID].IsNotNull()){
+                        dSourceTarget=(*m_downSampledDeformationCache)[sourceID][targetID];
+                        estSourceTarget=true;
+                    }else{
+                        dSourceTarget=(*m_trueDeformations)[sourceID][targetID];
+                    }
                     
                     if (m_wErrorStatistics>0.0){
                         if (m_pairwiseInconsistencyStatistics[s].find(t)==m_pairwiseInconsistencyStatistics[s].end())
@@ -756,38 +791,60 @@ protected:
                         if (t!=i && i!=s){
                             //define a set of 3 images
                             int intermediate=i;
+                            string intermediateID=(*m_imageIDList)[i];
+                            DeformationFieldPointerType dSourceIntermediate;
                             
-                            DeformationFieldPointerType dSourceIntermediate = (*m_downSampledDeformationCache)[(*m_imageIDList)[source]][(*m_imageIDList)[intermediate]];
-                            DeformationFieldPointerType dIntermediateTarget = (*m_downSampledDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dIntermediateTarget,dSourceIntermediate);
-                            DeformationFieldPointerType difference = TransfUtils<ImageType>::subtract(indirectDeform,dSourceTarget);
+                            bool estSourceIntermediate=false;
+                            if ((*m_downSampledDeformationCache)[sourceID][intermediateID].IsNotNull()){
+                                dSourceIntermediate=(*m_downSampledDeformationCache)[sourceID][intermediateID];
+                                estSourceIntermediate=true;
+                            }else{
+                                dSourceIntermediate=(*m_trueDeformations)[sourceID][intermediateID];
+                            }
 
-                            //compute indirect deform
-                            //DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dSourceIntermediate,dIntermediateTarget);
-                            //compute difference of direct and indirect deform
+                            DeformationFieldPointerType dIntermediateTarget;
                             
-                            FloatImagePointerType directionalDifference = TransfUtils<ImageType>::getComponent(difference,d);
-                            FloatImagePointerType directionalDeform = TransfUtils<ImageType>::getComponent(indirectDeform,d);
-                            FloatImagePointerType diffNorm = TransfUtils<ImageType>::computeLocalDeformationNorm(difference);
-                            if (m_wErrorStatistics>0.0){
-                                //check if all accumulators exist
-                                if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
-                                    m_pairwiseInconsistencyStatistics[i]=map <int,  GaussEstimatorType >();
-                                if (m_pairwiseInconsistencyStatistics[i].find(t)==m_pairwiseInconsistencyStatistics[i].end())
-                                    m_pairwiseInconsistencyStatistics[i][t]=GaussEstimatorType();
+                            bool estIntermediateTarget=false;
+                            if ((*m_downSampledDeformationCache)[intermediateID][targetID].IsNotNull()){
+                                dIntermediateTarget=(*m_downSampledDeformationCache)[intermediateID][targetID];
+                                estIntermediateTarget=true;
+                            }else{
+                                dIntermediateTarget=(*m_trueDeformations)[intermediateID][targetID];
+                            }
+
+                            //check if any of the deformations of the loop should be estimated
+                            if (estIntermediateTarget || estSourceTarget || estSourceIntermediate){
+
+
+                                DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dIntermediateTarget,dSourceIntermediate);
+                                DeformationFieldPointerType difference = TransfUtils<ImageType>::subtract(indirectDeform,dSourceTarget);
+
+                                //compute indirect deform
+                                //DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dSourceIntermediate,dIntermediateTarget);
+                                //compute difference of direct and indirect deform
+                            
+                                FloatImagePointerType directionalDifference = TransfUtils<ImageType>::getComponent(difference,d);
+                                FloatImagePointerType directionalDeform = TransfUtils<ImageType>::getComponent(indirectDeform,d);
+                                FloatImagePointerType diffNorm = TransfUtils<ImageType>::computeLocalDeformationNorm(difference);
+                                if (m_wErrorStatistics>0.0){
+                                    //check if all accumulators exist
+                                    if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
+                                        m_pairwiseInconsistencyStatistics[i]=map <int,  GaussEstimatorType >();
+                                    if (m_pairwiseInconsistencyStatistics[i].find(t)==m_pairwiseInconsistencyStatistics[i].end())
+                                        m_pairwiseInconsistencyStatistics[i][t]=GaussEstimatorType();
                                 
-                                //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDifference);
-                                //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDeform);
-                                m_pairwiseInconsistencyStatistics[s][t].addImage(diffNorm);
-                                //m_pairwiseInconsistencyStatistics[i][t].addImage(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(directionalDifference,-1));
-                            }
+                                    //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDifference);
+                                    //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDeform);
+                                    m_pairwiseInconsistencyStatistics[s][t].addImage(diffNorm);
+                                    //m_pairwiseInconsistencyStatistics[i][t].addImage(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(directionalDifference,-1));
+                                }
 
-                            //use updated deform for constructing circle
-                            if (m_ORACLE){
-                                dIntermediateTarget=(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            }else if (true && m_haveDeformationEstimate && (*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
-                                dIntermediateTarget=(*m_updatedDeformationCache)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]];
-                            }
+                                //use updated deform for constructing circle
+                                if (m_ORACLE){
+                                    dIntermediateTarget=(*m_trueDeformations)[intermediateID][targetID];
+                                }else if (estIntermediateTarget && m_haveDeformationEstimate && (*m_updatedDeformationCache)[intermediateID][targetID].IsNotNull()){
+                                    dIntermediateTarget=(*m_updatedDeformationCache)[intermediateID][targetID];
+                                }
                             
 
                             
@@ -795,186 +852,199 @@ protected:
                             
                          
 
-                            //compute norm
-                            DeformationFieldIterator it(difference,m_regionOfInterest);
-                            it.GoToBegin();
+                                //compute norm
+                                DeformationFieldIterator it(difference,m_regionOfInterest);
+                                it.GoToBegin();
                             
-                            DeformationFieldIterator trueIt;
-                            if ((*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]].IsNotNull()){
-                                trueIt=DeformationFieldIterator((*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]],(*m_trueDeformations)[(*m_imageIDList)[intermediate]][(*m_imageIDList)[target]]->GetLargestPossibleRegion());
-                                trueIt.GoToBegin();
-                            }
-                                
-                            ImageIterator segmentationIt;
-                            bool haveSeg=false;
-                                
-                            if (false && m_segmentationList->find((*m_imageIDList)[target]) != m_segmentationList->end()){
-                                segmentationIt=ImageIterator((*m_segmentationList)[(*m_imageIDList)[target]],(*m_segmentationList)[(*m_imageIDList)[target]]->GetLargestPossibleRegion());
-                                haveSeg = true;
-                            }
-                            SizeType roiSize=m_regionOfInterest.GetSize();
-                            
-                            // LOGV(1)<<VAR(dir)<<" "<<VAR(start)<<endl;
-                            for (;!it.IsAtEnd();++it){
-
-                                bool valid=true;
-
-                                //get index in target domain
-                                IndexType targetIndex=it.GetIndex(),intermediateIndex,idx1;
-                                LOGV(9)<<VAR(targetIndex)<<endl;
-                                PointType ptIntermediate,ptTarget,ptSourceDirect;
-                                IndexType roiIntermediateIndex,roiTargetIndex;
-                                
-                                //get physical point in target domain
-                                dSourceTarget->TransformIndexToPhysicalPoint(targetIndex,ptTarget);
-                                //get corresponding point in intermediate deform
-                                DeformationType dIntermediate=dIntermediateTarget->GetPixel(targetIndex);
-                                ptIntermediate= ptTarget + dIntermediate;
-                                
-                                //get point in source image where direct deformation points to
-                                ptSourceDirect = ptTarget + dSourceTarget->GetPixel(targetIndex);
-                                
-                                //get neighbors of that point
-                                std::vector<std::pair<IndexType,double> >ptIntermediateNeighbors,ptIntermediateNeighborsCircle;
-                                bool inside;
-                                if (m_linearInterpol){
-                                    inside=getLinearNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
-                                }else{
-                                    inside=getNearestNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
+                                DeformationFieldIterator trueIt;
+                                if ((*m_trueDeformations)[intermediateID][targetID].IsNotNull()){
+                                    trueIt=DeformationFieldIterator((*m_trueDeformations)[intermediateID][targetID],(*m_trueDeformations)[intermediateID][targetID]->GetLargestPossibleRegion());
+                                    trueIt.GoToBegin();
                                 }
+                                
+                                ImageIterator segmentationIt;
+                                bool haveSeg=false;
+                                
+                                if (false && m_segmentationList->find(targetID) != m_segmentationList->end()){
+                                    segmentationIt=ImageIterator((*m_segmentationList)[targetID],(*m_segmentationList)[targetID]->GetLargestPossibleRegion());
+                                    haveSeg = true;
+                                }
+                                SizeType roiSize=m_regionOfInterest.GetSize();
+                            
+                                // LOGV(1)<<VAR(dir)<<" "<<VAR(start)<<endl;
+                                for (;!it.IsAtEnd();++it){
+
+                                    bool valid=true;
+
+                                    //get index in target domain
+                                    IndexType targetIndex=it.GetIndex(),intermediateIndex,idx1;
+                                    LOGV(9)<<VAR(targetIndex)<<endl;
+                                    PointType ptIntermediate,ptTarget,ptSourceDirect;
+                                    IndexType roiIntermediateIndex,roiTargetIndex;
+                                
+                                    //get physical point in target domain
+                                    dSourceTarget->TransformIndexToPhysicalPoint(targetIndex,ptTarget);
+                                    //get corresponding point in intermediate deform
+                                    DeformationType dIntermediate=dIntermediateTarget->GetPixel(targetIndex);
+                                    ptIntermediate= ptTarget + dIntermediate;
+                                
+                                    //get point in source image where direct deformation points to
+                                    ptSourceDirect = ptTarget + dSourceTarget->GetPixel(targetIndex);
+                                
+                                    //get neighbors of that point
+                                    std::vector<std::pair<IndexType,double> >ptIntermediateNeighbors,ptIntermediateNeighborsCircle;
+                                    bool inside;
+                                    if (m_linearInterpol){
+                                        inside=getLinearNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
+                                    }else{
+                                        inside=getNearestNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
+                                    }
 
  
                                         
-                                this->m_ROI->TransformPhysicalPointToIndex(ptTarget,roiTargetIndex);
-                                LOGV(9)<<VAR(targetIndex)<<" "<<VAR(roiTargetIndex)<<endl;
+                                    this->m_ROI->TransformPhysicalPointToIndex(ptTarget,roiTargetIndex);
+                                    LOGV(9)<<VAR(targetIndex)<<" "<<VAR(roiTargetIndex)<<endl;
                                 
-                                if (inside){
+                                    if (inside){
 
-                                    double val=1.0;
-                                    bool segVal=1.0;
+                                        double val=1.0;
+                                        bool segVal=1.0;
 
-                                    //val*=getIndexBasedWeight(roiTargetIndex,roiSize);
+                                        //val*=getIndexBasedWeight(roiTargetIndex,roiSize);
 
-                                    //multiply val by segConsistencyWeight if deformation starts from atlas segmentation
-                                    if (haveSeg){
-                                        segVal=segmentationIt.Get()>0;
-                                        if (segVal){
-                                            val=val*m_segConsisntencyWeight;
+                                        //multiply val by segConsistencyWeight if deformation starts from atlas segmentation
+                                        if (haveSeg){
+                                            segVal=segmentationIt.Get()>0;
+                                            if (segVal){
+                                                val=val*m_segConsisntencyWeight;
+                                            }
+                                            ++segmentationIt;
                                         }
-                                        ++segmentationIt;
-                                    }
 
                               
                                  
 
-                                    //statisticIt.Set(statisticIt.Get()+(disp));
+                                        //statisticIt.Set(statisticIt.Get()+(disp));
 
 
-                                    LOGV(9)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(target)<<" "<<VAR(roiTargetIndex)<<" "<<VAR(d)<<endl;
-                                    LOGV(9)<<VAR(edgeNumError(intermediate,target,roiTargetIndex,d))<<" "<<VAR(edgeNumDeformation(intermediate,target,roiTargetIndex,d))<<endl;
-                                    //set w_d ~ 
-                                    if (m_wFullCircleEnergy>0){
-                                        //def and error intermediate->target
-                                        x[c]=eq;
-                                        y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                        v[c++]=val*m_wFullCircleEnergy;
-                                        x[c]=eq;
-                                        y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
-                                        v[c++]=val*m_wFullCircleEnergy;
-                                        //interpolated def and error source->intermediate
-                                        double localInconsistency=0.0;
-
-                                        for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                        LOGV(9)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(target)<<" "<<VAR(roiTargetIndex)<<" "<<VAR(d)<<endl;
+                                        LOGV(9)<<VAR(edgeNumError(intermediate,target,roiTargetIndex,d))<<" "<<VAR(edgeNumDeformation(intermediate,target,roiTargetIndex,d))<<endl;
+                                        //set w_d ~ 
+                                        if (m_wFullCircleEnergy>0){
+                                            //def and error intermediate->target
                                             x[c]=eq;
-                                            y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d);
-                                            v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
+                                            y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
+                                            v[c++]=val*m_wFullCircleEnergy;
                                             x[c]=eq;
-                                            y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d);
-                                            v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
-                                            PointType ptSourceIndirect= ptTarget + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
-                                            localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                            y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
+                                            v[c++]=val*m_wFullCircleEnergy;
+                                            //interpolated def and error source->intermediate
+                                            double localInconsistency=0.0;
+
+                                            for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                                x[c]=eq;
+                                                y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d);
+                                                v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
+                                                x[c]=eq;
+                                                y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d);
+                                                v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
+                                                PointType ptSourceIndirect= ptTarget + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
+                                                localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                            
+                                            }
+                                            //minus def and error source->target
+                                            x[c]=eq;
+                                            y[c]=edgeNumError(source,target,roiTargetIndex,d);
+                                            v[c++]= - val*m_wFullCircleEnergy;
+                                            x[c]=eq;
+                                            y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
+                                            v[c++]= - val*m_wFullCircleEnergy;
+                                            b[eq-1]= localInconsistency*m_wFullCircleEnergy;
+                                            ++eq;
+
                                             
                                         }
-                                        //minus def and error source->target
-                                        x[c]=eq;
-                                        y[c]=edgeNumError(source,target,roiTargetIndex,d);
-                                        v[c++]= - val*m_wFullCircleEnergy;
-                                        x[c]=eq;
-                                        y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
-                                        v[c++]= - val*m_wFullCircleEnergy;
-                                        b[eq-1]= localInconsistency*m_wFullCircleEnergy;
-                                        ++eq;
-
-                                            
-                                    }
                                     
-                                    //set w_circ
-                                    if (m_wCircleNorm>0.0){
-                                            
-                                        //indirect
-                                        x[c]=eq;
-                                        y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
-                                        v[c++]=val* m_wCircleNorm;
+                                        //set w_circ
+                                        if (m_wCircleNorm>0.0){
+                                            double RHS=0.0;
+                                            if (estIntermediateTarget){
+                                                //indirect
+                                                x[c]=eq;
+                                                y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
+                                                v[c++]=val* m_wCircleNorm;
+                                            }else{
+                                                RHS-=dIntermediateTarget->GetPixel(roiTargetIndex)[d];
+                                            }
                                                 
 #if 0
-                                        //EXPERIMENTAL*****************************************
-                                        x[c]=eq;
-                                        y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                        v[c++]=-val*m_wCircleNorm;
-                                        // *****************************************************
+                                            //EXPERIMENTAL*****************************************
+                                            x[c]=eq;
+                                            y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
+                                            v[c++]=-val*m_wCircleNorm;
+                                            // *****************************************************
 #endif
                                         
-                                        double defSum=0.0;
-                                        for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                            x[c]=eq;
-                                            y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                            v[c++]=ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
-                                            LOGV(8)<<VAR(roiTargetIndex)<<" "<<VAR(i)<<" "<<VAR(ptIntermediateNeighbors[i].first)<<" "<<VAR(ptIntermediateNeighbors[i].second)<<endl;
-                                            defSum+=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
-                                        }
-                                        //minus direct
-                                        x[c]=eq;
-                                        y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
-                                        v[c++]= - val* m_wCircleNorm;
-                                        
-                                        double residual= val*m_wCircleNorm*(dIntermediateTarget->GetPixel(roiTargetIndex)[d]
-                                                                            + defSum
-                                                                            - dSourceTarget->GetPixel(roiTargetIndex)[d]
-                                                                            );
-                                        manualResidual+=residual*residual;
-                                        b[eq-1]=0;
-                                        ++eq;
-                                    }
-                                    
-                                    if (m_wErrorInconsistency>0.0){
-                                        val=1.0;
-                                        //indirect
-                                        x[c]=eq;
-                                        y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                        v[c++]=val* m_wErrorInconsistency;
-                                        double localInconsistency=0.0;
-                                        for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                            x[c]=eq;
-                                            y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                            v[c++]=ptIntermediateNeighbors[i].second*val* m_wErrorInconsistency;
-                                            PointType ptIntermediate;
-                                            dSourceIntermediate->TransformIndexToPhysicalPoint(ptIntermediateNeighbors[i].first,ptIntermediate);
-                                            PointType ptSourceIndirect= ptIntermediate + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
-                                            localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
-                                            
-                                        }
-                                        //minus direct
-                                        x[c]=eq;
-                                        y[c]=edgeNumError(source,target,roiTargetIndex,d);
-                                        v[c++]= - val* m_wErrorInconsistency;
-                                        b[eq-1]=localInconsistency* m_wErrorInconsistency;
-                                        ++eq;
-                                        
-                                    }
-                                }//inside
-                                
-                            }//image iterator
+                                            double defSum=0.0;
+                                            for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                                if (estSourceIntermediate){
+                                                    x[c]=eq;
+                                                    y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
+                                                    v[c++]=ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
+                                                    LOGV(8)<<VAR(roiTargetIndex)<<" "<<VAR(i)<<" "<<VAR(ptIntermediateNeighbors[i].first)<<" "<<VAR(ptIntermediateNeighbors[i].second)<<endl;
+                                                }else{
+                                                    RHS-=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
+                                                }
+                                                defSum+=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
+                                            }
 
+                                            if (estSourceTarget){
+                                                //minus direct
+                                                x[c]=eq;
+                                                y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
+                                                v[c++]= - val* m_wCircleNorm;
+                                            }else{
+                                                RHS+=dSourceTarget->GetPixel(roiTargetIndex)[d];
+                                            }
+                                        
+                                            double residual= val*m_wCircleNorm*(dIntermediateTarget->GetPixel(roiTargetIndex)[d]
+                                                                                + defSum
+                                                                                - dSourceTarget->GetPixel(roiTargetIndex)[d]
+                                                                                );
+                                            manualResidual+=residual*residual;
+                                            b[eq-1]=m_wCircleNorm*RHS;
+                                            ++eq;
+                                        }
+                                    
+                                        if (m_wErrorInconsistency>0.0){
+                                            val=1.0;
+                                            //indirect
+                                            x[c]=eq;
+                                            y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
+                                            v[c++]=val* m_wErrorInconsistency;
+                                            double localInconsistency=0.0;
+                                            for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                                x[c]=eq;
+                                                y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
+                                                v[c++]=ptIntermediateNeighbors[i].second*val* m_wErrorInconsistency;
+                                                PointType ptIntermediate;
+                                                dSourceIntermediate->TransformIndexToPhysicalPoint(ptIntermediateNeighbors[i].first,ptIntermediate);
+                                                PointType ptSourceIndirect= ptIntermediate + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
+                                                localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                            
+                                            }
+                                            //minus direct
+                                            x[c]=eq;
+                                            y[c]=edgeNumError(source,target,roiTargetIndex,d);
+                                            v[c++]= - val* m_wErrorInconsistency;
+                                            b[eq-1]=localInconsistency* m_wErrorInconsistency;
+                                            ++eq;
+                                        
+                                        }
+                                    }//inside
+                                
+                                }//image iterator
+                            }//if anything is to estimate :)
                         }//if
                         
                     }//intermediate
@@ -1005,265 +1075,291 @@ protected:
                     string sourceID=(*this->m_imageIDList)[source];
                     string targetID = (*this->m_imageIDList)[target];
                   
+                    //only compute pairwise energies if deformation is to be estimated
+                    if ((*m_downSampledDeformationCache)[sourceID][targetID].IsNotNull()){
                       
-
-                      
-                    FloatImagePointerType lncc;
-                    FloatImageIterator lnccIt;
-                    if (m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
-                        lncc=(*m_pairwiseLocalWeightMaps)[s][t];
-                        lnccIt=FloatImageIterator(lncc,lncc->GetLargestPossibleRegion());
-                        lnccIt.GoToBegin();
-                    }
-
-                    DeformationFieldIterator previousIt;
-                    double priorWeight=1.0;
-                    if (true && ! m_updateDeformations && m_haveDeformationEstimate && (*m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
-                        DeformationFieldPointerType estDef=(*m_updatedDeformationCache)[sourceID][targetID];
-                        DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(estDef,(*m_downSampledDeformationCache)[sourceID][targetID]);
-                        double defNorm=TransfUtils<ImageType>::computeDeformationNorm(diff);
-                        if (defNorm!=0.0){
-                            priorWeight=1.0/defNorm;
-                        }else
-                            priorWeight= 10;
-                        
-                        previousIt=DeformationFieldIterator(diff,m_regionOfInterest);
-                        previousIt.GoToBegin();
-                    }
-                        
-                    DeformationFieldPointerType defSourceInterm=(*this->m_downSampledDeformationCache)[sourceID][targetID];
-                    DeformationFieldIterator it(defSourceInterm,m_regionOfInterest);
-                    it.GoToBegin();
-                    
-                    
-                    GaussEstimatorType * statisticsEstimatorSourceTarget;
-                    if (m_wErrorStatistics>0.0){
-                        statisticsEstimatorSourceTarget = &m_pairwiseInconsistencyStatistics[s][t];
-                        statisticsEstimatorSourceTarget->finalize();
-                    }
-
-                    FloatImagePointerType newLocalWeights;
-                    if (m_locallyUpdateDeformationEstimate && ! m_updateDeformations && m_haveDeformationEstimate && (*m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
-                        newLocalWeights=(*m_updatedPairwiseLocalWeightMaps)[s][t];
-                    }
-
-
-                    for (;!it.IsAtEnd();++it){
-                        DeformationType localDef=it.Get();
-                        IndexType idx=it.GetIndex();
-                        LOGV(8)<<VAR(eq)<<" "<<VAR(localDef)<<endl;
-                        
-                        //double trueError  = (*this->m_downSampledDeformationCache)[sourceID][targetID]->GetPixel(idx)[d]-(*m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d];
-
-                        int edgeNumDef=edgeNumDeformation(source,target,idx,d);
-                        int edgeNumErr;
-                        if (m_estError)
-                            edgeNumErr=edgeNumError(source,target,idx,d);
-
-                        //intensity based weight
-                        double weight=1.0;
-                        if (lncc.IsNotNull()){
-                            weight = lnccIt.Get();
-                            LOGV(6)<<VAR(weight)<<endl;
-                            ++lnccIt;
+                        FloatImagePointerType lncc;
+                        FloatImageIterator lnccIt;
+                        if (m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
+                            lncc=(*m_pairwiseLocalWeightMaps)[s][t];
+                            lnccIt=FloatImageIterator(lncc,lncc->GetLargestPossibleRegion());
+                            lnccIt.GoToBegin();
                         }
+
+                        DeformationFieldIterator previousIt;
+                        double priorWeight=1.0;
+                        if (true && ! m_updateDeformations && m_haveDeformationEstimate && (*m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
+                            DeformationFieldPointerType estDef=(*m_updatedDeformationCache)[sourceID][targetID];
+                            DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(estDef,(*m_downSampledDeformationCache)[sourceID][targetID]);
+                            double defNorm=TransfUtils<ImageType>::computeDeformationNorm(diff);
+                            if (defNorm!=0.0){
+                                priorWeight=1.0/defNorm;
+                            }else
+                                priorWeight= 10;
+                        
+                            previousIt=DeformationFieldIterator(diff,m_regionOfInterest);
+                            previousIt.GoToBegin();
+                        }
+                        
+                        DeformationFieldPointerType dSourceTarget=(*this->m_downSampledDeformationCache)[sourceID][targetID];
+                        DeformationFieldIterator it(dSourceTarget,m_regionOfInterest);
+                        it.GoToBegin();
+                    
+                    
+                        GaussEstimatorType * statisticsEstimatorSourceTarget;
+                        if (m_wErrorStatistics>0.0){
+                            statisticsEstimatorSourceTarget = &m_pairwiseInconsistencyStatistics[s][t];
+                            statisticsEstimatorSourceTarget->finalize();
+                        }
+
+                        FloatImagePointerType newLocalWeights;
+                        if (m_locallyUpdateDeformationEstimate && ! m_updateDeformations && m_haveDeformationEstimate && (*m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
+                            newLocalWeights=(*m_updatedPairwiseLocalWeightMaps)[s][t];
+                        }
+
+
+                        for (;!it.IsAtEnd();++it){
+                            DeformationType localDef=it.Get();
+                            IndexType idx=it.GetIndex();
+                            LOGV(8)<<VAR(eq)<<" "<<VAR(localDef)<<endl;
+                        
+                            //double trueError  = (*this->m_downSampledDeformationCache)[sourceID][targetID]->GetPixel(idx)[d]-(*m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d];
+
+                            int edgeNumDef=edgeNumDeformation(source,target,idx,d);
+                            int edgeNumErr;
+                            if (m_estError)
+                                edgeNumErr=edgeNumError(source,target,idx,d);
+
+                            //intensity based weight
+                            double weight=1.0;
+                            if (lncc.IsNotNull()){
+                                weight = lnccIt.Get();
+                                LOGV(6)<<VAR(weight)<<endl;
+                                ++lnccIt;
+                            }
                           
                         
                                 
-                        //weight based on previous estimate
-                        double weight2=1.0;
-                        double expectedError=0.0;
-                        if (m_haveDeformationEstimate){
-                            priorWeight=1.0;
-                            if (false ){
-                                expectedError = previousIt.Get()[d];
-                                ++previousIt;
+                            //weight based on previous estimate
+                            double weight2=1.0;
+                            double expectedError=0.0;
+                            if (m_haveDeformationEstimate){
+                                priorWeight=1.0;
+                                if (false ){
+                                    expectedError = previousIt.Get()[d];
+                                    ++previousIt;
 
-                                //double diffNorm=fabs(previousIt.Get()[d]);
-                                double diffNorm=previousIt.Get().GetNorm();
-                                if (diffNorm!=0.0){
-                                    priorWeight=1.0/diffNorm;
-                                }else
-                                    priorWeight=100;
+                                    //double diffNorm=fabs(previousIt.Get()[d]);
+                                    double diffNorm=previousIt.Get().GetNorm();
+                                    if (diffNorm!=0.0){
+                                        priorWeight=1.0/diffNorm;
+                                    }else
+                                        priorWeight=100;
                                 
-                                //LOGV(4)<<VAR(diffNorm)<<" "<<VAR(priorWeight)<<endl;
-                                priorWeight=min(max(priorWeight,0.001),10.0);
+                                    //LOGV(4)<<VAR(diffNorm)<<" "<<VAR(priorWeight)<<endl;
+                                    priorWeight=min(max(priorWeight,0.001),10.0);
                                 
+                                }
                             }
-                        }
                                 
-                        //set w_delta
-                        //set eqn for soft constraining the error to be small
-                        if (m_wErrorNorm>0.0){
-                            x[c]    = eq;
-                            y[c]    = edgeNumErr;
-                            v[c++]  = 1.0*m_wErrorNorm*weight;
-                            b[eq-1] = 0.0;//weight*m_wErrorNorm;
-                            ++eq;
-                            LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(weight)<<endl;
-                        }
-
-
-                        //set w_delta
-                        //set eqn for soft constraining the error to be small
-                        double meanInconsistency;
-                        double varInconsistency;
-                        if (false && m_wErrorStatistics>0.0){
-                            meanInconsistency=statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
-                            varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget->getVariance()->GetPixel(idx))));
-                            if (varInconsistency == 0.0){
-                                varInconsistency = 1e-5;
+                            //set w_delta
+                            //set eqn for soft constraining the error to be small
+                            if (m_wErrorNorm>0.0){
+                                x[c]    = eq;
+                                y[c]    = edgeNumErr;
+                                v[c++]  = 1.0*m_wErrorNorm*weight;
+                                b[eq-1] = 0.0;//weight*m_wErrorNorm;
+                                ++eq;
+                                LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(weight)<<endl;
                             }
-                            weight2 = 1.0/(varInconsistency);
-                            x[c]    = eq;
-                            y[c]    = edgeNumDef;
-                            v[c++]  = 1.0*m_wErrorStatistics*weight2;
-                            //b[eq-1] = m_wErrorStatistics*weight2*trueError;
-                            b[eq-1] = m_wErrorStatistics*weight2*meanInconsistency;
-                            //LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(meanInconsistency)<<" "<<VAR(weight2)<<" "<<VAR(trueError)<<endl;
-                            ++eq;
-                        }
+
+
+                            //set w_delta
+                            //set eqn for soft constraining the error to be small
+                            double meanInconsistency;
+                            double varInconsistency;
+                            if (false && m_wErrorStatistics>0.0){
+                                meanInconsistency=statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
+                                varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget->getVariance()->GetPixel(idx))));
+                                if (varInconsistency == 0.0){
+                                    varInconsistency = 1e-5;
+                                }
+                                weight2 = 1.0/(varInconsistency);
+                                x[c]    = eq;
+                                y[c]    = edgeNumDef;
+                                v[c++]  = 1.0*m_wErrorStatistics*weight2;
+                                //b[eq-1] = m_wErrorStatistics*weight2*trueError;
+                                b[eq-1] = m_wErrorStatistics*weight2*meanInconsistency;
+                                //LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(meanInconsistency)<<" "<<VAR(weight2)<<" "<<VAR(trueError)<<endl;
+                                ++eq;
+                            }
                         
-                        double localWeight=-1;
-                        double localUpdatedDef;
-                        //get local similarity weight for updated deformation if available
-                        if (m_locallyUpdateDeformationEstimate  &&  m_haveDeformationEstimate && ! m_updateDeformations){
-                            localWeight=newLocalWeights->GetPixel(idx);
-                            localUpdatedDef=(*m_updatedDeformationCache)[sourceID][targetID]->GetPixel(idx)[d];
-                        }
-                        
-                        //set w_T
-                        //set eqn for soft constraining the estimated true deformation to be similar to the original deformation
-                        if (m_wTransformationSimilarity>0.0){
-                            //weight=1.0/sqrt(fabs(meanInconsistency));
-                            double localDisp  =localDef[d];
-                            if (localWeight>weight){
-                                localDisp=localUpdatedDef;
-                                weight=localWeight;
+                            double localWeight=-1;
+                            double localUpdatedDef;
+                            //get local similarity weight for updated deformation if available
+                            if (m_locallyUpdateDeformationEstimate  &&  m_haveDeformationEstimate && ! m_updateDeformations){
+                                localWeight=newLocalWeights->GetPixel(idx);
+                                localUpdatedDef=(*m_updatedDeformationCache)[sourceID][targetID]->GetPixel(idx)[d];
                             }
-                            //weight=1.0/statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
-                            x[c]    = eq;
-                            y[c]    = edgeNumDef;
-                            v[c++]  = 1.0*m_wTransformationSimilarity *weight*priorWeight;
-                            //b[eq-1] = (localDef[d]-trueError)*m_wTransformationSimilarity;// * weight;
-                            b[eq-1] = localDisp*m_wTransformationSimilarity * weight*priorWeight;
-                            ++eq;
-                            LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(priorWeight)<<endl;
-                        }
+                        
+                            //set w_T
+                            //set eqn for soft constraining the estimated true deformation to be similar to the original deformation
+                            if (m_wTransformationSimilarity>0.0){
+                                //weight=1.0/sqrt(fabs(meanInconsistency));
+                                double localDisp  =localDef[d];
+                                if (localWeight>weight){
+                                    localDisp=localUpdatedDef;
+                                    weight=localWeight;
+                                }
+                                //weight=1.0/statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
+                                x[c]    = eq;
+                                y[c]    = edgeNumDef;
+                                v[c++]  = 1.0*m_wTransformationSimilarity *weight*priorWeight;
+                                //b[eq-1] = (localDef[d]-trueError)*m_wTransformationSimilarity;// * weight;
+                                b[eq-1] = localDisp*m_wTransformationSimilarity * weight*priorWeight;
+                                ++eq;
+                                LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(priorWeight)<<endl;
+                            }
                             
-                      
+                            if (m_wTransformationSymmetry>0.0){
+                                std::vector<std::pair<IndexType,double> > ptNeighbors;
+                                DeformationType def=localDef;
+                                if ((*m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
+                                    def=(*m_updatedDeformationCache)[sourceID][targetID]->GetPixel(idx);
+                                }
+                                
+                                PointType deformedPoint;
+                                dSourceTarget->TransformIndexToPhysicalPoint(idx,deformedPoint);
+                                deformedPoint = deformedPoint+def;
+                                bool inside=getLinearNeighbors(dSourceTarget,deformedPoint,ptNeighbors);
+                                if (inside){
+                                    x[c]    = eq;
+                                    y[c]    = edgeNumDef;
+                                    v[c++]  = 1.0*m_wTransformationSymmetry;
+                                    for (int i=0;i<ptNeighbors.size();++i){
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,target,ptNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
+                                        v[c++]=-1.0*ptNeighbors[i].second* m_wTransformationSymmetry;
+                                    }
+                                    b[eq-1] = 0.0;
+                                    ++eq;
+                                }
+
+                            }
                             
-                        //constraint that estimated def + estimated error = original def
-                        if (m_wSum>0.0){
-                            x[c]   = eq;
-                            y[c]   = edgeNumDef;
-                            v[c++] = m_wSum;
-                            x[c]   = eq;
-                            y[c]   = edgeNumErr;
-                            v[c++] = m_wSum;
-                            b[eq-1]=m_wSum*localDef[d];
-                            ++eq;
-                        }
+                            
+                            //constraint that estimated def + estimated error = original def
+                            if (m_wSum>0.0){
+                                x[c]   = eq;
+                                y[c]   = edgeNumDef;
+                                v[c++] = m_wSum;
+                                x[c]   = eq;
+                                y[c]   = edgeNumErr;
+                                v[c++] = m_wSum;
+                                b[eq-1]=m_wSum*localDef[d];
+                                ++eq;
+                            }
                           
-                        //spatial smootheness of estimated deformations
-                        if (m_wDeformationSmootheness>0.0){
-                            for (unsigned int n=0;n<D;++n){
-                                OffsetType off,off2;
-                                off.Fill(0);
-                                off2=off;
-                                off[n]=1;
-                                off2[n]=-1;
-                                double smoothenessWeight =this->m_wDeformationSmootheness;
-                                if (n!=d){
-                                    //smoothenss for shearing is different
-                                    smoothenessWeight*=m_shearingReduction;
-                                }
-                                IndexType neighborIndexRight=idx+off;
-                                IndexType neighborIndexLeft=idx+off2;
-                                if (defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
-                                    x[c]=eq;
-                                    y[c]=edgeNumDef;
-                                    v[c++]=-2*smoothenessWeight;
-                                    x[c]=eq;
-                                    y[c]=edgeNumDeformation(source,target,neighborIndexRight,d);
-                                    v[c++]=smoothenessWeight;
-                                    x[c]=eq;
-                                    y[c]=edgeNumDeformation(source,target,neighborIndexLeft,d);
-                                    v[c++]=smoothenessWeight;
-                                    b[eq-1]=0.0;
-                                    ++eq;
-                                }
-                            }//inside
-                        }
-                        //spatial un-smootheness of estimated errors
-                        if (m_wErrorSmootheness>0.0){
-                            for (unsigned int n=0;n<D;++n){
-                                OffsetType off,off2;
-                                off.Fill(0);
-                                off2=off;
-                                off[n]=1;
-                                off2[n]=-1;
-                                IndexType neighborIndexRight=idx+off;
-                                IndexType neighborIndexLeft=idx+off2;
-                                if (defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&defSourceInterm->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
-                                    x[c]   = eq;
-                                    y[c]   = edgeNumErr;
-                                    v[c++] = -2.0;
-                                    x[c]   = eq;
-                                    y[c]   = edgeNumError(source,target,neighborIndexRight,d);
-                                    v[c++] = 1.0;
-                                    x[c]   = eq;
-                                    y[c]   = edgeNumError(source,target,neighborIndexLeft,d);
-                                    v[c++] = 1.0;
-                                    b[eq-1]= this->m_wErrorSmootheness;
-                                    ++eq;
-                                }
-                            }//inside
-                        }//wwsDelta
-                        //set initialisation values
+                            //spatial smootheness of estimated deformations
+                            if (m_wDeformationSmootheness>0.0){
+                                for (unsigned int n=0;n<D;++n){
+                                    OffsetType off,off2;
+                                    off.Fill(0);
+                                    off2=off;
+                                    off[n]=1;
+                                    off2[n]=-1;
+                                    double smoothenessWeight =this->m_wDeformationSmootheness;
+                                    if (n!=d){
+                                        //smoothenss for shearing is different
+                                        smoothenessWeight*=m_shearingReduction;
+                                    }
+                                    IndexType neighborIndexRight=idx+off;
+                                    IndexType neighborIndexLeft=idx+off2;
+                                    if (dSourceTarget->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&dSourceTarget->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
+                                        x[c]=eq;
+                                        y[c]=edgeNumDef;
+                                        v[c++]=-2*smoothenessWeight;
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,target,neighborIndexRight,d);
+                                        v[c++]=smoothenessWeight;
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,target,neighborIndexLeft,d);
+                                        v[c++]=smoothenessWeight;
+                                        b[eq-1]=0.0;
+                                        ++eq;
+                                    }
+                                }//inside
+                            }
+                            //spatial un-smootheness of estimated errors
+                            if (m_wErrorSmootheness>0.0){
+                                for (unsigned int n=0;n<D;++n){
+                                    OffsetType off,off2;
+                                    off.Fill(0);
+                                    off2=off;
+                                    off[n]=1;
+                                    off2[n]=-1;
+                                    IndexType neighborIndexRight=idx+off;
+                                    IndexType neighborIndexLeft=idx+off2;
+                                    if (dSourceTarget->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&dSourceTarget->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
+                                        x[c]   = eq;
+                                        y[c]   = edgeNumErr;
+                                        v[c++] = -2.0;
+                                        x[c]   = eq;
+                                        y[c]   = edgeNumError(source,target,neighborIndexRight,d);
+                                        v[c++] = 1.0;
+                                        x[c]   = eq;
+                                        y[c]   = edgeNumError(source,target,neighborIndexLeft,d);
+                                        v[c++] = 1.0;
+                                        b[eq-1]= this->m_wErrorSmootheness;
+                                        ++eq;
+                                    }
+                                }//inside
+                            }//wwsDelta
+                            //set initialisation values
 
                             
-                        //set bounds on variables
-                        //error
-                        double extent     = (defSourceInterm->GetLargestPossibleRegion().GetSize()[d]-1)*defSourceInterm->GetSpacing()[d];
-                        double upperBound = extent;
-                        double lowerBound = -upperBound;
-                        LOGV(4)<<VAR(upperBound)<<endl;
-                        if (m_wErrorStatistics>0.){
-                            lowerBound        = meanInconsistency-3*sqrt(varInconsistency);
-                            upperBound        = meanInconsistency+3*sqrt(varInconsistency);
-                            //LOGV(6)<<VAR(weight)<<" "<<VAR(lowerBound)<<VAR(upperBound)<<" "<<VAR(meanInconsistency)<<" "<<VAR(varInconsistency)<<" "<<VAR(trueError)<<endl;
-                        }
+                            //set bounds on variables
+                            //error
+                            double extent     = (dSourceTarget->GetLargestPossibleRegion().GetSize()[d]-1)*dSourceTarget->GetSpacing()[d];
+                            double upperBound = extent;
+                            double lowerBound = -upperBound;
+                            LOGV(4)<<VAR(upperBound)<<endl;
+                            if (m_wErrorStatistics>0.){
+                                lowerBound        = meanInconsistency-3*sqrt(varInconsistency);
+                                upperBound        = meanInconsistency+3*sqrt(varInconsistency);
+                                //LOGV(6)<<VAR(weight)<<" "<<VAR(lowerBound)<<VAR(upperBound)<<" "<<VAR(meanInconsistency)<<" "<<VAR(varInconsistency)<<" "<<VAR(trueError)<<endl;
+                            }
 
                         
-                        if (m_estError){
-                            LOGV(6)<<VAR(edgeNumErr)<<" "<<VAR(m_nVars)<<endl;
-                            init[edgeNumErr-1] = 0;//meanInconsistency;
-                            lb[edgeNumErr-1]   = lowerBound;
-                            ub[edgeNumErr-1]   = upperBound;
-                        }
-                        //deformation
-                        //deformation should not fall outside image bounds
-                        PointType pt;
-                        defSourceInterm->TransformIndexToPhysicalPoint(idx,pt);
-                        //warning: assumes 1 1 1 direction!
-                        //deformation can maximally go back to origin
-                        if (m_estDef){
-                            LOGV(6)<<VAR(edgeNumDef)<<" "<<VAR(m_nVars)<<endl;
-                            lb[edgeNumDef-1]   =  defSourceInterm->GetOrigin()[d]-pt[d] -0.0001;
-                            //deformation can maximally transform pt to extent of image
-                            ub[edgeNumDef-1]   =  defSourceInterm->GetOrigin()[d]+extent-pt[d] +0.0001;
-                            LOGV(4)<<VAR(pt)<<" "<<VAR(defSourceInterm->GetOrigin()[d]-pt[d])<<" "<<VAR( defSourceInterm->GetOrigin()[d]+extent-pt[d]  )<<endl;
-                            //init[edgeNumDef-1] =  0;
-                            //init[edgeNumDef-1] =  localDef[d] -expectedError;
-                            init[edgeNumDef-1] =  localDef[d];
-                            //init[edgeNumDef-1] =  (localDef[d]-trueError) ;
+                            if (m_estError){
+                                LOGV(6)<<VAR(edgeNumErr)<<" "<<VAR(m_nVars)<<endl;
+                                init[edgeNumErr-1] = 0;//meanInconsistency;
+                                lb[edgeNumErr-1]   = lowerBound;
+                                ub[edgeNumErr-1]   = upperBound;
+                            }
+                            //deformation
+                            //deformation should not fall outside image bounds
+                            PointType pt;
+                            dSourceTarget->TransformIndexToPhysicalPoint(idx,pt);
+                            //warning: assumes 1 1 1 direction!
+                            //deformation can maximally go back to origin
+                            if (m_estDef){
+                                LOGV(6)<<VAR(edgeNumDef)<<" "<<VAR(m_nVars)<<endl;
+                                lb[edgeNumDef-1]   =  dSourceTarget->GetOrigin()[d]-pt[d] -0.0001;
+                                //deformation can maximally transform pt to extent of image
+                                ub[edgeNumDef-1]   =  dSourceTarget->GetOrigin()[d]+extent-pt[d] +0.0001;
+                                LOGV(4)<<VAR(pt)<<" "<<VAR(dSourceTarget->GetOrigin()[d]-pt[d])<<" "<<VAR( dSourceTarget->GetOrigin()[d]+extent-pt[d]  )<<endl;
+                                //init[edgeNumDef-1] =  0;
+                                //init[edgeNumDef-1] =  localDef[d] -expectedError;
+                                init[edgeNumDef-1] =  localDef[d];
+                                //init[edgeNumDef-1] =  (localDef[d]-trueError) ;
                             
-                        }
+                            }
                            
-                    }//for
+                        }//for
 
-                }//if
+                    }//if
+                }//check if estimation is necessary
             }//target
         }//source
     }//computePairwiseEnergiesAndBounds
@@ -1280,20 +1376,21 @@ public:
                     int target=t;
                     string sourceID=(*this->m_imageIDList)[source];
                     string targetID = (*this->m_imageIDList)[target];
-                                                       
-                 
-                    FloatImagePointerType lncc;
-                    if (m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
-                      
-                        DeformationFieldPointerType def;
-                        ImagePointerType targetImage=(*m_imageList)[targetID];
-                        ImagePointerType sourceImage=(*m_imageList)[sourceID];
-                      
-                        def=(*cache)[sourceID][targetID];
-                        lncc=getLocalWeightMap(def, targetImage, sourceImage);
-                      
+                    //only compute pairwise sim if the deformation should be estimated
+                    if ((*m_downSampledDeformationCache)[sourceID][targetID].IsNotNull()){
+                        FloatImagePointerType lncc;
+                        if (m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
+                            
+                            DeformationFieldPointerType def;
+                            ImagePointerType targetImage=(*m_imageList)[targetID];
+                            ImagePointerType sourceImage=(*m_imageList)[sourceID];
+                            
+                            def=(*cache)[sourceID][targetID];
+                            lncc=getLocalWeightMap(def, targetImage, sourceImage,sourceID,targetID);
+                            
+                        }
+                        (*result)[s][t]=lncc;
                     }
-                    (*result)[s][t]=lncc;
                 }
             }
         }
@@ -1317,11 +1414,16 @@ public:
         
         ImagePointerType warpedImage= TransfUtils<ImageType>::warpImage(movingImage,def);
         //compute lncc
-        lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
-        //lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
-        //lncc= Metrics<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
+        if (m_metric == "lncc"){
+            lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+        }else if (m_metric == "lsad"){
+            lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
+        }else if (m_metric == "lssd"){
+            lncc= Metrics<ImageType,FloatImageType>::LSSDNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
+        }else if (m_metric == "localautocorrelation"){
         //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(*m_imageList)[targetID],m_sigma);
-        //lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,targetImage,m_sigma,2,"lssd",m_exponent);
+            lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,targetImage,m_sigma,2,"lssd",m_exponent);
+        }
         //FloatImagePointerType laplacian=FilterUtils<ImageType,FloatImageType>::laplacian((*m_imageList)[targetID],m_sigma);
 
         ostringstream oss;

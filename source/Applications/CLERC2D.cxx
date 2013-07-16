@@ -101,12 +101,13 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=10;
     string solverName="localnorm";
-    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0,wErrorStatistics=1.0;
+    double wwd=1.0,wwt=1.0,wws=1.0,wwcirc=1.0,wwdelta=1.0,wwsum=100,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=1.0,wErrorStatistics=1.0,wSymmetry=0.0;
     bool nearestneighb=false;
     double shearing = 1.0;
     double circWeightScaling = 1.0;
     double scalingFactorForConsistentSegmentation = 1.0;
     bool oracle = false;
+    string localSimMetric="lncc";
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
@@ -124,8 +125,12 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
+    (*as) >> parameter ("wwsym", wSymmetry,"weight for def1 in circle",false);
     (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
     (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"weight for error variable being forced to be similar to the inconsitency statistics",false);
+
+
+    (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (lncc, lsad, lssd,localautocorrelation).",false);
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
     (*as) >> option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
@@ -225,7 +230,7 @@ int main(int argc, char ** argv){
                         deformationCache[sourceID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
                         //deformationCache[sourceID][targetID]=TransfUtils<ImageType>::gaussian(deformationCache[sourceID][targetID],resamplingFactor);
                         downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[sourceID][targetID], (ConstImagePointerType)ROI);
-
+                        //downSampledDeformationCache[sourceID][targetID]->FillBuffer(zeroDisp);
                         if (false){
                             ImagePointerType deformedSource = TransfUtils<ImageType>::warpImage( (*inputImages)[sourceID] , downSampledDeformationCache[sourceID][targetID] );
 
@@ -280,6 +285,7 @@ int main(int argc, char ** argv){
                         trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
                         //trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
                         trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::bSplineInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
+                        if (  downSampledDeformationCache[intermediateID][targetID].IsNotNull()){
                         if (outputDir!=""){
                             DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
                             ostringstream trueDefNorm;
@@ -292,6 +298,7 @@ int main(int argc, char ** argv){
                         }
                         trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]),1);
                         ++c;
+                        }
                     }  
                     
                     else{
@@ -306,7 +313,7 @@ int main(int argc, char ** argv){
         trueErrorNorm=trueErrorNorm/c;
         LOGV(1)<<VAR(trueErrorNorm)<<endl;
     }
-    double trueInc=TransfUtils<ImageType>::computeInconsistency(&trueDeformations,&imageIDs);
+    double trueInc=TransfUtils<ImageType>::computeInconsistency(&trueDeformations,&imageIDs,NULL);
     LOGV(1)<<VAR(trueInc)<<endl;
 
             
@@ -332,6 +339,7 @@ int main(int argc, char ** argv){
     solver->setWeightFullCircleEnergy(wwd);
     solver->setWeightDeformationSmootheness(wws);
     solver->setWeightTransformationSimilarity(wwt);
+    solver->setWeightTransformationSymmetry(wSymmetry);
     solver->setWeightErrorNorm(wwdelta);
     solver->setWeightErrorSmootheness(wsdelta);
     solver->setWeightCircleNorm(wwcirc); 
@@ -346,9 +354,10 @@ int main(int argc, char ** argv){
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
-    
+    solver->setMetric(localSimMetric);
+
     double error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
-    double inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
+    double inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs,&trueDeformations);
     int iter = 0;
     LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
     
@@ -369,7 +378,7 @@ int main(int argc, char ** argv){
         solver->solve();
         DeformationCacheType * result = solver->storeResult(outputDir);
         error=TransfUtils<ImageType>::computeError(result,&trueDeformations,&imageIDs);
-        inconsistency = TransfUtils<ImageType>::computeInconsistency(result,&imageIDs);
+        inconsistency = TransfUtils<ImageType>::computeInconsistency(result,&imageIDs,&trueDeformations);
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
         

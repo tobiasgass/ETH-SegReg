@@ -366,9 +366,9 @@ public:
     }
 
     static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
-            return linearInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
+        return linearInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
     }
-  static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, DeformationFieldPointerType reference){ 
+    static DeformationFieldPointerType linearInterpolateDeformationField(DeformationFieldPointerType labelImg, DeformationFieldPointerType reference){ 
         ImagePointerType ref = createEmptyImage(reference);
         return linearInterpolateDeformationField(labelImg,(ConstImagePointerType)ref);
     }
@@ -400,8 +400,8 @@ public:
         return fullDeformationField;
     }
 
-       static DeformationFieldPointerType nearestNeighborInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
-            return nearestNeighborInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
+    static DeformationFieldPointerType nearestNeighborInterpolateDeformationField(DeformationFieldPointerType labelImg, ImagePointerType reference){ 
+        return nearestNeighborInterpolateDeformationField(labelImg,(ConstImagePointerType)reference);
     }
     static DeformationFieldPointerType nearestNeighborInterpolateDeformationField(DeformationFieldPointerType labelImg, ConstImagePointerType reference){ 
         LOGV(5)<<"NearestNeighborly intrapolating deformation image"<<std::endl;
@@ -834,6 +834,7 @@ public:
         
         double norm=0.0;
         int count=0;
+        double maxErr=-1.0;
         LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
         for (deformationIt.GoToBegin(),imageIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++imageIt){
             DisplacementType t=deformationIt.Get();
@@ -845,7 +846,9 @@ public:
                     double tmp=pow(fabs(t[d]),exp);
                     tmp2+=tmp;
                 }
-                norm+=pow(tmp2,1.0/exp);
+                tmp2=pow(tmp2,1.0/exp);
+                norm+=tmp2;
+                maxErr=tmp2>maxErr?tmp2:maxErr;
                 ++count;
             }
         }
@@ -1091,8 +1094,8 @@ public:
     }
 
     static DeformationFieldPointerType gaussian(
-                                       DeformationFieldPointerType image, float variance
-                                       ) {
+                                                DeformationFieldPointerType image, float variance
+                                                ) {
 
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
@@ -1106,8 +1109,8 @@ public:
     }
 
     static DeformationFieldPointerType gaussian(
-                                       DeformationFieldPointerType image, SpacingType spacing
-                                       ) {
+                                                DeformationFieldPointerType image, SpacingType spacing
+                                                ) {
 
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
@@ -1141,39 +1144,42 @@ public:
         double averageError=0;
         int c3=0;
         int m_numImages=m_imageIDList->size();
+        double maxErr=-1.0;
         for (int s = 0;s<m_numImages;++s){
             for (int t=0;t<m_numImages;++t){
                 DeformationFieldPointerType directDeform;
                 if (s!=t){
                     directDeform= (*cache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
-
-                    mask=TransfUtils<ImageType>::createEmptyImage(directDeform);
-                    mask->FillBuffer(0);
-                    typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
-                    IndexType offset;
-                    double fraction=0.9;
-                    for (int d=0;d<D;++d){
-                        offset[d]=(1.0-fraction)/2*size[d];
-                        size[d]=fraction*size[d];
-                    }
+                    if (directDeform.IsNotNull()){
+                        mask=TransfUtils<ImageType>::createEmptyImage(directDeform);
+                        mask->FillBuffer(0);
+                        typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+                        IndexType offset;
+                        double fraction=0.9;
+                        for (int d=0;d<D;++d){
+                            offset[d]=(1.0-fraction)/2*size[d];
+                            size[d]=fraction*size[d];
+                        }
                     
-                    typename ImageType::RegionType region;
-                    region.SetSize(size);
-                    region.SetIndex(offset);
-                    LOGV(6)<<VAR(region)<<endl;
-                    ImageUtils<ImageType>::setRegion(mask,region,1);
+                        typename ImageType::RegionType region;
+                        region.SetSize(size);
+                        region.SetIndex(offset);
+                        LOGV(6)<<VAR(region)<<endl;
+                        ImageUtils<ImageType>::setRegion(mask,region,1);
 
-                    if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
-                        DeformationFieldPointerType trueDeform = (*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
-                        DeformationFieldPointerType diff  = TransfUtils<ImageType>::subtract(directDeform,trueDeform);
+                        if ((*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]].IsNotNull()){
+                            DeformationFieldPointerType trueDeform = (*m_trueDeformations)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
+                            DeformationFieldPointerType diff  = TransfUtils<ImageType>::subtract(directDeform,trueDeform);
                         
-                        double residual;
-                        if (mask.IsNotNull())
-                            residual= computeDeformationNormMask(diff,mask,2);
-                        else
-                            residual= computeDeformationNorm(diff,2);
-                        averageError += residual;
-                        c3++;
+                            double residual;
+                            if (mask.IsNotNull())
+                                residual= computeDeformationNormMask(diff,mask,2);
+                            else
+                                residual= computeDeformationNorm(diff,2);
+                            averageError += residual;
+                            maxErr=residual>maxErr?residual:maxErr;
+                            c3++;
+                        }
                     }
                 }
             }
@@ -1184,57 +1190,73 @@ public:
             return averageError/c3;
     }
 
-    static double computeInconsistency(DeformationCacheType * cache,  std::vector<string> * m_imageIDList, ImagePointerType mask=NULL){
+    static double computeInconsistency(DeformationCacheType * cache,  std::vector<string> * m_imageIDList, DeformationCacheType * trueCache, ImagePointerType mask=NULL){
         //compute inconsistency over triplets
         double averageInconsistency=0;
         int m_numImages=m_imageIDList->size();
         int c3=0;
         for (int s = 0;s<m_numImages;++s){
             for (int t=0;t<m_numImages;++t){
+                if (s!=t){
                 DeformationFieldPointerType directDeform;
-               
+                bool estimatedDeform=false;
                 directDeform= (*cache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
-                if (directDeform.IsNotNull()){
+                if (!directDeform.IsNotNull()){
+                    directDeform= (*trueCache)[(*m_imageIDList)[s]][(*m_imageIDList)[t]];
+                }else{
+                    estimatedDeform=true;
+                }
                 if (s!=t){
                     for (int i=0;i<m_numImages;++i){
                         if (i!=t && i !=s){
                             DeformationFieldPointerType d0,d1;
-                          
+                            
                             d0 = (*cache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
-                            d1 = (*cache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
-                            
-                            mask=TransfUtils<ImageType>::createEmptyImage(directDeform);
-                            mask->FillBuffer(0);
-                            typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
-                            IndexType offset;
-                            double fraction=0.9;
-                            for (int d=0;d<D;++d){
-                                offset[d]=(1.0-fraction)/2*size[d];
-                                size[d]=fraction*size[d];
+                            if (d0.IsNotNull()){
+                                estimatedDeform=true;
+                            }else{
+                                d0 = (*trueCache)[(*m_imageIDList)[s]][(*m_imageIDList)[i]];
                             }
+                            d1 = (*cache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
+                            if (d1.IsNotNull()){
+                                estimatedDeform=true;
+                            }else{
+                                d1 = (*trueCache)[(*m_imageIDList)[i]][(*m_imageIDList)[t]];
+                            }
+                            if (estimatedDeform){
+                                mask=TransfUtils<ImageType>::createEmptyImage(directDeform);
+                                mask->FillBuffer(0);
+                                typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+                                IndexType offset;
+                                double fraction=0.9;
+                                for (int d=0;d<D;++d){
+                                    offset[d]=(1.0-fraction)/2*size[d];
+                                    size[d]=fraction*size[d];
+                                }
+                                
+                                typename ImageType::RegionType region;
+                                region.SetSize(size);
+                                region.SetIndex(offset);
+                                LOGV(6)<<VAR(region)<<endl;
+                                ImageUtils<ImageType>::setRegion(mask,region,1);
                             
-                            typename ImageType::RegionType region;
-                            region.SetSize(size);
-                            region.SetIndex(offset);
-                            LOGV(6)<<VAR(region)<<endl;
-                            ImageUtils<ImageType>::setRegion(mask,region,1);
-                            
-                            DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(d1,d0);
-                            indirectDef=TransfUtils<ImageType>::linearInterpolateDeformationField(indirectDef,TransfUtils<ImageType>::createEmptyImage(directDeform));
-                            DeformationFieldPointerType diff  = TransfUtils<ImageType>::subtract(directDeform,indirectDef);
-                            double residual = TransfUtils<ImageType>::computeDeformationNormMask(diff,mask,2,true);
-                            averageInconsistency += residual;
-                            c3++;
+                                DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(d1,d0);
+                                indirectDef=TransfUtils<ImageType>::linearInterpolateDeformationField(indirectDef,TransfUtils<ImageType>::createEmptyImage(directDeform));
+                                DeformationFieldPointerType diff  = TransfUtils<ImageType>::subtract(directDeform,indirectDef);
+                                double residual = TransfUtils<ImageType>::computeDeformationNormMask(diff,mask,2,true);
+                                averageInconsistency += residual;
+                                c3++;
+                            }
                         }
                     }
                 }
-            }
+                }
             }
         }
         if (c3)
             return averageInconsistency/c3;
         else return -1;
         
-    }
+    }//computeInconsistency
     
 };
