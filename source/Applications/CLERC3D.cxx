@@ -86,9 +86,11 @@ int main(int argc, char ** argv){
     argstream * as=new argstream(argc,argv);
     string landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
+    double pWeight=1.0;
     int radius=3;
     int maxHops=1;
-    bool uniformUpdate=true;
+    bool updateDeformations=false;
+    bool locallyUpdateDeformations=false;
     string metricName="NCC";
     string weightingName="uniform";
     bool lateFusion=false;
@@ -99,15 +101,13 @@ int main(int argc, char ** argv){
     double resamplingFactor=1.0;
     m_sigma=10;
     string solverName="localnorm";
-    double wwd=0.0,wwt=1.0,wws=0.0,wwcirc=1.0,wwdelta=0.0,wwsum=0,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=0.0,wErrorStatistics=0.0;
+    double wwd=0.0,wwt=1.0,wws=0.0,wwcirc=1.0,wwdelta=0.0,wwsum=0,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
     bool nearestneighb=false;
     double shearing = 1.0;
     double circWeightScaling = 1.0;
-    double scalingFactorForConsistentSegmentation = 0.0;
+    double scalingFactorForConsistentSegmentation = 1.0;
     bool oracle = false;
-    bool locallyUpdateDeformations=false;
-    bool updateDeformations=false;
-
+    string localSimMetric="lncc";
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
@@ -125,8 +125,12 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
     (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
     (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
+    (*as) >> parameter ("wwsym", wSymmetry,"weight for def1 in circle",false);
     (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
     (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"weight for error variable being forced to be similar to the inconsitency statistics",false);
+
+
+    (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (lncc, lsad, lssd,localautocorrelation).",false);
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
     (*as) >> option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
@@ -175,7 +179,7 @@ int main(int argc, char ** argv){
     inputImages = ImageUtils<ImageType>::readImageList( imageFileList, imageIDs );
     int nImages = inputImages->size();
         
-    map<string,string> landmarkList;
+     map<string,string> landmarkList;
     if (landmarkFileList!=""){
         ifstream ifs(landmarkFileList.c_str());
         while (!ifs.eof()){
@@ -213,7 +217,8 @@ int main(int argc, char ** argv){
         for (int t=0;t<imageIDs.size();++t){
             string targetID=imageIDs[t];
             //(*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI );
-            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI,true );
+            //(*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],ROI,false );
+            (*inputImages)[targetID]=FilterUtils<ImageType>::LinearResample((*inputImages)[targetID],1.0/resamplingFactor,true );
         }
     }
     
@@ -233,10 +238,10 @@ int main(int argc, char ** argv){
                 }else{
                     if (!dontCacheDeformations){
                         LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
-                      
-                        DeformationFieldPointerType def = ImageUtils<DeformationFieldType>::readImage(defFileName);
-                        downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( def, (ConstImagePointerType)ROI);
-                        //deformationCache[sourceID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
+                        deformationCache[sourceID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
+                        //deformationCache[sourceID][targetID]=TransfUtils<ImageType>::gaussian(deformationCache[sourceID][targetID],resamplingFactor);
+                        downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( deformationCache[sourceID][targetID], (ConstImagePointerType)ROI);
+                        //downSampledDeformationCache[sourceID][targetID]->FillBuffer(zeroDisp);
                         if (false){
                             ImagePointerType deformedSource = TransfUtils<ImageType>::warpImage( (*inputImages)[sourceID] , downSampledDeformationCache[sourceID][targetID] );
 
@@ -257,7 +262,7 @@ int main(int argc, char ** argv){
                             trueDef2<<outputDir<<"/downSampledDeformation-FROM-"<<sourceID<<"-TO-"<<targetID<<".mha";
                             LOGI(6,ImageUtils<DeformationFieldType>::writeImage(trueDef2.str().c_str(),downSampledDeformationCache[sourceID][targetID]));
                         }
-                        //LOGV(6)<<VAR(deformationCache[sourceID][targetID]->GetLargestPossibleRegion())<<endl;
+                        LOGV(6)<<VAR(deformationCache[sourceID][targetID]->GetLargestPossibleRegion())<<endl;
 
                         globalWeights[sourceID][targetID]=1.0;
                     }else{
@@ -291,6 +296,7 @@ int main(int argc, char ** argv){
                         trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
                         //trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
                         trueDeformations[intermediateID][targetID]=TransfUtils<ImageType>::bSplineInterpolateDeformationField( trueDeformations[intermediateID][targetID], (ConstImagePointerType)ROI);
+                        if (  downSampledDeformationCache[intermediateID][targetID].IsNotNull()){
                         if (outputDir!=""){
                             DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID],trueDeformations[intermediateID][targetID]);
                             ostringstream trueDefNorm;
@@ -301,8 +307,9 @@ int main(int argc, char ** argv){
                             LOGI(1,ImageUtils<DeformationFieldType>::writeImage(trueDef.str().c_str(),diff));
                           
                         }
-                        trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]),2);
+                        trueErrorNorm+=TransfUtils<ImageType>::computeDeformationNorm(TransfUtils<ImageType>::subtract(downSampledDeformationCache[intermediateID][targetID], trueDeformations[intermediateID][targetID]),1);
                         ++c;
+                        }
                     }  
                     
                     else{
@@ -317,7 +324,7 @@ int main(int argc, char ** argv){
         trueErrorNorm=trueErrorNorm/c;
         LOGV(1)<<VAR(trueErrorNorm)<<endl;
     }
-    double trueInc=TransfUtils<ImageType>::computeInconsistency(&trueDeformations,&imageIDs);
+    double trueInc=TransfUtils<ImageType>::computeInconsistency(&trueDeformations,&imageIDs,NULL);
     LOGV(1)<<VAR(trueInc)<<endl;
 
             
@@ -343,6 +350,7 @@ int main(int argc, char ** argv){
     solver->setWeightFullCircleEnergy(wwd);
     solver->setWeightDeformationSmootheness(wws);
     solver->setWeightTransformationSimilarity(wwt);
+    solver->setWeightTransformationSymmetry(wSymmetry);
     solver->setWeightErrorNorm(wwdelta);
     solver->setWeightErrorSmootheness(wsdelta);
     solver->setWeightCircleNorm(wwcirc); 
@@ -356,17 +364,19 @@ int main(int argc, char ** argv){
     solver->setSigma(m_sigma);
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
-    solver->SetVariables(&imageIDs,NULL,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
-    
+    solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
+    solver->setMetric(localSimMetric);
+
     double error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
-    double inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs);
+    double inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs,&trueDeformations);
     int iter = 0;
-    double TRE=-1;
+     double TRE=-1;
     if (    landmarkFileList !=""){
         TRE=solver->computeLandmarkRegistrationError(&downSampledDeformationCache,landmarkList,imageIDs,inputImages);
     }
         
     LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<endl;
+    
 
     if (atlasSegmentationFileList!=""){
         solver->setSegmentationList(atlasSegmentations);
@@ -377,16 +387,19 @@ int main(int argc, char ** argv){
         //solver->setWeightCircleNorm(wwcirc*pow(circWeightScaling,h)); 
         //solver->setWeightErrorNorm(wwdelta*pow(2,h));
         //solver->setSigma(m_sigma/pow(2,h)); 
+        //LOGV(1)<<" Setting sim weight to "<<VAR(wwt*inconsistency)<<endl;
+        //solver->setWeightTransformationSimilarity(wwt*inconsistency);
+
         solver->createSystem();
         solver->solve();
         DeformationCacheType * result = solver->storeResult(outputDir);
         error=TransfUtils<ImageType>::computeError(result,&trueDeformations,&imageIDs);
-        inconsistency = TransfUtils<ImageType>::computeInconsistency(result,&imageIDs);
+        inconsistency = TransfUtils<ImageType>::computeInconsistency(result,&imageIDs,&trueDeformations);
         if (    landmarkFileList !=""){
             TRE=solver->computeLandmarkRegistrationError(result,landmarkList,imageIDs,inputImages);
         }
         
-        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<endl; 
+        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<endl;
         
         
 #if 0

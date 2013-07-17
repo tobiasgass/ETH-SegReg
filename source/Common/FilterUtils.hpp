@@ -927,4 +927,13 @@ public:
             i1It.Set(v1>v2?v1:v2);
         }
     }
+    static void localMin(InputImagePointer i1,InputImagePointer i2){
+         itk::ImageRegionIterator<InputImage> i1It(i1,i1->GetLargestPossibleRegion());
+         itk::ImageRegionIterator<InputImage> i2It(i2,i2->GetLargestPossibleRegion());
+         for (i1It.GoToBegin(),i2It.GoToBegin();!i1It.IsAtEnd();++i1It,++i2It){
+            float v1=i1It.Get();
+            float v2=i2It.Get();
+            i1It.Set(v1<v2?v1:v2);
+        }
+    }
 };

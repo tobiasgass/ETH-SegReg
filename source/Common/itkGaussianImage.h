@@ -17,7 +17,7 @@ public:
 	typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::SizeType SizeType;
 
-private:
+protected:
     ImagePointerType m_mean,m_variance;
     int count;
     bool finalized;
@@ -26,7 +26,7 @@ public:
         m_mean=NULL;
         finalized=false;
     }
-    void addImage(ImagePointerType img){
+    virtual void addImage(ImagePointerType img){
         if (!m_mean.IsNotNull()){
             count=1;
             m_mean=ImageUtils<ImageType>::duplicate(img);
@@ -37,7 +37,7 @@ public:
             count++;
         }
     }
-    void finalize(){
+    virtual void finalize(){
         if (!finalized){
             if (count == 0){
                 LOG<<"no images to compute statistics of..." <<endl;
@@ -70,6 +70,29 @@ public:
 
     
 };//class
+
+template<class ImageType>
+class MinEstimatorScalarImage: public GaussianEstimatorScalarImage<ImageType>{
+public:
+	typedef typename ImageType::Pointer  ImagePointerType;
+	typedef typename ImageType::ConstPointer  ConstImagePointerType;
+	typedef typename ImageType::PixelType PixelType;
+    typedef typename ImageType::SizeType SizeType;
+    virtual void addImage(ImagePointerType img){
+        if (!this->m_mean.IsNotNull()){
+            this->count=1;
+            this->m_mean=ImageUtils<ImageType>::duplicate(img);
+        }else{
+            FilterUtils<ImageType>::localMin(this->m_mean,img);
+            this->count++;
+        }
+    }
+ virtual void finalize(){
+        if (!this->finalized){
+            this->finalized = true; 
+        }
+ }
+};
 
 template<class ImageType>
 class GaussianEstimatorVectorImage{

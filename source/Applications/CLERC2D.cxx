@@ -84,7 +84,7 @@ int main(int argc, char ** argv){
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     argstream * as=new argstream(argc,argv);
-    string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
+    string landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
     int radius=3;
@@ -141,6 +141,7 @@ int main(int argc, char ** argv){
     (*as) >> option ("nearestneighb", nearestneighb," use nearestneighb interpolation (instead of NN) when building equations for circles.");
     (*as) >> parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
     (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
+    (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);
 
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -178,7 +179,17 @@ int main(int argc, char ** argv){
     inputImages = ImageUtils<ImageType>::readImageList( imageFileList, imageIDs );
     int nImages = inputImages->size();
         
-   
+     map<string,string> landmarkList;
+    if (landmarkFileList!=""){
+        ifstream ifs(landmarkFileList.c_str());
+        while (!ifs.eof()){
+            string sourceID,landmarkFilename;
+            ifs >> sourceID;
+            ifs >>landmarkFilename;
+            landmarkList[sourceID]=landmarkFilename;
+        }
+
+    }
 
     if (dontCacheDeformations){
         LOG<<"Reading deformation file names."<<endl;
@@ -359,7 +370,12 @@ int main(int argc, char ** argv){
     double error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);
     double inconsistency = TransfUtils<ImageType>::computeInconsistency(&downSampledDeformationCache,&imageIDs,&trueDeformations);
     int iter = 0;
-    LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
+     double TRE=-1;
+    if (    landmarkFileList !=""){
+        TRE=solver->computeLandmarkRegistrationError(&downSampledDeformationCache,landmarkList,imageIDs,inputImages);
+    }
+        
+    LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<endl;
     
 
     if (atlasSegmentationFileList!=""){
@@ -379,7 +395,11 @@ int main(int argc, char ** argv){
         DeformationCacheType * result = solver->storeResult(outputDir);
         error=TransfUtils<ImageType>::computeError(result,&trueDeformations,&imageIDs);
         inconsistency = TransfUtils<ImageType>::computeInconsistency(result,&imageIDs,&trueDeformations);
-        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
+        if (    landmarkFileList !=""){
+            TRE=solver->computeLandmarkRegistrationError(result,landmarkList,imageIDs,inputImages);
+        }
+        
+        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<endl;
         
         
 #if 0
