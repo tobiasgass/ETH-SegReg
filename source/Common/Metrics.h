@@ -680,7 +680,7 @@ public:
                 nccMetric->SetFixedImageRegion(region);
                 double val=(1.0-nccMetric->GetValue(iTrans->GetParameters()))/2;
                 //LOG<<VAR(idx)<<" " <<VAR(val)<<" "<<endl;
-                resultIt.Set(val);
+                resultIt.Set(pow(val,exp));
             }
             
         }
@@ -690,12 +690,13 @@ public:
 
 
     static OutputImagePointer localMetricAutocorrelation(InputImagePointer img1, InputImagePointer img2,double sigma,int nSamples,string metric, double expo=1.0){
-
+        
+        OutputImagePointer lncc=efficientLNCC(img1,img2,sigma);
         OutputImagePointer centerMetric; 
-        string acc="mean";
+        string acc="max";
         string eval="diff";
         if (metric == "lncc"){
-            centerMetric = efficientLNCC(img1,img2,sigma);
+            centerMetric = lncc;//efficientLNCC(img1,img2,sigma);
         }else if (metric == "itklncc"){
             centerMetric = ITKLNCC(img1,img2,sigma);
         }else if (metric == "lsad"){
@@ -762,19 +763,23 @@ public:
 
         if (eval=="diff"){
             // l= 0.5 + (\hat l - mu)/(2*\hat l)
-            OutputImagePointer diff=FilterUtils<OutputImage>::substract(centerMetric,accumulator);
-            centerMetric=FilterUtils<OutputImage>::lowerThresholding(centerMetric,1e-10);
-            centerMetric=ImageUtils<OutputImage>::divideImageOutOfPlace(diff,centerMetric);
-            ImageUtils<OutputImage>::multiplyImage(centerMetric,0.5);
-            ImageUtils<OutputImage>::add(centerMetric,0.5);
-            centerMetric=FilterUtils<OutputImage>::thresholding(centerMetric,0,1);
+            //OutputImagePointer diff=FilterUtils<OutputImage>::substract(centerMetric,accumulator);
+            //centerMetric=FilterUtils<OutputImage>::lowerThresholding(centerMetric,1e-10);
+            //centerMetric=ImageUtils<OutputImage>::divideImageOutOfPlace(diff,centerMetric);
+            //ImageUtils<OutputImage>::multiplyImage(centerMetric,0.5);
+
+            //ImageUtils<OutputImage>::add(centerMetric,0.5);
+            centerMetric=ImageUtils<OutputImage>::divideImageOutOfPlace(centerMetric,accumulator);
+            centerMetric=ImageUtils<OutputImage>::multiplyImageOutOfPlace(lncc,centerMetric);
+            //centerMetric=FilterUtils<OutputImage>::thresholding(centerMetric,0,1);
             typename ImageUtils<OutputImage>::ImageIteratorType resultIt(centerMetric,centerMetric->GetLargestPossibleRegion());
-            
+#if 1 
             if (expo !=1.0){
                 for (resultIt.GoToBegin();!resultIt.IsAtEnd();++resultIt){
                     resultIt.Set(pow(resultIt.Get(),expo));
                 }
             }
+#endif
 
         }else if (eval == "exp" ){
         

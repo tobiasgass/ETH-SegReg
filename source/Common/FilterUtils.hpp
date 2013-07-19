@@ -520,6 +520,7 @@ public:
             if (spacing[d]==0){
                 spacing[d]=1e-5;
             }
+            spacing[d]=sqrt(spacing[d]);
         }
             
         DiscreteGaussianImageFilterPointer filter =

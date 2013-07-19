@@ -480,8 +480,6 @@ public:
                 TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
                 
                 mxArray * flag=engGetVariable(this->m_ep,"flag");
-                LOG<<VAR(flag)<<endl;
-
                 if (flag !=NULL){
                     mxDestroyArray(flag);
                 }else{
@@ -551,7 +549,7 @@ public:
                     mask->FillBuffer(0);
                     typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
                     IndexType offset;
-                    double fraction=0.7;
+                    double fraction=0.9;
                     for (int d=0;d<D;++d){
                         offset[d]=(1.0-fraction)/2*size[d];
                         size[d]=fraction*size[d];
@@ -1529,6 +1527,8 @@ public:
         //compute lncc
         if (m_metric == "lncc"){
             lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+        }else if (m_metric == "itklncc"){
+            lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent);
         }else if (m_metric == "lsad"){
             lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
         }else if (m_metric == "lssd"){
@@ -1536,6 +1536,9 @@ public:
         }else if (m_metric == "localautocorrelation"){
         //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(*m_imageList)[targetID],m_sigma);
             lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,targetImage,m_sigma,2,"lssd",m_exponent);
+        }else{
+            LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
+            exit(-1);
         }
         //FloatImagePointerType laplacian=FilterUtils<ImageType,FloatImageType>::laplacian((*m_imageList)[targetID],m_sigma);
 
