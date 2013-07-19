@@ -31,10 +31,11 @@
 #include "itkSmoothingRecursiveGaussianImageFilter.h"
 #include "itkCenteredTransformInitializer.h"
 #include <itkVectorResampleImageFilter.h>
+#include <itkDisplacementFieldTransform.h>
 
 using namespace std;
 
-template<class ImageType, class CDisplacementPrecision=float>
+template<class ImageType, class CDisplacementPrecision=float, class COutputPrecision=double>
 class TransfUtils {
 
 public:
@@ -51,6 +52,14 @@ public:
     typedef itk::Image<DisplacementType,D> DeformationFieldType;
     typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
     typedef typename DeformationFieldType::ConstPointer DeformationFieldConstPointerType;
+
+    typedef itk::Vector<COutputPrecision,D> OutputDisplacementType;
+    typedef itk::Image<OutputDisplacementType,D> OutputDeformationFieldType;
+    typedef typename OutputDeformationFieldType::Pointer OutputDeformationFieldPointerType;
+    typedef typename OutputDeformationFieldType::ConstPointer OutputDeformationFieldConstPointerType;
+
+    
+
     typedef typename ImageType::PointType PointType;
     typedef typename ImageType::IndexType IndexType;
     typedef typename ImageType::SpacingType SpacingType;
@@ -78,12 +87,25 @@ public:
     typedef typename DiscreteGaussianImageFilterType::Pointer DiscreteGaussianImageFilterPointer;
     
     typedef map< string, map <string, DeformationFieldPointerType> > DeformationCacheType;
+
+    typedef itk::DisplacementFieldTransform<CDisplacementPrecision, D> DisplacementFieldTransformType;
+    
 public:
     static  DisplacementType zeroDisp(){
         DisplacementType d;
         d->Fill(0);
         return d;
     }; 
+
+    static OutputDeformationFieldPointerType cast(DeformationFieldPointerType def){
+        typedef itk::CastImageFilter <DeformationFieldType,OutputDeformationFieldType> CastImageFilterType;
+        typedef typename CastImageFilterType::Pointer CastImageFilterPointer;
+        CastImageFilterPointer caster=CastImageFilterType::New();
+        caster->SetInput(def);
+        caster->Update();
+        return caster->GetOutput();
+        
+    }
     static DeformationFieldPointerType affineToDisplacementField(AffineTransformPointerType affine, ImagePointerType targetImage){
         DeformationFieldPointerType deformation=DeformationFieldType::New();
         deformation->SetRegions(targetImage->GetLargestPossibleRegion());

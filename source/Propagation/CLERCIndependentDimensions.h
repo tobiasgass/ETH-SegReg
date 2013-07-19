@@ -11,8 +11,10 @@
 #include "TemporalMedianImageFilter.h"
 #include "itkGaussianImage.h"
 #include <boost/lexical_cast.hpp>
+#include "itkNormalizedCorrelationImageToImageMetric.h"
 
-template<class ImageType>
+
+template<class ImageType, class MetricType=itk::NormalizedCorrelationImageToImageMetric<ImageType,ImageType> >
 class CLERCIndependentDimensions: public AquircGlobalDeformationNormSolverCVariables< ImageType>{
 public:
     typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
@@ -36,7 +38,15 @@ public:
     static const unsigned int internalD=1;
     //typedef GaussianEstimatorScalarImage<FloatImageType> GaussEstimatorType;
     typedef MinEstimatorScalarImage<FloatImageType> GaussEstimatorType;
-    typedef map< string, map <string, DeformationFieldPointerType> > DeformationCacheType;
+
+    typedef typename TransfUtils<ImageType>::DeformationCacheType DeformationCacheType;
+
+    typedef typename TransfUtils<ImageType,double>::DisplacementFieldTransformType DisplacementFieldTransformType;
+    typedef typename DisplacementFieldTransformType::Pointer DisplacementFieldTransformPointer;
+
+    typedef typename MetricType::Pointer MetricPointer;
+    typedef typename MetricType::DerivativeType MetricDerivativeType;
+    
 
 protected:
     int m_nVars,m_nEqs,m_nNonZeroes;
@@ -1511,6 +1521,11 @@ public:
 
 
     FloatImagePointerType getLocalWeightMap(DeformationFieldPointerType def,ImagePointerType targetImage, ImagePointerType movingImage,string sourceID="",string targetID=""){
+
+        DeformationFieldPointerType derivative;
+        double metricValue;
+        computeMetricAndDerivative(targetImage,movingImage,def,derivative,metricValue);
+
         FloatImagePointerType lncc;
 #if 0 //#ifdef ORACLE
         DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(
@@ -1703,4 +1718,36 @@ public:
         }
         return NULL;
     }
+
+     void computeMetricAndDerivative(ImagePointerType img1, ImagePointerType img2, DeformationFieldPointerType def, DeformationFieldPointerType deriv, double & value){
+
+         //    typedef typename  itk::DisplacementFieldTransform<double, D> DisplacementFieldTransformType;
+         //typedef typename DisplacementFieldTransformType::Pointer DisplacementFieldTransformPointer;
+        DisplacementFieldTransformPointer defTransf=DisplacementFieldTransformType::New();
+        
+        typename TransfUtils<ImageType,float,double>::OutputDeformationFieldPointerType dblDef=TransfUtils<ImageType,float,double>::cast(def);
+        defTransf->SetDisplacementField(dblDef);
+
+        typedef typename itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typename InterpolatorType::Pointer interpolator=InterpolatorType::New();
+        interpolator->SetInputImage(img2);
+        MetricPointer metric=MetricType::New();
+        metric->SetFixedImage(img1);
+        metric->SetMovingImage(img2);
+        metric->SetInterpolator(interpolator);
+        metric->SetTransform(defTransf);
+        metric->SetUseCachingOfBSplineWeights( true );
+        metric->SetFixedImageRegion(img1->GetLargestPossibleRegion());
+        metric->Initialize();
+        MetricDerivativeType derivative;
+        // value=metric->GetValue(defTransf->GetParameters());
+        
+        LOG<<VAR(value)<<endl;
+        
+        metric->GetValueAndDerivative(defTransf->GetParameters(),value, derivative);
+
+        LOG<<VAR(value)<<endl;
+    }
+
+
 };
