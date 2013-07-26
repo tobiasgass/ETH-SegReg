@@ -79,3 +79,11 @@ TARGET_LINK_LIBRARIES(CompareImages2D Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(CompareImagesAutoTransform2D CompareImagesAutoTransform2D.cxx )
 TARGET_LINK_LIBRARIES(CompareImagesAutoTransform2D Utils   ${ITK_LIBRARIES}  )
+
+
+#registration
+ADD_EXECUTABLE(GradientDescentRegistration2D GradientDescentRegistration2D.cxx )
+TARGET_LINK_LIBRARIES(GradientDescentRegistration2D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(GradientDescentRegistrationITK GradientDescentITK.cxx )
+TARGET_LINK_LIBRARIES(GradientDescentRegistrationITK  Utils   ${ITK_LIBRARIES}  )

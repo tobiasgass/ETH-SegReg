@@ -72,7 +72,7 @@ public:
     typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
     typedef typename itk::FixedPointInverseDeformationFieldImageFilter<DeformationFieldType,DeformationFieldType> InverseDeformationFieldFilterType;
     typedef typename InverseDeformationFieldFilterType::Pointer InverseDeformationFieldFilterPointerType;
-    typedef itk::Image<float,D> FloatImageType;
+    typedef itk::Image<DisplacementPrecision,D> FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
     typedef itk::AddImageFilter<DeformationFieldType,DeformationFieldType,
                                 DeformationFieldType>                           AdderType;
@@ -463,7 +463,7 @@ public:
         exit(0);
         return labelImg;
     }
-    static      ImagePointerType warpImageWithReference(ConstImagePointerType image, DeformationFieldPointerType deformation, ImagePointerType reference, bool nnInterpol=false){
+    static      ImagePointerType warpImageWithReference(ImagePointerType image, DeformationFieldPointerType deformation, ImagePointerType reference, bool nnInterpol=false){
         typedef typename itk::WarpImageFilter<ImageType,ImageType,DeformationFieldType>     WarperType;
         typedef typename WarperType::Pointer     WarperPointer;
         WarperPointer warper=WarperType::New();

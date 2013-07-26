@@ -263,7 +263,7 @@ int main(int argc, char ** argv){
                             LOGI(6,ImageUtils<DeformationFieldType>::writeImage(trueDef2.str().c_str(),downSampledDeformationCache[sourceID][targetID]));
                         }
                         LOGV(6)<<VAR(deformationCache[sourceID][targetID]->GetLargestPossibleRegion())<<endl;
-
+                        deformationCache[sourceID][targetID]=NULL;
                         globalWeights[sourceID][targetID]=1.0;
                     }else{
                         LOGV(3)<<"Reading filename "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
@@ -274,6 +274,7 @@ int main(int argc, char ** argv){
             }
         }
     }
+    
     if (outputDir!=""){
         mkdir(outputDir.c_str(),0755);
     }
@@ -364,7 +365,7 @@ int main(int argc, char ** argv){
     solver->setSigma(m_sigma);
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
-    solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
+    solver->SetVariables(&imageIDs,NULL,&trueDeformations,ROI,inputImages,&downSampledDeformationCache);
     solver->setMetric(localSimMetric);
 
     double error=TransfUtils<ImageType>::computeError(&downSampledDeformationCache,&trueDeformations,&imageIDs);

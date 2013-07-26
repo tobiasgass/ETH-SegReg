@@ -294,7 +294,7 @@ public:
 		resampler->SetOutputDirection ( input->GetDirection() );
 		resampler->SetSize ( size );
         if (smooth && scale<1.0){
-            InputImagePointer smoothedInput = gaussian(input,spacing-inputSpacing);
+            InputImagePointer smoothedInput = FilterUtils<InputImage,InputImage>::gaussian(input,spacing-inputSpacing);
             resampler->SetInput(smoothedInput);
         }else{
             resampler->SetInput(input);

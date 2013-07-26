@@ -25,6 +25,7 @@ public:
     GaussianEstimatorScalarImage(){
         m_mean=NULL;
         finalized=false;
+        count=0;
     }
     virtual void addImage(ImagePointerType img){
         if (!m_mean.IsNotNull()){
@@ -41,6 +42,7 @@ public:
         if (!finalized){
             if (count == 0){
                 LOG<<"no images to compute statistics of..." <<endl;
+                return;
             }
             LOGV(6)<<VAR(count)<<endl;
             ImagePointerType squaredMean=ImageUtils<ImageType>::multiplyImageOutOfPlace(m_mean,m_mean);
