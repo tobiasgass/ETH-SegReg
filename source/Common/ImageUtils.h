@@ -21,6 +21,8 @@
 #include "itkSmoothingRecursiveGaussianImageFilter.h"
 #include <boost/random.hpp>
 #include "time.h"
+#include "itkImageAdaptor.h"
+#include "itkContinuousIndex.h"
 
 template<class ImageType>
 class ImageUtils {
@@ -30,6 +32,7 @@ public:
 	typedef typename ImageType::ConstPointer  ConstImagePointerType;
 	typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::SizeType SizeType;
+    
 
     typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
@@ -68,6 +71,10 @@ public:
 	typedef typename ImageType::OffsetType OffsetType;
 	typedef typename ImageType::SpacingType SpacingType;
     static const unsigned int D=ImageType::ImageDimension;
+
+    typedef  itk::ContinuousIndex<double,D> ContinuousIndexType;
+
+
     typedef itk::Vector<float,D> FloatVectorType;
     typedef itk::Image<FloatVectorType,D> FloatVectorImageType;
     typedef typename FloatVectorImageType::Pointer FloatVectorImagePointerType;

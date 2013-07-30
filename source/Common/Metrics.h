@@ -370,12 +370,20 @@ public:
         if (sigma==0.0) sigma=0.001;
         OutputImagePointer i1Cast=FilterUtils<InputImage,OutputImage>::cast(i1);
         OutputImagePointer i2Cast=FilterUtils<InputImage,OutputImage>::cast(i2);
-        //typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+        //#define RECURSIVE
+
+#ifdef RECURSIVE
+        typedef typename itk::SmoothingRecursiveGaussianImageFilter< OutputImage, OutputImage > FilterType;
+#else
         typedef itk::DiscreteGaussianImageFilter<OutputImage,OutputImage>  FilterType;
+#endif
         typename FilterType::Pointer filter=FilterType::New();
-        //filter->SetSigma(sigma);
+#ifdef RECURSIVE
+        filter->SetSigma(sigma);
         LOGV(5)<<VAR(sigma)<<endl;
+#else
         filter->SetVariance(sigma*sigma);
+#endif
         //        filter->SetMaximumKernelWidth(sigma);
 
 
@@ -385,7 +393,7 @@ public:
         OutputImagePointer i1Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
         LOGI(8,ImageUtils<OutputImage>::writeImage("i1Bar.mhd",i1Bar));
         filter->SetInput(i2Cast);
-        filter->Update();
+        filter->UpdateLargestPossibleRegion();
         OutputImagePointer i2Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput());  
 
         //FilterUtils<OutputImage,OutputImage>::lowerThresholding(i2Bar,std::numeric_limits<InputImagePixelType>::min());
@@ -402,12 +410,12 @@ public:
 
         //compute local means of squared images by convolving with gaussian kernel
         filter->SetInput(i1Square);
-        filter->Update();
+        filter->UpdateLargestPossibleRegion();
         OutputImagePointer i1SquareBar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
         LOGI(8,ImageUtils<OutputImage>::writeImage("i1SquareBar.mhd",i1SquareBar));
        
         filter->SetInput(i2Square);
-        filter->Update();
+        filter->UpdateLargestPossibleRegion();
         OutputImagePointer i2SquareBar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
         FilterUtils<OutputImage,OutputImage>::lowerThresholding(i2SquareBar,0);
         LOGI(8,ImageUtils<OutputImage>::writeImage("i2SquareBar.mhd",i2SquareBar));
@@ -425,7 +433,7 @@ public:
       
         //compute local means by convolving...
         filter->SetInput(i1i2);
-        filter->Update();
+        filter->UpdateLargestPossibleRegion();
         OutputImagePointer i1Timesi2Bar=ImageUtils<OutputImage>::duplicate(filter->GetOutput()); 
         LOGI(8,ImageUtils<OutputImage>::writeImage("i1Timesi2Bar.mhd",i1Timesi2Bar));
 
@@ -626,13 +634,21 @@ public:
     }
 
 
-    static inline OutputImagePointer ITKLNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0){
-        return ITKLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp);
+    static inline OutputImagePointer ITKLNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0, InputImagePointer coarseImg=NULL){
+        return ITKLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp,coarseImg);
     }
-    static inline OutputImagePointer ITKLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
+    static inline OutputImagePointer ITKLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0, InputImagePointer coarseImg=NULL){
         
-        OutputImagePointer result=FilterUtils<InputImage,OutputImage>::createEmpty(i1);
-        
+        OutputImagePointer result;
+        if (coarseImg.IsNotNull()){
+            result=FilterUtils<InputImage,OutputImage>::createEmpty(coarseImg);
+            LOGV(6)<<VAR(result->GetSpacing()[0])<<" "<<VAR(i1->GetSpacing()[0])<<endl;
+            sigma=sigma*result->GetSpacing()[0]/i1->GetSpacing()[0];
+        }
+        else{
+            result=FilterUtils<InputImage,OutputImage>::createEmpty(i1);
+        }
+        result->FillBuffer(0.0);
         typedef typename InputImage::RegionType RegionType;
         RegionType region;
 
@@ -657,29 +673,59 @@ public:
 
         for (resultIt.Begin();!resultIt.IsAtEnd();++resultIt){
             
-            typename InputImage::IndexType idx = resultIt.GetIndex();
+            typename InputImage::IndexType idx = resultIt.GetIndex(), newIndex;
             bool fullInside=true;
-            
-            //convert idx to corner of patch, assumind idx is the central pixel
-            for (int d=0;d<D;++d){
-                if (idx[d]>=result->GetLargestPossibleRegion().GetSize()[d]-sigma){
-                    fullInside=false;
-                    break;
-                }
-                idx[d]-=sigma;
-                if (idx[d]<0){
-                    fullInside=false;
-                    break;
-                }
-            
-                
+            typename InputImage::PointType pt;
+            //get coordinate in fine image in case we're simultaneously downsampling
+            if (coarseImg.IsNotNull()){
+                result->TransformIndexToPhysicalPoint(idx,pt);
+                i1->TransformPhysicalPointToIndex(pt,newIndex);
+            }else{
+                newIndex=idx;
             }
+            LOGV(7)<<VAR(idx)<<" "<<VAR(newIndex)<<" "<<VAR(sigma)<<endl;
+
+#if 0            
+            //convert newIndex to corner of patch, assumind newIndex is the central pixel
+            for (int d=0;d<D;++d){
+                if (newIndex[d]>=i1->GetLargestPossibleRegion().GetSize()[d]-sigma){
+                    fullInside=false;
+                    break;
+                }
+                newIndex[d]-=sigma;
+                if (newIndex[d]<0){
+                    fullInside=false;
+                    break;
+                }
+            }
+#else
+
+            typename InputImage::SizeType localRegionSize;
+             //convert newIndex to corner of patch, assumind newIndex is the central pixel
+            for (int d=0;d<D;++d){
+                //make region smaller
+                int maxSize=2*sigma+1;
+                
+                //size gets smaller when center pixel is outside maxRange-sigma
+                int idxDifference=newIndex[d] - (i1->GetLargestPossibleRegion().GetSize()[d]-sigma -1);
+                maxSize-=max(0, idxDifference);
+                
+                //size gets smaller when newIndex-sigma is smaller than zero
+                idxDifference=sigma-newIndex[d];
+                maxSize-=max(0, idxDifference);
+
+                localRegionSize[d]=maxSize;
+                newIndex[d]=max(0.0,newIndex[d]-sigma);
+
+            }
+            region.SetSize(localRegionSize);
+#endif
 
             if (fullInside){
-                region.SetIndex(idx);
+                region.SetIndex(newIndex);
                 nccMetric->SetFixedImageRegion(region);
                 double val=(1.0-nccMetric->GetValue(iTrans->GetParameters()))/2;
-                //LOG<<VAR(idx)<<" " <<VAR(val)<<" "<<endl;
+                LOGV(7)<<VAR(newIndex)<<" "<<VAR(pt)<<" " <<VAR(val)<<" "<<endl;
                 resultIt.Set(pow(val,exp));
             }
             

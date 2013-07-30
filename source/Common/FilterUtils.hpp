@@ -251,7 +251,7 @@ public:
 
 #else
     //downscale to isotropic spacing defined by minspacing/scale
-    //never upsample!
+    //never upsample! unless scale>1.0
     static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool smooth, bool nnResample=false) {
 
         if (scale == 1.0) return cast(ImageUtils<InputImage>::duplicateConst(input));
@@ -278,7 +278,11 @@ public:
         for (uint d=0;d<InputImage::ImageDimension;++d){
             //determine new spacing
             //never increase resolution!
-            spacing[d]=max(inputSpacing[d],newSpacing);//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            if (scale>1.0){
+                spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            }else{
+                spacing[d]=max(inputSpacing[d],newSpacing);//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            }
             //calculate new image size
             size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
             //finalize spacing as a function of the new size

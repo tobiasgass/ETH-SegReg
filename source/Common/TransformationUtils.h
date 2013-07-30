@@ -1121,7 +1121,7 @@ public:
 
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
-
+      
         filter->SetInput(image);
         filter->SetSigma(variance);
         //filter->SetVariance(variance*variance);
@@ -1136,7 +1136,13 @@ public:
 
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
-
+        for (int d=0;d<DeformationFieldType::ImageDimension;++d){
+            if (spacing[d]==0){
+                spacing[d]=1e-5;
+            }
+            spacing[d]=sqrt(spacing[d]);
+        }
+          
         filter->SetInput(image);
         filter->SetSigmaArray(spacing);
         filter->Update();

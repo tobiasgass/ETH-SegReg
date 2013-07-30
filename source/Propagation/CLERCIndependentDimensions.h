@@ -235,8 +235,9 @@ public:
         m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
 
         int interpolationFactor;
-        if (m_linearInterpol)
+        if (m_linearInterpol){
             interpolationFactor = pow(2,D); //linear interpolation
+        }
         else
             interpolationFactor = 1 ; //NNinterpolation;
         
@@ -324,19 +325,19 @@ public:
     
     void setOracle(bool o){m_ORACLE=o;}
     void setWeightFullCircleEnergy(double w){m_wFullCircleEnergy=w;}
-    void setWeightTransformationSimilarity(double w){
+    void setWeightTransformationSimilarity(double w,bool update=false){
         m_wTransformationSimilarity=w;  
-        if (m_nEqTransformationSimilarity){
+        if (update && m_nEqTransformationSimilarity){
             m_wTransformationSimilarity/=m_nEqTransformationSimilarity;
         }
     }
-    void setWeightTransformationSymmetry(double w){
+    void setWeightTransformationSymmetry(double w, bool update=false){
         m_wTransformationSymmetry=w;  
-        if (m_nEqTransformationSymmetry){
+        if (update && m_nEqTransformationSymmetry){
             m_wTransformationSymmetry/=m_nEqTransformationSymmetry;
         }
     }
-    
+  
     void setWeightDeformationSmootheness(double w){m_wDeformationSmootheness=w;}
     void setWeightErrorSmootheness(double w){m_wErrorSmootheness=w;}
     void setWeightErrorNorm(double w){m_wErrorNorm=w;}
@@ -416,6 +417,7 @@ public:
             //get local similarity weights
             if (!haveLocalWeights){
                 if ( m_pairwiseLocalWeightMaps==NULL || m_updateDeformations){
+                    LOGV(1)<<"Checking pairwise local weight map for deformation cache" <<endl;
                     if (m_pairwiseLocalWeightMaps!=NULL){
                         delete  m_pairwiseLocalWeightMaps;
                     }
@@ -433,6 +435,7 @@ public:
                 }
                 //get local similarity weights for updated deformations
                 if (m_locallyUpdateDeformationEstimate && m_haveDeformationEstimate && ! m_updateDeformations){
+                    LOGV(1)<<"Checking pairwise local weight map for updated deformation cache" <<endl;
                     if (m_updatedPairwiseLocalWeightMaps!=NULL){
                         delete m_updatedPairwiseLocalWeightMaps;
                     }
@@ -786,7 +789,8 @@ protected:
         neighbors= std::vector<std::pair<IndexType,double> >(pow(2,D));
         int nNeighbors=0;
         IndexType idx1;
-        def->TransformPhysicalPointToIndex(point,idx1);
+        inside = def->TransformPhysicalPointToIndex(point,idx1);
+#if 0
         if ( !def->GetLargestPossibleRegion().IsInside(idx1))
             return false;
         for (int d=0;d<D;++d){
@@ -798,7 +802,7 @@ protected:
                 break;
             }
         }
-        
+#endif   
         LOGV(8)<<VAR(point)<<" "<<VAR(idx1)<<" "<<VAR(inside)<<" "<<VAR(def->GetOrigin())<<endl;
         
         if (!inside) return false;
@@ -837,6 +841,61 @@ protected:
         neighbors.resize(nNeighbors);
         return inside;
     }
+
+    inline bool getGaussianNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors, double sigma){
+        bool inside=true;
+        int nNeighbors=0;
+        IndexType idx1;
+        int pixelSigma=max(1.0,sigma/def->GetSpacing()[0]+0.5);
+        sigma=max(0.5,sigma);
+        neighbors= std::vector<std::pair<IndexType,double> >(pow(pixelSigma*2,D));
+
+        inside = def->TransformPhysicalPointToIndex(point,idx1);
+
+        LOGV(8)<<VAR(point)<<" "<<VAR(idx1)<<" "<<VAR(inside)<<" "<<VAR(def->GetOrigin())<<" "<<VAR(sigma)<<" "<<VAR(pixelSigma)<<endl;
+        
+        if (!inside) return false;
+        PointType pt1;
+        def->TransformIndexToPhysicalPoint(idx1,pt1);
+        //get bottom left index
+        typename ImageUtils<ImageType>::ContinuousIndexType cIdx;
+        def->TransformPhysicalPointToContinuousIndex(pt1,cIdx);
+        for (int d=0;d<D;++d)
+            idx1[d]=int(cIdx[d]);
+
+        OffsetType off;
+        off.Fill(-pixelSigma+1);
+        double sum=0.0;
+        for (int i=0;i<pow(2*pixelSigma,D);++i){
+            if (i>0){
+                for (int d=0;d<D;++d){
+                    off[d]++;
+                    if (off[d]>pixelSigma){
+                        off[d]=-pixelSigma+1;
+                    }else{
+                        break;
+                    }
+                }
+            }
+            IndexType idx=idx1+off;
+            if (def->GetLargestPossibleRegion().IsInside(idx)){
+                PointType pt;
+                def->TransformIndexToPhysicalPoint(idx,pt);
+                DeformationType delta=point-pt;
+                double w=exp(- delta.GetSquaredNorm()/(sigma*sigma));
+                LOGV(8)<<VAR(nNeighbors)<<" "<<VAR(idx)<<" "<<VAR(off)<<" "<<VAR(w)<<" "<<VAR(point)<<" "<<VAR(pt)<<" "<<VAR(delta.GetSquaredNorm())<<endl;
+                sum+=w;
+                neighbors[nNeighbors++]=std::make_pair(idx,w);
+                inside=true;
+            }
+        }
+        neighbors.resize(nNeighbors);
+        for (int i=0;i<neighbors.size();++i){
+            neighbors[i].second/=sum;
+        }
+        return inside;
+    }
+
     inline bool getNearestNeighbors(const DeformationFieldPointerType def, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
         bool inside=false;
         neighbors= std::vector<std::pair<IndexType,double> >(1);
@@ -1027,6 +1086,7 @@ protected:
                                     bool inside;
                                     if (m_linearInterpol){
                                         inside=getLinearNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
+                                        //inside=getGaussianNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors,(ptIntermediate-ptSourceDirect).GetNorm());
                                     }else{
                                         inside=getNearestNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
                                     }
@@ -1604,7 +1664,7 @@ public:
         if (m_metric == "lncc"){
             lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
         }else if (m_metric == "itklncc"){
-            lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+            lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
         }else if (m_metric == "lsad"){
             lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,(*m_imageList)[targetID],m_sigma,m_exponent);
         }else if (m_metric == "lssd"){
@@ -1637,9 +1697,10 @@ public:
         }
         LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
         //resample lncc result
-        //lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
+        
         //lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
         lncc = FilterUtils<FloatImageType>::LinearResample(lncc, FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
+        //lncc = FilterUtils<FloatImageType>::gaussian(lncc,8);
 #endif
         
         
@@ -1936,4 +1997,35 @@ public:
         return averageDICE/count;
     }
 
+    void resample(ImagePointerType ROI){
+        LOGV(1)<<"Resampling updated deformation cache to ROI with size "<<VAR(ROI->GetLargestPossibleRegion().GetSize())<<endl;
+        for (int source=0;source<m_numImages;++source){
+            for (int target=0;target<m_numImages;++target){
+                if (source!=target){
+                    string sourceID=(*this->m_imageIDList)[source];
+                    string targetID = (*this->m_imageIDList)[target];
+                    DeformationFieldPointerType def;
+                    if (m_updateDeformations){
+                        def=(*m_downSampledDeformationCache)[sourceID][targetID];
+
+                    }else{
+                        def=(*m_updatedDeformationCache)[sourceID][targetID];
+                    }
+                    //def=TransfUtils<ImageType>::linearInterpolateDeformationField(def,ROI);
+                    def=TransfUtils<ImageType>::bSplineInterpolateDeformationField(def,ROI);
+                    if (m_updateDeformations){
+                        (*m_downSampledDeformationCache)[sourceID][targetID]=def;
+
+                    }else{
+                        (*m_updatedDeformationCache)[sourceID][targetID]=def;
+                    }
+                }
+            }
+        }
+        delete m_pairwiseLocalWeightMaps;
+        m_pairwiseLocalWeightMaps=NULL;
+    }
+
+
+    
 };
