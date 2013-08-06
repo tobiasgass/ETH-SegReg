@@ -350,6 +350,7 @@ public:
                                 if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
                                 for (int i=0;i<nNeighbours;++i){
                                     double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],regLabel,0);
+                                    LOGV(8)<<VAR(d)<<" "<<VAR(i)<<" "<<VAR(coherencePot)<<" "<<VAR(m_pairwiseSegmentationRegistrationWeight)<<endl;
                                     costs[d].cost+=coherencePot;
                                 }
                             }
@@ -414,7 +415,9 @@ public:
                         LOGV(10)<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER<<endl;
                         costas[d].site=d+GLOBALnRegNodes;
                         if (m_coherence && !m_register){
-                            costas[d].cost+=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
+                            double coherenceCost=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
+                            LOGV(8)<<VAR(d)<<" "<<VAR(coherenceCost)<<" "<<VAR(m_pairwiseSegmentationRegistrationWeight)<<endl;
+                            costas[d].cost+=coherenceCost;
                         }
                     }
                     m_optimizer->setDataCost(l1+GLOBALnRegLabels,&costas[0],GLOBALnSegNodes);
@@ -519,7 +522,12 @@ public:
         bool random = true;
         m_optimizer->setLabelOrder(random);
 #endif
-        m_optimizer->setVerbosity(verbose>5);
+        int verbosity=0;
+        if (verbose>7)
+            verbosity=2;
+        else if (verbose>3)
+            verbosity=1;
+        m_optimizer->setVerbosity(verbosity);
     }
     
 
@@ -528,7 +536,7 @@ public:
         double energy;//=m_optimizer->compute_energy();
         //LOGV(2)<<VAR(energy)<<endl;
         try{
-            m_optimizer->expansion(maxIter);
+            m_optimizer->expansion(maxIter==0?-1:maxIter);
             //m_optimizer->swap(maxIter);
         }catch (GCException e){
             e.Report();

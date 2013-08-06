@@ -29,7 +29,8 @@ int main(int argc, char ** argv)
     if (filterConfig.logFileName!=""){
         mylog.setCachedLogging();
     }
-    
+    logSetStage("Init");
+
 	//define types.
     typedef unsigned char PixelType;
 	const unsigned int D=2;
@@ -101,7 +102,7 @@ int main(int argc, char ** argv)
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     if (filterConfig.ROIFilename  != ""){
         ImagePointerType roi=ImageUtils<ImageType>::readImage(filterConfig.ROIFilename);
-        targetImage=FilterUtils<ImageType>::NNResample(targetImage,roi);
+        targetImage=FilterUtils<ImageType>::NNResample(targetImage,roi,false);
     }
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
@@ -147,16 +148,16 @@ int main(int argc, char ** argv)
         double sigma=1;
         double scale=filterConfig.downScale;
         LOG<<"Resampling images from "<< targetImage->GetLargestPossibleRegion().GetSize()<<" by a factor of"<<scale<<endl;
-        targetImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetImage,sigma),scale);
-        atlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasImage,sigma),scale);
-        atlasSegmentation=FilterUtils<ImageType>::NNResample((atlasSegmentation),scale);
+        targetImage=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetImage),scale,true);
+        atlasImage=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasImage),scale,true);
+        atlasSegmentation=FilterUtils<ImageType>::NNResample((atlasSegmentation),scale,false);
         if (filterConfig.segment){
-            targetGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetGradient),scale);
-            atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale);
+            targetGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetGradient),scale,true);
+            atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale,true);
             //targetGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetGradient,sigma),scale);
             //atlasGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasGradient,sigma),scale);
             if (filterConfig.useTissuePrior){
-                tissuePrior=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)(targetImage),sigma),scale);
+                tissuePrior=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)(targetImage)),scale,true);
             }
         }
     }
@@ -237,9 +238,9 @@ int main(int argc, char ** argv)
         double segEnergy=filter->getEnergy();
         intermediateSegmentation=filter->getTargetSegmentationEstimate();
         filterConfig.maxDisplacement= tmpRegL;
-        LOGV(-1)<<" Iteration :"<<iteration<<" "<<VAR(regEnergy)<<" "<<VAR(segEnergy)<<endl;          
+        LOG<<" Iteration :"<<iteration<<" "<<VAR(regEnergy)<<" "<<VAR(segEnergy)<<endl;          
         bool converged=false;
-        if (fabs(lastSegEnergy-segEnergy)/lastSegEnergy< 1e-4 && fabs (lastRegEnergy-regEnergy)/lastRegEnergy < 1e-4){
+        if (iteration >0 && fabs(lastSegEnergy-segEnergy)/lastSegEnergy< 1e-4 && fabs (lastRegEnergy-regEnergy)/lastRegEnergy < 1e-4){
             converged=true;
         }
         lastSegEnergy=segEnergy;
@@ -290,7 +291,7 @@ int main(int argc, char ** argv)
         //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
         if (targetSegmentationEstimate){
             typedef ImageUtils<ImageType>::FloatImageType FloatImageType;
-            targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),originalTargetImage));
+            targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),originalTargetImage,false));
         }
     }
     LOG<<"Deforming Images.."<<endl;

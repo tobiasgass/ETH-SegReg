@@ -313,7 +313,7 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
               else fprintf(stderr,"%d %lf(%d)\n",t, L_min, best_k_nz);
             */
 
-            fprintf(stderr,"%d %lf(%d)\n",t, criterion, k_nz);
+            //fprintf(stderr,"%d %lf(%d)\n",t, criterion, k_nz);
 	    
         }while((previous - criterion > THRESHOLD*fabs(previous)));
 	

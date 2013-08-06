@@ -92,8 +92,8 @@ MyLog mylog;
 #define LOG \
     if (mylog.getVerbosity()>=30)                                        \
         (*mylog.mOut) <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
-    if (mylog.getVerbosity()>=0 )                                       \
-    (*mylog.mOut) << mylog.getStatus()<<" "
+    if (mylog.getVerbosity()<30 )                                 \
+        (*mylog.mOut) << mylog.getStatus()<<" "
 
 #define LOGV(level) \
     if (mylog.getVerbosity()>=level && mylog.getVerbosity()>=30) \

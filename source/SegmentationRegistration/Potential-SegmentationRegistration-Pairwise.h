@@ -149,7 +149,7 @@ namespace itk{
             caster->SetInput(thresholdFilter->GetOutput());
             caster->Update();
             ImagePointerType output=caster->GetOutput();
-            if (true){    
+            if (false){    
                 if (ImageType::ImageDimension==2){
                     ImageUtils<ImageType>::writeImage("dt1.png",(output));    
                 }

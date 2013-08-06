@@ -324,7 +324,7 @@ namespace itk{
             for ( int s=0;s<m_nSegmentationLabels;++s){
                 LOGV(1)<<"Training GMM for label :"<<s<<endl;
                 m_GMMs[s].estimate(3,m_observations[s]);
-                m_GMMs[s].display();
+                LOGI(4,m_GMMs[s].display());
             }
         };
 
@@ -358,7 +358,8 @@ namespace itk{
                     double p=m_GMMs[s].likelihood(c);
                     p=min(1.0,p);
                     p=max(std::numeric_limits<double>::epsilon(),p);
-                    resultIterators[s].Set(-log(p));
+                    //resultIterators[s].Set(-log(p));
+                    resultIterators[s].Set((p));
                     ++resultIterators[s];
                 }
             }

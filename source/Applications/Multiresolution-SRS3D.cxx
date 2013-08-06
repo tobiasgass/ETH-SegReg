@@ -55,8 +55,8 @@ int main(int argc, char ** argv)
     //typedef SegmentationClassifier<ImageType> ClassifierType;
     //typedef HandcraftedBoneSegmentationClassifierMarcel<ImageType> ClassifierType;
     //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
+    //typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
     // //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     
     // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;

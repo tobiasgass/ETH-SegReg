@@ -517,8 +517,8 @@ public:
     }
 
 
-    static std::map<std::string,ImagePointerType> * readImageList(std::string filename,std::vector<std::string> & imageIDs){
-        std::map<std::string,ImagePointerType> * result=new  std::map<std::string,ImagePointerType>;
+    static std::map<std::string,ImagePointerType>  readImageList(std::string filename,std::vector<std::string> & imageIDs){
+        std::map<std::string,ImagePointerType>  result;//=new  std::map<std::string,ImagePointerType>;
 
         std::ifstream ifs(filename.c_str());
         if (!ifs){
@@ -536,8 +536,8 @@ public:
                     ifs >> imageFileName;
                     
                     img=ImageUtils<ImageType>::readImage(imageFileName);
-                    if (result->find(imageID)==result->end())
-                        (*result)[imageID]=img;
+                    if (result.find(imageID)==result.end())
+                        result[imageID]=img;
                     else{
                         std::cerr<<"duplicate image ID "<<imageID<<", aborting"<<std::endl;
                         exit(0);
