@@ -19,6 +19,8 @@
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
 #include "NewClassifier.h"
+#include "SegmentationTools.hxx"
+
 using namespace std;
 using namespace itk;
 
@@ -224,13 +226,25 @@ int main(int argc, char ** argv)
         double segEnergy=filter->getEnergy();
         intermediateSegmentation=filter->getTargetSegmentationEstimate();
         filterConfig.maxDisplacement= tmpRegL;
-        LOGV(-1)<<" Iteration :"<<iteration<<" "<<VAR(regEnergy)<<" "<<VAR(segEnergy)<<endl;          
+        LOGV(-1)<<" Iteration :"<<iteration<<" "<<VAR(regEnergy)<<" "<<VAR(segEnergy)<<endl;         
+        if (filterConfig.groundTruthSegmentationFilename!=""){
+            ImagePointerType groundTruth=ImageUtils<ImageType>::readImage(filterConfig.groundTruthSegmentationFilename);
+            int maxLabel=FilterUtils<ImageType>::getMax(groundTruth);
+            double dice,hd,msd;
+            SegmentationTools<ImageType>::computeOverlap(groundTruth, intermediateSegmentation, dice,msd,hd,maxLabel,true);
+            LOG<<"Iteration :"<<iteration<<" "<<VAR(dice)<<" "<<VAR(msd)<<" "<<VAR(hd)<<endl;
+
+        }
         bool converged=false;
         if (fabs(lastSegEnergy-segEnergy)/lastSegEnergy< 1e-4 && fabs (lastRegEnergy-regEnergy)/lastRegEnergy < 1e-4){
             converged=true;
         }
         lastSegEnergy=segEnergy;
         lastRegEnergy=regEnergy;
+        ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(originalAtlasSegmentation,intermediateDeformation,true);
+
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
+        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,intermediateSegmentation);
         if (filterConfig.verbose>=5){
             //store intermediate results
             std::string suff;
@@ -244,7 +258,6 @@ int main(int argc, char ** argv)
             deformedSegmentationFilename<<filterConfig.outputDeformedSegmentationFilename<<"-arsIter"<<iteration<<suff;
             ostringstream tmpSegmentationFilename;
             tmpSegmentationFilename<<filterConfig.segmentationOutputFilename<<"-arsIter"<<iteration<<suff;
-            ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(originalAtlasSegmentation,intermediateDeformation,true);
             ImagePointerType tmpSeg=intermediateSegmentation;
             if (ImageType::ImageDimension==2){
                 tmpSeg=filter->makePngFromLabelImage(tmpSeg, tmpSegL);

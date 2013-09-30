@@ -35,7 +35,17 @@ LabelImagePointerType selectLabel(LabelImagePointerType img, Label l){
     }
     return result;
 }
-
+LabelImagePointerType differenceLabels(LabelImagePointerType img, LabelImagePointerType img2){
+    LabelImagePointerType result=ImageUtils<LabelImage>::createEmpty(img);
+    typedef itk::ImageRegionIterator<LabelImage> IteratorType;
+    IteratorType it1(img,img->GetLargestPossibleRegion());
+    IteratorType it3(img2,img2->GetLargestPossibleRegion());
+    IteratorType it2(result,img->GetLargestPossibleRegion());
+    for (it1.GoToBegin(),it2.GoToBegin(),it3.GoToBegin();!it1.IsAtEnd();++it1,++it2,++it3){
+        it2.Set(it1.Get()!=it3.Get());
+    }
+    return result;
+}
 
 int main(int argc, char * argv [])
 {
@@ -48,26 +58,67 @@ int main(int argc, char * argv [])
     int evalLabel=1;
     bool connectedComponent=false;
     int labelsToEvaluate=1;
+    int verbose=0;
+    string labelList="";
+    bool evalAll=false;
 	as >> parameter ("g", groundTruth, "groundtruth image (file name)", true);
 	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
 	as >> parameter ("o", outputFilename, "output image (file name)", false);
     as >> parameter ("t", threshold, "threshold segmentedImage (threshold)", false);
 	as >> parameter ("e", evalLabel, "label to evaluate", false);
+    
 	as >> parameter ("labelsToEvaluate", labelsToEvaluate, "labels to evaluate", false);
+	as >> parameter ("labelList", labelList, "list of labels to evaluate", false);
+    as >> option ("all", evalAll, "compute mean overlap [disables hausdorff]");
     as >> option ("h", hausdorff, "compute hausdorff distance(0,1)");
 	as >> option ("l", connectedComponent, "use largest connected component in segmentation");
+	as >> parameter ("v", verbose, "verbosity level", false);
+
+    
 	as >> help();
 	as.defaultErrorHandling();
-
+    logSetVerbosity(verbose);
  
     LabelImage::Pointer groundTruthImg =
         ImageUtils<LabelImage>::readImage(groundTruth);
     LabelImage::Pointer segmentedImg =
         ImageUtils<LabelImage>::readImage(segmentationFilename);
 
+    if (evalAll){
+        typedef itk::LabelOverlapMeasuresImageFilter<LabelImage> OverlapMeasureFilterType;
+        OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
+        filter->SetSourceImage(groundTruthImg);
+        filter->SetTargetImage(segmentedImg);
+        filter->SetCoordinateTolerance(1e-3);
+        filter->Update();
+        double dice=filter->GetDiceCoefficient();
+        std::cout<<"Label ALL Dice "<<dice<<std::endl;
+        if (outputFilename!=""){
+            LabelImage::Pointer differenceImage=differenceLabels(groundTruthImg,segmentedImg);
+            ImageUtils<LabelImage>::writeImage(outputFilename,differenceImage);
+        }
+        return 1;
+    }
+
+    std::vector<int> listOfLabels;
     SegmentationMapper<LabelImage> segmentationMapper;
-    groundTruthImg=segmentationMapper.FindMapAndApplyMap(groundTruthImg);
-    segmentedImg=segmentationMapper.ApplyMap(segmentedImg);
+        
+    if (labelList==""){
+        groundTruthImg=segmentationMapper.FindMapAndApplyMap(groundTruthImg);
+        segmentedImg=segmentationMapper.ApplyMap(segmentedImg);
+    }else{
+        ifstream ifs(labelList.c_str());
+        labelsToEvaluate=0;
+        do{
+            int tmp;
+            ifs>>tmp;
+            listOfLabels.push_back(tmp);
+            LOGV(1)<<VAR(labelsToEvaluate)<<" "<<VAR(tmp)<<endl;
+            ++labelsToEvaluate;
+        } while (!ifs.eof());
+        ifs.close();
+        --labelsToEvaluate;
+    }
  
     unsigned totalPixels = 0;
     
@@ -84,6 +135,14 @@ int main(int argc, char * argv [])
     unsigned totalEdges = 0;
     float mean=0;
     for (int l=0;l<labelsToEvaluate;++l){
+        if (listOfLabels.size()){
+            evalLabel=listOfLabels[l];
+            LOGV(2)<<"Evaluating label "<<VAR(evalLabel)<<" "<<VAR(l)<<endl;
+            //skip label 0
+            if (evalLabel==0){
+                continue;
+            }
+        }
         LabelImage::Pointer evalGroundTruthImage=            selectLabel(groundTruthImg,evalLabel);   
         LabelImage::Pointer evalSegmentedImage=            selectLabel(segmentedImg,evalLabel);   
        
@@ -115,6 +174,8 @@ int main(int argc, char * argv [])
             hdFilter->SetInput1(evalGroundTruthImage);
             hdFilter->SetInput2(evalSegmentedImage);
             hdFilter->SetUseImageSpacing(true);
+            hdFilter->SetCoordinateTolerance(1e-3);
+            hdFilter->SetDirectionTolerance(1e-3);
             hdFilter->Update();
             mean=hdFilter->GetAverageHausdorffDistance();
             maxAbsDistance=hdFilter->GetHausdorffDistance();
@@ -124,15 +185,20 @@ int main(int argc, char * argv [])
         OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
         filter->SetSourceImage(evalGroundTruthImage);
         filter->SetTargetImage(evalSegmentedImage);
+        filter->SetCoordinateTolerance(1e-3);
         filter->Update();
         double dice=filter->GetDiceCoefficient();
-        std::cout<<"Label "<<segmentationMapper.GetInverseMappedLabel(evalLabel) ;
+        int label=evalLabel;
+        if (labelList==""){
+            label=segmentationMapper.GetInverseMappedLabel(evalLabel) ;
+        }
+        std::cout<<" Label "<< label;
         std::cout<<" Dice " << dice ;
         if (hausdorff){
-        std::cout<<" Mean "<< mean;
-        std::cout<<" MaxAbs "<< maxAbsDistance<<" ";
+            std::cout<<" Mean "<< mean;
+            std::cout<<" MaxAbs "<< maxAbsDistance<<" ";
         }
-        std::cout<<endl;
+        //std::cout<<endl;
         ++evalLabel;
     }
     std::cout<< std::endl;

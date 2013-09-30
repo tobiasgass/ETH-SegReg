@@ -48,13 +48,15 @@ int main(int argc, char ** argv)
 
     if (target != ""){
         ImageConstPointerType ref =(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
+        deformation->SetDirection(ref->GetDirection());
         if (linear){
             deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,ref);
         }else{
             deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,ref);
         }
     }
-  
+    
+    
 
     if (NN){
         LOG<<"Performing NN interpolation"<<endl;
@@ -64,6 +66,6 @@ int main(int argc, char ** argv)
         LOG<<"Performing linear interpolation"<<endl;
         ImageUtils<ImageType>::writeImage(output,  TransfUtils<ImageType,Displacement>::warpImage(image,deformation) );
     }
-
+    //    LOG<<VAR(deformation->GetSpacing())<<" "<<endl;
 	return 1;
 }

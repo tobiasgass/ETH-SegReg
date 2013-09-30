@@ -23,8 +23,10 @@
 #include "time.h"
 #include "itkImageAdaptor.h"
 #include "itkContinuousIndex.h"
+#include <ctime>
+#include <sys/time.h>
 
-template<class ImageType>
+template<class ImageType, class FloatPrecision=float>
 class ImageUtils {
 
 public:
@@ -34,7 +36,7 @@ public:
     typedef typename ImageType::SizeType SizeType;
     
 
-    typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
+    typedef typename itk::Image<FloatPrecision,ImageType::ImageDimension> FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
     typedef typename itk::Image<unsigned int,ImageType::ImageDimension> UIntImageType;
     typedef typename UIntImageType::Pointer UIntImagePointerType;
@@ -75,7 +77,7 @@ public:
     typedef  itk::ContinuousIndex<double,D> ContinuousIndexType;
 
 
-    typedef itk::Vector<float,D> FloatVectorType;
+    typedef itk::Vector<FloatPrecision,D> FloatVectorType;
     typedef itk::Image<FloatVectorType,D> FloatVectorImageType;
     typedef typename FloatVectorImageType::Pointer FloatVectorImagePointerType;
 #if 0
@@ -335,6 +337,17 @@ public:
     static  void expNormImage(ImagePointerType img, double scalar){
         typedef itk::ImageRegionIterator<ImageType> IteratorType;
         IteratorType it1(img,img->GetLargestPossibleRegion());
+        
+        if (scalar==0.0){
+            double mean=0.0;
+            int c=0;
+            for (it1.GoToBegin();!it1.IsAtEnd();++it1){
+                mean+=it1.Get();
+                ++c;
+            }
+            scalar=2.0*mean/c;
+            
+        }
         for (it1.GoToBegin();!it1.IsAtEnd();++it1){
             it1.Set(exp(-it1.Get()/scalar));
         }
@@ -534,7 +547,7 @@ public:
                     ImagePointerType img;
                     std::string imageFileName ;
                     ifs >> imageFileName;
-                    
+                    //LOGV(3)<<"Reading image with id "<<imageID<<" from file "<<imageFileName<<endl;
                     img=ImageUtils<ImageType>::readImage(imageFileName);
                     if (result.find(imageID)==result.end())
                         result[imageID]=img;
@@ -548,20 +561,34 @@ public:
     }        
 
 
-    static ImagePointerType addNoise(ImagePointerType img, double var=0.01, double mean=0.0){
+    static ImagePointerType addNoise(ImagePointerType img, double var=0.01, double mean=0.0, double freq=0.1){
 
-        static boost::minstd_rand randgen(static_cast<unsigned>(time(0)));
+        struct timeval time; 
+        static boost::minstd_rand randgen((time.tv_sec * 1000) + (time.tv_usec / 1000));
 		static boost::normal_distribution<> dist(mean, var);
 		static boost::variate_generator<boost::minstd_rand, boost::normal_distribution<> > r(randgen, dist);
 
+        gettimeofday(&time,NULL);
+        
+        srand((time.tv_sec * 1000) + (time.tv_usec / 1000));
 
         typedef itk::ImageRegionIterator<ImageType> IteratorType;
         ImagePointerType result=createEmpty(ConstImagePointerType(img));
         IteratorType it1(img,img->GetLargestPossibleRegion());
         IteratorType it2(result,img->GetLargestPossibleRegion());
         for (it2.GoToBegin(),it1.GoToBegin();!it1.IsAtEnd();++it1,++it2){
-            double randVal=r();
-            it2.Set(it1.Get()+randVal);
+           
+            double val=it1.Get();
+            float rnd = (float)rand()/(float)RAND_MAX;
+            if (rnd<freq){
+                double randVal=r();
+                val+=randVal;
+                if (val<std::numeric_limits<PixelType>::min())
+                    val=std::numeric_limits<PixelType>::min();
+                else if (val>std::numeric_limits<PixelType>::max())
+                    val=std::numeric_limits<PixelType>::max();
+            }
+            it2.Set(val);
             //std::cout<<it2.Get()<<" "<<randVal<<" "<<it1.Get()<<std::endl;
         }
         return result;

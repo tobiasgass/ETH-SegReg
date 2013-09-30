@@ -18,7 +18,7 @@ using namespace itk;
 
 int main(int argc, char ** argv)
 {
-    LOG<<CLOCKS_PER_SEC<<endl;
+
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     typedef unsigned short PixelType;
@@ -45,10 +45,27 @@ int main(int argc, char ** argv)
     differ->SetInput2(deformationReference);
     differ->Update();
     LabelImagePointerType difference=differ->GetOutput();
+
+    ImagePointerType mask=TransfUtils<ImageType>::createEmptyImage(difference);
+    mask->FillBuffer(0);
+    ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+    ImageType::IndexType offset;
+    double fraction=0.9;
+    for (int d=0;d<D;++d){
+        offset[d]=(1.0-fraction)/2*size[d];
+        size[d]=fraction*size[d];
+    }
+    
+    ImageType::RegionType region;
+    region.SetSize(size);
+    region.SetIndex(offset);
+    ImageUtils<ImageType>::setRegion(mask,region,1);
+
     double norm;
-    FloatImagePointerType diff2=TransfUtils<ImageType>::computeLocalDeformationNorm(differ->GetOutput(),sigma,&norm);
+    FloatImagePointerType diff2=TransfUtils<ImageType>::computeLocalDeformationNorm(differ->GetOutput(),sigma,&norm, mask);
     LOG<<VAR(norm)<<endl;
-    ImageUtils<ImageType>::writeImage(argv[3],FilterUtils<FloatImageType,ImageType>::truncateCast(diff2));
+    if (argc>3)
+        ImageUtils<ImageType>::writeImage(argv[3],FilterUtils<FloatImageType,ImageType>::truncateCast(diff2));
 
 
     

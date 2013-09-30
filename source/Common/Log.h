@@ -18,6 +18,7 @@ using namespace std;
 #define VAR(x)  #x " = " << x 
 
 
+
 class MyLog {
 public:
     ostream * mOut;

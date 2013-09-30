@@ -37,7 +37,7 @@ typedef   ImageType::OffsetType OffsetType;
 typedef   ImageType::SizeType SizeType;
 typedef   ImageType::ConstPointer ImageConstPointerType;
 typedef   ImageType::ConstPointer ConstImagePointerType;
-typedef   ImageUtils<ImageType>::FloatImageType FloatImageType;
+typedef   ImageUtils<ImageType,double>::FloatImageType FloatImageType;
 typedef   FloatImageType::Pointer FloatImagePointerType;
 
 
@@ -87,7 +87,7 @@ int main(int argc, char ** argv){
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     argstream * as=new argstream(argc,argv);
-    string groundTruthSegmentationFileList="",landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
+    string maskFileList="",groundTruthSegmentationFileList="",landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
     int radius=3;
@@ -111,12 +111,17 @@ int main(int argc, char ** argv){
     double scalingFactorForConsistentSegmentation = 1.0;
     bool oracle = false;
     string localSimMetric="lncc";
-    bool evalFullDeformations=false;
+    bool evalLowResolutionDeformationss=false;
+    bool roiShift=false;
+    bool smoothDownsampling=false;
+    bool bSplineResampling=false;
+    bool filterMetricWithGradient=false;
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
 
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
+    (*as) >> parameter ("masks", maskFileList, " list of  binary masks used to compute inconsistency", false);
     (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
     (*as) >> parameter ("s", m_sigma," kernel width for lncc",false);
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
@@ -132,13 +137,17 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwsym", wSymmetry,"weight for def1 in circle",false);
     (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
     (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"weight for error variable being forced to be similar to the inconsitency statistics",false);
+    (*as) >> option ("roiShift", roiShift,"Shift ROI by half spacing after each iteration, to sample from different points.");
+    (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
+    (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
 
 
     (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (lncc, lsad, lssd,localautocorrelation).",false);
+    (*as) >> option ("filterMetricWithGradient", filterMetricWithGradient,"Multiply local metric with target and warped source image gradients to filter out smooth regions.");
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
     (*as) >> option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
-    (*as) >> option ("evalFullDeformations", evalFullDeformations," Evaluate ADE on full resolution deformations (slow!).");
+    (*as) >> option ("evalLowResolutionDeformations", evalLowResolutionDeformationss," Use only the (upsampled) low resolution deformation for further processing. This is faster (ofc), but less accurate.");
 
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
     (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
@@ -185,6 +194,14 @@ int main(int argc, char ** argv){
     LOG<<"Reading input images."<<endl;
     inputImages = ImageUtils<ImageType>::readImageList( imageFileList, imageIDs );
     int nImages = inputImages.size();
+
+    ImageCacheType * inputMasks=NULL;
+    if (maskFileList!=""){
+        inputMasks=new ImageCacheType;
+        std::vector<string> buff;
+        LOG<<"Reading input masks."<<endl;
+        (*inputMasks) = ImageUtils<ImageType>::readImageList( maskFileList, buff );
+    }
         
     //read landmark filenames
     map<string,string> landmarkList;
@@ -295,12 +312,15 @@ int main(int argc, char ** argv){
     solver->setWeightErrorStatistics(wErrorStatistics); 
     solver->setUpdateDeformations(updateDeformations); 
     solver->setLocallyUpdateDeformations(locallyUpdateDeformations);
-    
+    solver->setSmoothDeformationDownsampling(smoothDownsampling);
+    solver->setBSplineInterpol(bSplineResampling);
+    solver->setLowResEval(evalLowResolutionDeformationss);
     solver->setLinearInterpol(!nearestneighb);
     solver->setSigma(m_sigma);
     solver->setLocalWeightExp(m_exponent);
     solver->setShearingReduction(shearing);
     solver->setMetric(localSimMetric);
+    solver->setFilterMetricWithGradient(filterMetricWithGradient);
   
     solver->setDeformationFilenames(deformationFilenames);
     solver->setTrueDeformationFilenames(trueDeformationFilenames);
@@ -309,15 +329,16 @@ int main(int argc, char ** argv){
     solver->setGroundTruthSegmentations(groundTruthSegmentations);
     solver->setImageIDs(imageIDs);
     solver->setImages(inputImages);
+    solver->setMasks(inputMasks);
     solver->setROI(ROI);
     solver->Initialize();
     int c=1;
 
-    int maxLevels=5;
+    int maxLevels=1;
     for (int level=0;level<maxLevels;++level){
         int iter = 0;
         double error=solver->getADE();
-        double inconsistency;//=solver->getInconsistency();
+        double inconsistency=solver->getInconsistency();
         double TRE=solver->getTRE();
         double dice=solver->getDice();
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<endl;
@@ -328,18 +349,21 @@ int main(int argc, char ** argv){
             solver->createSystem();
             solver->solve();
             //compute and store results. For efficiency reasons, CLERC computes all metrics in one go within this routine.
-            solver->storeResult(outputDir);
-
-           
-            solver->DoALot();
+            solver->storeResult("");
+            if (roiShift){
+                //shift ROI by half spacing to get different sampling in next iteration
+                ROI->SetOrigin(ROI->GetOrigin()+ pow(-1.0,1.0*(iter-1))*0.5*ROI->GetSpacing());
+                LOGV(1)<<VAR(ROI->GetOrigin())<<endl;
+            }
+            solver->DoALot(outputDir);
 
             error=solver->getADE();
-            //inconsistency=solver->getInconsistency();
+            inconsistency=solver->getInconsistency();
             TRE=solver->getTRE();
             dice=solver->getDice();
             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<endl;
             if (updateDeformations){
-                solver->setWeightTransformationSimilarity(wwt*c,true);++c;
+                //   solver->setWeightTransformationSimilarity(wwt*inconsistency,true);++c;
             }
             if (iter == maxHops){
                 //double resolution

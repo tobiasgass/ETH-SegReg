@@ -19,6 +19,10 @@
 #include "itkRegistrationParameterScalesFromPhysicalShift.h"
 #include "itkLabelOverlapMeasuresImageFilter.h"
 #include "SegmentationFusion.h"
+#include <itkGradientMagnitudeImageFilter.h>
+#include <itkGradientMagnitudeRecursiveGaussianImageFilter.h>
+
+
 template<class ImageType >
 //template<class ImageType, class MetricType=itk::NormalizedCorrelationImageToImageMetric<ImageType,ImageType> >
 //template<class ImageType, class MetricType=itk::MeanSquaresImageToImageMetric<ImageType,ImageType> >
@@ -30,8 +34,8 @@ public:
     typedef typename  DeformationFieldType::SpacingType SpacingType;
 
     typedef typename ImageType::SizeType SizeType;
-    typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
-    typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+    typedef typename ImageUtils<ImageType,double>::FloatImagePointerType FloatImagePointerType;
+    typedef typename ImageUtils<ImageType,double>::FloatImageType FloatImageType;
     typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
     typedef typename itk::ImageRegionIteratorWithIndex<DeformationFieldType> DeformationFieldIterator;
     typedef typename itk::ImageRegionIterator<ImageType> ImageIterator;
@@ -66,12 +70,14 @@ protected:
     RegionType m_regionOfInterest;
     
     ImageCacheType  m_imageList;
+    ImageCacheType  *m_maskList;
     ImageCacheType  m_atlasSegmentations,m_groundTruthSegmentations;
 
     map< int, map <int, GaussEstimatorType > > m_pairwiseInconsistencyStatistics;
     map< string , map <string, FloatImagePointerType > >  m_pairwiseLocalWeightMaps,  m_updatedPairwiseLocalWeightMaps;
     string m_metric;
 private:
+    bool m_smoothDeformationDownsampling;
     int m_nPixels;// number of pixels/voxels
 
     int m_nEqFullCircleEnergy; // number of equations for  observation energy E_d
@@ -137,7 +143,9 @@ private:
     int m_numDeformationsToEstimate,m_nCircles;
     
     double m_resolutionFactor;
-    double m_ADE, m_TRE, m_dice;
+    double m_ADE, m_TRE, m_dice,m_Inconsistency;
+    bool m_lowResolutionEval,m_bSplineInterpol;
+    bool m_filterMetricWithGradient;
 public:
     CLERCIndependentDimensions(){
         m_wTransformationSimilarity=1.0;
@@ -165,11 +173,15 @@ public:
         m_ADE=-1;
         m_TRE=-1;
         m_dice=-1;
+        m_Inconsistency=-1;
+        m_lowResolutionEval=false;
+        m_bSplineInterpol=false;
     }
 
     double getADE(){return m_ADE;}
     double getTRE(){return m_TRE;}
     double getDice(){return m_dice;}
+    double getInconsistency(){return m_Inconsistency;}
 
     void setDeformationFilenames(FileListCacheType deformationFilenames) {m_deformationFileList = deformationFilenames;}
     void setTrueDeformationFilenames(FileListCacheType trueDeformationFilenames){m_trueDeformationFileList=trueDeformationFilenames;}
@@ -178,6 +190,9 @@ public:
     void setGroundTruthSegmentations(ImageCacheType  groundTruthSegmentations){m_groundTruthSegmentations = groundTruthSegmentations;}
     void setImageIDs( std::vector<string> imageIDs){m_imageIDList=imageIDs;}
     void setImages(ImageCacheType  inputImages){        m_imageList=inputImages;    };
+    void setMasks(ImageCacheType *  masks){        m_maskList=masks;    };
+    void setLowResEval(bool b){ m_lowResolutionEval=b;}
+    void setBSplineInterpol(bool b){m_bSplineInterpol=b;}
     void setROI(ImagePointerType ROI){ 
         this->m_ROI=ROI;
         m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
@@ -304,7 +319,9 @@ public:
     void setScalingFactorForConsistentSegmentation(double scalingFactorForConsistentSegmentation){ m_segConsisntencyWeight = scalingFactorForConsistentSegmentation;}
     void setUpdateDeformations(bool b){m_updateDeformations=b;}
     void setLocallyUpdateDeformations(bool s){m_locallyUpdateDeformationEstimate=s;}
+    void setSmoothDeformationDownsampling(bool s){m_smoothDeformationDownsampling=s;}
     void setMetric(string m){m_metric=m;}
+    void setFilterMetricWithGradient(bool b){m_filterMetricWithGradient=b;}
     virtual void createSystem(){
         //set up ROI
 
@@ -669,14 +686,7 @@ public:
                                 LOGV(1)<<VAR(s)<<" "<<VAR(t)<<" "<<VAR(oldError)<<" "<<VAR(newError)<<endl;
                             }
                         }
-                        ostringstream outfile;
-                        if (directory != ""){
-                            outfile<<directory<<"/estimatedLocalComposedDeformationError-FROM-"<<sourceID<<"-TO-"<<targetID<<".mha";
-                            ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
-                            ostringstream outfile2;
-                            outfile2<<directory<<"/estimatedLocalComposedDeformation-FROM-"<<sourceID<<"-TO-"<<targetID<<".mha";
-                            ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),estimatedDeform);
-                        }
+                      
                         m_estimatedErrors[sourceID][targetID]=estimatedDeform;//Error;
                       
                    
@@ -969,9 +979,9 @@ protected:
                                 //DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dSourceIntermediate,dIntermediateTarget);
                                 //compute difference of direct and indirect deform
                             
-                                FloatImagePointerType directionalDifference = TransfUtils<ImageType>::getComponent(difference,d);
-                                FloatImagePointerType directionalDeform = TransfUtils<ImageType>::getComponent(indirectDeform,d);
-                                FloatImagePointerType diffNorm = TransfUtils<ImageType>::computeLocalDeformationNorm(difference);
+                                FloatImagePointerType directionalDifference = TransfUtils<ImageType,float,double,double>::getComponent(difference,d);
+                                FloatImagePointerType directionalDeform = TransfUtils<ImageType,float,double,double>::getComponent(indirectDeform,d);
+                                FloatImagePointerType diffNorm = TransfUtils<ImageType,float,double,double>::computeLocalDeformationNorm(difference);
                                 if (m_wErrorStatistics>0.0){
                                     //check if all accumulators exist
                                     if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
@@ -1220,7 +1230,7 @@ protected:
                       
                         FloatImagePointerType lncc;
                         FloatImageIterator lnccIt;
-                        if (m_metric != "gradient" && m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
+                        if (  m_sigma>0.0 && (m_wErrorNorm>0.0 || m_wTransformationSimilarity)){
                             lncc=(m_pairwiseLocalWeightMaps)[sourceID][targetID];
                             lnccIt=FloatImageIterator(lncc,lncc->GetLargestPossibleRegion());
                             lnccIt.GoToBegin();
@@ -1248,6 +1258,7 @@ protected:
                     
                         GaussEstimatorType * statisticsEstimatorSourceTarget;
                         double globalMeanInconsistency=1.0;
+                        double trueError  ;
                         if (m_wErrorStatistics>0.0){
                             statisticsEstimatorSourceTarget = &m_pairwiseInconsistencyStatistics[s][t];
                             statisticsEstimatorSourceTarget->finalize();
@@ -1257,6 +1268,8 @@ protected:
                             }
                             globalMeanInconsistency*=globalMeanInconsistency;
                             LOGV(1)<<sourceID<<" "<<targetID<<" "<<VAR(globalMeanInconsistency)<<endl;
+                            (m_trueDeformations)[sourceID][targetID] = ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
+                            (m_trueDeformations)[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( (m_trueDeformations)[sourceID][targetID],this->m_ROI,m_smoothDeformationDownsampling);
                         }
 
                         FloatImagePointerType newLocalWeights;
@@ -1270,7 +1283,6 @@ protected:
                             IndexType idx=it.GetIndex();
                             LOGV(8)<<VAR(eq)<<" "<<VAR(localDef)<<endl;
                         
-                            //double trueError  = (this->m_downSampledDeformationCache)[sourceID][targetID]->GetPixel(idx)[d]-(m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d];
 
                             int edgeNumDef=edgeNumDeformation(source,target,idx,d);
                             int edgeNumErr;
@@ -1323,11 +1335,14 @@ protected:
 
                             //set w_delta
                             //set eqn for soft constraining the error to be small
-                            double meanInconsistency;
+                            double meanInconsistency=1.0;
                             double varInconsistency;
-                            if (false && m_wErrorStatistics>0.0){
+                            if ( m_wErrorStatistics>0.0){
+                                LOGV(7)<<VAR(statisticsEstimatorSourceTarget->getMean()->GetLargestPossibleRegion().GetSize())<<" "<<VAR(idx)<<endl;
                                 meanInconsistency=statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
-                                varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget->getVariance()->GetPixel(idx))));
+                                meanInconsistency=meanInconsistency!=0.0?meanInconsistency:0.0001;
+#if 0
+                                //varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget->getVariance()->GetPixel(idx))));
                                 if (varInconsistency == 0.0){
                                     varInconsistency = 1e-5;
                                 }
@@ -1337,8 +1352,11 @@ protected:
                                 v[c++]  = 1.0*m_wErrorStatistics*weight2;
                                 //b[eq-1] = m_wErrorStatistics*weight2*trueError;
                                 b[eq-1] = m_wErrorStatistics*weight2*meanInconsistency;
-                                //LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(meanInconsistency)<<" "<<VAR(weight2)<<" "<<VAR(trueError)<<endl;
                                 ++eq;
+#endif     
+                              
+                                LOGV(7)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(meanInconsistency)<<" "<<VAR(weight)<<" "<<VAR(trueError)<<endl;
+     
                             }
                         
                             double localWeight=-1;
@@ -1355,7 +1373,7 @@ protected:
                                 //weight=1.0/sqrt(fabs(meanInconsistency));
                                 double localDisp  =localDef[d];
                                 if (m_metric !="gradient"){
-                                    if (localWeight>weight){
+                                    if (false && localWeight>weight){
                                         localDisp=localUpdatedDef;
                                         weight=localWeight;
                                     }
@@ -1367,17 +1385,24 @@ protected:
                                     weight/=globalMeanInconsistency;
                                 }
                                 else{
-                                    weight=1.0;
+                                    //weight=1.0;
                                     priorWeight=1.0;
-                                    localDisp+=(m_pairwiseGradients)[sourceID][targetID]->GetPixel(idx)[d];
+                                    localDisp-=(m_pairwiseGradients)[sourceID][targetID]->GetPixel(idx)[d];
                                 }
-                                x[c]    = eq;
-                                y[c]    = edgeNumDef;
-                                v[c++]  = 1.0*m_wTransformationSimilarity *weight*priorWeight;
-                                //b[eq-1] = (localDef[d]-trueError)*m_wTransformationSimilarity;// * weight;
-                                b[eq-1] = localDisp*m_wTransformationSimilarity * weight*priorWeight;
-                                ++eq;
-                                LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(priorWeight)<<endl;
+                                //trueError= (this->m_downSampledDeformationCache)[sourceID][targetID]->GetPixel(idx)[d]-(m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d];
+                                //weight=trueError!=0.0?1.0/abs(trueError):100;//pow(weight,meanInconsistency);
+                                //weight=pow((1.0-weight),4.0)*25;
+                                //weight=weight!=0.0?1.0/weight:100;
+                                weight=weight/meanInconsistency;
+                                if (weight>0.0){
+                                    x[c]    = eq;
+                                    y[c]    = edgeNumDef;
+                                    v[c++]  = 1.0*m_wTransformationSimilarity *weight*priorWeight;
+                                    //b[eq-1] = (localDef[d]-trueError)*m_wTransformationSimilarity;// * weight;
+                                    b[eq-1] = localDisp*m_wTransformationSimilarity * weight*priorWeight;
+                                    ++eq;
+                                    LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(priorWeight)<<endl;
+                                }
                             }
                             
                             if (m_wTransformationSymmetry>0.0){
@@ -1573,10 +1598,16 @@ public:
    
 
 
-    void DoALot(){
+    void DoALot(string directory=""){
+        typedef typename itk::LabelOverlapMeasuresImageFilter<ImageType> OverlapMeasureFilterType;
+
         //initialize ADE with zero if it is going to be computed.
         m_ADE=(m_trueDeformationFileList.size()>0)?0:-1;
+        m_dice=0;
+        m_TRE=0;
         int count=0;
+        bool firstRun=false;
+        bool lineSearch=false;
         for (int target=0;target<m_numImages;++target){
             for (int source=0;source<m_numImages;++source){
                 if (source!=target){
@@ -1588,32 +1619,103 @@ public:
                     if (findDeformation(m_deformationFileList,sourceID,targetID)){
                       
 
-
+                        LOGV(5)<<"preparing deformation to be estimated for "<<sourceID<<" to " <<targetID <<endl;
                         estDef=true;
-                        //read full resolution deformations
-                        deformation=ImageUtils<DeformationFieldType>::readImage(m_deformationFileList[sourceID][targetID]);
-                        
-                        //update deformation
+                     
                         if (m_estimatedErrors[sourceID][targetID].IsNotNull()){
-                            DeformationFieldPointerType estimatedDeformation=m_estimatedErrors[sourceID][targetID];
-                            //downsample original deformation with smoothing
-                            DeformationFieldPointerType downSampledDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,m_estimatedErrors[sourceID][targetID],true);
-                            //subtract low resolution error estimate (sampled to the correct resolution in case it was estimated for a lower resolution)
-                            DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::subtract(downSampledDeformation,estimatedDeformation);
-                            //upsample estimated error
-                            DeformationFieldPointerType fullResolutionErrorEstimate=TransfUtils<ImageType>::bSplineInterpolateDeformationField(estimatedError,targetImage,false);
-                            updatedDeform=TransfUtils<ImageType>::subtract(deformation,fullResolutionErrorEstimate);
+                            if (m_lowResolutionEval){
+                                DeformationFieldPointerType estimatedDeformation=m_estimatedErrors[sourceID][targetID];
+                                if (m_bSplineInterpol){
+                                    m_bSplineInterpol;updatedDeform=TransfUtils<ImageType>::bSplineInterpolateDeformationField(estimatedDeformation,targetImage,false);
+                                }else{
+                                    m_bSplineInterpol;updatedDeform=TransfUtils<ImageType>::linearInterpolateDeformationField(estimatedDeformation,targetImage,false);
+                                }
+                                
+                            }else{
+                                //read full resolution deformations
+                                deformation=ImageUtils<DeformationFieldType>::readImage(m_deformationFileList[sourceID][targetID]);
+                                //resample deformation to target image space
+                                deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,targetImage,false);
+                                //update deformation
+                                DeformationFieldPointerType estimatedDeformation=m_estimatedErrors[sourceID][targetID];
+                                //downsample original deformation with smoothing
+                                DeformationFieldPointerType downSampledDeformation;
+                                if (m_bSplineInterpol){
+                                    downSampledDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,m_estimatedErrors[sourceID][targetID],m_smoothDeformationDownsampling);
+                                }else{
+                                    downSampledDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,estimatedDeformation,m_smoothDeformationDownsampling);
+                                }
+                                //subtract low resolution error estimate (sampled to the correct resolution in case it was estimated for a lower resolution)
+                                DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::subtract(downSampledDeformation,estimatedDeformation);
+                                
+                                
+                                //upsample estimated error
+                                DeformationFieldPointerType fullResolutionErrorEstimate;
+                                if (m_bSplineInterpol){
+                                    fullResolutionErrorEstimate=TransfUtils<ImageType>::bSplineInterpolateDeformationField(estimatedError,targetImage,false);
+                                }else{
+                                    fullResolutionErrorEstimate=TransfUtils<ImageType>::linearInterpolateDeformationField(estimatedError,targetImage,false);
+                                }
+                                if (lineSearch){
+                                    //search for updating weight which improves the metric most
+                                    //doesnt work well:D
+                                    double alpha=2.0;
+                                    double bestAlpha=1.0;
+                                    double bestNCC=2;
+
+                                    for (int i=0;i<10;++i){
+                                        DeformationFieldPointerType def=TransfUtils<ImageType>::subtract(deformation,TransfUtils<ImageType>::multiplyOutOfPlace(fullResolutionErrorEstimate,alpha));
+                                        double nCC=Metrics<ImageType>::nCC( m_imageList[targetID], m_imageList[sourceID],def);
+                                        LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(alpha)<<" "<<VAR(nCC)<<endl;
+                                        if (nCC<bestNCC){
+                                            updatedDeform=def;
+                                            bestNCC=nCC;
+                                        }
+                                        alpha/=2.0;
+                                    }
+                                    
+                                }else{
+                                    updatedDeform=TransfUtils<ImageType>::subtract(deformation,fullResolutionErrorEstimate);
+                                }
+                                LOGV(3)<<"updated deformation"<<endl;
+                            }
                         }else{
+                            //read full resolution deformations
+                            deformation=ImageUtils<DeformationFieldType>::readImage(m_deformationFileList[sourceID][targetID]);
+                            //resample deformation to target image space
+                            deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,targetImage,false);
                             updatedDeform=deformation;
                         }
-                        //potentially compare segmentations
-                        //potentially compare landmarks
+                        //compare segmentations
+                        if (m_groundTruthSegmentations[targetID].IsNotNull() && m_groundTruthSegmentations[sourceID].IsNotNull()){
+                            ImagePointerType deformedSeg=TransfUtils<ImageType>::warpImage(  m_groundTruthSegmentations[sourceID] , updatedDeform,true);
+                            typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
+                            filter->SetSourceImage((m_groundTruthSegmentations)[targetID]);
+                            filter->SetTargetImage(deformedSeg);
+                            filter->SetCoordinateTolerance(1e-4);
+                            filter->Update();
+                            double dice=filter->GetDiceCoefficient();
+                            LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(dice)<<endl;
+                            m_dice+=dice;
+                        }
+                        
+
+                        // compare landmarks
+                        if (m_landmarkFileList.size()){
+                            //hope that all landmark files are available :D
+                            m_TRE+=computeTRE(m_landmarkFileList[targetID], m_landmarkFileList[sourceID],updatedDeform,m_imageList[targetID]);
+                        }
+                        
+                        
+
                         //compute LNCC
                         ImagePointerType warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , updatedDeform);
-                        double samplingFactor=warpedImage->GetLargestPossibleRegion().GetSize()[0]/this->m_ROI->GetLargestPossibleRegion().GetSize()[0];
+                        double samplingFactor=1.0*warpedImage->GetLargestPossibleRegion().GetSize()[0]/this->m_ROI->GetLargestPossibleRegion().GetSize()[0];
                         samplingFactor=min(1.0,8.0/(samplingFactor));
+                        
                         warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,samplingFactor,true);
                         targetImage=FilterUtils<ImageType>::LinearResample(targetImage,samplingFactor,true);
+                        LOGV(3)<<"Computing metric "<<m_metric<<" on images downsampled by "<<samplingFactor<<" to size "<<warpedImage->GetLargestPossibleRegion().GetSize()<<endl;
                         FloatImagePointerType lncc;
                         if (m_metric == "lncc"){
                             lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
@@ -1621,35 +1723,81 @@ public:
                             lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                         }else if (m_metric == "lsad"){
                             lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,targetImage,m_sigma,m_exponent);
+                          
                         }else if (m_metric == "lssd"){
                             lncc= Metrics<ImageType,FloatImageType>::LSSDNorm(warpedImage,targetImage,m_sigma,m_exponent);
+                          
+
+
                         }else if (m_metric == "localautocorrelation"){
                             //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(m_imageList)[targetID],m_sigma);
                             lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,targetImage,m_sigma,2,"lssd",m_exponent);
+                        }else if (m_metric == "gradient"){
+                            //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(m_imageList)[targetID],m_sigma);
+                            lncc=  Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                         }else{
                             LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                             exit(-1);
                         } 
-                         ostringstream oss;
-                         oss<<"lncc-"<<sourceID<<"-TO-"<<targetID;
-                         if (D==2)
-                             oss<<".png";
-                         else
-                             oss<<".nii";
+
+                        //multiply image with normed gradients of target and warped source image
+                        if (m_filterMetricWithGradient){
+                            //typedef typename itk::GradientMagnitudeImageFilter<ImageType,FloatImageType> GradientFilter;
+                            typedef typename itk::GradientMagnitudeRecursiveGaussianImageFilter<ImageType,FloatImageType> GradientFilter;
+
+                            //get gradient of target image
+                            typename GradientFilter::Pointer filter=GradientFilter::New();
+                            filter->SetInput((ConstImagePointerType)targetImage);
+                            filter->SetSigma(m_sigma);
+                            filter->Update();
+                            FloatImagePointerType gradient=filter->GetOutput();
+                            ImageUtils<FloatImageType>::expNormImage(gradient,0.0);
+                            ImageUtils<FloatImageType>::multiplyImage(gradient,-1.0);
+                            ImageUtils<FloatImageType>::add(gradient,1.0);
+
+                            //multiply lncc with target gradient
+                            lncc=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,gradient);
+#if 0
+                            //get warped moving gradient
+                            typename GradientFilter::Pointer filter2=GradientFilter::New();
+                            filter2->SetInput((ConstImagePointerType)warpedImage);
+                            // filter2->SetSigma(m_sigma);
+                            filter2->Update();
+                            gradient=filter2->GetOutput();
+                            ImageUtils<FloatImageType>::expNormImage(gradient,0.0);
+                            ImageUtils<FloatImageType>::multiplyImage(gradient,-1.0);
+                            ImageUtils<FloatImageType>::add(gradient,1.0);
+
+                            //multiply
+                            lncc=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,gradient);
+#endif
+                        }
+
+                        LOGV(3)<<"done."<<endl;
+                        ostringstream oss;
+                        oss<<m_metric<<"-"<<sourceID<<"-TO-"<<targetID<<".mha";
+#if 0
+                        if (D==2){
+                            oss<<".png";
+                        }
+                        else{
+                            oss<<".nii";
+                        }
+                        LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
+#else  
+                        LOGI(6,ImageUtils<FloatImageType>::writeImage(oss.str(),lncc));
+#endif
+                        //resample lncc result
                          
+                        //resample with smoothing
+                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
                          
-                         LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
-                         //resample lncc result
-                         
-                         //resample with smoothing
-                         lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
-                         
-                         oss<<"-resampled";
-                         if (D==2){
-                             oss<<".png";
-                         }else
-                             oss<<".nii";
-                         LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
+                        oss<<"-resampled";
+                        if (D==2){
+                            oss<<".png";
+                        }else
+                            oss<<".nii";
+                        LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
                          
                         //store...
                         if (m_updateDeformations || !m_pairwiseLocalWeightMaps[sourceID][targetID].IsNotNull()){
@@ -1659,11 +1807,30 @@ public:
                             //upsample if necessary.. note that here, quite some accuracy of the lncc is lost :( in fact, lncc should be recomputed
                             if (m_pairwiseLocalWeightMaps[sourceID][targetID]->GetLargestPossibleRegion().GetSize()!=this->m_ROI->GetLargestPossibleRegion().GetSize()){
                                 //update the pairwise similarity of the original deformation to the correct resolution
-                                m_pairwiseLocalWeightMaps[sourceID][targetID]=Metrics<ImageType,FloatImageType>::ITKLNCC( TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , deformation),targetImage,m_sigma,m_exponent, this->m_ROI);
+                                warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , deformation);
+                                warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,samplingFactor,true);
+                                if (m_metric == "lncc"){
+                                    lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+                                }else if (m_metric == "itklncc"){
+                                    lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
+                                }else if (m_metric == "lsad"){
+                                    lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,targetImage,m_sigma,m_exponent);
+                                }else if (m_metric == "lssd"){
+                                    lncc= Metrics<ImageType,FloatImageType>::LSSDNorm(warpedImage,targetImage,m_sigma,m_exponent);
+                                }else if (m_metric == "localautocorrelation"){
+                                    //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(m_imageList)[targetID],m_sigma);
+                                    lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,targetImage,m_sigma,2,"lssd",m_exponent);
+                                }else if (m_metric == "gradient"){
+                                    //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(m_imageList)[targetID],m_sigma);
+                                    lncc=  Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+                                }else{
+                                    LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
+                                    exit(-1);
+                                } 
+                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
+                                m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
                             }
                         }
-
-                        
                     }
                     //read true deformation if it is a) in the file list and b) we want to either compare it to the estimate or it needs to be cached.
                     if (findDeformation(m_trueDeformationFileList,sourceID,targetID) && (estDef || !m_trueDeformations[sourceID][targetID].IsNotNull())){
@@ -1680,17 +1847,48 @@ public:
                     
                     //store updated deformation in the appropriate place
                     if (estDef){
+                        //write full resolution deformation to disk
+                        ostringstream outfile;
+                        if (directory != ""){
+                            //outfile<<directory<<"/estimatedLocalComposedDeformationError-FROM-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                            //ImageUtils<DeformationFieldType>::writeImage(outfile.str().c_str(),estimatedError);
+                            ostringstream outfile2;
+                            outfile2<<directory<<"/estimatedLocalComposedDeformation-FROM-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                            ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),updatedDeform);
+                        }
+                        
+
                         //sample to correct resolution (downsample)
-                        updatedDeform=TransfUtils<ImageType>::bSplineInterpolateDeformationField(updatedDeform,this->m_ROI,true);
+                        
+                        if (m_bSplineInterpol){
+                            updatedDeform=TransfUtils<ImageType>::bSplineInterpolateDeformationField(updatedDeform,this->m_ROI,m_smoothDeformationDownsampling);
+                        }else{
+                            updatedDeform=TransfUtils<ImageType>::linearInterpolateDeformationField(updatedDeform,this->m_ROI,m_smoothDeformationDownsampling);
+                        }
+                        if (m_metric == "gradient"){
+                            (m_pairwiseGradients)[sourceID][targetID]=TransfUtils<ImageType>::createEmpty(updatedDeform);
+                            double value;
+                            computeMetricAndDerivative(targetImage, m_imageList[sourceID] ,updatedDeform ,   (m_pairwiseGradients)[sourceID][targetID] ,  value);
+                        }
+
                         if (m_updateDeformations ||  !m_downSampledDeformationCache[sourceID][targetID].IsNotNull()){
                             m_downSampledDeformationCache[sourceID][targetID] = updatedDeform;
+                            firstRun=true;
                         }else{
+
                             (m_updatedDeformationCache)[sourceID][targetID] = updatedDeform;
+                            
+#if 0
+                            locallyUpdateDeformation( m_downSampledDeformationCache[sourceID][targetID],(m_updatedDeformationCache)[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID]);
+#endif
+
                             m_haveDeformationEstimate = true;
-                            //resample deformation if resolution was changed
-                            if (this->m_ROI->GetLargestPossibleRegion().GetSize() != m_downSampledDeformationCache[sourceID][targetID]->GetLargestPossibleRegion().GetSize()){
-                                m_downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,this->m_ROI,true);
-                            }
+                            //resample deformation if resolution or origin was changed
+                            if (this->m_ROI->GetLargestPossibleRegion().GetSize() != m_downSampledDeformationCache[sourceID][targetID]->GetLargestPossibleRegion().GetSize()
+                                || this->m_ROI->GetOrigin() != m_downSampledDeformationCache[sourceID][targetID]->GetOrigin() )
+                                {
+                                    m_downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,this->m_ROI,m_smoothDeformationDownsampling);
+                                }
 
                         }
                         ++count;
@@ -1700,10 +1898,73 @@ public:
             }
         }
         m_ADE/=count;
+        m_dice/=count;
+        m_TRE/=count;
+        if (m_updateDeformations || firstRun ){
+            m_Inconsistency=TransfUtils<ImageType>::computeInconsistency(&m_downSampledDeformationCache,&m_imageIDList, &m_trueDeformations,m_maskList);
+        }else{
+            m_Inconsistency=TransfUtils<ImageType>::computeInconsistency(&m_updatedDeformationCache,&m_imageIDList, &m_trueDeformations,m_maskList);
+        }
     }//DoALot
     
     
-      
+    
+    double computeTRE(string targetLandmarks, string refLandmarks, DeformationFieldPointerType def,ImagePointerType reference){
+        typedef typename  ImageType::DirectionType DirectionType;
+        typedef typename itk::VectorLinearInterpolateImageFunction<DeformationFieldType> DefInterpolatorType;
+        typedef typename DefInterpolatorType::ContinuousIndexType CIndexType;
+        PointType p;
+        p.Fill(0.0);
+        typename DefInterpolatorType::Pointer defInterpol=DefInterpolatorType::New();
+        defInterpol->SetInputImage(def);
+        ifstream ifs(refLandmarks.c_str());
+        int i=0;
+        double TRE=0.0;
+        int count=0;
+        vector<PointType> landmarksReference, landmarksTarget;
+        DirectionType refDir=reference->GetDirection();
+        DirectionType targetDir=def->GetDirection();
+
+        while ( not ifs.eof() ) {
+            PointType point;
+            for (int d=0;d<D;++d){
+                ifs>>point[d];
+                point[d]=point[d]*refDir[d][d];
+            }
+            //LOG<<point<<endl;
+            landmarksReference.push_back(point);
+            
+        } 
+        //std::cout<<"read "<<landmarksReference.size()<<" landmarks"<<std::endl;
+        ifstream ifs2(targetLandmarks.c_str());
+        i=0;
+        for (;i<landmarksReference.size()-1;++i){
+            PointType pointTarget;
+            for (int d=0;d<D;++d){
+                ifs2>>pointTarget[d];
+                pointTarget[d]=pointTarget[d]*targetDir[d][d];
+            }        
+            IndexType indexTarget,indexReference;
+            def->TransformPhysicalPointToIndex(pointTarget,indexTarget);
+           
+            PointType deformedReferencePoint;
+            reference->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
+                        
+          
+            CIndexType cindex;
+            def->TransformPhysicalPointToContinuousIndex(pointTarget,cindex);
+            if (def->GetLargestPossibleRegion().IsInside(cindex)){
+                deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
+                double localError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
+                LOGI(2,std::cout<<"pt"<<i<<": "<<(localError)<<" ");
+                TRE+=localError;
+                ++count;
+            }
+        }
+        LOGI(2,std::cout<<std::endl);
+        return TRE/count;
+    }
+
 
     double computeLandmarkRegistrationError(DeformationCacheType * deformations, map<string,string> landmarkFilenames,std::vector<string> imageIDs, ImageCacheType * images){
 
@@ -1730,7 +1991,7 @@ public:
                     DirectionType refDir=reference->GetDirection();
 
                     if (def->GetLargestPossibleRegion().GetSize() != reference->GetLargestPossibleRegion().GetSize()){
-                        //def=TransfUtils<ImageType>::bSplineInterpolateDeformationField(def,reference);
+                        def=TransfUtils<ImageType>::linearInterpolateDeformationField(def,reference);
                     }
                     typename DefInterpolatorType::Pointer defInterpol=DefInterpolatorType::New();
         
@@ -1805,6 +2066,8 @@ public:
         typedef itk::RegistrationParameterScalesFromPhysicalShift<MetricType> ScalesEstimatorType;
         typedef typename ScalesEstimatorType::Pointer ScalesEstimatorPointer;
 
+        m_resolutionFactor=4.0*def->GetLargestPossibleRegion().GetSize()[0]/img1->GetLargestPossibleRegion().GetSize()[0];
+        m_resolutionFactor=min(1.0,m_resolutionFactor);
         FloatImagePointerType fimg1=FilterUtils<ImageType,FloatImageType>::LinearResample(img1,m_resolutionFactor,true);
         FloatImagePointerType fimg2=FilterUtils<ImageType,FloatImageType>::LinearResample(img2,m_resolutionFactor,true);
         typename TransfUtils<ImageType,float,double>::OutputDeformationFieldPointerType dblDef=TransfUtils<ImageType,float,double>::cast(def);
@@ -1823,7 +2086,7 @@ public:
          
         BSplineDeformableTransformPointer defTransf=BSplineDeformableTransformType::New();
         for (int d=0;d<D;++d){
-            paramImages[d]=TransfUtils<ImageType,double>::getComponent(dblDef,d);
+            paramImages[d]=TransfUtils<ImageType,double,double,double>::getComponent(dblDef,d);
         }
         defTransf->SetCoefficientImages(paramImages);
 #endif
@@ -1864,85 +2127,56 @@ public:
         int numberOfPixels=deriv->GetBufferedRegion().GetNumberOfPixels();
         typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationIteratorType;
         DeformationIteratorType defIt(deriv,deriv->GetLargestPossibleRegion());
-        int p=0;
-        for (defIt.GoToBegin();!defIt.IsAtEnd();++defIt,++p){
-            DeformationType disp;
-            for (int d=0;d<D;++d){
-                LOGV(4)<<VAR(p+d*numberOfPixels)<<" "<<VAR(derivative[p+d*numberOfPixels])<<" "<<VAR(scales[p+d*numberOfPixels])<<" "<<VAR(stepScale)<<" "<<VAR(maxStepSize)<<" "<<VAR(learningRate)<<endl;
-                disp[d]=derivative[p+d*numberOfPixels]*learningRate;///scales[p+d*numberOfPixels];
-            }
-            defIt.Set(disp);
+        for (int i=0;i<10;++i){
+            int p=0;
+            for (defIt.GoToBegin();!defIt.IsAtEnd();++defIt,++p){
+                DeformationType disp;
+                for (int d=0;d<D;++d){
+                    LOGV(4)<<VAR(p+d*numberOfPixels)<<" "<<VAR(derivative[p+d*numberOfPixels])<<" "<<VAR(scales[p+d*numberOfPixels])<<" "<<VAR(stepScale)<<" "<<VAR(maxStepSize)<<" "<<VAR(learningRate)<<endl;
+                    disp[d]=-derivative[p+d*numberOfPixels]*learningRate;///scales[p+d*numberOfPixels];
+                }
+                defIt.Set(disp);
 
+            }
+            typename TransfUtils<ImageType,float,double>::OutputDeformationFieldPointerType newDef=TransfUtils<ImageType,double>::add(dblDef,TransfUtils<ImageType,float,double>::cast(deriv));
+            for (int d=0;d<D;++d){
+                paramImages[d]=TransfUtils<ImageType,double,double,double>::getComponent(newDef,d);
+            }
+            defTransf->SetCoefficientImages(paramImages);
+            metric->SetTransform(defTransf);
+            metric->Initialize();
+            double newValue=metric->GetValue();
+            LOGV(1)<<VAR(i)<<" "<<VAR(value)<<" "<<VAR(newValue)<<" "<<VAR(learningRate)<<endl;
+            if (newValue<value){
+                return;
+            }else{
+                learningRate/=2;
+            }
         }
         ImageUtils<DeformationFieldType>::writeImage("derivative.mha",deriv);
     }
 
+    void locallyUpdateDeformation(DeformationFieldPointerType & def, DeformationFieldPointerType &updatedDef, FloatImagePointerType & similarity, FloatImagePointerType updatedSimilarity){
+        typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationIteratorType;
+        DeformationIteratorType defIt(def,def->GetLargestPossibleRegion());
+        DeformationIteratorType updatedDefIt(updatedDef,def->GetLargestPossibleRegion());
+        typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
+        FloatImageIteratorType simIt(similarity,similarity->GetLargestPossibleRegion());
+        FloatImageIteratorType updatedSimIt(updatedSimilarity,similarity->GetLargestPossibleRegion());
+        defIt.GoToBegin();
+        updatedDefIt.GoToBegin();
+        simIt.GoToBegin();
+        updatedSimIt.GoToBegin();
+        for (;!defIt.IsAtEnd();++simIt,++updatedSimIt,++defIt,++updatedDefIt){
+            
+            if (updatedSimIt.Get()>=simIt.Get()){
+                simIt.Set(updatedSimIt.Get());
+                defIt.Set(updatedDefIt.Get());
+            }
 
-    double computeSegmentationErrors(DeformationCacheType * deformations, ImageCacheType * trueSegmentations, ImageCacheType * atlasSegmentations){
-        
-        double averageDICE=0.0;
-        bool pairwiseMode= (atlasSegmentations == NULL);
-        LOGV(1)<<VAR(pairwiseMode)<<endl;
-        int count = 0;
-        typedef typename itk::LabelOverlapMeasuresImageFilter<ImageType> OverlapMeasureFilterType;
-        typedef  SegmentationFusion<ImageType> FusionType;
-        for (int target=0;target<m_numImages;++target){
-            string targetID=(m_imageIDList)[target];
-            FusionType segmentationFuser;
-            int localCount=0;
-            for (int source=0;source<m_numImages;++source){
-                string sourceID=(m_imageIDList)[source];
-                if (source!=target){
-                    DeformationFieldPointerType def=(deformations)[sourceID][targetID];
-                    if (def.IsNotNull()){
-                        ImagePointerType referenceImage;
-                        if (pairwiseMode){
-                            referenceImage=(trueSegmentations)[sourceID];
-                        }else{
-                            referenceImage=(atlasSegmentations)[sourceID];
-                        }
-                        if (referenceImage.IsNotNull()){
-                            ImagePointerType targetImage=(trueSegmentations)[targetID];
-                            DeformationFieldPointerType fullResolutionDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(def,targetImage);
-                            ImagePointerType deformedReference=TransfUtils<ImageType>::warpImageWithReference(referenceImage, fullResolutionDef, targetImage,true);
-                            if (pairwiseMode){
-                                //compare segmentations/deformed segmentations pairwise
-                                typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
-                                filter->SetSourceImage((trueSegmentations)[targetID]);
-                                filter->SetTargetImage(deformedReference);
-                                filter->Update();
-                                double dice=filter->GetDiceCoefficient();
-                                LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(dice)<<endl;
-                                averageDICE+=dice;
-                                ++count;
-                            }else{
-                                //fuse deformed atlas segmentations
-                                LOGV(1)<<"adding deformed segmentation for source "<<sourceID<<" to "<<targetID<<endl;
-                                segmentationFuser.addImage(deformedReference);
-                                ++localCount;
-                            }
-                        }
-                    }
-                }
-            }
-            if (!pairwiseMode && localCount){
-                //segmentationFuser.finalize();
-                ImagePointerType majVote=segmentationFuser.getFusedSegmentation();
-                if (majVote.IsNotNull()){
-                    ImageUtils<ImageType>::writeImage("meanvote.png",majVote);
-                    typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
-                    filter->SetSourceImage((trueSegmentations)[targetID]);
-                    filter->SetTargetImage(majVote);
-                    filter->Update();
-                    double dice=filter->GetDiceCoefficient();
-                    averageDICE+=dice;
-                    ++count;
-                }
-            }
-        }                    
-        LOGV(1)<<VAR(count)<<" "<<averageDICE<<endl;
-        
-        return averageDICE/count;
+        }
+
+
     }
 
 };

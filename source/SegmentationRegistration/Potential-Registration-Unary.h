@@ -64,7 +64,7 @@ namespace itk{
         SizeType m_targetSize,m_atlasSize;
     protected:
         ConstImagePointerType m_targetImage, m_atlasImage;
-        ConstImagePointerType m_scaledTargetImage, m_scaledAtlasImage;
+        ConstImagePointerType m_scaledTargetImage, m_scaledAtlasImage,m_atlasMaskImage,m_scaledAtlasMaskImage;
         InterpolatorPointerType m_atlasInterpolator;
         LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
@@ -88,6 +88,8 @@ namespace itk{
             radiusSet=false;
             m_targetImage=NULL;
             m_atlasImage=NULL;
+            m_atlasMaskImage=NULL;
+            m_scaledAtlasMaskImage=NULL;
             m_scale=1.0;
             m_scaleITK.Fill(1.0);
             m_threshold=std::numeric_limits<double>::max();
@@ -113,9 +115,12 @@ namespace itk{
                 //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale);
                 //m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),1);
                 //m_scaledAtlasImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale),1);
+                if (m_atlasMaskImage.IsNotNull()){
+                    m_scaledAtlasMaskImage=FilterUtils<ImageType>::NNResample(m_atlasMaskImage,m_scale,false);                }
             }else{
                 m_scaledTargetImage=m_targetImage;
                 m_scaledAtlasImage=m_atlasImage;
+                m_scaledAtlasMaskImage=m_atlasMaskImage;
             }
             if (!radiusSet){
                 LOG<<"Radius must be set before calling registrationUnaryPotential.Init()"<<endl;
@@ -168,6 +173,11 @@ namespace itk{
             m_atlasInterpolator=InterpolatorType::New();
             m_atlasInterpolator->SetInputImage(m_scaledAtlasImage);
 #endif
+        }
+
+        virtual void SetAtlasMaskImage(ConstImagePointerType atlasMaskImage){
+            m_atlasMaskImage=atlasMaskImage;
+
         }
         void SetTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
@@ -625,23 +635,23 @@ namespace itk{
         void SetTargetSheetness(ConstImagePointerType img){
             m_targetSheetness=img;
             if (this->m_scale!=1.0){
-              m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
+                m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
 
             }else{
                 m_scaledTargetSheetness=img;
             }
         }
         virtual void Init(){
-          logSetStage("InitRegUnary");
+            logSetStage("InitRegUnary");
             assert(this->m_targetImage);
             assert(this->m_atlasImage);
             assert(this->m_targetSheetness);
             assert(this->m_atlasSegmentation);
             if (this->m_scale!=1.0){
-              this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
-              this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
-              this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale,false);
-              this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
+                this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
+                this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
+                this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale,false);
+                this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
             }
             assert(this->radiusSet);
             for (int d=0;d<ImageType::ImageDimension;++d){
@@ -886,21 +896,21 @@ namespace itk{
         void SetTargetSheetness(ConstImagePointerType img){
             m_targetSheetness=img;
             if (this->m_scale!=1.0){
-              m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
+                m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
 
             }else{
                 m_scaledTargetSheetness=img;
             }
         }
         virtual void Init(){
-          logSetStage("InitRegUnary");
+            logSetStage("InitRegUnary");
             assert(this->m_targetImage);
             assert(this->m_atlasImage);
             assert(this->m_targetSheetness);
             assert(this->m_atlasSegmentation);
             if (this->m_scale!=1.0){
-              this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
-              this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
+                this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
+                this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
                 this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale);
                 this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
             }
@@ -1150,9 +1160,16 @@ namespace itk{
             translation->FillBuffer( displacement);
             LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
             ImagePointerType deformedAtlas,deformedMask;
-            pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
-            deformedAtlas=result.first;
-            deformedMask=result.second;
+
+            if (this->m_scaledAtlasMaskImage.IsNotNull()){
+                deformedAtlas=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,composedDeformation);
+                deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseLabelMap,true);
+                //deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,composedDeformation,true);
+            }else{
+                pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
+                deformedAtlas=result.first;
+                deformedMask=result.second;
+            }
             m_atlasNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedAtlas,deformedAtlas->GetLargestPossibleRegion());
             m_maskNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedMask,deformedMask->GetLargestPossibleRegion());
 
@@ -1160,51 +1177,60 @@ namespace itk{
             LOGV(70)<<VAR(this->nIt.GetRadius())<<" "<<VAR(deformedAtlas->GetLargestPossibleRegion().GetSize())<<endl;
 
             FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
+            ImageIteratorType coarseMaskIterator(FilterUtils<ImageType>::NNResample(deformedMask,m_coarseImage,false),pot->GetLargestPossibleRegion());
+            coarseMaskIterator.GoToBegin();
             int c=0;
-            for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator){
+            for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator,++coarseMaskIterator){
                 IndexType coarseIndex=coarseIterator.GetIndex();
-                
-                bool validPotential=true;
-                if (this->m_noOutSidePolicy){
-                    for (int d=0;d<D;++d){
-                        int idx=coarseIndex[d];
-                        int s=pot->GetLargestPossibleRegion().GetSize()[d] -1;
-                        if (idx == 0){
-                            double dx=1.0*idx+displacement.GetElement(d);
-                            if (dx<0){
-                                validPotential=false;
-                                break;
-                            }
-                        }else if (idx ==s ){
-                            double dx=1.0*idx+displacement.GetElement(d);
-                            if (dx>s){
-                                validPotential=false;
-                                break;
+                //if the coarse mask is zero, then all mask pixels in the neighborhood are zero and computing the potential does not make sense :)
+                if (coarseMaskIterator.Get()){
+                    bool validPotential=true;
+                    
+                    if (this->m_noOutSidePolicy){
+                        //check if border policy is violated
+                        for (int d=0;d<D;++d){
+                            int idx=coarseIndex[d];
+                            int s=pot->GetLargestPossibleRegion().GetSize()[d] -1;
+                            if (idx == 0){
+                                double dx=1.0*idx+displacement.GetElement(d);
+                                if (dx<0){
+                                    validPotential=false;
+                                    break;
+                                }
+                            }else if (idx ==s ){
+                                double dx=1.0*idx+displacement.GetElement(d);
+                                if (dx>s){
+                                    validPotential=false;
+                                    break;
+                                }
                             }
                         }
-                    }
                     
-                }
-                if (validPotential){
-                    LOGV(36)<<VAR(coarseIndex)<<" "<<VAR(c)<<endl;
-                    PointType point;
-                    m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
-                    IndexType targetIndex;
-                    this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
-                    double localPot=getLocalPotential(targetIndex);
-                    coarseIterator.Set(localPot);
-                    if (computeAverage)
-                        m_averageFixedPotential+=localPot;
-                    ++c;
+                    }
+                    if (validPotential){
+                        LOGV(36)<<VAR(coarseIndex)<<" "<<VAR(c)<<endl;
+                        PointType point;
+                        m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
+                        IndexType targetIndex;
+                        this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
+                        double localPot=getLocalPotential(targetIndex);
+                        coarseIterator.Set(localPot);
+                        if (computeAverage)
+                            m_averageFixedPotential+=localPot;
+                        ++c;
+                    }else{
+                        coarseIterator.Set(1e10);
+                    }
                 }else{
-                    coarseIterator.Set(1e10);
+                    coarseIterator.Set(1);
                 }
                
             }
             currentCachedPotentials=pot;
             currentActiveDisplacement=displacement;
 
-            if (computeAverage){
+            if (computeAverage &&c!=0 ){
+                
                 m_averageFixedPotential/= c;
                 if (m_normalize){
                     m_normalizationFactor= m_normalizationFactor*m_oldAveragePotential/m_averageFixedPotential;
@@ -1227,10 +1253,15 @@ namespace itk{
             translation->FillBuffer( displacement);
             LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
             ImagePointerType deformedAtlas,deformedMask;
-            pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
-            deformedAtlas=result.first;
-            deformedMask=result.second;
-            
+            if (m_scaledAtlasMaskImage.IsNotNull()){
+                deformedAtlas=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,composedDeformation);
+                deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,composedDeformation,true);
+            }else{
+                ImagePointerType deformedAtlas,deformedMask;
+                pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
+                deformedAtlas=result.first;
+                deformedMask=result.second;
+            }
             FloatImagePointerType pot=localPotentials(this->m_scaledAtlasImage,this->m_scaledTargetImage);
             pot = FilterUtils<FloatImageType>::LinearResample(pot, FilterUtils<ImageType,FloatImageType>::cast(m_coarseImage),true);
 

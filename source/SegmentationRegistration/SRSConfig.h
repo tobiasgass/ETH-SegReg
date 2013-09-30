@@ -16,8 +16,8 @@
 #include "argstream.h"
 class SRSConfig{
 public:
-	std::string targetFilename,atlasFilename,targetGradientFilename, outputDeformedSegmentationFilename,atlasSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, atlasGradientFilename;
-	std::string segmentationProbsFilename, pairWiseProbsFilename, tissuePriorFilename,affineBulkTransform,bulkTransformationField,ROIFilename;
+	std::string targetFilename,atlasFilename,targetGradientFilename, outputDeformedSegmentationFilename,atlasSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, atlasGradientFilename,atlasMaskFilename;
+	std::string segmentationProbsFilename, pairWiseProbsFilename, targetAnatomyPriorFilename,affineBulkTransform,bulkTransformationField,ROIFilename,groundTruthSegmentationFilename;
     std::string logFileName;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
@@ -44,7 +44,7 @@ public:
     double alpha;
     int imageLevels;
     bool computeMultilabelAtlasSegmentation;
-    bool useTissuePrior;
+    bool useTargetAnatomyPrior;
     bool segment,regist,coherence;
     double thresh_UnaryReg,thresh_PairwiseReg;
     bool log_UnaryReg,log_PairwiseReg;
@@ -70,6 +70,8 @@ public:
         outputDeformedSegmentationFilename="deformedAtlasSegmentation.nii";
         outputDeformedFilename="deformedAtlas.nii";
         segmentationOutputFilename="targetSegmentation.nii";
+        groundTruthSegmentationFilename="";
+        atlasMaskFilename="";
 		pairwiseRegistrationWeight=0;
 		pairwiseSegmentationWeight=0;
 		displacementSampling=-1;
@@ -97,7 +99,7 @@ public:
         affineBulkTransform="";
         bulkTransformationField="";
         computeMultilabelAtlasSegmentation=false;
-        useTissuePrior=false;
+        useTargetAnatomyPrior=false;
         segment=false;
         regist=false;
         coherence=false;
@@ -169,7 +171,7 @@ public:
         nSubsamples=c.nSubsamples;
         alpha=c.alpha;                          
         imageLevels=c.imageLevels;
-        useTissuePrior=c.useTissuePrior;
+        useTargetAnatomyPrior=c.useTargetAnatomyPrior;
         thresh_UnaryReg=c.thresh_UnaryReg;
         thresh_PairwiseReg=c.thresh_PairwiseReg;
 	}
@@ -210,9 +212,10 @@ public:
 		(*as) >> parameter ("a", atlasFilename, "atlas image (file name)", false);
 		(*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", false);
         //optional
+		(*as) >> parameter ("ma", atlasMaskFilename, "atlas mask image for masking the registration unary potential (file name)", false);
 		(*as) >> parameter ("gt", targetGradientFilename, "target gradient image (file name)", false);
         (*as) >> parameter ("ga", atlasGradientFilename, "atlas gradient image (file name)", false);
-        (*as) >> parameter ("tissuePriorFilename", tissuePriorFilename, "tissue prior image (file name)", false);
+        (*as) >> parameter ("targetAnatomyPriorFilename", targetAnatomyPriorFilename, "targetAnatomy prior image (file name)", false);
         (*as) >> parameter ("affineBulkTransform", affineBulkTransform, "affine bulk transfomr", false);
         (*as) >> parameter ("bulkTransformationFiled", bulkTransformationField, "bulk transformation field", false);
         (*as) >> option ("moments", initWithMoments, "initialize deformation with moments ");
@@ -262,7 +265,7 @@ public:
 		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename", false);
 		(*as) >> parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);
 		(*as) >> option ("train", train,"train classifier (and save), if not set data will be read from the given files");
-        (*as) >> option ("useTissuePrior", useTissuePrior,"compute and use a tissue prior. Currently only works with bone CT images.");
+        (*as) >> option ("useTargetAnatomyPrior", useTargetAnatomyPrior,"compute and use a targetAnatomy prior. Currently only works with bone CT images.");
 
 		std::vector<int> tmp_levels(6,-1);
 		(*as) >> parameter ("l0", tmp_levels[0],"divisor for level 0", false);
@@ -284,6 +287,8 @@ public:
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
         (*as) >> parameter ("alpha",alpha ,"generic weight (0)", false);
         (*as) >> parameter ("log",logFileName ,"cache output and flush to file at the end of the program", false);
+        (*as) >> parameter ("groundTruth", groundTruthSegmentationFilename, "groundtruth segmentation of target, allows evaluation of result(file name)", false);
+
         (*as) >> parameter ("verbose", verbose,"get verbose output",false);
         std::list<int> bla;
 //		(*as) >> values<int> (back_inserter(bla),"descr",nLevels);

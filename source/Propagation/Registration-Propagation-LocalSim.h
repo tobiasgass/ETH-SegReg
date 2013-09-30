@@ -146,13 +146,13 @@ public:
             }
         }
 
-        map<string,ImagePointerType> *inputImages;
+        map<string,ImagePointerType> inputImages;
         typedef typename map<string, ImagePointerType>::iterator ImageListIteratorType;
         LOG<<"Reading input images."<<endl;
         std::vector<string> imageIDs;
      
         inputImages = ImageUtils<ImageType>::readImageList( imageFileList , imageIDs);
-        int nImages = inputImages->size();
+        int nImages = inputImages.size();
         
         LOGV(2)<<VAR(metric)<<" "<<VAR(weighting)<<endl;
         LOGV(2)<<VAR(m_sigma)<<" "<<VAR(lateFusion)<<" "<<VAR(m_patchRadius)<<endl;
@@ -173,7 +173,7 @@ public:
                 if (intermediateID!=""){
                     ifs >> targetID;
                     ifs >> defFileName;
-                    if (inputImages->find(intermediateID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
+                    if (inputImages.find(intermediateID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
                         LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                         //exit(0);
                     }else{
@@ -198,7 +198,7 @@ public:
                 if (intermediateID!=""){
                     ifs >> targetID;
                     ifs >> defFileName;
-                    if (inputImages->find(intermediateID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
+                    if (inputImages.find(intermediateID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
                         LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                         //exit(0);
                     }else{
@@ -221,7 +221,7 @@ public:
                 string intermediateID,targetID;
                 ifs >> intermediateID;
                 ifs >> targetID;
-                if (inputImages->find(intermediateID)==inputImages->end() || inputImages->find(targetID)==inputImages->end() ){
+                if (inputImages.find(intermediateID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
                     LOG << intermediateID<<" or "<<targetID<<" not in image database while reading weights, skipping"<<endl;
                 }else{
                     ifs >> globalWeights[intermediateID][targetID];
@@ -232,7 +232,7 @@ public:
         double error;
         double inconsistency;
         error=TransfUtils<ImageType>::computeError(&deformationCache,&trueDeformations,&imageIDs);
-        inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs);
+        inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs, &trueDeformations);
         int iter = 0;
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
@@ -245,10 +245,10 @@ public:
             double globalResidual=0.0;
             double trueResidual=0.0;
 
-            for (ImageListIteratorType sourceImageIterator=inputImages->begin();sourceImageIterator!=inputImages->end();++sourceImageIterator){           
+            for (ImageListIteratorType sourceImageIterator=inputImages.begin();sourceImageIterator!=inputImages.end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
-                for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){                //iterate over targets
+                for (ImageListIteratorType targetImageIterator=inputImages.begin();targetImageIterator!=inputImages.end();++targetImageIterator){                //iterate over targets
                     string targetID= targetImageIterator->first;
                     if (targetID !=sourceID){
                         GaussianEstimatorVectorImage<ImageType> estimator;
@@ -262,7 +262,7 @@ public:
                         }else{
                             estimator.addImage(deformationSourceTarget);
                         }
-                        for (ImageListIteratorType intermediateImageIterator=inputImages->begin();intermediateImageIterator!=inputImages->end();++intermediateImageIterator){                //iterate over intermediates
+                        for (ImageListIteratorType intermediateImageIterator=inputImages.begin();intermediateImageIterator!=inputImages.end();++intermediateImageIterator){                //iterate over intermediates
                             string intermediateID= intermediateImageIterator->first;
                             if (targetID != intermediateID && sourceID!=intermediateID){
                                 //get all deformations for full circle
@@ -297,7 +297,7 @@ public:
             }//source images
             deformationCache=TMPdeformationCache;
             error=TransfUtils<ImageType>::computeError(&deformationCache,&trueDeformations,&imageIDs);
-            inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs);
+            inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
 
         }//hops
@@ -305,7 +305,7 @@ public:
         
         LOG<<"done"<<endl;
         LOG<<"Storing output. and checking convergence"<<endl;
-        for (ImageListIteratorType targetImageIterator=inputImages->begin();targetImageIterator!=inputImages->end();++targetImageIterator){
+        for (ImageListIteratorType targetImageIterator=inputImages.begin();targetImageIterator!=inputImages.end();++targetImageIterator){
             string id= targetImageIterator->first;
         }
         // return 1;

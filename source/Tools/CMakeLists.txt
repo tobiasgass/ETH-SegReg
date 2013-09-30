@@ -42,13 +42,27 @@ TARGET_LINK_LIBRARIES(InvertDeformation3D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(AddNoiseToImage3D AddNoiseToImage3D.cxx )
 TARGET_LINK_LIBRARIES(AddNoiseToImage3D  Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(AddNoiseToImage2D AddNoiseToImage2D.cxx )
+TARGET_LINK_LIBRARIES(AddNoiseToImage2D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(BinaryThresholdImage3D BinaryThresholdImage3D.cxx )
+TARGET_LINK_LIBRARIES(BinaryThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ThresholdImage3D ThresholdImage3D.cxx )
+TARGET_LINK_LIBRARIES(ThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(DistanceTransform3D DistanceTransform3D.cxx )
+TARGET_LINK_LIBRARIES(DistanceTransform3D  Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(DiluteImage3D DiluteImage3D.cxx )
+TARGET_LINK_LIBRARIES(DiluteImage3D  Utils   ${ITK_LIBRARIES}  )
 
 #Compare segmentations
 ADD_EXECUTABLE(CompareSegmentations3D CompareSegmentations3D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations3D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(CompareSegmentations2D CompareSegmentations2D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations2D Utils   ${ITK_LIBRARIES}  )
-
+ADD_EXECUTABLE(SelectLabels3D SelectLabels3D.cxx )
+TARGET_LINK_LIBRARIES(SelectLabels3D Utils   ${ITK_LIBRARIES}  )
 #segment 
 ADD_EXECUTABLE(SegmentProbImage3D SegmentProbImage3D.cxx )
 TARGET_LINK_LIBRARIES(SegmentProbImage3D Utils SRSMRFModels    ${ITK_LIBRARIES}  )

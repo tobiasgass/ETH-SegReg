@@ -18,6 +18,7 @@
 #include "Log.h"
 #include "TransformationUtils.h"
 #include "NewClassifier.h"
+#include "SegmentationTools.hxx"
 using namespace std;
 using namespace itk;
 
@@ -238,7 +239,18 @@ int main(int argc, char ** argv)
         double segEnergy=filter->getEnergy();
         intermediateSegmentation=filter->getTargetSegmentationEstimate();
         filterConfig.maxDisplacement= tmpRegL;
-        LOG<<" Iteration :"<<iteration<<" "<<VAR(regEnergy)<<" "<<VAR(segEnergy)<<endl;          
+        LOG<<" Iteration :"<<iteration<<" "<<VAR(regEnergy)<<" "<<VAR(segEnergy)<<endl;      
+        if (filterConfig.groundTruthSegmentationFilename!=""){
+            ImagePointerType groundTruth=ImageUtils<ImageType>::readImage(filterConfig.groundTruthSegmentationFilename);
+            groundTruth=filter->fixSegmentationImage(groundTruth,filterConfig.nSegmentations);
+            int maxLabel=FilterUtils<ImageType>::getMax(groundTruth);
+            double dice,hd,msd;
+            SegmentationTools<ImageType>::computeOverlap(groundTruth, intermediateSegmentation, dice,msd,hd,maxLabel,true);
+            LOG<<"Iteration :"<<iteration<<" "<<VAR(dice)<<" "<<VAR(msd)<<" "<<VAR(hd)<<endl;
+
+        }
+
+    
         bool converged=false;
         if (iteration >0 && fabs(lastSegEnergy-segEnergy)/lastSegEnergy< 1e-4 && fabs (lastRegEnergy-regEnergy)/lastRegEnergy < 1e-4){
             converged=true;

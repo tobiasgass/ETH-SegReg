@@ -50,7 +50,6 @@
 #include "itkNeighborhoodIterator.h"
 #include "itkLaplacianRecursiveGaussianImageFilter.h"
 #include "itkNormalizedCorrelationImageToImageMetric.h"
-#include "TransformationUtils.h"
 
 using namespace std;
 
@@ -905,6 +904,16 @@ public:
         return filter->GetMaximumOutput()->Get();
 
     }
+ static InputImagePixelType getMin(InputImagePointer img){
+        return getMin(ConstInputImagePointer(img));
+    }    
+    static InputImagePixelType getMin(ConstInputImagePointer img){
+        typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+        filter->SetInput(img);
+        filter->Update();
+        return filter->GetMinimumOutput()->Get();
+
+    }
     static InputImagePixelType getMean(InputImagePointer img){
         typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
         filter->SetInput(img);
@@ -941,4 +950,6 @@ public:
             i1It.Set(v1<v2?v1:v2);
         }
     }
+
+
 };

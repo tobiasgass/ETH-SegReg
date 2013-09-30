@@ -2,7 +2,8 @@
 #include <iostream>
 #include "Segmentation-Propagation.h"
 #include "Segmentation-Propagation-DefWeighting.h"
-#include "Segmentation-Propagation-Modular.h"
+//#include "Segmentation-Propagation-Modular.h"
+#include "Segmentation-Propagation-efficient1Hop.h"
 
 
 

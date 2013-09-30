@@ -25,7 +25,8 @@
 #include "itkNormalizedMutualInformationHistogramImageToImageMetric.h"
 #include "itkLinearInterpolateImageFunction.h"
 #include <itkLabelOverlapMeasuresImageFilter.h>
-
+#include "Metrics.h"
+#include "SegmentationMapper.hxx"
 using namespace std;
 
 template <class ImageType, int nSegmentationLabels>
@@ -116,7 +117,7 @@ public:
         if (D==2)
             suffix=".png";
         else
-            suffix=".nii";
+            suffix=".nii.gz";
 
      
 
@@ -176,15 +177,16 @@ public:
 
         typedef typename ImageListType::iterator ImageListIteratorType;
         LOG<<"Reading atlas segmentations."<<endl;
-        inputAtlasSegmentations = readImageList( atlasSegmentationFileList,atlasSegmentationIDMap );
+        inputAtlasSegmentations = readImageList( atlasSegmentationFileList, atlasSegmentationIDMap );
         
         LOG<<VAR(atlasSegmentationIDMap)<<endl;
-        if (D==2){
-            //fix png segmentations
-            for (ImageListIteratorType it=inputAtlasSegmentations->begin();it!=inputAtlasSegmentations->end();++it){
-                ImageUtils<ImageType>::multiplyImage(it->second,1.0*(nSegmentationLabels-1)/std::numeric_limits<PixelType>::max());
-            }
+
+        SegmentationMapper<ImageType> segmentationMapper;
+        //map segmentation labels to continuous discrete range
+        for (ImageListIteratorType it=inputAtlasSegmentations->begin();it!=inputAtlasSegmentations->end();++it){
+            it->second=segmentationMapper.ApplyMap(it->second);
         }
+        
 
 
         int nAtlases = inputAtlasSegmentations->size();
@@ -197,8 +199,13 @@ public:
         if (imageFileListAtlas != ""){
             atlasImages=readImageList(imageFileListAtlas, atlasIDMap);
         }else{
-            atlasImages=targetImages;
-            atlasIDMap=targetIDMap;
+            for (ImageListIteratorType targetImageIterator=targetImages->begin();targetImageIterator!=targetImages->end();++targetImageIterator){
+                string targetID = targetImageIterator->first;
+                //add target image to atlas images if it is in the list of atlas segmentations
+                if ( atlasSegmentationIDMap->find(targetID)!=atlasSegmentationIDMap->end()){
+                    atlasImages->push_back(make_pair(targetID,targetImageIterator->second));
+                }
+            }
         }
         
         LOGV(2)<<VAR(metric)<<" "<<VAR(weighting)<<endl;
@@ -417,7 +424,7 @@ public:
                     outputImage=probSegmentationToSegmentationLocal(probabilisticSegmentations[targetID]);
                 ostringstream tmpSegmentationFilename;
                 tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<targetID<<"-hop0"<<suffix;
-                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
+                ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentationMapper.MapInverse(outputImage));
                 ostringstream tmpSegmentationFilename2;
                 tmpSegmentationFilename2<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<targetID<<"-hop0-ProbImage.mha";
                 LOGI(4,ImageUtils<ProbabilisticVectorImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),probabilisticSegmentations[targetID]));
@@ -529,7 +536,7 @@ public:
                                         ImagePointerType outputIntermediateSegmentation = probSegmentationToSegmentationLocal(warpProbImage(probSeg,deformation));
                                         ostringstream tmpSegmentationFilename;
                                         tmpSegmentationFilename<<outputDir<<"/segmentation-intermediate-weighting"<<weightingName<<"-metric"<<metricName<<"-from-"<<atlasID<<"-over-"<<intermediateID<<"-to-"<<targetID<<"-hop"<<n<<suffix;
-                                        ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputIntermediateSegmentation);
+                                        ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentationMapper.MapInverse(outputIntermediateSegmentation));
                                     }
                                 }
                             }
@@ -562,7 +569,7 @@ public:
                         outputImage=probSegmentationToSegmentationLocal(newProbabilisticTargetSegmentations[id]);
                     ostringstream tmpSegmentationFilename;
                     tmpSegmentationFilename<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<id<<"-hop"<<n<<suffix;
-                    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),outputImage);
+                    ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentationMapper.MapInverse(outputImage));
                     ostringstream tmpSegmentationFilename2;
                     tmpSegmentationFilename2<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<id<<"-hop1-ProbImage.mha";
                     LOGI(4,ImageUtils<ProbabilisticVectorImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),normalizedProbs));
@@ -1012,13 +1019,13 @@ protected:
         FloatImagePointerType metricImage;
         switch (metric){
         case MSD:
-            metricImage=FilterUtils<ImageType,FloatImageType>::LSSDAutoNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
+            metricImage=Metrics<ImageType,FloatImageType>::LSSDAutoNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
             break;
         case MAD:
-            metricImage=FilterUtils<ImageType,FloatImageType>::LSADAutoNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
+            metricImage=Metrics<ImageType,FloatImageType>::LSADAutoNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
             break;
         case NCC:
-            metricImage=FilterUtils<ImageType,FloatImageType>::efficientLNCC(deformedMoving.first, targetImage,m_patchRadius[0], m_sigma);
+            metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(deformedMoving.first, targetImage,m_patchRadius[0], m_sigma);
             break;
         default:
             LOG<<"no valid metric, aborting"<<endl;

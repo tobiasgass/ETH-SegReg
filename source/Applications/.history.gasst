@@ -8,3 +8,6 @@
 2011-02-28.16-03-16 grep 2 * |less
 2012-02-01.12-09-38 emacs Multiresolution-SegmentationRegistration3D.cxx &
 2012-08-08.14-42-53 grep conver *
+2013-09-18.10-35-55 2013-09-18 10:35:55 cd work/src/Novel-SRS/source/Applications/
+2013-09-18.10-43-40 2013-09-18 10:36:01 kdiff3 CLERC2D.cxx CLERC3D.cxx 
+2013-09-23.11-05-13 2013-09-23 11:05:13 emacs CLERC2D.cxx &

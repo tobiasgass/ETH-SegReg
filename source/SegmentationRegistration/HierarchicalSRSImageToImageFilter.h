@@ -126,6 +126,7 @@ namespace itk{
         ImagePointerType m_finalSegmentation;
         ConstImagePointerType m_targetImage;
         ConstImagePointerType m_atlasImage;
+        ConstImagePointerType m_atlasMaskImage;
         ConstImagePointerType m_atlasSegmentationImage;
         ConstImagePointerType m_targetGradientImage;
         ConstImagePointerType m_atlasGradientImage;
@@ -153,6 +154,9 @@ namespace itk{
         void setAtlasImage(ImagePointerType img){
             SetNthInput(1,img);
         }
+        void setAtlasMaskImage(ImagePointerType img){
+            m_atlasMaskImage=img;
+        }
         void setAtlasSegmentation(ImagePointerType img){
             SetNthInput(2,img);
         }
@@ -162,7 +166,7 @@ namespace itk{
         void setAtlasGradient(ImagePointerType img){
             SetNthInput(4,img);
         }
-        void setTissuePrior(ImagePointerType img){
+        void setTargetAnatomyPrior(ImagePointerType img){
             SetNthInput(5,img);
         }
         void setBulkTransform(DeformationFieldPointerType transf){
@@ -234,9 +238,9 @@ namespace itk{
                 m_unarySegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
                 m_unarySegmentationPot->SetGradientScaling(m_config->pairwiseSegmentationWeight);
                 m_unarySegmentationPot->SetNSegmentationLabels(m_config->nSegmentations);
-                if (m_config->useTissuePrior){
-                    m_unarySegmentationPot->SetTissuePrior(this->GetInput(5));
-                    m_unarySegmentationPot->SetUseTissuePrior(m_config->useTissuePrior);
+                if (m_config->useTargetAnatomyPrior){
+                    m_unarySegmentationPot->SetTargetAnatomyPrior(this->GetInput(5));
+                    m_unarySegmentationPot->SetUseTargetAnatomyPrior(m_config->useTargetAnatomyPrior);
                 }
                 m_unarySegmentationPot->Init();
                 m_pairwiseSegmentationPot->SetTargetImage(m_targetImage);
@@ -255,7 +259,7 @@ namespace itk{
             bool segment=m_config->segment;
             bool regist= m_config->regist;
             //results
-            ImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage;
+            ImagePointerType deformedAtlasImage,deformedAtlasSegmentation,segmentationImage, deformedAtlasMaskImage;
             DeformationFieldPointerType fullDeformation,previousFullDeformation;
             if (regist || coherence){
                 if (m_useBulkTransform){
@@ -274,6 +278,12 @@ namespace itk{
                     previousFullDeformation->FillBuffer(tmpVox);
                 }
                 deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,previousFullDeformation);
+                if (m_atlasMaskImage.IsNotNull()){
+                    LOGV(6)<<"Deforming moving mask.."<<endl;
+                    deformedAtlasMaskImage=TransfUtils<ImageType>::warpImage(m_atlasMaskImage,previousFullDeformation);
+                }
+                else
+                    deformedAtlasMaskImage=NULL;
                 m_unaryRegistrationPot->resetNormalize();
             }
 
@@ -379,6 +389,7 @@ namespace itk{
                     m_unaryRegistrationPot->SetScale(scaling);
                     m_unaryRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
+                    m_unaryRegistrationPot->SetAtlasMaskImage(m_atlasMaskImage);
 #if 0
                     LOG<<"WARNING: patch size 11x11 for unary registration potential " << endl;
                     m_unaryRegistrationPot->SetRadius(graph->getSpacing()*5);
@@ -655,6 +666,10 @@ namespace itk{
                         if (m_atlasSegmentationImage.IsNotNull()){
                             deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
                         }
+                        if (m_atlasMaskImage.IsNotNull()){
+                            LOGV(6)<<"Deforming moving mask.."<<endl;
+                            deformedAtlasMaskImage=TransfUtils<ImageType>::warpImage(m_atlasMaskImage,previousFullDeformation);
+                        }
                     }
                     
       
@@ -687,6 +702,12 @@ namespace itk{
                         if (regist) ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedAtlasImage);
                         ostringstream tmpSegmentationFilename;
                         tmpSegmentationFilename<<m_config->segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<suff;
+
+                        if (m_atlasMaskImage.IsNotNull()){
+                            ostringstream deformedMaskFilename;
+                            deformedMaskFilename<<m_config->outputDeformedSegmentationFilename<<"-MASK-l"<<l<<"-i"<<i<<suff;
+                            ImageUtils<ImageType>::writeImage(deformedMaskFilename.str().c_str(), deformedAtlasMaskImage);
+                        }
                      
                         if (ImageType::ImageDimension==2){
                             if (segment && segmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));

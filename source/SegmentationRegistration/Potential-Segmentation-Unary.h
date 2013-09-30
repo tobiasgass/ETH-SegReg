@@ -38,15 +38,15 @@ namespace itk{
         typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
     protected:
         ImageConstPointerType m_targetImage, m_targetGradient,m_atlasImage, m_atlasGradient;
-        ImageConstPointerType m_scaledTargetImage, m_scaledTargetGradient;
+        ImageConstPointerType m_scaledTargetImage, m_scaledTargetGradient,m_scaledTargetAnatomyPrior;
         ImageConstPointerType m_atlasSegmentation;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         double m_gradientSigma, m_Sigma;
         double m_gradientScaling;
-        ImageConstPointerType m_tissuePrior;
-        bool m_useTissuePrior;
+        ImageConstPointerType m_targetAnatomyPrior;
+        bool m_useTargetAnatomyPrior;
         int m_nSegmentationLabels;
     public:
         
@@ -54,9 +54,9 @@ namespace itk{
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(UnaryPotentialSegmentation, Object);
-        void SetTissuePrior(ImageConstPointerType img){m_tissuePrior=img;}
-        void SetUseTissuePrior(bool b){
-            m_useTissuePrior=b;
+        void SetTargetAnatomyPrior(ImageConstPointerType img){m_targetAnatomyPrior=img;}
+        void SetUseTargetAnatomyPrior(bool b){
+            m_useTargetAnatomyPrior=b;
         }
         UnaryPotentialSegmentation(){
             this->m_haveLabelMap=false;
@@ -94,7 +94,7 @@ namespace itk{
                 m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,true,false);
                 m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor,true,false);
             }
-            
+            if (m_targetAnatomyPrior.IsNotNull()) m_scaledTargetAnatomyPrior=FilterUtils<ImageType>::NNResample(m_targetAnatomyPrior,segmentationScalingFactor,false);
         }
         virtual void SetAtlasSegmentation(ImageConstPointerType im){
             m_atlasSegmentation=im;
@@ -368,8 +368,8 @@ namespace itk{
             double imageIntensity=this->m_targetImage->GetPixel(targetIndex);
             
             if (false && segmentationLabel){
-                bool tissuePrior = (this->m_tissuePrior->GetPixel(targetIndex))>0;
-                if (tissuePrior)
+                bool targetAnatomyPrior = (this->m_targetAnatomyPrior->GetPixel(targetIndex))>0;
+                if (targetAnatomyPrior)
                     return 100;
             }
 
@@ -469,7 +469,7 @@ namespace itk{
         
         
         UnaryPotentialSegmentationUnsignedBoneMarcel(){
-            this->m_useTissuePrior=false;//true;
+            this->m_useTargetAnatomyPrior=false;//true;
         }
       
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
@@ -478,16 +478,16 @@ namespace itk{
             int tissue=900;//(-500+1000);//*255.0/2000;
             double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
             double totalCost=1;
-            bool tissuePrior=false;
+            bool targetAnatomyPrior=false;
             //#define USEPRIOR
-            if (this->m_useTissuePrior){
-                tissuePrior = (this->m_tissuePrior->GetPixel(targetIndex))>0;
+            if (this->m_useTargetAnatomyPrior){
+                targetAnatomyPrior = (this->m_targetAnatomyPrior->GetPixel(targetIndex))>0;
             }
 
             switch (segmentationLabel) {
             case 0:
 #ifdef USEPRIOR
-                //if (this->m_tissuePrior->GetPixel(targetIndex)>0.8) return 100;
+                //if (this->m_targetAnatomyPrior->GetPixel(targetIndex)>0.8) return 100;
                 totalCost = ( ((  imageIntensity > bone) && ( s > 0 ) ) )? 1 : 0;
 #else
                 totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
@@ -496,7 +496,7 @@ namespace itk{
                 break;
             default  :
 #ifdef USEPRIOR
-                //if (this->m_tissuePrior->GetPixel(targetIndex)<0.1) return 100;
+                //if (this->m_targetAnatomyPrior->GetPixel(targetIndex)<0.1) return 100;
                 totalCost = ( bonePrior || imageIntensity < tissue) ? 1 : 0;
 #else
                 totalCost = (imageIntensity < tissue) ? 1 : 0;
@@ -543,19 +543,26 @@ namespace itk{
             int tissue=(-500);
             double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
             double totalCost=1;
-            bool tissuePrior=false;
-            if (this->m_useTissuePrior){
-                tissuePrior = (this->m_tissuePrior->GetPixel(targetIndex))>0;
+            bool targetAnatomyPrior=false;
+            if (this->m_useTargetAnatomyPrior){
+                targetAnatomyPrior = (this->m_scaledTargetAnatomyPrior->GetPixel(targetIndex))>0;
+                LOGV(6)<<VAR((this->m_scaledTargetAnatomyPrior->GetLargestPossibleRegion().GetSize()))<<" "<<VAR((this->m_scaledTargetGradient->GetLargestPossibleRegion().GetSize()))<<endl;
             }
             
             switch (segmentationLabel) {
             case 0:
                 
-                totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
+                if (this->m_useTargetAnatomyPrior && targetAnatomyPrior){
+                    totalCost = 1;
+                }else
+                    totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
                 
                 break;
             default  :
-                totalCost = (tissuePrior || imageIntensity < tissue) ? 1 : 0;
+                if (false && this->m_useTargetAnatomyPrior && ! targetAnatomyPrior ){
+                    totalCost = 1;
+                }else
+                    totalCost = ( imageIntensity < tissue) ? 1 : 0;
                 break;
             }
             return totalCost;
@@ -594,7 +601,7 @@ namespace itk{
 
         UnaryPotentialSegmentationMarcelWithPrior(){
             zeroDisplacement.Fill(0.0);
-            this->SetUseTissuePrior(false);
+            this->SetUseTargetAnatomyPrior(false);
         }
         void SetAlpha(double alpha){this->m_alpha=alpha;}     
         void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
