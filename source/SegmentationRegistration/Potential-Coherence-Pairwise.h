@@ -292,13 +292,11 @@ namespace itk{
             if (segmentationLabel!=deformedAtlasSegmentation){ 
                 double dist=m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);       
                 //double dist2=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->EvaluateAtContinuousIndex(idx2);
-              
                 result=dist;
             }
 
             bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
             bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
-
 
             if (auxiliarySegmentation){
                 result=min(result,1.0);

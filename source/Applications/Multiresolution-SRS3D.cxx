@@ -170,13 +170,15 @@ int main(int argc, char ** argv)
             //ImageUtils<ImageType>::writeImage("testA.nii",atlasSegmentation);
         }
         if (filterConfig.segment){
+            LOGV(3)<<"Resampling gradient images and anatomy prior by factor of "<<scale<<endl;
             targetGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetGradient),scale,true);
             atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale,true);
             //targetGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetGradient,sigma),scale);
             //atlasGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasGradient,sigma),scale);
             if (filterConfig.useTargetAnatomyPrior){
-                targetAnatomyPrior=FilterUtils<ImageType>::NNResample((targetImage),scale,false);
+                targetAnatomyPrior=FilterUtils<ImageType>::NNResample((targetAnatomyPrior),scale,false);
             }
+            
         }
     }
     if (filterConfig.segment){

@@ -27,7 +27,7 @@ namespace itk{
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
-
+        static const int D=ImageType::ImageDimension;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
@@ -37,7 +37,7 @@ namespace itk{
         ConstImagePointerType m_targetImage, m_gradientImage;
         ConstImagePointerType m_scaledTargetImage, m_scaledTargetGradient;
 
-        SpacingType m_displacementFactor;
+        SpacingType m_spacingFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
         double m_gradientSigma, m_Sigma;
@@ -73,6 +73,20 @@ namespace itk{
             LOGV(5)<<"Target image  variance: "<<m_Sigma<<std::endl;
             m_scaledTargetImage=m_targetImage;
             m_scaledTargetGradient=m_gradientImage;
+           
+            //compute weighting factor for cases where the grid is not isotropically spaced
+            //we give a linearly lower weight for neighborhood relations with spacing>minSpacing
+            //eg minSpacing=1; spacing=2, weight=0.5;
+            double minSpacing=10000000.0;
+            for (int d=0;d<D;++d){
+                double space=this->m_targetImage->GetSpacing()[d];
+                if (space<minSpacing) minSpacing = space;
+            }
+            for (int d=0;d<D;++d){
+                m_spacingFactor[d] = 1.0*minSpacing/this->m_targetImage->GetSpacing()[d];
+            }
+            LOGV(4)<<VAR(minSpacing)<<" "<<VAR(m_spacingFactor)<<" "<<VAR(this->m_targetImage->GetSpacing())<<endl;
+            
         }
         void ResamplePotentials(double segmentationScalingFactor){
             if (m_targetImage.IsNull()){
@@ -355,9 +369,10 @@ namespace itk{
         typedef PairwisePotentialSegmentation<TImage> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
-
+        static const int D=TImage::ImageDimension;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::PointType PointType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
         typedef typename ImageType::IndexType IndexType;
@@ -397,8 +412,18 @@ namespace itk{
                 gradientCost=(s1>s2)?1:exp(-5*gradientDiff);
                 //LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
             }
+
+            //get neighborhood direction
+            double directionalFactor=1.0;
+          
+            for (int d=0;d<D;++d){
+                if (abs(idx1[d]-idx2[d])){
+                    directionalFactor=this->m_spacingFactor[d];
+                    break;
+                }
+            }
             //return 1.0+1000.0*factor*gradientCost;
-            return factor*gradientCost;
+            return factor*gradientCost*directionalFactor;
         }
     };//class
 

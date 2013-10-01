@@ -546,7 +546,7 @@ namespace itk{
             bool targetAnatomyPrior=false;
             if (this->m_useTargetAnatomyPrior){
                 targetAnatomyPrior = (this->m_scaledTargetAnatomyPrior->GetPixel(targetIndex))>0;
-                LOGV(6)<<VAR((this->m_scaledTargetAnatomyPrior->GetLargestPossibleRegion().GetSize()))<<" "<<VAR((this->m_scaledTargetGradient->GetLargestPossibleRegion().GetSize()))<<endl;
+                LOGV(9)<<VAR((this->m_scaledTargetAnatomyPrior->GetLargestPossibleRegion().GetSize()))<<" "<<VAR((this->m_scaledTargetGradient->GetLargestPossibleRegion().GetSize()))<<endl;
             }
             
             switch (segmentationLabel) {

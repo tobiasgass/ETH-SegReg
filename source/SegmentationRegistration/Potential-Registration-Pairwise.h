@@ -104,14 +104,7 @@ namespace itk{
             
             LOGV(13)<<VAR(result*1e6)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
             //if (result > 200) result = 20000;
-#if 0
-            LOGV(15)<<VAR(result) << " " << VAR(m_maxDist) << endl;
-            if (result>sqrt(2.0*D)){
-                result = 100000;//10.0*sqrt(2*24.0*24.0);
-            }
-            else{result = 0.0;
-            }
-#endif       
+
             
 
             LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
