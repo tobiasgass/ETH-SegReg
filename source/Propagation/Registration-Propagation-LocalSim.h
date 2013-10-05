@@ -232,7 +232,7 @@ public:
         double error;
         double inconsistency;
         error=TransfUtils<ImageType>::computeError(&deformationCache,&trueDeformations,&imageIDs);
-        inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs, &trueDeformations);
+        //inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs, &trueDeformations);
         int iter = 0;
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
@@ -258,6 +258,7 @@ public:
                         if (radius>0){
                             ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,deformationSourceTarget);
                             FloatImagePointerType metric=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                            FilterUtils<FloatImageType>::lowerThresholding(metric,0.0001);
                             estimator.addImage(deformationSourceTarget,metric);
                         }else{
                             estimator.addImage(deformationSourceTarget);
@@ -270,11 +271,12 @@ public:
                                 deformationSourceIntermed = deformationCache[sourceID][intermediateID];
                                 DeformationFieldPointerType deformationIntermedTarget;
                                 deformationIntermedTarget = deformationCache[intermediateID][targetID];
-                              
+                                LOGV(3)<<"Adding "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
                                 DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                 if (radius>0){
                                     ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,indirectDef);
                                     FloatImagePointerType metric=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                    FilterUtils<FloatImageType>::lowerThresholding(metric,0.0001);
                                     estimator.addImage(indirectDef,metric);
                                 }else{
                                     estimator.addImage(indirectDef);
@@ -285,7 +287,14 @@ public:
                         }//intermediate image
                         
                         estimator.finalize();
-                        TMPdeformationCache[sourceID][targetID]=estimator.getMean();
+                        DeformationFieldPointerType result=estimator.getMean();
+                        if (outputDir!=""){
+                            ostringstream oss;
+                            oss<<outputDir<<"/avgDeformation-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                            ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
+                        }
+                            
+                        //TMPdeformationCache[sourceID][targetID]=estimator.getMean();
                         //create mask of valid deformation region
 
                         
@@ -297,7 +306,7 @@ public:
             }//source images
             deformationCache=TMPdeformationCache;
             error=TransfUtils<ImageType>::computeError(&deformationCache,&trueDeformations,&imageIDs);
-            inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
+            //inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
 
         }//hops

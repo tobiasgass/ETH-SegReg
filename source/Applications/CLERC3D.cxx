@@ -116,6 +116,7 @@ int main(int argc, char ** argv){
     bool smoothDownsampling=false;
     bool bSplineResampling=false;
     bool filterMetricWithGradient=false;
+    bool lineSearch=false;
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
@@ -140,6 +141,7 @@ int main(int argc, char ** argv){
     (*as) >> option ("roiShift", roiShift,"Shift ROI by half spacing after each iteration, to sample from different points.");
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
+    (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
 
 
     (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (lncc, lsad, lssd,localautocorrelation).",false);
@@ -321,6 +323,7 @@ int main(int argc, char ** argv){
     solver->setShearingReduction(shearing);
     solver->setMetric(localSimMetric);
     solver->setFilterMetricWithGradient(filterMetricWithGradient);
+    solver->setLineSearch(lineSearch);
   
     solver->setDeformationFilenames(deformationFilenames);
     solver->setTrueDeformationFilenames(trueDeformationFilenames);
@@ -341,6 +344,7 @@ int main(int argc, char ** argv){
         double inconsistency=solver->getInconsistency();
         double TRE=solver->getTRE();
         double dice=solver->getDice();
+        double oldInconsistency=inconsistency;
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<endl;
         for (iter=1;iter<maxHops+1;++iter){
             if (! iter % 5){
@@ -368,12 +372,20 @@ int main(int argc, char ** argv){
             if (iter == maxHops){
                 //double resolution
             }
+            if (fabs(oldInconsistency-inconsistency)/oldInconsistency <=1e-2){
+                LOG<<"Convergence reached, stopping refinement."<<endl;
+                break;
+            }
+            oldInconsistency=inconsistency;
+            
         }
-        ROI=FilterUtils<ImageType>::LinearResample(ROI,2.0,false,true);
-        solver->setROI(ROI);
-        solver->DoALot();
-
-
+        
+        if (level !=maxLevels-1){
+            //resample ROI for next level with increased resolution
+            ROI=FilterUtils<ImageType>::LinearResample(ROI,2.0,false,true);
+            solver->setROI(ROI);
+            solver->DoALot();
+        }
 
     }//levels
     

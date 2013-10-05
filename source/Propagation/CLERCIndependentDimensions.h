@@ -146,6 +146,7 @@ private:
     double m_ADE, m_TRE, m_dice,m_Inconsistency;
     bool m_lowResolutionEval,m_bSplineInterpol;
     bool m_filterMetricWithGradient;
+    bool m_lineSearch;
 public:
     CLERCIndependentDimensions(){
         m_wTransformationSimilarity=1.0;
@@ -176,6 +177,7 @@ public:
         m_Inconsistency=-1;
         m_lowResolutionEval=false;
         m_bSplineInterpol=false;
+        m_lineSearch=false;
     }
 
     double getADE(){return m_ADE;}
@@ -193,6 +195,7 @@ public:
     void setMasks(ImageCacheType *  masks){        m_maskList=masks;    };
     void setLowResEval(bool b){ m_lowResolutionEval=b;}
     void setBSplineInterpol(bool b){m_bSplineInterpol=b;}
+    void setLineSearch(bool b){m_lineSearch=b;}
     void setROI(ImagePointerType ROI){ 
         this->m_ROI=ROI;
         m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
@@ -1607,7 +1610,6 @@ public:
         m_TRE=0;
         int count=0;
         bool firstRun=false;
-        bool lineSearch=false;
         for (int target=0;target<m_numImages;++target){
             for (int source=0;source<m_numImages;++source){
                 if (source!=target){
@@ -1656,7 +1658,7 @@ public:
                                 }else{
                                     fullResolutionErrorEstimate=TransfUtils<ImageType>::linearInterpolateDeformationField(estimatedError,targetImage,false);
                                 }
-                                if (lineSearch){
+                                if (m_lineSearch){
                                     //search for updating weight which improves the metric most
                                     //doesnt work well:D
                                     double alpha=2.0;

@@ -12,7 +12,6 @@
 #include "itkImageRegionIteratorWithIndex.h"
 #include "itkContinuousIndex.h"
 #include "itkBSplineInterpolateImageFunction.h"
-#include "itkBSplineInterpolateImageFunction.h"
 #include "itkBSplineResampleImageFunction.h"
 #include <itkBSplineDeformableTransform.h>
 #include <itkWarpImageFilter.h>
