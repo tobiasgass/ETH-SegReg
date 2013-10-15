@@ -92,6 +92,7 @@ int main(int argc, char ** argv){
     double pWeight=1.0;
     int radius=3;
     int maxHops=1;
+    int maxLevels=1;
     bool updateDeformations=false;
     bool locallyUpdateDeformations=false;
     string metricName="NCC";
@@ -126,7 +127,8 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
     (*as) >> parameter ("s", m_sigma," kernel width for lncc",false);
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-    (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
+    (*as) >> parameter ("maxHops", maxHops,"maximum number of hops per level",false);
+    (*as) >> parameter ("maxLevels", maxLevels,"maximum number of multi-resolution levels",false);
 
     (*as) >> parameter ("wwd", wwd,"weight for def1 in circle",false);
     (*as) >> parameter ("wwt", wwt,"weight for def1 in circle",false);
@@ -337,7 +339,6 @@ int main(int argc, char ** argv){
     solver->Initialize();
     int c=1;
 
-    int maxLevels=1;
     for (int level=0;level<maxLevels;++level){
         int iter = 0;
         double error=solver->getADE();

@@ -16,9 +16,13 @@ public:
 	typedef typename ImageType::ConstPointer  ConstImagePointerType;
 	typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::SizeType SizeType;
+    static const int D=ImageType::ImageDimension;
+    typedef itk::Image<float,D> FloatImageType;
+    typedef typename FloatImageType::Pointer FloatImagePointerType;
+
 
 protected:
-    ImagePointerType m_mean,m_variance;
+    FloatImagePointerType m_mean,m_variance;
     int count;
     bool finalized;
 public:
@@ -28,13 +32,14 @@ public:
         count=0;
     }
     virtual void addImage(ImagePointerType img){
+        FloatImagePointerType floatImg=FilterUtils<ImageType,FloatImageType>::cast(img);
         if (!m_mean.IsNotNull()){
             count=1;
-            m_mean=ImageUtils<ImageType>::duplicate(img);
-            m_variance=ImageUtils<ImageType>::multiplyImageOutOfPlace(img,img);
+            m_mean=floatImg;
+            m_variance=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(floatImg,floatImg);
         }else{
-            m_mean=FilterUtils<ImageType>::add(m_mean,img);
-            m_variance=FilterUtils<ImageType>::add(m_variance,ImageUtils<ImageType>::multiplyImageOutOfPlace(img,img));
+            m_mean=FilterUtils<FloatImageType>::add(m_mean,floatImg);
+            m_variance=FilterUtils<FloatImageType>::add(m_variance,ImageUtils<FloatImageType>::multiplyImageOutOfPlace(floatImg,floatImg));
             count++;
         }
     }
@@ -45,20 +50,20 @@ public:
                 return;
             }
             LOGV(6)<<VAR(count)<<endl;
-            ImagePointerType squaredMean=ImageUtils<ImageType>::multiplyImageOutOfPlace(m_mean,m_mean);
-            ImageUtils<ImageType>::multiplyImage(squaredMean,1.0/count);
-            LOGI(6,ImageUtils<ImageType>::writeImage("squaredMean.nii",squaredMean));
-            LOGI(6,ImageUtils<ImageType>::writeImage("preVariance.nii",m_variance));
+            FloatImagePointerType squaredMean=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(m_mean,m_mean);
+            ImageUtils<FloatImageType>::multiplyImage(squaredMean,1.0/count);
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("squaredMean.nii",squaredMean));
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("preVariance.nii",m_variance));
             
-            ImageUtils<ImageType>::multiplyImage(m_mean,1.0/count);
-            LOGI(6,ImageUtils<ImageType>::writeImage("mean.nii",m_mean));
-            m_variance=FilterUtils<ImageType>::substract(m_variance,squaredMean);
+            ImageUtils<FloatImageType>::multiplyImage(m_mean,1.0/count);
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("mean.nii",m_mean));
+            m_variance=FilterUtils<FloatImageType>::substract(m_variance,squaredMean);
             if (count>1){
-                ImageUtils<ImageType>::multiplyImage(m_variance,1.0/(count-1));
+                ImageUtils<FloatImageType>::multiplyImage(m_variance,1.0/(count-1));
             }else{
                 LOGV(2)<<"Warning, only one observation in gauss estimator, variance estimator will not be usefull"<<endl;
             }
-            LOGI(6,ImageUtils<ImageType>::writeImage("variance.nii",m_variance));
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("variance.nii",m_variance));
             finalized = true; 
         }
     }
@@ -66,9 +71,9 @@ public:
         if (! finalized){
             LOG<<"ESTIMATOR NOT FINALIZED " << endl;
         }
-        return m_mean;
+        return FilterUtils<FloatImageType,ImageType>::cast(m_mean);
     }
-    ImagePointerType getVariance(){return m_variance;}
+    ImagePointerType getVariance(){return FilterUtils<FloatImageType,ImageType>::cast(m_variance);}
 
     
 };//class
@@ -81,6 +86,7 @@ public:
 	typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::SizeType SizeType;
     virtual void addImage(ImagePointerType img){
+        
         if (!this->m_mean.IsNotNull()){
             this->count=1;
             this->m_mean=ImageUtils<ImageType>::duplicate(img);

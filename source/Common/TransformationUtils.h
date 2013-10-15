@@ -13,6 +13,7 @@
 #include "itkContinuousIndex.h"
 #include "itkBSplineInterpolateImageFunction.h"
 #include "itkBSplineResampleImageFunction.h"
+#include "itkBSplineTransform.h"
 #include <itkBSplineDeformableTransform.h>
 #include <itkWarpImageFilter.h>
 #include "itkVectorLinearInterpolateImageFunction.h"
@@ -263,12 +264,17 @@ public:
         }
         return affine;
     }
-    static ImagePointerType affineDeformImage(ImagePointerType input, AffineTransformPointerType affine, ImagePointerType target){
+    static ImagePointerType affineDeformImage(ImagePointerType input, AffineTransformPointerType affine, ImagePointerType target, bool NN = false){
         
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
+        NNInterpolatorPointerType interpol2=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
         resampler->SetInput(input);
-        resampler->SetInterpolator(interpol);
+        if (NN){
+            resampler->SetInterpolator(interpol2);
+        }else{
+            resampler->SetInterpolator(interpol);
+        }
         resampler->SetTransform(affine);
         resampler->SetOutputOrigin(target->GetOrigin());
 
@@ -486,6 +492,121 @@ public:
         LOGV(6)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
     }
+
+    static DeformationFieldPointerType computeBSplineTransformFromDeformationField(DeformationFieldPointerType labelImg,ImagePointerType reference){ 
+     
+        LOGV(5)<<"computing bspline transform parameters"<<std::endl;
+        LOGV(6)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        DeformationFieldPointerType fullDeformationField;
+        const unsigned int SplineOrder = 3;
+        typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
+        typedef typename itk::ResampleImageFilter<ParamImageType,ParamImageType> ResamplerType;
+        typedef typename itk::BSplineResampleImageFunction<ParamImageType,double> FunctionType;
+        typedef typename itk::BSplineDecompositionImageFilter<ParamImageType,ParamImageType>			DecompositionType;
+        typedef typename itk::ImageRegionIterator<ParamImageType> Iterator;
+        std::vector<typename ParamImageType::Pointer> newImages(ImageType::ImageDimension);
+        //interpolate deformation
+        for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
+            {
+                //			LOG<<k<<" setup"<<std::endl;
+                typename ParamImageType::Pointer paramsK=getComponent(labelImg,k);
+                typename DecompositionType::Pointer decomposition = DecompositionType::New();
+                typename DecompositionType::Pointer decomposition2 = DecompositionType::New();
+                typename ResamplerType::Pointer resampler = ResamplerType::New();
+                typename FunctionType::Pointer function = FunctionType::New();
+                //first decomposition gets bSpline parameters at full resolution
+                decomposition->SetSplineOrder( SplineOrder );
+                decomposition->SetInput( paramsK );
+
+                //now get bSpline interpolated deformation field at requested bSpline grid resolution
+                function->SetSplineOrder(SplineOrder);
+
+                resampler->SetInput(decomposition->GetOutput());
+                resampler->SetInterpolator( function );
+                resampler->SetSize(reference->GetLargestPossibleRegion().GetSize() );
+                resampler->SetOutputSpacing( reference->GetSpacing() );
+                resampler->SetOutputOrigin( reference->GetOrigin());
+                resampler->SetOutputDirection( reference->GetDirection());
+                //lastly compute Bspline coefficients for said resolution oO
+                decomposition2->SetSplineOrder( SplineOrder );
+                decomposition2->SetInput( resampler->GetOutput() );
+                decomposition2->Update();
+                newImages[k] = decomposition2->GetOutput();
+            }
+        std::vector< Iterator> iterators(ImageType::ImageDimension);
+        for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
+            {
+                iterators[k]=Iterator(newImages[k],newImages[k]->GetLargestPossibleRegion());
+                iterators[k].GoToBegin();
+            }
+        fullDeformationField=DeformationFieldType::New();
+        fullDeformationField->SetRegions(reference->GetLargestPossibleRegion());
+        fullDeformationField->SetOrigin(reference->GetOrigin());
+        fullDeformationField->SetSpacing(reference->GetSpacing());
+        fullDeformationField->SetDirection(reference->GetDirection());
+        fullDeformationField->Allocate();
+        LabelIterator lIt(fullDeformationField,fullDeformationField->GetLargestPossibleRegion());
+        lIt.GoToBegin();
+        for (;!lIt.IsAtEnd();++lIt){
+            DisplacementType l;
+            for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ ){
+                l[k]=iterators[k].Get();
+                ++((iterators[k]));
+            }
+            lIt.Set(l);
+        }
+        LOGV(6)<<"Finshed extrapolation"<<std::endl;
+        return fullDeformationField;
+    }
+
+     static DeformationFieldPointerType computeDeformationFieldFromBSplineTransform(DeformationFieldPointerType labelImg,ImagePointerType reference){ 
+     
+        LOGV(5)<<"computing bspline transform parameters"<<std::endl;
+        LOGV(6)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        DeformationFieldPointerType fullDeformationField;
+        const unsigned int SplineOrder = 3;
+        typedef typename itk::Image<float,ImageType::ImageDimension> ParamImageType;
+        typedef typename ParamImageType::Pointer ParamImagePointerType;
+        //interpolate deformation
+        fullDeformationField=DeformationFieldType::New();
+        fullDeformationField->SetRegions(reference->GetLargestPossibleRegion());
+        fullDeformationField->SetOrigin(reference->GetOrigin());
+        fullDeformationField->SetSpacing(reference->GetSpacing());
+        fullDeformationField->SetDirection(reference->GetDirection());
+        fullDeformationField->Allocate();
+        typedef typename itk::BSplineTransform<
+            float,
+            D,
+            3 >     DeformableTransformType;
+        typename DeformableTransformType::Pointer bSplineTransform=DeformableTransformType::New();
+
+        ParamImagePointerType parameterImages[D];
+        for ( unsigned int k = 0; k < ImageType::ImageDimension; k++ )
+            {
+                parameterImages[k]=getComponent(labelImg,k);
+                
+            }
+        bSplineTransform->SetCoefficientImages( parameterImages );
+        
+        LabelIterator lIt(fullDeformationField,fullDeformationField->GetLargestPossibleRegion());
+        lIt.GoToBegin();
+        
+        for (;!lIt.IsAtEnd();++lIt){
+            IndexType idx=lIt.GetIndex();
+            PointType originPoint, deformedPoint;
+            reference->TransformIndexToPhysicalPoint(idx,originPoint);
+            deformedPoint=bSplineTransform->TransformPoint(originPoint);
+            DisplacementType deformation=deformedPoint-originPoint;
+            lIt.Set(deformation);
+        }
+        LOGV(6)<<"Finshed extrapolation"<<std::endl;
+        return fullDeformationField;
+    }
+
+
+
     static DeformationFieldPointerType scaleDeformationField(DeformationFieldPointerType labelImg, SpacingType scalingFactors){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         LabelIterator lIt(labelImg,labelImg->GetLargestPossibleRegion());
@@ -1139,8 +1260,8 @@ public:
 
     static DeformationFieldPointerType invert(DeformationFieldPointerType def, ImagePointerType ref=NULL){
         InverseDeformationFieldFilterPointerType inverter=InverseDeformationFieldFilterType::New();
-        LOG<<"THIS DOES NOT WORK!!!"<<endl;
-        exit(0);
+        LOG<<"THIS DOES NOT WORK properly!!!"<<endl;
+        //exit(0);
         inverter->SetInput(def);
         if (ref.IsNotNull()){
             inverter->SetOutputOrigin(ref->GetOrigin());

@@ -22,12 +22,18 @@ ADD_EXECUTABLE(DeformImage3D DeformImage3D.cxx )
 TARGET_LINK_LIBRARIES(DeformImage3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DeformImage2D DeformImage2D.cxx )
 TARGET_LINK_LIBRARIES(DeformImage2D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(DeformImageAffine3D DeformImageAffine3D.cxx )
+TARGET_LINK_LIBRARIES(DeformImageAffine3D  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(ComposeDeformations3D ComposeDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComposeDeformations2D ComposeDeformations2D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations2D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(AddDeformations2D AddDeformations2D.cxx )
 TARGET_LINK_LIBRARIES(AddDeformations2D  Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(SubtractDeformations2D SubtractDeformations2D.cxx )
+TARGET_LINK_LIBRARIES(SubtractDeformations2D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DefSetMetaParametersByReference2D DefSetMetaParametersByReference2D.cxx )
 TARGET_LINK_LIBRARIES(DefSetMetaParametersByReference2D  Utils   ${ITK_LIBRARIES}  )
 
@@ -44,6 +50,9 @@ ADD_EXECUTABLE(AddNoiseToImage3D AddNoiseToImage3D.cxx )
 TARGET_LINK_LIBRARIES(AddNoiseToImage3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(AddNoiseToImage2D AddNoiseToImage2D.cxx )
 TARGET_LINK_LIBRARIES(AddNoiseToImage2D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(AverageImages3D AverageImages3D.cxx )
+TARGET_LINK_LIBRARIES(AverageImages3D  Utils   ${ITK_LIBRARIES} )
 
 ADD_EXECUTABLE(BinaryThresholdImage3D BinaryThresholdImage3D.cxx )
 TARGET_LINK_LIBRARIES(BinaryThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
@@ -85,6 +94,9 @@ TARGET_LINK_LIBRARIES(ComputeDeformationError2D Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SubtractDeformations3D SubtractDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(SubtractDeformations3D Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ComputeDeformedGridImage2D ComputeDeformedGridImage2D.cxx )
+TARGET_LINK_LIBRARIES(ComputeDeformedGridImage2D Utils   ${ITK_LIBRARIES}  )
 
 #Compare images
 
