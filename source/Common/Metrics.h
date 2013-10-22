@@ -861,4 +861,22 @@ public:
         return nccMetric->GetValue(iTrans->GetParameters());
 
     }
+
+  static double nCC(InputImagePointer img1, InputImagePointer warpedImage2){
+        
+      typedef typename itk::NormalizedCorrelationImageToImageMetric<InputImage,InputImage> NCCType;
+        typename NCCType::Pointer nccMetric = NCCType::New();
+        typedef typename itk::LinearInterpolateImageFunction<InputImage> InterpolatorType;
+        typename InterpolatorType::Pointer interpolator=InterpolatorType::New();
+        interpolator->SetInputImage(warpedImage2);
+        nccMetric->SetFixedImage(img1);
+        nccMetric->SetMovingImage(warpedImage2);
+        nccMetric->SetInterpolator(interpolator);
+        typename itk::IdentityTransform< double, D >::Pointer iTrans= itk::IdentityTransform< double, D >::New();
+        nccMetric->SetTransform(iTrans);
+        nccMetric->SetSubtractMean(true);
+        nccMetric->SetFixedImageRegion(img1->GetLargestPossibleRegion());
+        return nccMetric->GetValue(iTrans->GetParameters());
+
+    }
 };

@@ -21,7 +21,7 @@
 #include "SegmentationFusion.h"
 #include <itkGradientMagnitudeImageFilter.h>
 #include <itkGradientMagnitudeRecursiveGaussianImageFilter.h>
-
+#include <itkDisplacementFieldJacobianDeterminantFilter.h>
 
 template<class ImageType >
 //template<class ImageType, class MetricType=itk::NormalizedCorrelationImageToImageMetric<ImageType,ImageType> >
@@ -148,6 +148,9 @@ private:
     bool m_filterMetricWithGradient;
     bool m_lineSearch;
     double m_spacingBasedSmoothnessReduction;
+    bool m_useConstraints;
+    double m_minMinJacobian,m_averageNCC;
+    
 public:
     CLERCIndependentDimensions(){
         m_wTransformationSimilarity=1.0;
@@ -185,6 +188,8 @@ public:
     double getTRE(){return m_TRE;}
     double getDice(){return m_dice;}
     double getInconsistency(){return m_Inconsistency;}
+    double getMinJac(){return m_minMinJacobian;}
+    double getAverageNCC(){ return m_averageNCC;}
 
     void setDeformationFilenames(FileListCacheType deformationFilenames) {m_deformationFileList = deformationFilenames;}
     void setTrueDeformationFilenames(FileListCacheType trueDeformationFilenames){m_trueDeformationFileList=trueDeformationFilenames;}
@@ -197,6 +202,7 @@ public:
     void setLowResEval(bool b){ m_lowResolutionEval=b;}
     void setBSplineInterpol(bool b){m_bSplineInterpol=b;}
     void setLineSearch(bool b){m_lineSearch=b;}
+    void setUseConstraints(bool b){m_useConstraints=b;}
     void setROI(ImagePointerType ROI){ 
         this->m_ROI=ROI;
         m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
@@ -429,9 +435,44 @@ public:
             
             computeTripletEnergies( x,  y, v,  b, c,  eq,d);
             computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, c,  eq,d);
-
-
             LOGV(1)<<VAR(eq)<<" "<<VAR(c)<<endl;
+
+            if (m_useConstraints){
+                int nEqConstraints=3*D*m_numDeformationsToEstimate*m_nPixels;
+                int nNonZeroConstraints=2*nEqConstraints;
+                
+                mxArray *mxX2=mxCreateDoubleMatrix((mwSize)nNonZeroConstraints,1,mxREAL);
+                mxArray *mxY2=mxCreateDoubleMatrix((mwSize)nNonZeroConstraints,1,mxREAL);
+                mxArray *mxV2=mxCreateDoubleMatrix((mwSize)nNonZeroConstraints,1,mxREAL);
+                mxArray *mxB2=mxCreateDoubleMatrix((mwSize)nEqConstraints,1,mxREAL);
+                double * x2=( double *)mxGetData(mxX2);
+                std::fill(x2,x2+nNonZeroConstraints,0);
+                double * y2=( double *)mxGetData(mxY2);
+                std::fill(y2,y2+nNonZeroConstraints,m_nVars);
+                double * v2=( double *)mxGetData(mxV2);
+                double * b2=mxGetPr(mxB2);
+                std::fill(b2,b2+nEqConstraints,-999999);
+
+
+                computeConstraints( x2,y2,v2,b2,d);
+                //put variables into workspace and immediately destroy them
+                engPutVariable(this->m_ep,"xCord2",mxX2);
+                mxDestroyArray(mxX2);
+                engPutVariable(this->m_ep,"yCord2",mxY2);
+                mxDestroyArray(mxY2);
+                engPutVariable(this->m_ep,"val2",mxV2);
+                mxDestroyArray(mxV2);
+                engPutVariable(this->m_ep,"b2",mxB2);
+                mxDestroyArray(mxB2);
+
+                engEvalString(this->m_ep,"nEq=sum(b2>0)");
+                engEvalString(this->m_ep,"nNz=sum(xCord2>0)");
+                engEvalString(this->m_ep,"xCord2=xCord2(1:nNz)");
+                engEvalString(this->m_ep,"yCord2=yCord2(1:nNz)");
+                engEvalString(this->m_ep,"val2=val2(1:nNz)");
+                engEvalString(this->m_ep,"b2=b2(1:nEq)");
+            }
+
             
 
             //put variables into workspace and immediately destroy them
@@ -461,12 +502,20 @@ public:
 
             //transform indexing of variables to be 1..nVariables
             engEvalString(this->m_ep,"oldCode=unique(sort(yCord));newCode=1:size(oldCode,1);newCode=newCode'; [a1 b1]=ismember(yCord,oldCode);yCord=newCode(b1(a1));");
-
             engEvalString(this->m_ep,"A=sparse(xCord,yCord,val);" );
-            LOGI(6,engEvalString(this->m_ep,"save('sparse.mat');" ));
             LOGV(1)<<"done, cleaning up"<<endl;
             //clear unnneeded variables from matlab workspace
-            engEvalString(this->m_ep,"clear xCord yCord val;" );
+            engEvalString(this->m_ep,"clear xCord yCord val b1 a1;" );
+            
+            if (m_useConstraints){
+                engEvalString(this->m_ep,"[a1 b1]=ismember(yCord2,oldCode);yCord2=newCode(b1(a1));");
+                engEvalString(this->m_ep,"C=sparse(xCord2,yCord2,val2);" );
+                engEvalString(this->m_ep,"clear xCord2 yCord2 val2 b1 a1;" );
+                engEvalString(this->m_ep, "size(C)");
+                LOGI(2,printf("size(C) %s", buffer+2));
+                engEvalString(this->m_ep, "size(b2)");
+                LOGI(2,printf("size(b2) %s", buffer+2));
+            }
 
             engPutVariable(this->m_ep,"init",mxInit);
             mxDestroyArray(mxInit);
@@ -482,7 +531,7 @@ public:
             }
             mxDestroyArray(mxLowerBound);
             mxDestroyArray(mxUpperBound);
-
+            LOGI(6,engEvalString(this->m_ep,"save('sparse.mat');" ));
             engEvalString(this->m_ep, "norm(A*init-b)^2");
             LOGI(2,printf("initialisation residual %s", buffer+2));
 
@@ -490,14 +539,45 @@ public:
             if (1){
                 engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
                 //solve using trust region method
-                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
-                
-                mxArray * flag=engGetVariable(this->m_ep,"flag");
-                if (flag !=NULL){
-                    mxDestroyArray(flag);
+                if (m_useConstraints){
+#if 1
+
+#if 1
+                    engEvalString(this->m_ep, "tic;addpath('/scratch_net/ouroboros/gasst/progs/cvx/');");
+                    engEvalString(this->m_ep, "cvx_startup");
+                    engEvalString(this->m_ep, "cvx_solver sedumi");
+                    engEvalString(this->m_ep, "n = size(A,2); ");
+                    engEvalString(this->m_ep, "cvx_begin ");
+                    engEvalString(this->m_ep, "   variable x(n) ");
+                    engEvalString(this->m_ep, "   minimize( norm(A*x-b) ) ");
+                    engEvalString(this->m_ep, "   subject to ");
+                    //engEvalString(this->m_ep, "      lb <= x <= ub ");
+                    engEvalString(this->m_ep, "       C*x <= b2 ");
+                    engEvalString(this->m_ep, "cvx_end ");
+                    engEvalString(this->m_ep, "t=toc; ");
+#else
+                    engEvalString(this->m_ep, "options=   optimset('Algorithm','interior-point-convex','Display','iter');" );
+                    TIME(engEvalString(this->m_ep, "tic;   x = quadprog(2*A'*A,-2*A'*b,C,b2,[],[],lb,ub,[],options);t=toc;"));
+                    LOGI(2,printf("%s", buffer+2));
+#endif
+#else
+                    TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,C,b2,[],[],lb,ub,init,options);t=toc;"));
+#endif
                 }else{
-                    LOG<<"LSQLIN large scale failed, trying medium scale algorithm"<<endl;
-                    TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);t=toc"));
+                    TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
+                    mxArray * flag=engGetVariable(this->m_ep,"flag");
+                    if (flag !=NULL){
+                        mxDestroyArray(flag);
+                    }else{
+                        LOG<<"LSQLIN large scale failed, trying medium scale algorithm"<<endl;
+                        TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);t=toc"));
+                    }
+                       
+                    LOGI(1,printf("%s", buffer+2));
+                    engEvalString(this->m_ep, " resnorm");
+                    LOGI(1,printf("%s", buffer+2));
+                    engEvalString(this->m_ep, "output");
+                    LOGI(2,printf("%s", buffer+2));
                 }
 
 
@@ -507,12 +587,7 @@ public:
                 LOGADDTIME((int)(t[0]));
                 mxDestroyArray(time);
                 //solve using active set method (backslash)
-                
-                LOGI(1,printf("%s", buffer+2));
-                engEvalString(this->m_ep, " resnorm");
-                LOGI(1,printf("%s", buffer+2));
-                engEvalString(this->m_ep, "output");
-                LOGI(2,printf("%s", buffer+2));
+             
             }else{
                 //solve using pseudo inverse
                 //TIME(engEvalString(this->m_ep, "tic;x = pinv(full(A))*b;toc"));
@@ -1377,7 +1452,7 @@ protected:
                                 //weight=1.0/sqrt(fabs(meanInconsistency));
                                 double localDisp  =localDef[d];
                                 if (m_metric !="gradient"){
-                                    if (false && localWeight>weight){
+                                    if (localWeight>=weight){
                                         localDisp=localUpdatedDef;
                                         weight=localWeight;
                                     }
@@ -1447,7 +1522,9 @@ protected:
                                 b[eq-1]=m_wSum*localDef[d];
                                 ++eq;
                             }
-                          
+
+#define CURVATURE
+#ifdef CURVATURE
                             //spatial smootheness of estimated deformations
                             if (m_wDeformationSmootheness>0.0){
                                 for (unsigned int n=0;n<D;++n){
@@ -1478,6 +1555,37 @@ protected:
                                     }
                                 }//inside
                             }
+
+#else
+
+                            //spatial smootheness of estimated deformations
+                            if (m_wDeformationSmootheness>0.0){
+                                for (unsigned int n=0;n<D;++n){
+                                    OffsetType off,off2;
+                                    off.Fill(0);
+                                    off2=off;
+                                    off[n]=1;
+                                    off2[n]=-1;
+                                    double smoothenessWeight =this->m_wDeformationSmootheness*m_spacingBasedSmoothnessReduction;
+                                    if (n!=d){
+                                        //smoothenss for shearing is different
+                                        smoothenessWeight*=m_shearingReduction;
+                                    }
+                                    IndexType neighborIndexRight=idx+off;
+                                    if (dSourceTarget->GetLargestPossibleRegion().IsInside(neighborIndexRight)){
+                                        x[c]=eq;
+                                        y[c]=edgeNumDef;
+                                        v[c++]=-1.0*smoothenessWeight;
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,target,neighborIndexRight,d);
+                                        v[c++]=smoothenessWeight;
+                                        b[eq-1]=0.0;
+                                        ++eq;
+                                    }
+                                }//inside
+                            }
+
+#endif
                             //spatial un-smootheness of estimated errors
                             if (m_wErrorSmootheness>0.0){
                                 for (unsigned int n=0;n<D;++n){
@@ -1551,6 +1659,92 @@ protected:
             }//target
         }//source
     }//computePairwiseEnergiesAndBounds
+
+
+
+    void computeConstraints(double * x, 
+                            double * y,
+                            double * v, 
+                            double * b, 
+                            int d
+                            )
+    {
+
+        int c=0;
+        int eq=1;
+        double dblSpacing=this->m_ROI->GetSpacing()[d];
+        for (int s = 0;s<m_numImages;++s){                            
+            int source=s;
+            for (int t=0;t<m_numImages;++t){
+                if (t!=s){
+                    int target=t;
+                    //pairwise energies!
+                    string sourceID=(this->m_imageIDList)[source];
+                    string targetID = (this->m_imageIDList)[target];
+                  
+                    //only compute pairwise energies if deformation is to be estimated
+                    if ((m_downSampledDeformationCache)[sourceID][targetID].IsNotNull()){
+                        DeformationFieldPointerType dSourceTarget=(this->m_downSampledDeformationCache)[sourceID][targetID];
+                        DeformationFieldIterator it(dSourceTarget,m_regionOfInterest);
+                        it.GoToBegin();
+                        for (;!it.IsAtEnd();++it){
+                            DeformationType localDef=it.Get();
+                            IndexType idx=it.GetIndex();
+                            LOGV(8)<<VAR(eq)<<" "<<VAR(localDef)<<endl;
+                            int edgeNumDef=edgeNumDeformation(source,target,idx,d);
+
+                            //constraints
+                            for (unsigned int n=0;n<D;++n){
+                                OffsetType off,off2;
+                                off.Fill(0);
+                                off2=off;
+                                off[n]=2;
+                                off2[n]=-1;
+
+                                //only constraint in-line neighbors to prevent folding.
+                                // d1-d2<spacing
+                                IndexType neighborIndexRight=idx+off;
+                                if (dSourceTarget->GetLargestPossibleRegion().IsInside(neighborIndexRight)){
+                                    if (n == d ){
+                                        x[c]=eq;
+                                        y[c]=edgeNumDef;
+                                        v[c++]=1.0;
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,target,neighborIndexRight,d);
+                                        v[c++]=-1.0;
+                                        b[eq-1]=1.8*dblSpacing;
+                                        ++eq;
+                                    }//n==d
+#if 1
+                                    else{
+                                        x[c]=eq;
+                                        y[c]=edgeNumDef;
+                                        v[c++]=1.0;
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,target,neighborIndexRight,d);
+                                        v[c++]=-1.0;
+                                        b[eq-1]=dblSpacing*1.1;
+                                        ++eq;
+                                        
+                                        x[c]=eq;
+                                        y[c]=edgeNumDef;
+                                        v[c++]=-1.0;
+                                        x[c]=eq;
+                                        y[c]=edgeNumDeformation(source,target,neighborIndexRight,d);
+                                        v[c++]=1.0;
+                                        b[eq-1]=dblSpacing*1.1;
+                                        ++eq;
+                                    }
+#endif
+                                }//inside
+                            }//neighbors
+                        }//for
+                    }//if
+                }//check if estimation is necessary
+            }//target
+        }//source
+    }//computeConstraints
+
 public:
   
     double getIndexBasedWeight(IndexType idx,SizeType size){
@@ -1609,6 +1803,9 @@ public:
         m_ADE=(m_trueDeformationFileList.size()>0)?0:-1;
         m_dice=0;
         m_TRE=0;
+        double m_averageMinJac=0.0;
+        m_averageNCC=0.0;
+        m_minMinJacobian=std::numeric_limits<double>::max();
         int count=0;
         bool firstRun=false;
         for (int target=0;target<m_numImages;++target){
@@ -1619,6 +1816,7 @@ public:
                     DeformationFieldPointerType deformation,updatedDeform, knownDeformation;
                     bool estDef=false;
                     ImagePointerType targetImage=(m_imageList)[targetID];
+                    double nCC;
                     if (findDeformation(m_deformationFileList,sourceID,targetID)){
                       
 
@@ -1718,7 +1916,8 @@ public:
                         ImagePointerType warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , updatedDeform);
                         double samplingFactor=1.0*warpedImage->GetLargestPossibleRegion().GetSize()[0]/this->m_ROI->GetLargestPossibleRegion().GetSize()[0];
                         double imageResamplingFactor=min(1.0,8.0/(samplingFactor));
-                        
+                        nCC= Metrics<ImageType>::nCC(targetImage,warpedImage);
+                        m_averageNCC+=nCC;
                         warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
                         targetImage=FilterUtils<ImageType>::LinearResample(targetImage,imageResamplingFactor,true);
                         LOGV(3)<<"Computing metric "<<m_metric<<" on images downsampled by "<<samplingFactor<<" to size "<<warpedImage->GetLargestPossibleRegion().GetSize()<<endl;
@@ -1797,7 +1996,7 @@ public:
                         //resample lncc result
                          
                         //resample with smoothing
-                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
+                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
                          
                         oss<<"-resampled";
                         if (D==2){
@@ -1835,7 +2034,7 @@ public:
                                     LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                                     exit(-1);
                                 } 
-                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
+                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
                                 m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
                             }
                         }
@@ -1864,7 +2063,20 @@ public:
                             outfile2<<directory<<"/estimatedLocalComposedDeformation-FROM-"<<sourceID<<"-TO-"<<targetID<<".mha";
                             ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),updatedDeform);
                         }
+
                         
+                        typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,double> DisplacementFieldJacobianDeterminantFilterType;
+                        typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+                        jacobianFilter->SetInput(updatedDeform);
+                        jacobianFilter->SetUseImageSpacingOff();
+                        jacobianFilter->Update();
+                        FloatImagePointerType jac=jacobianFilter->GetOutput();
+                        double minJac = FilterUtils<FloatImageType>::getMin(jac);
+                        LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<< " " << VAR(minJac) <<" " <<VAR(nCC)<<endl;
+                        m_averageMinJac+=minJac;
+                        if (minJac<m_minMinJacobian){
+                            m_minMinJacobian=minJac;
+                        }
 
                         //sample to correct resolution (downsample)
                         
@@ -1909,6 +2121,9 @@ public:
         m_ADE/=count;
         m_dice/=count;
         m_TRE/=count;
+        m_averageMinJac/=count;
+        m_averageNCC/=count;
+        //LOG<<VAR(m_averageMinJac)<<" "<<VAR(minMinJac)<<" "<<VAR(m_averageNCC)<<endl;
         if (m_updateDeformations || firstRun ){
             m_Inconsistency=TransfUtils<ImageType>::computeInconsistency(&m_downSampledDeformationCache,&m_imageIDList, &m_trueDeformations,m_maskList);
         }else{

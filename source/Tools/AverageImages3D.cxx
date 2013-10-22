@@ -45,8 +45,9 @@ int main(int argc, char ** argv)
          accumulator.addImage(img2);
     }
     accumulator.finalize();
-    
-    ImageUtils<ImageType>::writeImage(argv[1],accumulator.getMean());
+    FloatImagePointerType floatMean=accumulator.getFloatMean();
+    ImagePointerType intMean=FilterUtils<FloatImageType,ImageType>::round(floatMean);
+    ImageUtils<ImageType>::writeImage(argv[1],intMean);
 
 	return 1;
 }

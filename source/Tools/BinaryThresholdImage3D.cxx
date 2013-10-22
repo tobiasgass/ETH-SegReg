@@ -34,7 +34,7 @@ int main(int argc, char ** argv)
     (*as) >> parameter ("in", inFile, " filename...", true);
     (*as) >> parameter ("out", outFile, " filename...", true);
     (*as) >> parameter ("t", thresh, "threshold", true);
-    (*as) >> option ("lcc", lcc, "threshold");
+    (*as) >> option ("lcc", lcc, "get only largest connected object after thresholding");
 
     (*as) >> help();
     as->defaultErrorHandling();
@@ -42,6 +42,11 @@ int main(int argc, char ** argv)
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 
     ImagePointerType outImage=FilterUtils<ImageType>::binaryThresholdingLow(img,thresh);
+    PixelType maxPx=FilterUtils<ImageType>::getMax(outImage);
+    if (maxPx != 1){
+        LOG<<"no pixel greater thresh found, aborting"<<endl;
+        return 0;
+    }
     if (lcc){
         typedef itk::ConnectedComponentImageFilter<ImageType,ImageType>  ConnectedComponentImageFilterType;
         typedef ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;

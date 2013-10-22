@@ -717,7 +717,7 @@ public:
         OutputImagePointer outputImage=createEmpty(ConstInputImagePointer(inputImage));
         itk::ImageRegionIterator<InputImage> it(
                                                 inputImage, inputImage->GetLargestPossibleRegion());
-        itk::ImageRegionIterator<InputImage> it2(
+        itk::ImageRegionIterator<OutputImage> it2(
                                                  outputImage, outputImage->GetLargestPossibleRegion());
         for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
             double val=it.Get();

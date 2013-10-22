@@ -297,7 +297,9 @@ namespace itk{
         }
 
         void ReduceSegmentationNodesByCoherencePotential(double thresh){
-            FloatImagePointerType dist=m_pairwiseSegRegFunction->GetDistanceTransform(0);
+            int maxLabel=this->m_nSegmentationLabels-1;
+            LOGV(1)<<"Removing all segmentation nodes with coherence potential larger "<<thresh<<" for label "<<maxLabel<<endl;
+            FloatImagePointerType dist=m_pairwiseSegRegFunction->GetDistanceTransform(maxLabel);
             m_reducedSegNodes=false;
             FloatImagePointerType ROI=ImageUtils<FloatImageType>::createEmpty(dist);
             ROI->FillBuffer(0.0);
@@ -314,7 +316,7 @@ namespace itk{
                 IndexType position2;
                 dist->TransformPhysicalPointToIndex(pt,position2);
                 float distAtPos=dist->GetPixel(position2);
-                if (distAtPos>-thresh){
+                if (distAtPos<thresh){
                     m_mapIdx1[actualIdx]=concurrentIdx;
                     m_mapIdx1Rev[concurrentIdx]=actualIdx;
                     ++concurrentIdx;

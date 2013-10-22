@@ -170,7 +170,8 @@ int main(int argc, char * argv [])
         if (hausdorff){
             typedef itk::HausdorffDistanceImageFilter<LabelImage, LabelImage> HausdorffDistanceFilterType;
             typedef HausdorffDistanceFilterType::Pointer HDPointerType;
-            HDPointerType hdFilter=HausdorffDistanceFilterType::New();;
+            HDPointerType hdFilter=HausdorffDistanceFilterType::New();
+            evalSegmentedImage=FilterUtils<LabelImage>::NNResample(evalSegmentedImage,evalGroundTruthImage,false);
             hdFilter->SetInput1(evalGroundTruthImage);
             hdFilter->SetInput2(evalSegmentedImage);
             hdFilter->SetUseImageSpacing(true);

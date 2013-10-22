@@ -73,6 +73,12 @@ public:
         }
         return FilterUtils<FloatImageType,ImageType>::cast(m_mean);
     }
+    FloatImagePointerType getFloatMean(){
+          if (! finalized){
+            LOG<<"ESTIMATOR NOT FINALIZED " << endl;
+        }
+        return m_mean;
+    }
     ImagePointerType getVariance(){return FilterUtils<FloatImageType,ImageType>::cast(m_variance);}
 
     

@@ -118,6 +118,7 @@ int main(int argc, char ** argv){
     bool bSplineResampling=false;
     bool filterMetricWithGradient=false;
     bool lineSearch=false;
+    bool useConstraints=false;
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
@@ -144,6 +145,7 @@ int main(int argc, char ** argv){
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
     (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
+    (*as) >> option ("useConstraints", useConstraints,"Use hard constraints to prevent folding. Tearing might currently still occur.");
 
 
     (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (lncc, lsad, lssd,localautocorrelation).",false);
@@ -326,7 +328,8 @@ int main(int argc, char ** argv){
     solver->setMetric(localSimMetric);
     solver->setFilterMetricWithGradient(filterMetricWithGradient);
     solver->setLineSearch(lineSearch);
-  
+    solver->setUseConstraints(useConstraints);
+
     solver->setDeformationFilenames(deformationFilenames);
     solver->setTrueDeformationFilenames(trueDeformationFilenames);
     solver->setLandmarkFilenames(landmarkList);
@@ -346,7 +349,9 @@ int main(int argc, char ** argv){
         double TRE=solver->getTRE();
         double dice=solver->getDice();
         double oldInconsistency=inconsistency;
-        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<endl;
+        double minJac=solver->getMinJac();
+        double averageNCC=solver->getAverageNCC();
+        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
         for (iter=1;iter<maxHops+1;++iter){
             if (! iter % 5){
                 solver->doubleImageResolution();
@@ -366,9 +371,12 @@ int main(int argc, char ** argv){
             inconsistency=solver->getInconsistency();
             TRE=solver->getTRE();
             dice=solver->getDice();
-            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<endl;
+            minJac=solver->getMinJac();
+            averageNCC=solver->getAverageNCC();
+            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
             if (updateDeformations){
-                //   solver->setWeightTransformationSimilarity(wwt*inconsistency,true);++c;
+                solver->setWeightTransformationSimilarity(wwt*pow(1.2,1.0*iter),true);
+                ++c;
             }
             if (iter == maxHops){
                 //double resolution
