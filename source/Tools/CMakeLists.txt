@@ -65,6 +65,15 @@ TARGET_LINK_LIBRARIES(DistanceTransform3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DiluteImage3D DiluteImage3D.cxx )
 TARGET_LINK_LIBRARIES(DiluteImage3D  Utils   ${ITK_LIBRARIES}  )
 
+
+ADD_EXECUTABLE(CreateSegmentationPriorFromAnnotatedImage3D CreateSegmentationPriorFromAnnotatedImage3D.cxx )
+TARGET_LINK_LIBRARIES(CreateSegmentationPriorFromAnnotatedImage3D  Utils   ${ITK_LIBRARIES}  )
+
+
+ADD_EXECUTABLE(convertPointToIndex3D convertPointToIndex3D.cxx )
+TARGET_LINK_LIBRARIES(convertPointToIndex3D  Utils   ${ITK_LIBRARIES}  )
+
+
 #Compare segmentations
 ADD_EXECUTABLE(CompareSegmentations3D CompareSegmentations3D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations3D Utils   ${ITK_LIBRARIES}  )

@@ -543,12 +543,12 @@ namespace itk{
             int tissue=(-500);
             double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
             double totalCost=1;
-            bool targetAnatomyPrior=false;
+            int targetAnatomyPrior=0;
             if (this->m_useTargetAnatomyPrior){
-                targetAnatomyPrior = (this->m_scaledTargetAnatomyPrior->GetPixel(targetIndex))>0;
+                targetAnatomyPrior = (this->m_scaledTargetAnatomyPrior->GetPixel(targetIndex));
                 LOGV(9)<<VAR((this->m_scaledTargetAnatomyPrior->GetLargestPossibleRegion().GetSize()))<<" "<<VAR((this->m_scaledTargetGradient->GetLargestPossibleRegion().GetSize()))<<endl;
             }
-            
+#if 0            
             switch (segmentationLabel) {
             case 0:
                 
@@ -565,6 +565,26 @@ namespace itk{
                     totalCost = ( imageIntensity < tissue) ? 1 : 0;
                 break;
             }
+#else
+            switch (segmentationLabel) {
+            case 0:
+                
+                totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
+                
+                break;
+            default  :
+                totalCost = ( imageIntensity < tissue) ? 1 : 0;
+                break;
+            }
+
+            if  (this->m_useTargetAnatomyPrior){
+                if (targetAnatomyPrior == 2 )
+                    totalCost+=1000*(segmentationLabel!=2); //penalize NOT labelling as target anatomy if prior says "target anatomy"
+                else if (targetAnatomyPrior == 1)
+                    totalCost+=1000*(segmentationLabel==2); //penalize labelling as target anatomy if prior clearly saus "NOT target anatomy"
+            }
+            
+#endif
             return totalCost;
         }
     };//class

@@ -1924,7 +1924,7 @@ public:
                         FloatImagePointerType lncc;
                         if (m_metric == "lncc"){
                             //lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
-                            lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+                            lncc= Metrics<ImageType,FloatImageType,long double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                         }else if (m_metric == "itklncc"){
                             lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                         }else if (m_metric == "lsad"){
@@ -1996,7 +1996,7 @@ public:
                         //resample lncc result
                          
                         //resample with smoothing
-                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
+                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
                          
                         oss<<"-resampled";
                         if (D==2){
@@ -2017,7 +2017,7 @@ public:
                                 warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
                                 if (m_metric == "lncc"){
                                     //lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
-                                    lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+                                    lncc= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else if (m_metric == "itklncc"){
                                     lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                                 }else if (m_metric == "lsad"){
@@ -2034,7 +2034,7 @@ public:
                                     LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                                     exit(-1);
                                 } 
-                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
+                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
                                 m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
                             }
                         }
