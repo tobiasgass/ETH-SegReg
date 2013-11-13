@@ -77,6 +77,7 @@ namespace itk{
         double  m_threshold;
         bool LOGPOTENTIAL;
         bool m_noOutSidePolicy;
+        bool m_useGradient;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -95,6 +96,7 @@ namespace itk{
             m_threshold=std::numeric_limits<double>::max();
             LOGPOTENTIAL=false;
             m_noOutSidePolicy = false;
+            m_useGradient=true;
         }
         ~UnaryPotentialRegistrationNCC(){
             //delete nIt;
@@ -166,7 +168,11 @@ namespace itk{
         }
 
     	virtual void SetAtlasImage(ConstImagePointerType atlasImage){
-            m_atlasImage=atlasImage;
+            if (! m_useGradient){
+                m_atlasImage=atlasImage;
+            }else{
+                m_atlasImage=FilterUtils<ImageType>::gradient(atlasImage);
+            }
             m_atlasSize=m_atlasImage->GetLargestPossibleRegion().GetSize();
 #if 0
             m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,1),m_scale);
@@ -180,7 +186,11 @@ namespace itk{
 
         }
         void SetTargetImage(ConstImagePointerType targetImage){
-            m_targetImage=targetImage;
+            if (!m_useGradient){
+                m_targetImage=targetImage;
+            }else{
+                m_targetImage=  FilterUtils<ImageType>::gradient(targetImage);
+            }
             m_targetSize=m_targetImage->GetLargestPossibleRegion().GetSize();
 
         }
@@ -1159,6 +1169,7 @@ namespace itk{
             LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
             translation->FillBuffer( displacement);
             LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
+            //LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(this->m_baseLabelMap,translation);
             ImagePointerType deformedAtlas,deformedMask;
 
             if (this->m_scaledAtlasMaskImage.IsNotNull()){
@@ -1412,7 +1423,7 @@ namespace itk{
         itkTypeMacro(FastRegistrationUnaryPotentialSAD, Object);
         
         virtual FloatImagePointerType localPotentials(ImagePointerType i1, ImagePointerType i2){
-            return Metrics<ImageType,FloatImageType>::LSAD(i1,i2,i1->GetSpacing()[0]);
+            return Metrics<ImageType,FloatImageType,float>::LSAD(i1,i2,i1->GetSpacing()[0]);
 
         }
 
@@ -1500,7 +1511,7 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(FastRegistrationUnaryPotentialSSD, Object);
         virtual FloatImagePointerType localPotentials(ImagePointerType i1, ImagePointerType i2){
-            return FilterUtils<ImageType,FloatImageType>::LSSD(i1,i2,i1->GetSpacing()[0]);
+            return Metrics<ImageType,FloatImageType,float>::LSSD(i1,i2,i1->GetSpacing()[0]);
         }
      
     

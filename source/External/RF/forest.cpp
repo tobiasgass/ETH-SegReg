@@ -293,7 +293,7 @@ void Forest::trainByCPU(const matrix<float>& data, const std::vector<int>& label
             cout << 100*i/m_hp.numTrees << "% " << flush;
         }
 
-        Tree t(tmpHP);
+        Tree t(tmpHP,i);
         t.train(data,labels, m_confidences, outOfBagConfidences, outOfBagVoteCount);
         m_trees.push_back(t);
     }
@@ -442,7 +442,7 @@ void Forest::trainByCPU(const matrix<float>& data, const std::vector<int>& label
             cout << 100*i/m_hp.numTrees << "% " << flush;
         }
 
-        Tree t(tmpHP);
+        Tree t(tmpHP,i);
         t.train(data,labels, weights, m_confidences, outOfBagConfidences, outOfBagVoteCount);
         m_trees.push_back(t);
     }

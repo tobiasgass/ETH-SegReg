@@ -710,11 +710,13 @@ public:
             bool inside=true;
             if (nnInterpol){
                 if (nnInt->IsInsideBuffer(idx)){
-                    imageIt.Set(nnInt->EvaluateAtContinuousIndex(idx));
+                    //imageIt.Set(nnInt->EvaluateAtContinuousIndex(idx));
+                    imageIt.Set(nnInt->Evaluate(p));
                 }else inside=false;
             }else{
                 if (interpolator->IsInsideBuffer(idx)){
-                    imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
+                    //imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx));
+                    imageIt.Set(interpolator->Evaluate(p));
                 }else inside=false;
             }
             if (!inside){
@@ -1364,7 +1366,7 @@ public:
                             DeformationFieldPointerType diff  = TransfUtils<ImageType>::subtract(directDeform,trueDeform);
                         
                             double residual;
-                            if (mask.IsNotNull())
+                            if (false && mask.IsNotNull())
                                 residual= computeDeformationNormMask(diff,mask,2);
                             else
                                 residual= computeDeformationNorm(diff,2);
@@ -1472,4 +1474,62 @@ public:
         
     }//computeInconsistency
     
+
+    static double computeTRE(string targetLandmarks, string refLandmarks, DeformationFieldPointerType def,ImagePointerType reference){
+        typedef typename  ImageType::DirectionType DirectionType;
+        typedef typename itk::VectorLinearInterpolateImageFunction<DeformationFieldType> DefInterpolatorType;
+        typedef typename DefInterpolatorType::ContinuousIndexType CIndexType;
+        PointType p;
+        p.Fill(0.0);
+        typename DefInterpolatorType::Pointer defInterpol=DefInterpolatorType::New();
+        defInterpol->SetInputImage(def);
+        ifstream ifs(refLandmarks.c_str());
+        int i=0;
+        double TRE=0.0;
+        int count=0;
+        vector<PointType> landmarksReference, landmarksTarget;
+        DirectionType refDir=reference->GetDirection();
+        DirectionType targetDir=def->GetDirection();
+
+        while ( not ifs.eof() ) {
+            PointType point;
+            for (int d=0;d<D;++d){
+                ifs>>point[d];
+                point[d]=point[d]*refDir[d][d];
+            }
+            //LOG<<point<<endl;
+            landmarksReference.push_back(point);
+            
+        } 
+        //std::cout<<"read "<<landmarksReference.size()<<" landmarks"<<std::endl;
+        ifstream ifs2(targetLandmarks.c_str());
+        i=0;
+        for (;i<landmarksReference.size()-1;++i){
+            PointType pointTarget;
+            for (int d=0;d<D;++d){
+                ifs2>>pointTarget[d];
+                pointTarget[d]=pointTarget[d]*targetDir[d][d];
+            }        
+            IndexType indexTarget,indexReference;
+            def->TransformPhysicalPointToIndex(pointTarget,indexTarget);
+           
+            PointType deformedReferencePoint;
+            reference->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
+                        
+          
+            CIndexType cindex;
+            def->TransformPhysicalPointToContinuousIndex(pointTarget,cindex);
+            if (def->GetLargestPossibleRegion().IsInside(cindex)){
+                deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
+                double localError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
+                LOGI(2,std::cout<<"pt"<<i<<": "<<(localError)<<" ");
+                TRE+=localError;
+                ++count;
+            }
+        }
+        LOGI(2,std::cout<<std::endl);
+        return TRE/count;
+    }
+
+
 };

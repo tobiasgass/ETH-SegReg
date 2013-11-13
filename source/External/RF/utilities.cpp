@@ -74,9 +74,14 @@ double timeIt(int reset) {
   }
 }
 
-double _rand()
+double _rand(int i)
 {
     static bool didSeeding = false;
+
+    if (false && i>-1){
+        srand(i);
+        didSeeding=true;
+    }
 
 #ifdef WIN32
     if (!didSeeding) {
@@ -95,7 +100,9 @@ double _rand()
         curTime = (unsigned int) TV.tv_usec;
         seedNum = (unsigned int) time(NULL) + curTime + getpid() + getDevRandom();
 
+        
         srand(seedNum);
+      
         didSeeding = true;
     }
     return random()/( RAND_MAX + 1.0 );

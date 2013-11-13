@@ -1093,10 +1093,26 @@ protected:
                                     trueIt.GoToBegin();
                                 }
                                 
-                                ImageIterator segmentationIt;
-                                bool haveSeg=false;
+                                ImageIterator * segmentationIt;
+                                ImagePointerType atlasSegmentation;
+                                bool haveSeg=m_atlasSegmentations.find(targetID) != m_atlasSegmentations.end();
+                                if (haveSeg){
+                                    atlasSegmentation=FilterUtils<ImageType>::NNResample(m_atlasSegmentations[targetID],this->m_ROI,false);
+                                    LOGI(3,ImageUtils<ImageType>::writeImage("downsampledAtlasSegmentation.png",atlasSegmentation));
+                                    segmentationIt = new ImageIterator(atlasSegmentation,this->m_ROI->GetLargestPossibleRegion());
+                                    segmentationIt->GoToBegin();
+                                    LOGV(3)<<"Executing loop with segmentation: "<<VAR(sourceID)<<" " <<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
+                                    LOGV(3)<<VAR(atlasSegmentation->GetLargestPossibleRegion().GetSize())<<endl;
+                                    LOGV(3)<<"not chrashed yet: "<<VAR(segmentationIt->GetIndex())<<" " <<endl;
+
+
+                                }
                                 
-                                
+                                if ( ! haveSeg &&  m_atlasSegmentations.size()>0 ){
+                                    LOGV(2)<<VAR(haveSeg)<<" "<<VAR(m_atlasSegmentations.size())<<endl;
+                                    LOGV(2)<<"skipping loop "<<VAR(sourceID)<<" " <<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
+                                    continue; //if we're using atlas segmentation as start point for closed loops, skip all loops which do not start at an atlas :o
+                                }
                                 SizeType roiSize=m_regionOfInterest.GetSize();
                             
                                 // LOGV(1)<<VAR(dir)<<" "<<VAR(start)<<endl;
@@ -1136,143 +1152,151 @@ protected:
                                 
                                     if (inside){
 
-                                        double val=1.0;
+                                        //if there are atlas segmentations, we're only forming circles at atlas segmentation points
+                                        //and at all points otherwise
+                                        double val= m_atlasSegmentations.size()==0;
+                                        
                                         bool segVal=1.0;
 
                                         //val*=getIndexBasedWeight(roiTargetIndex,roiSize);
 
                                         //multiply val by segConsistencyWeight if deformation starts from atlas segmentation
                                         if (haveSeg){
-                                            segVal=segmentationIt.Get()>0;
+                                            segVal=segmentationIt->Get()>0;
+                                            LOGV(3)<<VAR(segVal)<<" "<<VAR(segmentationIt->GetIndex())<<" " <<endl;
+                                            LOGV(3)<<VAR(this->m_ROI->GetLargestPossibleRegion().GetSize())<<" "<<VAR(segmentationIt->GetImage()->GetLargestPossibleRegion().GetSize())<<endl;
                                             if (segVal){
-                                                val=val*m_segConsisntencyWeight;
+                                                val=m_segConsisntencyWeight;
                                             }
-                                            ++segmentationIt;
                                         }
 
                               
                                  
+                                        if (val>0){
+                                            //statisticIt.Set(statisticIt.Get()+(disp));
 
-                                        //statisticIt.Set(statisticIt.Get()+(disp));
 
-
-                                        LOGV(9)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(target)<<" "<<VAR(roiTargetIndex)<<" "<<VAR(d)<<endl;
-                                        LOGV(9)<<VAR(edgeNumError(intermediate,target,roiTargetIndex,d))<<" "<<VAR(edgeNumDeformation(intermediate,target,roiTargetIndex,d))<<endl;
-                                        //set w_d ~ 
-                                        if (m_wFullCircleEnergy>0){
-                                            //def and error intermediate->target
-                                            x[c]=eq;
-                                            y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                            v[c++]=val*m_wFullCircleEnergy;
-                                            x[c]=eq;
-                                            y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
-                                            v[c++]=val*m_wFullCircleEnergy;
-                                            //interpolated def and error source->intermediate
-                                            double localInconsistency=0.0;
-
-                                            for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                            LOGV(9)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(target)<<" "<<VAR(roiTargetIndex)<<" "<<VAR(d)<<endl;
+                                            LOGV(9)<<VAR(edgeNumError(intermediate,target,roiTargetIndex,d))<<" "<<VAR(edgeNumDeformation(intermediate,target,roiTargetIndex,d))<<endl;
+                                            //set w_d ~ 
+                                            if (m_wFullCircleEnergy>0){
+                                                //def and error intermediate->target
                                                 x[c]=eq;
-                                                y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d);
-                                                v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
-                                                x[c]=eq;
-                                                y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d);
-                                                v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
-                                                PointType ptSourceIndirect= ptTarget + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
-                                                localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
-                                            
-                                            }
-                                            //minus def and error source->target
-                                            x[c]=eq;
-                                            y[c]=edgeNumError(source,target,roiTargetIndex,d);
-                                            v[c++]= - val*m_wFullCircleEnergy;
-                                            x[c]=eq;
-                                            y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
-                                            v[c++]= - val*m_wFullCircleEnergy;
-                                            b[eq-1]= localInconsistency*m_wFullCircleEnergy;
-                                            ++eq;
-
-                                            
-                                        }
-                                    
-                                        //set w_circ
-                                        if (m_wCircleNorm>0.0){
-                                            double RHS=0.0;
-                                            if (estIntermediateTarget){
-                                                //indirect
+                                                y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
+                                                v[c++]=val*m_wFullCircleEnergy;
                                                 x[c]=eq;
                                                 y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
-                                                v[c++]=val* m_wCircleNorm;
-                                            }else{
-                                                RHS-=dIntermediateTarget->GetPixel(roiTargetIndex)[d];
-                                            }
-                                                
-#if 0
-                                            //EXPERIMENTAL*****************************************
-                                            x[c]=eq;
-                                            y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                            v[c++]=-val*m_wCircleNorm;
-                                            // *****************************************************
-#endif
-                                        
-                                            double defSum=0.0;
-                                            for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                                if (estSourceIntermediate){
-                                                    x[c]=eq;
-                                                    y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                                    v[c++]=ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
-                                                    LOGV(8)<<VAR(roiTargetIndex)<<" "<<VAR(i)<<" "<<VAR(ptIntermediateNeighbors[i].first)<<" "<<VAR(ptIntermediateNeighbors[i].second)<<endl;
-                                                }else{
-                                                    RHS-=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
-                                                }
-                                                defSum+=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
-                                            }
+                                                v[c++]=val*m_wFullCircleEnergy;
+                                                //interpolated def and error source->intermediate
+                                                double localInconsistency=0.0;
 
-                                            if (estSourceTarget){
-                                                //minus direct
+                                                for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                                    x[c]=eq;
+                                                    y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d);
+                                                    v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
+                                                    x[c]=eq;
+                                                    y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d);
+                                                    v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
+                                                    PointType ptSourceIndirect= ptTarget + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
+                                                    localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                            
+                                                }
+                                                //minus def and error source->target
+                                                x[c]=eq;
+                                                y[c]=edgeNumError(source,target,roiTargetIndex,d);
+                                                v[c++]= - val*m_wFullCircleEnergy;
                                                 x[c]=eq;
                                                 y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
-                                                v[c++]= - val* m_wCircleNorm;
-                                            }else{
-                                                RHS+=dSourceTarget->GetPixel(roiTargetIndex)[d];
-                                            }
-                                        
-                                            double residual= val*m_wCircleNorm*(dIntermediateTarget->GetPixel(roiTargetIndex)[d]
-                                                                                + defSum
-                                                                                - dSourceTarget->GetPixel(roiTargetIndex)[d]
-                                                                                );
-                                            manualResidual+=residual*residual;
-                                            b[eq-1]=m_wCircleNorm*RHS;
-                                            ++eq;
-                                        }
-                                    
-                                        if (m_wErrorInconsistency>0.0){
-                                            val=1.0;
-                                            //indirect
-                                            x[c]=eq;
-                                            y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                            v[c++]=val* m_wErrorInconsistency;
-                                            double localInconsistency=0.0;
-                                            for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                                x[c]=eq;
-                                                y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                                v[c++]=ptIntermediateNeighbors[i].second*val* m_wErrorInconsistency;
-                                                PointType ptIntermediate;
-                                                dSourceIntermediate->TransformIndexToPhysicalPoint(ptIntermediateNeighbors[i].first,ptIntermediate);
-                                                PointType ptSourceIndirect= ptIntermediate + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
-                                                localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                                v[c++]= - val*m_wFullCircleEnergy;
+                                                b[eq-1]= localInconsistency*m_wFullCircleEnergy;
+                                                ++eq;
+
                                             
                                             }
-                                            //minus direct
-                                            x[c]=eq;
-                                            y[c]=edgeNumError(source,target,roiTargetIndex,d);
-                                            v[c++]= - val* m_wErrorInconsistency;
-                                            b[eq-1]=localInconsistency* m_wErrorInconsistency;
-                                            ++eq;
+                                    
+                                            //set w_circ
+                                            if (m_wCircleNorm>0.0){
+                                                double RHS=0.0;
+                                                if (estIntermediateTarget){
+                                                    //indirect
+                                                    x[c]=eq;
+                                                    y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
+                                                    v[c++]=val* m_wCircleNorm;
+                                                }else{
+                                                    RHS-=dIntermediateTarget->GetPixel(roiTargetIndex)[d];
+                                                }
+                                                
+#if 0
+                                                //EXPERIMENTAL*****************************************
+                                                x[c]=eq;
+                                                y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
+                                                v[c++]=-val*m_wCircleNorm;
+                                                // *****************************************************
+#endif
                                         
-                                        }
+                                                double defSum=0.0;
+                                                for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                                    if (estSourceIntermediate){
+                                                        x[c]=eq;
+                                                        y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
+                                                        v[c++]=ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
+                                                        LOGV(8)<<VAR(roiTargetIndex)<<" "<<VAR(i)<<" "<<VAR(ptIntermediateNeighbors[i].first)<<" "<<VAR(ptIntermediateNeighbors[i].second)<<endl;
+                                                    }else{
+                                                        RHS-=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
+                                                    }
+                                                    defSum+=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
+                                                }
+
+                                                if (estSourceTarget){
+                                                    //minus direct
+                                                    x[c]=eq;
+                                                    y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
+                                                    v[c++]= - val* m_wCircleNorm;
+                                                }else{
+                                                    RHS+=dSourceTarget->GetPixel(roiTargetIndex)[d];
+                                                }
+                                        
+                                                double residual= val*m_wCircleNorm*(dIntermediateTarget->GetPixel(roiTargetIndex)[d]
+                                                                                    + defSum
+                                                                                    - dSourceTarget->GetPixel(roiTargetIndex)[d]
+                                                                                    );
+                                                manualResidual+=residual*residual;
+                                                b[eq-1]=m_wCircleNorm*RHS;
+                                                ++eq;
+                                            }
+                                    
+                                            if (m_wErrorInconsistency>0.0){
+                                                val=1.0;
+                                                //indirect
+                                                x[c]=eq;
+                                                y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
+                                                v[c++]=val* m_wErrorInconsistency;
+                                                double localInconsistency=0.0;
+                                                for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                                    x[c]=eq;
+                                                    y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
+                                                    v[c++]=ptIntermediateNeighbors[i].second*val* m_wErrorInconsistency;
+                                                    PointType ptIntermediate;
+                                                    dSourceIntermediate->TransformIndexToPhysicalPoint(ptIntermediateNeighbors[i].first,ptIntermediate);
+                                                    PointType ptSourceIndirect= ptIntermediate + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
+                                                    localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                            
+                                                }
+                                                //minus direct
+                                                x[c]=eq;
+                                                y[c]=edgeNumError(source,target,roiTargetIndex,d);
+                                                v[c++]= - val* m_wErrorInconsistency;
+                                                b[eq-1]=localInconsistency* m_wErrorInconsistency;
+                                                ++eq;
+                                        
+                                            }
+                                        }//val >0
                                     }//inside
-                                
+                                    if (haveSeg)                                             ++(*segmentationIt);
+
                                 }//image iterator
+                                if (haveSeg)         delete segmentationIt;
+
                             }//if anything is to estimate :)
                         }//if
                         
@@ -1844,7 +1868,7 @@ public:
                                 DeformationFieldPointerType downSampledDeformation;
                                 if (m_bSplineInterpol){
                                     //downSampledDeformation=TransfUtils<ImageType>::computeDeformationFieldFromBSplineTransform(deformation,this->m_ROI);
-                                     downSampledDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,m_estimatedErrors[sourceID][targetID],m_smoothDeformationDownsampling);
+                                    downSampledDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,m_estimatedErrors[sourceID][targetID],m_smoothDeformationDownsampling);
                                 }else{
                                     downSampledDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,estimatedDeformation,m_smoothDeformationDownsampling);
                                 }
@@ -1907,7 +1931,7 @@ public:
                         // compare landmarks
                         if (m_landmarkFileList.size()){
                             //hope that all landmark files are available :D
-                            m_TRE+=computeTRE(m_landmarkFileList[targetID], m_landmarkFileList[sourceID],updatedDeform,m_imageList[targetID]);
+                            m_TRE+=TransfUtils<ImageType>::computeTRE(m_landmarkFileList[targetID], m_landmarkFileList[sourceID],updatedDeform,m_imageList[targetID]);
                         }
                         
                         
@@ -2043,8 +2067,23 @@ public:
                     if (findDeformation(m_trueDeformationFileList,sourceID,targetID) && (estDef || !m_trueDeformations[sourceID][targetID].IsNotNull())){
                         knownDeformation=ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
                         if (estDef){
+                            ImagePointerType mask=TransfUtils<ImageType>::createEmptyImage(knownDeformation);
+                            mask->FillBuffer(0);
+                            typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+                            IndexType offset;
+                            double fraction=0.9;
+                            for (int d=0;d<D;++d){
+                                offset[d]=(1.0-fraction)/2*size[d];
+                                size[d]=fraction*size[d];
+                            }
+                        
+                            typename ImageType::RegionType region;
+                            region.SetSize(size);
+                            region.SetIndex(offset);
+                            ImageUtils<ImageType>::setRegion(mask,region,1);
                             DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(updatedDeform,knownDeformation);
-                            m_ADE+=TransfUtils<ImageType>::computeDeformationNorm(diff);
+                            //m_ADE+=TransfUtils<ImageType>::computeDeformationNorm(diff);
+                            m_ADE+=TransfUtils<ImageType>::computeDeformationNormMask(diff,mask);
                         }
                     }
 

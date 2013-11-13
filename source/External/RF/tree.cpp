@@ -3,8 +3,11 @@
 #include "utilities.h"
 #include <boost/foreach.hpp>
 
-Tree::Tree(const HyperParameters &hp) : m_hp( hp )
+Tree::Tree(const HyperParameters &hp, const int n) : m_hp( hp )
 {
+    if (n>-1){
+        _rand(n);
+    }
     if (hp.useRandProj)
     {
         m_rootNode = Node::Ptr(new NodeHyperPlane(hp,0,0));
@@ -22,8 +25,11 @@ Tree::Tree(const HyperParameters &hp) : m_hp( hp )
     }
 }
 
-Tree::Tree(const HyperParameters &hp, const xmlNodePtr treeNode) : m_hp( hp )
+Tree::Tree(const HyperParameters &hp, const xmlNodePtr treeNode,const int n) : m_hp( hp )
 {
+    if (n>-1){
+        _rand(n);
+    }
     xmlNodePtr cur = treeNode->xmlChildrenNode;
     while ( cur != 0 )
     {

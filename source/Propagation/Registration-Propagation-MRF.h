@@ -26,11 +26,11 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include <itkAddImageFilter.h>
 #include "Metrics.h"
-#include "itkGaussianImage.h"
+#include "itkLabelOverlapMeasuresImageFilter.h"
 
 using namespace std;
 
-template <class ImageType>
+template <class ImageType, class RegistrationFuserType>
 class RegistrationPropagationLocalSim{
 public:
     typedef typename ImageType::PixelType PixelType;
@@ -55,7 +55,8 @@ public:
     typedef typename  ImageNeighborhoodIteratorType::RadiusType RadiusType;
 
     typedef typename itk::AddImageFilter<DeformationFieldType,DeformationFieldType,DeformationFieldType> DeformationAddFilterType;
-
+    typedef map<string,ImagePointerType> ImageCacheType;
+    typedef map<string, map< string, string> > FileListCacheType;
     enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
     enum WeightingType {UNIFORM,GLOBAL,LOCAL};
 protected:
@@ -65,10 +66,11 @@ public:
     int run(int argc, char ** argv){
         feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
         argstream * as=new argstream(argc,argv);
-        string trueDefListFilename="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="";
+        string trueDefListFilename="",landmarkFileList="",groundTruthSegmentationFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="";
         int verbose=0;
         double pWeight=1.0;
         int radius=3;
+        int controlGridSpacingFactor=4;
         int maxHops=1;
         bool uniformUpdate=true;
         string metricName="NCC";
@@ -79,6 +81,9 @@ public:
         double smoothness=1.0;
         double alpha=0.5;
         m_sigma=30;
+        double m_pairwiseWeight=1.0;
+        bool useHardConstraints=false;
+        bool m_refineSolution=false;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images", true);
@@ -87,11 +92,17 @@ public:
         (*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
         (*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
         (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+        (*as) >> parameter ("w", m_pairwiseWeight,"pairwise weight for MRF",false);
         (*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
+        (*as) >> parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
+        (*as) >> option ("hardConstraints", useHardConstraints,"Use hard constraints in the MRF to prevent folding.");
+        (*as) >> option ("refine", m_refineSolution,"refine MRF solution by adding the result as new labels to the MRF and re-solving until convergence.");
         (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
         (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
         (*as) >> parameter ("alpha", alpha,"update rate",false);
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
+        (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file>", false);
+        (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);       
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
         (*as) >> parameter ("verbose", verbose,"get verbose output",false);
@@ -174,7 +185,7 @@ public:
                     ifs >> targetID;
                     ifs >> defFileName;
                     if (inputImages.find(intermediateID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
-                        LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                        LOGV(1)<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                         //exit(0);
                     }else{
                         if (!dontCacheDeformations){
@@ -199,7 +210,7 @@ public:
                     ifs >> targetID;
                     ifs >> defFileName;
                     if (inputImages.find(intermediateID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
-                        LOG<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                        LOGV(1)<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                         //exit(0);
                     }else{
                         if (!dontCacheDeformations){
@@ -229,6 +240,25 @@ public:
             }
         }
 
+        //read landmark filenames
+        map<string,string> m_landmarkFileList;
+        if (landmarkFileList!=""){
+            ifstream ifs(landmarkFileList.c_str());
+            while (!ifs.eof()){
+                string sourceID,landmarkFilename;
+                ifs >> sourceID;
+                ifs >>landmarkFilename;
+                m_landmarkFileList[sourceID]=landmarkFilename;
+            }
+            
+        }
+        
+        ImageCacheType m_groundTruthSegmentations;
+        if (groundTruthSegmentationFileList!=""){
+            std::vector<string> buff;
+            m_groundTruthSegmentations=ImageUtils<ImageType>::readImageList(groundTruthSegmentationFileList,buff);
+        }
+
         double error;
         double inconsistency;
         error=TransfUtils<ImageType>::computeError(&deformationCache,&trueDeformations,&imageIDs);
@@ -236,22 +266,29 @@ public:
         int iter = 0;
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
-        
+        double m_oldEnergy=std::numeric_limits<double>::max();
         logSetStage("Zero Hop");
-        LOG<<"Computing"<<std::endl;
+        LOGV(1)<<"Computing"<<std::endl;
         for (iter=1;iter<maxHops+1;++iter){
             map< string, map <string, DeformationFieldPointerType> > TMPdeformationCache;
-            int circles=0;
+            int circles=0,count=0;
             double globalResidual=0.0;
             double trueResidual=0.0;
-
+            double m_dice=0.0;
+            double m_TRE=0.0;
+            double m_energy=0.0;
             for (ImageListIteratorType sourceImageIterator=inputImages.begin();sourceImageIterator!=inputImages.end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
                 for (ImageListIteratorType targetImageIterator=inputImages.begin();targetImageIterator!=inputImages.end();++targetImageIterator){                //iterate over targets
                     string targetID= targetImageIterator->first;
                     if (targetID !=sourceID){
-                        GaussianEstimatorVectorImage<ImageType> estimator;
+                        ++count;
+
+                        RegistrationFuserType estimator;
+                        estimator.setPairwiseWeight(m_pairwiseWeight);
+                        estimator.setGridSpacing(controlGridSpacingFactor);
+                        estimator.setHardConstraints(useHardConstraints);
                         DeformationFieldPointerType deformationSourceTarget;
                         deformationSourceTarget = deformationCache[sourceID][targetID];
                         
@@ -275,9 +312,23 @@ public:
                                 DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                 if (radius>0){
                                     ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,indirectDef);
-                                    FloatImagePointerType metric=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                    FilterUtils<FloatImageType>::lowerThresholding(metric,0.0001);
-                                    estimator.addImage(indirectDef,metric);
+                                    FloatImagePointerType metricImage;
+                                    switch(metric){
+                                    case NCC:
+                                        metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                        break;
+                                    case MSD:
+                                        metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                        break;
+                                    case MAD:
+                                        metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                        break;
+                                    default:
+                                        metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+
+                                    }
+                                    FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
+                                    estimator.addImage(indirectDef,metricImage);
                                 }else{
                                     estimator.addImage(indirectDef);
                                 }
@@ -285,16 +336,71 @@ public:
 
                             }//if
                         }//intermediate image
-                        
-                        estimator.finalize();
+                           
+                        double energy=estimator.finalize();
                         DeformationFieldPointerType result=estimator.getMean();
+                        if (m_refineSolution){
+                        LOGV(1)<<VAR(energy)<<endl;
+                        for (int iter=0;iter<10;++iter){
+                            ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,result);
+                            FloatImagePointerType metricImage;
+                            switch(metric){
+                            case NCC:
+                                metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                break;
+                            case MSD:
+                                metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                break;
+                            case MAD:
+                                metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                break;
+                            default:
+                                metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                            }
+                            FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
+                            estimator.addImage(result,metricImage);
+                            double newEnergy=estimator.finalize();
+                            if (newEnergy >energy )
+                                break;
+                            result=estimator.getMean();
+                            LOGV(1)<<VAR(iter)<<" "<<VAR(energy)<<" "<<(energy-newEnergy)/energy<<endl;
+                            if ( (energy-newEnergy)/energy < 1e-2) {
+                                LOGV(1)<<"refinement converged, stopping."<<endl;
+                                break;
+                            }
+                            energy=newEnergy;
+
+                        }
+                        }
+                        m_energy+=energy;
                         if (outputDir!=""){
                             ostringstream oss;
                             oss<<outputDir<<"/avgDeformation-"<<sourceID<<"-TO-"<<targetID<<".mha";
                             ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
                         }
                             
-                        TMPdeformationCache[sourceID][targetID]=estimator.getMean();
+                        TMPdeformationCache[sourceID][targetID]=result;
+
+                           // compare landmarks
+                        if (m_landmarkFileList.size()){
+                            //hope that all landmark files are available :D
+                            m_TRE+=TransfUtils<ImageType>::computeTRE(m_landmarkFileList[targetID], m_landmarkFileList[sourceID],result,targetImageIterator->second);
+                        }
+                        
+                        if (m_groundTruthSegmentations[targetID].IsNotNull() && m_groundTruthSegmentations[sourceID].IsNotNull()){
+                            ImagePointerType deformedSeg=TransfUtils<ImageType>::warpImage(  m_groundTruthSegmentations[sourceID] , result ,true);
+                            typedef typename itk::LabelOverlapMeasuresImageFilter<ImageType> OverlapMeasureFilterType;
+                            typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
+                            filter->SetSourceImage((m_groundTruthSegmentations)[targetID]);
+                            filter->SetTargetImage(deformedSeg);
+                            filter->SetCoordinateTolerance(1e-4);
+                            filter->Update();
+                            double dice=filter->GetDiceCoefficient();
+                            LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(dice)<<endl;
+                            m_dice+=dice;
+                        }
+                        
+
                         //create mask of valid deformation region
 
                         
@@ -304,16 +410,27 @@ public:
                 }//target images
               
             }//source images
-            deformationCache=TMPdeformationCache;
-            error=TransfUtils<ImageType>::computeError(&deformationCache,&trueDeformations,&imageIDs);
+            m_dice/=count;
+            m_TRE/=count;
+            m_energy/=count;
+            error=TransfUtils<ImageType>::computeError(&TMPdeformationCache,&trueDeformations,&imageIDs);
             //inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
-            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
+            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_energy)<<endl;
+            if (m_energy>m_oldEnergy){
+                LOG<<"Energy increased, stopping and returning previous estimate."<<endl;
+                break;
+            }else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
+                LOG<<"Optimization converged, stopping."<<endl;
+                deformationCache=TMPdeformationCache;
+                break;
+            }
+            m_oldEnergy=m_energy;
+            deformationCache=TMPdeformationCache;
+          
 
         }//hops
-        LOG<<"done"<<endl;
         
-        LOG<<"done"<<endl;
-        LOG<<"Storing output. and checking convergence"<<endl;
+        LOG<<"Storing output."<<endl;
         for (ImageListIteratorType targetImageIterator=inputImages.begin();targetImageIterator!=inputImages.end();++targetImageIterator){
             string id= targetImageIterator->first;
         }

@@ -292,6 +292,7 @@ int main(int argc, char ** argv){
         std::vector<string> buff;
         atlasSegmentations=ImageUtils<ImageType>::readImageList(atlasSegmentationFileList,buff);
     }
+    LOGV(1)<<VAR(atlasSegmentations.size())<<endl;
     ImageCacheType groundTruthSegmentations;
     if (groundTruthSegmentationFileList!=""){
         std::vector<string> buff;

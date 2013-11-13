@@ -10,7 +10,7 @@ using namespace boost::numeric;
 using namespace std;
 
 unsigned int getDevRandom();
-double _rand();
+double _rand(int i=-1);
 int randomNumber(int min, int max);
 int randomNumber( int limit);
 double randomDouble( double limit);

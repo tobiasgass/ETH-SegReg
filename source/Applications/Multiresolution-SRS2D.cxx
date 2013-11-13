@@ -34,6 +34,7 @@ int main(int argc, char ** argv)
     }
     logSetStage("Init");
 	//define types.
+    //typedef itk::RGBPixel <unsigned char> PixelType;
     typedef unsigned char PixelType;
 	const   unsigned int D=2;
 	typedef Image<PixelType,D> ImageType;
@@ -122,7 +123,7 @@ int main(int argc, char ** argv)
     logSetStage("Preprocessing");
     //preprocessing 1: gradients
     ImagePointerType targetGradient, atlasGradient;
-    ImagePointerType tissuePrior;
+    ImagePointerType targetAnatomyPrior;
     if (filterConfig.segment){
         if (filterConfig.targetGradientFilename!=""){
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
@@ -137,10 +138,10 @@ int main(int argc, char ** argv)
             //ImageUtils<ImageType>::writeImage("atlassheetness.png",atlasGradient);
         }
         
-        if (filterConfig.useTissuePrior){
-            filterConfig.useTissuePrior=false;
+        if (filterConfig.useTargetAnatomyPrior){
+            filterConfig.useTargetAnatomyPrior=false;
             LOG<<"Tissue prior not implemented for 2D, setting to false"<<endl;
-            //tissuePrior=Preprocessing<ImageType>::computeSoftTissueEstimate(targetImage);
+            //targetAnatomyPrior=Preprocessing<ImageType>::computeSoftTissueEstimate(targetImage);
         }
         //preprocessing 2: multilabel
         if (filterConfig.computeMultilabelAtlasSegmentation){
@@ -165,8 +166,8 @@ int main(int argc, char ** argv)
             atlasGradient=FilterUtils<ImageType>::LinearResample((atlasGradient),scale,true);
             //targetGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetGradient,sigma),scale);
             //atlasGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasGradient,sigma),scale);
-            if (filterConfig.useTissuePrior){
-                tissuePrior=FilterUtils<ImageType>::LinearResample(targetImage,scale,true);
+            if (filterConfig.useTargetAnatomyPrior){
+                targetAnatomyPrior=FilterUtils<ImageType>::LinearResample(targetImage,scale,true);
             }
         }
     }
@@ -176,8 +177,8 @@ int main(int argc, char ** argv)
     filter->setAtlasImage(atlasImage);
     filter->setAtlasGradient(atlasGradient);
     filter->setAtlasSegmentation(atlasSegmentation);
-    if (filterConfig.useTissuePrior){
-        filter->setTissuePrior(tissuePrior);
+    if (filterConfig.useTargetAnatomyPrior){
+        filter->setTargetAnatomyPrior(targetAnatomyPrior);
     }
     logSetStage("Bulk transforms");
     if (filterConfig.affineBulkTransform!=""){

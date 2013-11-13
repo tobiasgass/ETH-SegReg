@@ -22,9 +22,11 @@ int main(int argc, char ** argv)
     string def,outputFilename="";
     double gridResolutionFactor=0.125;
     int verbose=0;
+    bool backwards=false;
     as >> parameter ("def", def, "input deformation", true);
     as >> parameter ("s", gridResolutionFactor, "resolutionfactor for grid creation", false);
     as >> parameter ("o", outputFilename, "output image (file name)", false);
+    as >> option ("b", backwards, "compute inverse of deformation");
     as >> parameter ("v", verbose, "verbosity level", false);
 	as >> help();
 	as.defaultErrorHandling();
@@ -40,7 +42,9 @@ int main(int argc, char ** argv)
     typedef DeformationFieldType::Pointer DeformationFieldPointerType;
     typedef ImageType::IndexType IndexType;
     
-    DeformationFieldPointerType deformation1 = TransfUtils<ImageType,double>::invert(ImageUtils<DeformationFieldType>::readImage(def));
+    DeformationFieldPointerType deformation1 = ImageUtils<DeformationFieldType>::readImage(def);
+    if (backwards)
+        deformation1=TransfUtils<ImageType,double>::invert(deformation1);
     
 
 #if 1

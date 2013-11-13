@@ -26,6 +26,9 @@ TARGET_LINK_LIBRARIES(DeformImage2D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DeformImageAffine3D DeformImageAffine3D.cxx )
 TARGET_LINK_LIBRARIES(DeformImageAffine3D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(DeformLandmarksAffine3D DeformLandmarksAffine3D.cxx )
+TARGET_LINK_LIBRARIES(DeformLandmarksAffine3D  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(ComposeDeformations3D ComposeDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComposeDeformations2D ComposeDeformations2D.cxx )
@@ -59,6 +62,9 @@ TARGET_LINK_LIBRARIES(BinaryThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(ThresholdImage3D ThresholdImage3D.cxx )
 TARGET_LINK_LIBRARIES(ThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(FillEmptySlice3D FillEmptySlice3D.cxx )
+TARGET_LINK_LIBRARIES(FillEmptySlice3D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(DistanceTransform3D DistanceTransform3D.cxx )
 TARGET_LINK_LIBRARIES(DistanceTransform3D  Utils   ${ITK_LIBRARIES}  )

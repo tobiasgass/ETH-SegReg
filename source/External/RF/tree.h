@@ -21,8 +21,8 @@ using std::endl;
 class Tree
 {
 public:
-    Tree(const HyperParameters &hp);
-    Tree(const HyperParameters &hp, const xmlNodePtr treeNode);
+    Tree(const HyperParameters &hp, const int n=-1);
+    Tree(const HyperParameters &hp, const xmlNodePtr treeNode,const int n=-1);
     ~Tree();
 
     xmlNodePtr save() const;
