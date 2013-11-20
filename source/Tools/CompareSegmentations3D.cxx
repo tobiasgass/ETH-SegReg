@@ -52,7 +52,7 @@ int main(int argc, char * argv [])
 
     
     argstream as(argc, argv);
-	string groundTruth,segmentationFilename,outputFilename="";
+	string groundTruth,segmentationFilename,outputFilename="",maskFilename="";
     bool hausdorff=false;
     double threshold=1;
     int evalLabel=1;
@@ -63,6 +63,7 @@ int main(int argc, char * argv [])
     bool evalAll=false;
 	as >> parameter ("g", groundTruth, "groundtruth image (file name)", true);
 	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
+	as >> parameter ("m", maskFilename, "Binary mask in which measures are to be computed (file name)", false);
 	as >> parameter ("o", outputFilename, "output image (file name)", false);
     as >> parameter ("t", threshold, "threshold segmentedImage (threshold)", false);
 	as >> parameter ("e", evalLabel, "label to evaluate", false);
@@ -83,6 +84,16 @@ int main(int argc, char * argv [])
         ImageUtils<LabelImage>::readImage(groundTruth);
     LabelImage::Pointer segmentedImg =
         ImageUtils<LabelImage>::readImage(segmentationFilename);
+
+    LabelImage::Pointer mask = NULL;
+    if (maskFilename !=""){
+         LabelImage::Pointer mask =
+             ImageUtils<LabelImage>::readImage(maskFilename);
+         groundTruthImg=ImageUtils<LabelImage>::multiplyImageOutOfPlace(groundTruthImg,mask);
+         segmentedImg=ImageUtils<LabelImage>::multiplyImageOutOfPlace(segmentedImg,mask);
+    }
+
+    
 
     if (evalAll){
         typedef itk::LabelOverlapMeasuresImageFilter<LabelImage> OverlapMeasureFilterType;

@@ -229,14 +229,21 @@ namespace itk{
                 count+=(val==value);
             }
             LOGV(8)<<VAR(countAll)<<" "<<VAR(count)<<" "<<VAR(value)<<endl;
-            //distanceTransform->InsideIsPositiveOn();
-            distanceTransform->SetInput(newImage);
-            distanceTransform->SquaredDistanceOff ();
-            distanceTransform->UseImageSpacingOn();
-            distanceTransform->Update();
+            FloatImagePointerType positiveDM;
+            if (count!=0){
+                //distanceTransform->InsideIsPositiveOn();
+                distanceTransform->SetInput(newImage);
+                distanceTransform->SquaredDistanceOff ();
+                distanceTransform->UseImageSpacingOn();
+                distanceTransform->Update();
             typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
 
-            FloatImagePointerType positiveDM=distanceTransform->GetOutput();
+            positiveDM=distanceTransform->GetOutput();
+
+            }else{
+                positiveDM=FilterUtils<ImageType,FloatImageType>::createEmptyFrom(newImage);
+                positiveDM->FillBuffer(0.0);
+            }
 #if 0
             FloatImageIterator imageIt3(positiveDM,positiveDM->GetLargestPossibleRegion());        
             for (imageIt3.GoToBegin();!imageIt3.IsAtEnd();++imageIt3){

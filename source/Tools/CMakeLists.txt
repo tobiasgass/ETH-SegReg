@@ -31,6 +31,10 @@ TARGET_LINK_LIBRARIES(DeformLandmarksAffine3D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(ComposeDeformations3D ComposeDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(DownsampleDeformations3D DownsampleDeformations3D.cxx )
+TARGET_LINK_LIBRARIES(DownsampleDeformations3D  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(ComposeDeformations2D ComposeDeformations2D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations2D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(AddDeformations2D AddDeformations2D.cxx )
@@ -66,6 +70,9 @@ TARGET_LINK_LIBRARIES(ThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(FillEmptySlice3D FillEmptySlice3D.cxx )
 TARGET_LINK_LIBRARIES(FillEmptySlice3D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(CreateHumerusSegmentationMask CreateHumerusSegmentationMask.cxx )
+TARGET_LINK_LIBRARIES(CreateHumerusSegmentationMask  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(DistanceTransform3D DistanceTransform3D.cxx )
 TARGET_LINK_LIBRARIES(DistanceTransform3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DiluteImage3D DiluteImage3D.cxx )
@@ -79,6 +86,20 @@ TARGET_LINK_LIBRARIES(CreateSegmentationPriorFromAnnotatedImage3D  Utils   ${ITK
 ADD_EXECUTABLE(convertPointToIndex3D convertPointToIndex3D.cxx )
 TARGET_LINK_LIBRARIES(convertPointToIndex3D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(CombineBinarySegmentations3D CombineBinarySegmentations3D.cxx )
+TARGET_LINK_LIBRARIES(CombineBinarySegmentations3D  Utils   ${ITK_LIBRARIES} )
+
+
+
+ADD_EXECUTABLE(CombineAffine3D CombineAffine3D.cxx )
+TARGET_LINK_LIBRARIES(CombineAffine3D  Utils   ${ITK_LIBRARIES}  )
+
+
+ADD_EXECUTABLE(InvertAffine3D InvertAffine3D.cxx )
+TARGET_LINK_LIBRARIES(InvertAffine3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(AutoCropImageWithBorder3D AutoCropImageWithBorder3D.cxx )
+TARGET_LINK_LIBRARIES(AutoCropImageWithBorder3D  Utils   ${ITK_LIBRARIES}  )
 
 #Compare segmentations
 ADD_EXECUTABLE(CompareSegmentations3D CompareSegmentations3D.cxx )

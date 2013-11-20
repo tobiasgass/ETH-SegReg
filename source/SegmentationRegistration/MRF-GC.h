@@ -16,7 +16,8 @@ public:
 	typedef TGraphModel GraphModelType;
 	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 
-	typedef BGraph<float,float,float> MRFType;
+	//typedef BGraph<float,float,float> MRFType;
+	typedef BGraph<short ,short ,long long> MRFType;
 	typedef MRFType::node_id NodeType;
 protected:
 	MRFType* optimizer;
@@ -26,6 +27,7 @@ protected:
 	bool verbose;
     GraphModelType * m_graphModel;
     int nNodes;
+    double m_multiplier;
 public:
 	GC_MRFSolver(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool verb=false)
 
@@ -34,6 +36,7 @@ public:
 		verbose=verbose;
 		m_unaryWeight=unaryWeight;
 		m_pairwiseWeight=pairwiseWeight;
+        m_multiplier=5000;
 		createGraph();
 	}
 	~GC_MRFSolver()
@@ -62,8 +65,8 @@ public:
 			//set up unary costs at current position
 			for (int l1=0;l1<nLabels;++l1)
 			{
-				D[l1]=m_unaryWeight*graph->getUnaryPotential(d,l1);
-//				LOG<<d<<" "<<l1<<" "<<D[l1]<<" "<<nLabels<<std::endl;
+				D[l1]=m_multiplier*m_unaryWeight*graph->getUnaryPotential(d,l1);
+                LOGV(9)<<d<<" "<<l1<<" "<<D[l1]<<" "<<nLabels<<std::endl;
 			}
 			optimizer->add_tweights(d,D[0],D[1]);
 		}
@@ -79,8 +82,9 @@ public:
 			for (int i=0;i<nNeighbours;++i){
 				assert(neighbours[i]<nNodes);
                 //                LOG<<" edge " << m_pairwiseWeight*graph->getWeight(d,neighbours[i])<<" "<< m_pairwiseWeight*graph->getWeight(neighbours[i],d) << std::endl;
-                double lambda1=m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],1,0);
-                double lambda2=m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],0,1);
+                double lambda1=m_multiplier*m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],1,0);
+                double lambda2=m_multiplier*m_pairwiseWeight*graph->getPairwisePotential(d,neighbours[i],0,1);
+                LOGV(9)<<VAR(lambda1)<<" "<<VAR(lambda2)<<endl;
 				optimizer -> add_edge(d,neighbours[i],lambda1,lambda2);
 			}
 		}
@@ -120,7 +124,8 @@ public:
 	typedef TGraphModel GraphModelType;
 	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 
-	typedef BGraph<float,float,float> MRFType;
+	//typedef BGraph<float,float,float> MRFType;
+	typedef BGraph<short,short,long long> MRFType;
 	typedef MRFType::node_id NodeType;
 protected:
 	MRFType* optimizer;
@@ -130,6 +135,7 @@ protected:
 	bool verbose;
     GraphModelType * m_graphModel;
     int nNodes;
+    double m_multiplier;
 public:
 	GC_MRFSolverSeg(GraphModelType * graphModel, double unaryWeight=1.0, double pairwiseWeight=1.0, bool verb=false)
 
@@ -137,6 +143,7 @@ public:
         m_graphModel= graphModel;
 		verbose=verbose;
 		m_unaryWeight=unaryWeight;
+        m_multiplier=1000;
 		m_pairwiseWeight=pairwiseWeight;
 		//createGraph();
 	}
@@ -167,8 +174,8 @@ public:
 			//set up unary costs at current position
 			for (int l1=0;l1<nLabels;++l1)
 			{
-				D[l1]=m_unaryWeight*graph->getUnarySegmentationPotential(d,l1);
-//				LOG<<d<<" "<<l1<<" "<<D[l1]<<" "<<nLabels<<std::endl;
+				D[l1]=m_multiplier*m_unaryWeight*graph->getUnarySegmentationPotential(d,l1);
+                LOGV(9)<<d<<" "<<l1<<" "<<D[l1]<<" "<<nLabels<<std::endl;
 			}
 			optimizer->add_tweights(d,D[0],D[1]);
 		}
@@ -184,9 +191,10 @@ public:
 			for (int i=0;i<nNeighbours;++i){
 				assert(neighbours[i]<nNodes);
                 //                LOG<<" edge " << m_pairwiseWeight*graph->getWeight(d,neighbours[i])<<" "<< m_pairwiseWeight*graph->getWeight(neighbours[i],d) << std::endl;
-                double lambda1=m_pairwiseWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],1,0);
-                double lambda2=m_pairwiseWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],0,1);
-				optimizer -> add_edge(d,neighbours[i],lambda1,lambda2);
+                double lambda1=m_multiplier*m_pairwiseWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],1,0);
+                double lambda2=m_multiplier*m_pairwiseWeight*graph->getPairwiseSegmentationPotential(d,neighbours[i],0,1);
+                LOGV(9)<<VAR(lambda1)<<" "<<VAR(lambda2)<<endl;
+                optimizer -> add_edge(d,neighbours[i],lambda1,lambda2);
 			}
 		}
 		LOGV(2)<<vertCount<<" "<<graph->nEdges()<<std::endl;

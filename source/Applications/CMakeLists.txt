@@ -34,6 +34,9 @@ TARGET_LINK_LIBRARIES(SRS3D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /
 ADD_EXECUTABLE(SRS3DMultilabel Multiresolution-SRS3D-Multilabel.cxx )
 TARGET_LINK_LIBRARIES(SRS3DMultilabel ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(SRS2DMultilabel Multiresolution-SRS2D-Multilabel.cxx )
+TARGET_LINK_LIBRARIES(SRS2DMultilabel ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(SRS2D Multiresolution-SRS2D.cxx )
 TARGET_LINK_LIBRARIES(SRS2D ugmix maxflow  Utils TRWS  SRSMRFModels   RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 

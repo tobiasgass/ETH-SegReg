@@ -149,25 +149,25 @@ namespace itk{
         }
 
         void setTargetImage(ImagePointerType img){
-            SetNthInput(0,img);
+            this->SetNthInput(0,img);
         }
         void setAtlasImage(ImagePointerType img){
-            SetNthInput(1,img);
+            this->SetNthInput(1,img);
         }
         void setAtlasMaskImage(ImagePointerType img){
-            m_atlasMaskImage=img;
+            this->m_atlasMaskImage=img;
         }
         void setAtlasSegmentation(ImagePointerType img){
-            SetNthInput(2,img);
+            this->SetNthInput(2,img);
         }
         void setTargetGradient(ImagePointerType img){
-            SetNthInput(3,img);
+            this->SetNthInput(3,img);
         }
         void setAtlasGradient(ImagePointerType img){
-            SetNthInput(4,img);
+            this->SetNthInput(4,img);
         }
         void setTargetAnatomyPrior(ImagePointerType img){
-            SetNthInput(5,img);
+            this->SetNthInput(5,img);
         }
         void setBulkTransform(DeformationFieldPointerType transf){
             m_bulkTransform=transf;
@@ -519,7 +519,7 @@ namespace itk{
                     //#define TRUNC
                     LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
                     
-                    if (false && segment && !coherence && !regist){
+                    if (m_config->nSegmentations == 2 && segment && !coherence && !regist){
                         typedef  GC_MRFSolverSeg<GraphModelType> SolverType;
                         SolverType  *mrfSolverGC= new SolverType(graph, m_config->unarySegmentationWeight,
                                                                  m_config->pairwiseSegmentationWeight,m_config->verbose);

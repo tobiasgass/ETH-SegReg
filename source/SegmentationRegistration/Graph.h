@@ -76,7 +76,7 @@ namespace itk{
     protected:
     
         SizeType m_totalSize,m_imageLevelDivisors,m_graphLevelDivisors,m_gridSize, m_imageSize;
-        ImagePointerType m_coarseGraphImage;
+        ImagePointerType m_coarseGraphImage,m_borderOfSegmentationROI;
         //grid spacing in unit pixels
         SpacingType m_gridPixelSpacing;
         //grid spacing in mm
@@ -138,7 +138,7 @@ namespace itk{
         void setTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
         }
-        ImagePointerType getCoarseGraphImage(){ return m_coarseGraphImage;}
+        ImagePointerType getCoarseGraphImage(){ return this->m_coarseGraphImage;}
         void initGraph(int nGraphNodesPerEdge){
             assert(m_targetImage);
             logSetStage("Graph initialization");
@@ -183,14 +183,14 @@ namespace itk{
                 }
             }
             //allocate helper image whihc can be used for coordinate transforms between fine and coarse level
-            m_coarseGraphImage=ImageType::New();
+            this->m_coarseGraphImage=ImageType::New();
             typename ImageType::RegionType region;
             region.SetSize(m_gridSize);
-            m_coarseGraphImage->SetOrigin(m_targetImage->GetOrigin());
-            m_coarseGraphImage->SetSpacing(m_gridSpacing);
-            m_coarseGraphImage->SetRegions(region);
-            m_coarseGraphImage->SetDirection(m_targetImage->GetDirection());
-            m_coarseGraphImage->Allocate();
+            this->m_coarseGraphImage->SetOrigin(m_targetImage->GetOrigin());
+            this->m_coarseGraphImage->SetSpacing(m_gridSpacing);
+            this->m_coarseGraphImage->SetRegions(region);
+            this->m_coarseGraphImage->SetDirection(m_targetImage->GetDirection());
+            this->m_coarseGraphImage->Allocate();
 
 
             m_nNodes=m_nRegistrationNodes+m_nSegmentationNodes;
@@ -212,7 +212,7 @@ namespace itk{
             double reductionFactor=1;
             m_maxRegSegNeighbors=1;
             for (int d=0;d<(int)m_dim;++d){
-                r[d]= m_targetImage->GetLargestPossibleRegion().GetSize()[d]/m_coarseGraphImage->GetLargestPossibleRegion().GetSize()[d];//(m_gridPixelSpacing[d]/(2*reductionFactor));
+                r[d]= m_targetImage->GetLargestPossibleRegion().GetSize()[d]/this->m_coarseGraphImage->GetLargestPossibleRegion().GetSize()[d];//(m_gridPixelSpacing[d]/(2*reductionFactor));
                 m_maxRegSegNeighbors*=(2*r[d]+1);
             }
             m_targetNeighborhoodIterator=ConstImageNeighborhoodIteratorType(r,m_targetImage,m_targetImage->GetLargestPossibleRegion());
@@ -233,7 +233,7 @@ namespace itk{
         virtual void Init(){};
         virtual void setSpacing(int shortestN){
             assert(m_targetImage);
-            m_coarseGraphImage=ImageType::New();
+            this->m_coarseGraphImage=ImageType::New();
             
             unsigned int minDim=999999;
             unsigned int minSize=999999;
@@ -258,24 +258,24 @@ namespace itk{
                 m_gridSize[d]=div;
             }
 
-            m_coarseGraphImage->SetSpacing(m_gridSpacing);
+            this->m_coarseGraphImage->SetSpacing(m_gridSpacing);
             typename ImageType::RegionType region;
             region.SetSize(m_gridSize);
 
-            m_coarseGraphImage->SetRegions(region);
-            m_coarseGraphImage->SetOrigin(m_targetImage->GetOrigin());
-            m_coarseGraphImage->SetDirection(m_targetImage->GetDirection());
-            m_coarseGraphImage->Allocate();
-            m_coarseGraphImage->FillBuffer(1);
+            this->m_coarseGraphImage->SetRegions(region);
+            this->m_coarseGraphImage->SetOrigin(m_targetImage->GetOrigin());
+            this->m_coarseGraphImage->SetDirection(m_targetImage->GetDirection());
+            this->m_coarseGraphImage->Allocate();
+            this->m_coarseGraphImage->FillBuffer(1);
             
-            //ImageUtils<ImageType>::writeImage("coarsegraph.nii",m_coarseGraphImage);
+            //ImageUtils<ImageType>::writeImage("coarsegraph.nii",this->m_coarseGraphImage);
             LOGV(8)<<"physical coordinate consistency check"<<endl;
             for (int d=0;d<ImageType::ImageDimension;++d){
                 IndexType idx;
                 PointType pt;
                 idx.Fill(0);
                 idx[d]=m_gridSize[d]-1;
-                m_coarseGraphImage->TransformIndexToPhysicalPoint(idx,pt);
+                this->m_coarseGraphImage->TransformIndexToPhysicalPoint(idx,pt);
                 LOGV(8)<<d<<" Graph :"<<idx<<" "<<pt<<endl;
                 idx[d]=m_imageSize[d]-1;
                 m_targetImage->TransformIndexToPhysicalPoint(idx,pt);
@@ -301,8 +301,8 @@ namespace itk{
             LOGV(1)<<"Removing all segmentation nodes with coherence potential larger "<<thresh<<" for label "<<maxLabel<<endl;
             FloatImagePointerType dist=m_pairwiseSegRegFunction->GetDistanceTransform(maxLabel);
             m_reducedSegNodes=false;
-            FloatImagePointerType ROI=ImageUtils<FloatImageType>::createEmpty(dist);
-            ROI->FillBuffer(0.0);
+            m_borderOfSegmentationROI=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(dist);
+            m_borderOfSegmentationROI->FillBuffer(0);
             int actualIdx=0,concurrentIdx=0;
             int nNodes=this->m_targetImage->GetLargestPossibleRegion().GetNumberOfPixels();
             LOGV(5)<<VAR(dist->GetLargestPossibleRegion().GetSize())<<" "<<this->m_targetImage->GetLargestPossibleRegion().GetSize()<<endl;
@@ -316,19 +316,26 @@ namespace itk{
                 IndexType position2;
                 dist->TransformPhysicalPointToIndex(pt,position2);
                 float distAtPos=dist->GetPixel(position2);
+                LOGV(9)<<VAR(distAtPos)<<" "<<VAR(thresh)<<endl;
                 if (distAtPos<thresh){
                     m_mapIdx1[actualIdx]=concurrentIdx;
                     m_mapIdx1Rev[concurrentIdx]=actualIdx;
                     ++concurrentIdx;
-                    ROI->SetPixel(position1,1);
+                    m_borderOfSegmentationROI->SetPixel(position1,1);
                     
                 }
             }
-            LOGI(6,ImageUtils<FloatImageType>::writeImage("ROI.nii",ROI));
+            //erosion can give strange results, fixing by thresholding
+            m_borderOfSegmentationROI=FilterUtils<ImageType>::substract(m_borderOfSegmentationROI,FilterUtils<ImageType>::binaryThresholding(FilterUtils<ImageType>::erosion(m_borderOfSegmentationROI,1),1,1));
+
+            LOGI(6,ImageUtils<ImageType>::writeImage("ROI.nii",m_borderOfSegmentationROI));
             m_nSegmentationNodes=concurrentIdx;
             LOG<<"Reduced number of segmentation nodes to "<<100.0*concurrentIdx/actualIdx<<"%; "<<actualIdx<<"->"<<concurrentIdx<<endl;
             m_mapIdx1Rev.resize(concurrentIdx);
             m_reducedSegNodes=true;
+            
+            
+
 
         }
      
@@ -357,7 +364,7 @@ namespace itk{
 #else
             position=getGraphIndex(idx);
             PointType physicalPoint;
-            m_coarseGraphImage->TransformIndexToPhysicalPoint(position,physicalPoint);
+            this->m_coarseGraphImage->TransformIndexToPhysicalPoint(position,physicalPoint);
             m_targetImage->TransformPhysicalPointToIndex(physicalPoint,position);
 #endif
             if (!m_targetImage->GetLargestPossibleRegion().IsInside(position)){
@@ -377,7 +384,7 @@ namespace itk{
 #else
             PointType physicalPoint;
             m_targetImage->TransformIndexToPhysicalPoint(imageIndex,physicalPoint);
-            m_coarseGraphImage ->TransformPhysicalPointToIndex(physicalPoint,position);
+            this->m_coarseGraphImage ->TransformPhysicalPointToIndex(physicalPoint,position);
 #endif
             return position;
         }
@@ -431,9 +438,18 @@ namespace itk{
         }
         virtual double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndex(nodeIndex);
+                
             if (m_targetSegmentationImage.IsNotNull()){
                 labelIndex=m_targetSegmentationImage->GetPixel(imageIndex);
             }
+            if (  labelIndex>0 && m_reducedSegNodes ){
+                //if trying to label a pixel at the border of the segmentation ROI as FG; penalize strongly
+                if (m_borderOfSegmentationROI->GetPixel(imageIndex) )
+                    return 1000;
+            }
+                    
+
+
             //Segmentation:labelIndex==segmentationlabel
             double result=m_unarySegFunction->getPotential(imageIndex,labelIndex);///m_nSegmentationNodes;
             if (result<0){
@@ -451,8 +467,8 @@ namespace itk{
             IndexType graphIndex1=getGraphIndex(nodeIndex1);
             IndexType graphIndex2=getGraphIndex(nodeIndex2);
             PointType pt1,pt2;
-            m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex1,pt1);
-            m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex2,pt2);
+            this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex1,pt1);
+            this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex2,pt2);
             RegistrationLabelType l2=LabelMapperType::getLabel(labelIndex2);
             l2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());
             RegistrationLabelType l1=LabelMapperType::getLabel(labelIndex1);

@@ -6,7 +6,7 @@
 #include "TransformationUtils.h"
 #include "itkRecursiveGaussianImageFilter.h"
 #include <itkMeanImageFilter.h>
-
+#include "itkMeanSquaresImageToImageMetric.h"
 
 using namespace std;
 
@@ -879,6 +879,37 @@ public:
         nccMetric->SetSubtractMean(true);
         nccMetric->SetFixedImageRegion(img1->GetLargestPossibleRegion());
         return nccMetric->GetValue(iTrans->GetParameters());
+
+    }
+
+      static double msd(InputImagePointer img1, InputImagePointer warpedImage2){
+        
+           itk::ImageRegionIterator<InputImage> it1(img1,img1->GetRequestedRegion());
+      itk::ImageRegionIterator<InputImage> it2(warpedImage2,warpedImage2->GetRequestedRegion());
+      double result=0.0;
+      int c=0;
+      it1.GoToBegin();
+      it2.GoToBegin();
+      for (;!it1.IsAtEnd();++it1,++it2,++c){
+          double val=(it1.Get()-it2.Get());
+          val*=val;
+          result+=val;
+      }
+      return result/c; 
+
+    }
+
+  static double mad(InputImagePointer img1, InputImagePointer warpedImage2){
+      itk::ImageRegionIterator<InputImage> it1(img1,img1->GetRequestedRegion());
+      itk::ImageRegionIterator<InputImage> it2(warpedImage2,warpedImage2->GetRequestedRegion());
+      double result=0.0;
+      int c=0;
+      it1.GoToBegin();
+      it2.GoToBegin();
+      for (;!it1.IsAtEnd();++it1,++it2,++c){
+          result+=fabs(it1.Get()-it2.Get());
+      }
+      return result/c;
 
     }
 };

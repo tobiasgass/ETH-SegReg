@@ -96,7 +96,7 @@ namespace itk{
             m_threshold=std::numeric_limits<double>::max();
             LOGPOTENTIAL=false;
             m_noOutSidePolicy = false;
-            m_useGradient=true;
+            m_useGradient=false;
         }
         ~UnaryPotentialRegistrationNCC(){
             //delete nIt;

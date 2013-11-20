@@ -239,7 +239,7 @@ void MemoryEfficientObjectnessFilter::GenerateObjectnessImage()
                 }
 
 
-				al1 = fabs(eigenVals[0]); al2 = fabs(eigenVals[1]); al3 = fabs(eigenVals[2]);
+				al1 = fabs(eigenVals[0]); al2 = max(fabs(eigenVals[1]),std::numeric_limits<float>::epsilon()*100); al3 = fabs(eigenVals[2]);
 				sum = al1+al2+al3;
 				mean_norm+=sum;
 				tmp_sum[add]=sum;
@@ -249,7 +249,7 @@ void MemoryEfficientObjectnessFilter::GenerateObjectnessImage()
 					tmp_obj[add] = 0;
 				}
 				else
-				{
+                    {
 					Rtube  = al1 / (al2*al3);
 					Rsheet = al2 / al3;
 					Rblob  = 3.0*al1 / sum;

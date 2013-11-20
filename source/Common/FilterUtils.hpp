@@ -810,7 +810,7 @@ public:
 
 
 
-    // perform erosion (mathematical morphology) with a given label image
+    // perform dilation (mathematical morphology) with a given label image
     // using a ball with a given radius
     static OutputImagePointer dilation(
                                        InputImagePointer labelImage, unsigned radius,

@@ -73,7 +73,7 @@ public:
         m_lowResDeformations.push_back(TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(img,m_gridImage));
         ++m_count;
     }
-    double finalize(){
+    double finalize(ImagePointerType & labelImage=NULL){
         int nRegLabels=m_count;
          
         //build MRF
@@ -95,10 +95,13 @@ public:
             IndexType idx=gridIt.GetIndex();
             for (int l1=0;l1<nRegLabels;++l1) {
                 if (m_lowResLocalWeights.size()==m_count){
-                    D1[l1]=1-m_lowResLocalWeights[l1]->GetPixel(idx);
+                    D1[l1]=-log(m_lowResLocalWeights[l1]->GetPixel(idx));
+                    //D1[l1]=1-(m_lowResLocalWeights[l1]->GetPixel(idx));
+                    LOGV(3)<<l1<<" "<<VAR(D1[l1])<<" "<<m_lowResLocalWeights[l1]->GetPixel(idx)<<endl;
                 }else
                     D1[l1]=1;
             }
+
             d=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx,size,buff);
             regNodes[d] = 
                 m_optimizer->AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
@@ -137,7 +140,8 @@ public:
                                  LOGV(3)<<VAR(point[i])<<" "<<VAR(neighborPoint[i])<<" "<<VAR(displacements[l1][i])<< " " <<VAR(neighborDisplacement[i])<<endl;
                                  weight=100000;
                              }else{
-                                 weight=m_pairwiseWeight*displacementDifference.GetSquaredNorm()/distanceNormalizer;
+                                 weight=m_pairwiseWeight*(displacementDifference.GetSquaredNorm()/distanceNormalizer);
+                                 //weight=m_pairwiseWeight*(l1!=l2);
                              }
                              Vreg[l1+l2*nRegLabels]=weight;
                          }
@@ -165,6 +169,7 @@ public:
         //get output and upsample
 
         m_lowResResult=ImageUtils<DeformationFieldType>::duplicate(m_lowResDeformations[0]);
+        labelImage=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(m_gridImage);
         DeformationImageIteratorType resIt(m_lowResResult, m_lowResResult->GetLargestPossibleRegion());
         resIt.GoToBegin();
         for (;!resIt.IsAtEnd();++resIt){
@@ -172,6 +177,7 @@ public:
             int linearIndex=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx,size,buff);
             int label=m_optimizer->GetSolution(regNodes[linearIndex]);
             resIt.Set(m_lowResDeformations[label]->GetPixel(idx));
+            labelImage->SetPixel(resIt.GetIndex(),label);
         }
         
         m_result=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage);

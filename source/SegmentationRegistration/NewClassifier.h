@@ -215,7 +215,7 @@ namespace itk{
         int m_nData;
         int m_nSegmentationLabels;
         std::vector<unsupervised> m_GMMs;
-
+        std::vector<bool> m_trainedGMMs;
     public:
         typedef SegmentationGMMClassifier            Self;
         typedef itk::Object Superclass;
@@ -242,6 +242,7 @@ namespace itk{
         virtual void setNSegmentationLabels(int n){
             m_nSegmentationLabels=n;
             m_GMMs=std::vector<unsupervised>(n);
+            m_trainedGMMs=std::vector<bool>(n,false);
         }
         virtual void freeMem(){
             m_observations=std::vector<NEWMAT::Matrix>();
@@ -322,9 +323,14 @@ namespace itk{
 
         virtual void train(){
             for ( int s=0;s<m_nSegmentationLabels;++s){
-                LOGV(1)<<"Training GMM for label :"<<s<<endl;
-                m_GMMs[s].estimate(3,m_observations[s]);
-                LOGI(4,m_GMMs[s].display());
+                if (m_observations[s].size()>0){
+                    LOGV(1)<<"Training GMM for label :"<<s<<endl;
+                    m_GMMs[s].estimate(4,m_observations[s]);
+                    LOGI(4,m_GMMs[s].display());
+                    m_trainedGMMs[s]=true;
+                }else{
+                    LOGV(1)<<"No training data  for label :"<<s<<endl;
+                }
             }
         };
 
@@ -355,9 +361,13 @@ namespace itk{
                     ++iterators[f];
                 }
                 for ( int s=0;s<m_nSegmentationLabels;++s){
-                    double p=m_GMMs[s].likelihood(c);
-                    p=min(1.0,p);
-                    p=max(std::numeric_limits<double>::epsilon(),p);
+                    
+                    double p=0;
+                    if (this->m_trainedGMMs[s]){
+                        p=m_GMMs[s].likelihood(c);
+                        p=min(1.0,p);
+                        p=max(std::numeric_limits<double>::epsilon(),p);
+                    }
                     //resultIterators[s].Set(-log(p));
                     resultIterators[s].Set((p));
                     ++resultIterators[s];
@@ -495,10 +505,14 @@ namespace itk{
         }
 
         double getProbability(int label, double i1, double i2=0){
-            NEWMAT::ColumnVector c(1);
-            c.element(0)=i1;
-            //c.element(1)=i2;
-            return this->m_GMMs[label].likelihood(c);
+            if (this->m_trainedGMMs[label]){
+                NEWMAT::ColumnVector c(1);
+                c.element(0)=i1;
+                //c.element(1)=i2;
+                
+                return this->m_GMMs[label].likelihood(c);
+            }else
+                return std::numeric_limits<float>::epsilon()*100;
         }
     };//class
 }//namespace

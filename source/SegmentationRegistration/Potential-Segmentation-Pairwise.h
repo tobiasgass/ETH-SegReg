@@ -528,7 +528,7 @@ namespace itk{
             if (label1==label2) return 0;
 
             double gradientCost;
-            double factor=-log(m_labelProbs[label1][label2]);
+            double factor=1.0;//-log(m_labelProbs[label1][label2]);
 
             {
                 double s1=1.0*this->m_scaledTargetGradient->GetPixel(idx1);

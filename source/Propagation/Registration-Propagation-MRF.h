@@ -66,7 +66,7 @@ public:
     int run(int argc, char ** argv){
         feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
         argstream * as=new argstream(argc,argv);
-        string trueDefListFilename="",landmarkFileList="",groundTruthSegmentationFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="";
+        string trueDefListFilename="",landmarkFileList="",groundTruthSegmentationFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="";
         int verbose=0;
         double pWeight=1.0;
         int radius=3;
@@ -267,6 +267,7 @@ public:
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<endl;
         
         double m_oldEnergy=std::numeric_limits<double>::max();
+        double m_oldSimilarity=std::numeric_limits<double>::max();
         logSetStage("Zero Hop");
         LOGV(1)<<"Computing"<<std::endl;
         for (iter=1;iter<maxHops+1;++iter){
@@ -277,6 +278,7 @@ public:
             double m_dice=0.0;
             double m_TRE=0.0;
             double m_energy=0.0;
+            double m_similarity=0.0;
             for (ImageListIteratorType sourceImageIterator=inputImages.begin();sourceImageIterator!=inputImages.end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
@@ -336,52 +338,57 @@ public:
 
                             }//if
                         }//intermediate image
-                           
-                        double energy=estimator.finalize();
+                        ImagePointerType labelImage;
+                        double energy=estimator.finalize(labelImage);
                         DeformationFieldPointerType result=estimator.getMean();
                         if (m_refineSolution){
-                        LOGV(1)<<VAR(energy)<<endl;
-                        for (int iter=0;iter<10;++iter){
-                            ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,result);
-                            FloatImagePointerType metricImage;
-                            switch(metric){
-                            case NCC:
-                                metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                break;
-                            case MSD:
-                                metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                break;
-                            case MAD:
-                                metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                break;
-                            default:
-                                metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                            }
-                            FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
-                            estimator.addImage(result,metricImage);
-                            double newEnergy=estimator.finalize();
-                            if (newEnergy >energy )
-                                break;
-                            result=estimator.getMean();
-                            LOGV(1)<<VAR(iter)<<" "<<VAR(energy)<<" "<<(energy-newEnergy)/energy<<endl;
-                            if ( (energy-newEnergy)/energy < 1e-2) {
-                                LOGV(1)<<"refinement converged, stopping."<<endl;
-                                break;
-                            }
-                            energy=newEnergy;
+                            LOGV(1)<<VAR(energy)<<endl;
+                            for (int iter=0;iter<10;++iter){
+                                ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,result);
+                                FloatImagePointerType metricImage;
+                                switch(metric){
+                                case NCC:
+                                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                    break;
+                                case MSD:
+                                    metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                    break;
+                                case MAD:
+                                    metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                    break;
+                                default:
+                                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                }
+                                FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
+                                estimator.addImage(result,metricImage);
+                                double newEnergy=estimator.finalize(labelImage);
+                                if (newEnergy >energy )
+                                    break;
+                                result=estimator.getMean();
+                                LOGV(1)<<VAR(iter)<<" "<<VAR(energy)<<" "<<(energy-newEnergy)/energy<<endl;
+                                if ( (energy-newEnergy)/energy < 1e-2) {
+                                    LOGV(1)<<"refinement converged, stopping."<<endl;
+                                    break;
+                                }
+                                energy=newEnergy;
 
-                        }
+                            }
                         }
                         m_energy+=energy;
                         if (outputDir!=""){
                             ostringstream oss;
                             oss<<outputDir<<"/avgDeformation-"<<sourceID<<"-TO-"<<targetID<<".mha";
                             ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
+
+                            ostringstream oss2;
+                            oss2<<outputDir<<"/labelImage-"<<sourceID<<"-TO-"<<targetID<<".nii";
+                            ImageUtils<ImageType>::writeImage(oss2.str(),labelImage);
+
                         }
                             
                         TMPdeformationCache[sourceID][targetID]=result;
 
-                           // compare landmarks
+                        // compare landmarks
                         if (m_landmarkFileList.size()){
                             //hope that all landmark files are available :D
                             m_TRE+=TransfUtils<ImageType>::computeTRE(m_landmarkFileList[targetID], m_landmarkFileList[sourceID],result,targetImageIterator->second);
@@ -400,7 +407,20 @@ public:
                             m_dice+=dice;
                         }
                         
-
+                        double similarity;
+                        ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,result);
+                        switch(metric){
+                        case NCC:
+                            similarity=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        case MSD:
+                            similarity=Metrics<ImageType,FloatImageType>::msd(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        case MAD:
+                            similarity=Metrics<ImageType,FloatImageType>::mad(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        }
+                        m_similarity+=similarity;
                         //create mask of valid deformation region
 
                         
@@ -413,18 +433,20 @@ public:
             m_dice/=count;
             m_TRE/=count;
             m_energy/=count;
+            m_similarity/=count;
             error=TransfUtils<ImageType>::computeError(&TMPdeformationCache,&trueDeformations,&imageIDs);
             //inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
-            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_energy)<<endl;
-            if (m_energy>m_oldEnergy){
-                LOG<<"Energy increased, stopping and returning previous estimate."<<endl;
+            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_energy)<<" "<<VAR(m_similarity)<<endl;
+            if (m_similarity>m_oldSimilarity){
+                LOG<<"Similarity increased, stopping and returning previous estimate."<<endl;
                 break;
-            }else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
+            }else if ( (m_oldSimilarity-m_similarity)/m_oldSimilarity < 1e-2) { //else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
                 LOG<<"Optimization converged, stopping."<<endl;
                 deformationCache=TMPdeformationCache;
                 break;
             }
             m_oldEnergy=m_energy;
+            m_oldSimilarity=m_similarity;
             deformationCache=TMPdeformationCache;
           
 
