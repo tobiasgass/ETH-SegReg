@@ -239,7 +239,7 @@ void MemoryEfficientObjectnessFilter::GenerateObjectnessImage()
                 }
 
 
-				al1 = fabs(eigenVals[0]); al2 = max(fabs(eigenVals[1]),std::numeric_limits<float>::epsilon()*100); al3 = fabs(eigenVals[2]);
+				al1 = fabs(eigenVals[0]); al2 = max(fabs(eigenVals[1]),std::numeric_limits<float>::epsilon()*100); al3 = max(fabs(eigenVals[2]),std::numeric_limits<float>::epsilon()*100);
 				sum = al1+al2+al3;
 				mean_norm+=sum;
 				tmp_sum[add]=sum;

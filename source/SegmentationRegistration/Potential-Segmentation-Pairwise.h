@@ -534,7 +534,7 @@ namespace itk{
                 double s1=1.0*this->m_scaledTargetGradient->GetPixel(idx1);
                 double s2=1.0*this->m_scaledTargetGradient->GetPixel(idx2);
                 double gradientDiff=(s1-s2)*(s1-s2)/this->m_Sigma;
-                gradientCost=exp(-gradientDiff);
+                gradientCost=exp(-20*fabs(gradientDiff));
                 
                 //LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
             }
