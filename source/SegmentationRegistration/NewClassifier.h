@@ -229,7 +229,14 @@ namespace itk{
         typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
         typedef typename itk::ImageRegionConstIteratorWithIndex< ImageType > ConstImageIteratorType;
         typedef typename itk::ImageRegionIteratorWithIndex< FloatImageType > FloatIteratorType;
-        
+        //typedef VariableLengthVector< unsigned char > RGBPixelType;
+        //typedef RGBPixel< unsigned char > RGBPixelType;
+        typedef itk::Vector< unsigned char, 3 > RGBPixelType;
+        static const unsigned short D=ImageType::ImageDimension;
+        typedef typename itk::Image<RGBPixelType,D > RGBImageType;
+        typedef typename RGBImageType::Pointer RGBImagePointerType;
+        typedef typename itk::ImageRegionIteratorWithIndex< RGBImageType > RGBIteratorType;
+
     public:
         /** Standard part of every itk Object. */
         itkTypeMacro(SegmentationGMMClassifier, Object);
@@ -319,6 +326,7 @@ namespace itk{
 
         };
 
+        
    
 
         virtual void train(){
@@ -390,7 +398,101 @@ namespace itk{
                         ostringstream probabilityfilename;
                         probabilityfilename<<"prob-gauss-c"<<s<<suff;
                     
-                        LOGI(10,ImageUtils<FloatImageType>::writeImage(probabilityfilename.str().c_str(),result[s]));
+                        LOGI(8,ImageUtils<FloatImageType>::writeImage(probabilityfilename.str().c_str(),result[s]));
+                    }
+
+                }
+            }
+            return result;
+        }
+
+
+        virtual std::vector<FloatImagePointerType> evalImage(RGBImagePointerType inputImage){
+            LOGV(5)<<"Evaluating intensity based segmentation classifier" << endl;
+
+             ImagePointerType comp1=ImageUtils<ImageType>::createEmpty(inputImage->GetRequestedRegion(),
+                                                                  inputImage->GetOrigin(),
+                                                                  inputImage->GetSpacing(),
+                                                                  inputImage->GetDirection());
+
+    
+             typedef itk::ImageRegionIterator<RGBImageType> DeformationIteratorType;
+             DeformationIteratorType defIt(inputImage,inputImage->GetLargestPossibleRegion());
+             typedef itk::ImageRegionIterator<ImageType> FloatImageIteratorType;
+             FloatImageIteratorType resultIt(comp1,comp1->GetLargestPossibleRegion());
+             
+             for (defIt.GoToBegin(),resultIt.GoToBegin();!defIt.IsAtEnd();++defIt,++resultIt){
+                 resultIt.Set(defIt.Get()[0]);
+             }
+             
+             ImageUtils<ImageType>::writeImage("comp1.png",comp1);
+             for (defIt.GoToBegin(),resultIt.GoToBegin();!defIt.IsAtEnd();++defIt,++resultIt){
+                 resultIt.Set(defIt.Get()[1]);
+             }
+             
+             ImageUtils<ImageType>::writeImage("comp2.png",comp1);
+             for (defIt.GoToBegin(),resultIt.GoToBegin();!defIt.IsAtEnd();++defIt,++resultIt){
+                 resultIt.Set(defIt.Get()[2]);
+             }
+             
+             ImageUtils<ImageType>::writeImage("comp3.png",comp1);
+             
+            std::vector<FloatImagePointerType> result(m_nSegmentationLabels);
+            for ( int s=0;s<m_nSegmentationLabels;++s){
+                result[s]=ImageUtils<FloatImageType>::createEmpty(inputImage->GetRequestedRegion(),
+                                                                  inputImage->GetOrigin(),
+                                                                  inputImage->GetSpacing(),
+                                                                  inputImage->GetDirection());
+            }
+            typename ImageType::IndexType idx;idx.Fill(0);
+            unsigned int nFeatures=3;//inputImage->GetPixel(idx).GetSize();
+            
+            std::vector<FloatIteratorType> resultIterators;
+            for ( int s=0;s<m_nSegmentationLabels;++s){
+                resultIterators.push_back(FloatIteratorType(result[s],result[s]->GetLargestPossibleRegion()));
+                resultIterators[s].GoToBegin();
+            }
+           
+            RGBIteratorType iterator(inputImage,inputImage->GetLargestPossibleRegion());
+            iterator.GoToBegin();
+            
+            for (int i=0;!resultIterators[0].IsAtEnd() ; ++i,++iterator){
+                NEWMAT::ColumnVector c(nFeatures);
+                RGBPixelType px=iterator.Get();
+
+                for (unsigned int f=0;f<nFeatures;++f){
+                    c.element(f)=px[f];
+                }
+                for ( int s=0;s<m_nSegmentationLabels;++s){
+                    
+                    double p=0;
+                    if (this->m_trainedGMMs[s]){
+                        p=m_GMMs[s].likelihood(c);
+                        p=min(1.0,p);
+                        p=max(std::numeric_limits<double>::epsilon(),p);
+                    }
+                    //resultIterators[s].Set(-log(p));
+                    resultIterators[s].Set((p));
+                    ++resultIterators[s];
+                }
+            }
+            std::string suff;
+            if (true){
+                if (false && ImageType::ImageDimension==2){
+                    suff=".png";
+                    for ( int s=0;s<m_nSegmentationLabels;++s){
+                        ostringstream probabilityfilename;
+                        probabilityfilename<<"prob-gauss-c"<<s<<suff;
+                        LOGI(10,ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::normalize(result[s])));
+                        //ImageUtils<ImageType>::writeImage(probabilityfilename.str().c_str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(result[s],255.0*255.0)));
+                    }
+                }else{ //                if (ImageType::ImageDimension==3){
+                    suff=".nii";
+                    for ( int s=0;s<m_nSegmentationLabels;++s){
+                        ostringstream probabilityfilename;
+                        probabilityfilename<<"prob-gauss-c"<<s<<suff;
+                    
+                        LOGI(8,ImageUtils<FloatImageType>::writeImage(probabilityfilename.str().c_str(),result[s]));
                     }
 
                 }
@@ -415,11 +517,75 @@ namespace itk{
         typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
         typedef typename itk::ImageRegionConstIteratorWithIndex< ImageType > ConstImageIteratorType;
         typedef typename itk::ImageRegionIteratorWithIndex< FloatImageType > FloatIteratorType;
+
+        typedef typename Superclass::RGBPixelType RGBPixelType;
+        static const unsigned short D=ImageType::ImageDimension;
+        typedef typename itk::Image<RGBPixelType,D > RGBImageType;
+        typedef typename RGBImageType::Pointer RGBImagePointerType;
+        typedef typename itk::ImageRegionIteratorWithIndex< RGBImageType > RGBIteratorType;
         
     public:
         /** Standard part of every itk Object. */
         itkTypeMacro(MultilabelSegmentationGMMClassifier, Object);
         itkNewMacro(Self);
+        virtual void setData(RGBImagePointerType inputImage, ImageConstPointerType labels=NULL){
+            LOGV(5)<<"Setting up data for intensity based segmentation classifier" << endl;
+            typename ImageType::IndexType idx;idx.Fill(0);
+            unsigned int nFeatures=3;//inputImage->GetPixel(idx).GetSize();
+            long int nData=1;
+            for (int d=0;d<ImageType::ImageDimension;++d)
+                nData*=inputImage->GetLargestPossibleRegion().GetSize()[d];
+            this->m_observations=std::vector<NEWMAT::Matrix>();
+            long int maxTrain=100000;//std::numeric_limits<long int>::max();
+            maxTrain=maxTrain>nData?nData:maxTrain;
+
+            if (labels){
+                std::vector<int> counts(this->m_nSegmentationLabels,0);
+                ConstImageIteratorType lIt(labels,labels->GetLargestPossibleRegion());
+                for (lIt.GoToBegin();!lIt.IsAtEnd();++lIt){counts[lIt.Get()]++;}
+                for (int l=0;l<this->m_nSegmentationLabels;++l){
+                    //if (counts[l]<maxTrain) maxTrain=counts[l];
+                }
+                for (int l=0;l<this->m_nSegmentationLabels;++l){
+                    LOGV(7)<<VAR(l)<<" "<<VAR(counts[l])<<" "<<VAR(nFeatures)<<endl;
+                    //this->m_observations.push_back(NEWMAT::Matrix(nFeatures,counts[l]));
+                    this->m_observations.push_back(NEWMAT::Matrix(nFeatures,min((long int)counts[l],maxTrain)));
+                }
+            }else{
+                this->m_observations.push_back(NEWMAT::Matrix(nFeatures,nData));
+            }
+
+            //maximal size
+         
+            LOGV(5)<<maxTrain<<" computed"<<std::endl;
+            std::vector<int> counts(this->m_nSegmentationLabels,0);
+            int i=0;
+            typename itk::ImageRandomNonRepeatingConstIteratorWithIndex<ImageType> randomIt(labels,labels->GetLargestPossibleRegion());
+            randomIt.SetNumberOfSamples(nData);
+            
+            for (randomIt.GoToBegin();!randomIt.IsAtEnd();++randomIt){
+                int label=randomIt.Get();
+                if ( counts[label] <maxTrain){
+                    RGBPixelType intens=inputImage->GetPixel(randomIt.GetIndex());
+                    for (int f=0;f<nFeatures;++f){
+                        this->m_observations[label].element(f,counts[label])=intens[f];
+                    }
+                    ++counts[label];
+                    ++i;
+                }
+            }
+            
+
+            Superclass::m_nData=i;
+            LOG<<"done adding data. "<<std::endl;
+            LOG<<"stored "<<this->m_nData<<" samples "<<std::endl;
+            for ( int s=0;s<this->m_nSegmentationLabels;++s){
+                LOG<<VAR(counts[s])<<endl;
+            }
+
+        }
+
+
         virtual void setData(std::vector<ImageConstPointerType> inputImage, ImageConstPointerType labels=NULL){
             LOGV(5)<<"Setting up data for intensity based segmentation classifier" << endl;
             unsigned int nFeatures=inputImage.size();

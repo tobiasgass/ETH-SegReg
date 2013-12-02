@@ -18,7 +18,8 @@ class SRSConfig{
 public:
 	std::string targetFilename,atlasFilename,targetGradientFilename, outputDeformedSegmentationFilename,atlasSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, atlasGradientFilename,atlasMaskFilename;
 	std::string segmentationProbsFilename, pairWiseProbsFilename, targetAnatomyPriorFilename,affineBulkTransform,bulkTransformationField,ROIFilename,groundTruthSegmentationFilename;
-    std::string logFileName;
+    std::string targetRGBImageFilename,atlasRGBImageFilename;
+    std::string logFileName,segmentationUnaryProbFilename;
 	double pairwiseRegistrationWeight;
 	double pairwiseSegmentationWeight;
 	int displacementSampling;
@@ -62,6 +63,7 @@ public:
     bool normalizePotentials;
     bool cachePotentials;
     double segDistThresh;
+    double theta;
 private:
 	argstream * as;
 public:
@@ -125,6 +127,10 @@ public:
         normalizePotentials=false;
         cachePotentials=false;
         segDistThresh=-1.0;
+        targetRGBImageFilename="";
+        atlasRGBImageFilename="";
+        segmentationUnaryProbFilename="";
+        theta=0;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -211,6 +217,10 @@ public:
 		(*as) >> parameter ("roi", ROIFilename, " image to set target ROI from (file name)", false);
 		(*as) >> parameter ("a", atlasFilename, "atlas image (file name)", false);
 		(*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", false);
+
+        (*as) >> parameter ("rgbt", targetRGBImageFilename, "RGB version of targetImage for segmentation unaries", false);
+		(*as) >> parameter ("rgba", atlasRGBImageFilename, "RGB version of atlas image for segmentation unaries ", false);
+
         //optional
 		(*as) >> parameter ("ma", atlasMaskFilename, "atlas mask image for masking the registration unary potential (file name)", false);
 		(*as) >> parameter ("gt", targetGradientFilename, "target gradient image (file name)", false);
@@ -262,7 +272,11 @@ public:
         (*as) >> parameter ("displacementScaling",displacementScaling,"Scaling of displacement labels relative to image spacing. WARNING: if set larger than 1, diffeomorphic registrations are no longer guaranteed!", false);
         (*as) >> parameter ("toleranceBase",toleranceBase,"Base for computing the coherence tolerance at different l evels of the grid pyramid.", false);
 
-		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename", false);
+		(*as) >> parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename (legacy?)", false);
+
+		(*as) >> parameter ("segmentationUnaryProbs", segmentationUnaryProbFilename,"segmentation unaries probabilities  filename", false);
+
+        
 		(*as) >> parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);
 		(*as) >> option ("train", train,"train classifier (and save), if not set data will be read from the given files");
         (*as) >> option ("useTargetAnatomyPrior", useTargetAnatomyPrior,"compute and use a targetAnatomy prior. Currently only works with bone CT images.");
@@ -286,6 +300,7 @@ public:
         (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
         (*as) >> parameter ("alpha",alpha ,"generic weight (0)", false);
+        (*as) >> parameter ("theta",theta ,"theta (offset) for segmentation pairwise potential", false);
         (*as) >> parameter ("log",logFileName ,"cache output and flush to file at the end of the program", false);
         (*as) >> parameter ("groundTruth", groundTruthSegmentationFilename, "groundtruth segmentation of target, allows evaluation of result(file name)", false);
 

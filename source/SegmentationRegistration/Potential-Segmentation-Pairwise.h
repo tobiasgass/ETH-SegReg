@@ -44,6 +44,8 @@ namespace itk{
         double m_gradientScaling;
         ConstImagePointerType m_atlasSegmentation, m_atlasGradient, m_atlasImage;
         int m_nSegmentationLabels;
+        double m_alpha;
+        double m_theta;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -55,6 +57,19 @@ namespace itk{
         }
         virtual void freeMemory(){
         }
+        virtual void SetTargetImage(string filename){
+            if (filename!=""){
+                LOG<<"warning, trying to load RGB iamge in unsuitable pairwise segmentation function!"<<endl;
+            }
+        }
+
+        virtual void SetAtlasImage(string filename){
+             if (filename!=""){
+                LOG<<"warning, trying to load RGB iamge in unsuitable pairwise segmentation function!"<<endl;
+            }
+        }
+        void SetAlpha(double a){m_alpha=a;}
+        void SetTheta(double a){m_theta=a;}
         void SetNSegmentationLabels(int n){m_nSegmentationLabels=2;}
         virtual void Init(){
             assert(this->m_targetImage);
@@ -65,6 +80,7 @@ namespace itk{
             filter->Update();
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
+
             LOGV(5)<<"Target image gradient variance: "<<m_gradientSigma<<std::endl;
             filter->SetInput(this->m_targetImage);
             filter->Update();
@@ -88,7 +104,7 @@ namespace itk{
             LOGV(4)<<VAR(minSpacing)<<" "<<VAR(m_spacingFactor)<<" "<<VAR(this->m_targetImage->GetSpacing())<<endl;
             
         }
-        void ResamplePotentials(double segmentationScalingFactor){
+        virtual void ResamplePotentials(double segmentationScalingFactor){
             if (m_targetImage.IsNull()){
                 LOG<<"Target image not allocated, aborting"<<endl;
                 exit(0);
@@ -118,12 +134,12 @@ namespace itk{
             
         }
         void SetGradientScaling(double s){m_gradientScaling=s;}
-        void SetTargetImage(ConstImagePointerType targetImage){
+        virtual void SetTargetImage(ConstImagePointerType targetImage){
             this->m_targetImage=targetImage;
             this->m_targetSize=this->m_targetImage->GetLargestPossibleRegion().GetSize();
 
         }
-        void SetTargetGradient(ConstImagePointerType gradientImage){
+        virtual void SetTargetGradient(ConstImagePointerType gradientImage){
             this->m_gradientImage=gradientImage;
         }
         virtual void SetAtlasSegmentation(ConstImagePointerType im){
@@ -210,10 +226,10 @@ namespace itk{
                 caster->Update();
                 LOGI(10,ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput()););
             }else{
-//                 LOGI(10,ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);
-//                      ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert);
-//                      ImageUtils<FloatImageType>::writeImage("smooth-sum.nii",(FloatImageConstPointerType)sum); );
-//                 
+                LOGI(8,ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz));
+                LOGI(8,ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert));
+                LOGI(8,ImageUtils<FloatImageType>::writeImage("smooth-sum.nii",(FloatImageConstPointerType)sum) );
+                //                 
             }
         }
 
@@ -427,7 +443,7 @@ namespace itk{
         }
     };//class
 
-     template<class TImage>
+    template<class TImage>
     class PairwisePotentialSegmentationContrastWithGradient: public PairwisePotentialSegmentation<TImage>{
     public:
         //itk declarations
@@ -441,31 +457,41 @@ namespace itk{
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
         typedef typename ImageType::IndexType IndexType;
-         static const int D=ImageType::ImageDimension;
-     private:
-         std::vector<std::vector<double> > m_labelProbs;
+        static const int D=ImageType::ImageDimension;
+    private:
+        std::vector<std::vector<double> > m_labelProbs;
          
-     public:
+    public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(PairwisePotentialSegmentationContrastWithGradient, Object);
         void SetNSegmentationLabels(int n){this->m_nSegmentationLabels=n;}
 
-         virtual void Init(){
+        virtual void Init(){
             assert(this->m_targetImage);
             assert(this->m_gradientImage);
             typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
 
             typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
-            filter->SetInput(this->m_gradientImage);
+            
+        
+
+
+            filter->SetInput(FilterUtils<ImageType>::gradient(this->m_gradientImage));
             filter->Update();
             this->m_gradientSigma=filter->GetSigma();
             this->m_gradientSigma*=this->m_gradientSigma;
+            LOGV(3)<<VAR( this->m_gradientSigma )<<" "<<VAR(this->m_alpha)<<endl;
+            if (this->m_alpha>0){
+                this->m_gradientSigma*=this->m_alpha;
+            }
             LOGV(5)<<"Target image gradient variance: "<<this->m_gradientSigma<<std::endl;
-            filter->SetInput(this->m_targetImage);
-            filter->Update();
-            this->m_Sigma=filter->GetSigma();
+            typename StatisticsFilterType::Pointer filter2=StatisticsFilterType::New();
+
+            filter2->SetInput(FilterUtils<ImageType>::gradient(this->m_targetImage));
+            filter2->Update();
+            this->m_Sigma=filter2->GetSigma();
             this->m_Sigma*=this->m_Sigma;	  
             LOGV(5)<<"Target image  variance: "<<this->m_Sigma<<std::endl;
             this->m_scaledTargetImage=this->m_targetImage;
@@ -489,11 +515,164 @@ namespace itk{
                         int label2=this->m_atlasSegmentation->GetPixel(idx2);
                         if (label1!=label2){
                             //exclude selg neighborhood
-                        if (label2<label1){
-                            m_labelProbs[label2][label1]+=1;
-                        }else{
-                            m_labelProbs[label1][label2]+=1;
+                            if (label2<label1){
+                                m_labelProbs[label2][label1]+=1;
+                            }else{
+                                m_labelProbs[label1][label2]+=1;
+                            }
+                      
+                            ++totalCounts[label1];
+                            ++totalCounts[label2];
                         }
+                    }
+                    
+                }
+            }
+            for (int l1=0;l1<this->m_nSegmentationLabels;++l1){
+                for (int l2=l1;l2<this->m_nSegmentationLabels;++l2){
+                    m_labelProbs[l1][l2]/=0.5*(totalCounts[l1]+totalCounts[l2]);
+                    LOGV(5)<<VAR(l1)<<" "<<VAR(l2)<<" "<<VAR( m_labelProbs[l1][l2])<<std::endl;
+                    if (m_labelProbs[l1][l2]<=0.0){
+                        m_labelProbs[l1][l2]=std::numeric_limits<float>::epsilon()*100;
+                    }
+                }
+            }
+            //make symmetric
+            for (int l1=0;l1<this->m_nSegmentationLabels;++l1){
+                for (int l2=l1;l2<this->m_nSegmentationLabels;++l2){
+                    m_labelProbs[l2][l1]=m_labelProbs[l1][l2];
+                }
+            }
+
+
+            
+        }
+
+
+        virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
+            //equal labels don't have costs
+            if (label1==label2) return 0;
+
+            double gradientCost;
+            //LOGV(10)<<VAR(this->m_gradientSigma)<<" "<<VAR(-log(m_labelProbs[label1][label2]))<<endl;
+            double factor=1.0;//-log(m_labelProbs[label1][label2]);
+
+            {
+                double s1=1.0*this->m_scaledTargetGradient->GetPixel(idx1);
+                double s2=1.0*this->m_scaledTargetGradient->GetPixel(idx2);
+                double gradientDiff=(s1-s2)*(s1-s2)/this->m_gradientSigma;
+                gradientCost=exp(-0.5*fabs(gradientDiff));
+                
+                //LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
+            }
+            //return 1.0+1000.0*factor*gradientCost;
+            return factor*gradientCost;
+        }
+    };//class
+    template<class TImage>
+    class PairwisePotentialSegmentationRGBContrast: public PairwisePotentialSegmentation<TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialSegmentationRGBContrast            Self;
+        typedef PairwisePotentialSegmentation<TImage> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::OffsetType OffsetType;
+        static const int D=ImageType::ImageDimension;
+        typedef  itk::RGBPixel<unsigned char> RGBPixelType;
+        typedef typename itk::Image<RGBPixelType,D > RGBImageType;
+        typedef typename RGBImageType::Pointer RGBImagePointerType;
+    private:
+        RGBImagePointerType m_targetRGBImage,m_atlasRGBImage,m_scaledTargetRGBImage;
+        std::vector<std::vector<double> > m_labelProbs;
+
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(PairwisePotentialSegmentationContrastWithGradient, Object);
+        void SetNSegmentationLabels(int n){this->m_nSegmentationLabels=n;}
+        void SetRGBTargetImage(string filename){
+            m_targetRGBImage=ImageUtils<RGBImageType>::readImage(filename);
+            this->m_targetSize=this->m_targetRGBImage->GetLargestPossibleRegion().GetSize();
+            if (this->m_targetImage.IsNotNull()){
+#if 1
+                LOGV(3)<<"resampling RGB image from "<<VAR(m_targetRGBImage)<<" to "<<VAR( this->m_targetImage)<<endl;
+                //smoothing for RGB images seems not to work using the FilterUtils built-in function :(
+                m_targetRGBImage=FilterUtils<RGBImageType>::LinearResample( m_targetRGBImage,
+                                                                            this->m_targetImage->GetRequestedRegion().GetSize(),
+                                                                            this->m_targetImage->GetOrigin(),
+                                                                            this->m_targetImage->GetSpacing(),
+                                                                            this->m_targetImage->GetDirection(),
+                                                                            false);
+                            
+#endif
+            }
+            this->m_targetImage=NULL;
+            
+        }
+
+        void SetRGBAtlasImage(string filename){
+            m_atlasRGBImage=ImageUtils<RGBImageType>::readImage(filename);
+            this->m_atlasImage=NULL;
+        }
+        virtual void Init(){
+           
+            this->m_gradientSigma=1.0;
+            typename itk::ImageRegionIterator<RGBImageType> iterator(m_targetRGBImage,m_targetRGBImage->GetRequestedRegion());
+            iterator.GoToBegin();                   
+            double meanDiff=0.0;
+            int count=0;
+            for (;!iterator.IsAtEnd();++iterator){
+                IndexType idx=iterator.GetIndex();
+                OffsetType off;
+                for (int d=0;d<D;++d){
+                    off.Fill(0);
+                    off[d]=1;
+                    IndexType idx2=idx+off;
+                    if ( m_targetRGBImage->GetRequestedRegion().IsInside(idx2)){
+                        double pot=getPotential(idx,idx2,0,1,true);
+                        //LOGV(10)<<VAR(pot)<<endl;
+                        meanDiff+=(pot);
+                        ++count;
+                    }
+                }
+
+            }
+            this->m_scaledTargetRGBImage=this->m_targetRGBImage;
+            LOGV(3)<<            VAR(this->m_scaledTargetRGBImage)<<" "<<VAR(this->m_targetRGBImage)<<endl;;
+            this->m_gradientSigma=meanDiff/count*this->m_alpha;
+            LOGV(3)<<VAR(this->m_gradientSigma)<<endl;
+
+            typedef typename itk::ImageRegionConstIteratorWithIndex< ImageType > IteratorType;
+            typedef typename ImageType::OffsetType OffsetType;
+            IteratorType iterator2(this->m_atlasSegmentation, this->m_atlasSegmentation->GetLargestPossibleRegion());
+            std::vector<int> totalCounts(this->m_nSegmentationLabels,0);
+            m_labelProbs= std::vector<std::vector<double> > (this->m_nSegmentationLabels,std::vector<double>(this->m_nSegmentationLabels,0));
+            LOGV(3)<<"Computing pairwise segmentation label probabilities..."<<endl;
+            for (iterator2.GoToBegin();!iterator2.IsAtEnd();++iterator2){
+                IndexType idx1=iterator2.GetIndex();
+                int label1=iterator2.Get();
+                for (int d=0;d<D;++d){
+                    OffsetType off;
+                    off.Fill(0);
+                    off[d]+=1;
+                    IndexType idx2=idx1+off;
+                    if (idx2[d]<this->m_atlasSegmentation->GetLargestPossibleRegion().GetSize()[d]){
+                        int label2=this->m_atlasSegmentation->GetPixel(idx2);
+                        if (label1!=label2){
+                            //exclude selg neighborhood
+                            if (label2<label1){
+                                m_labelProbs[label2][label1]+=1;
+                            }else{
+                                m_labelProbs[label1][label2]+=1;
+                            }
                       
                             ++totalCounts[label1];
                             ++totalCounts[label2];
@@ -514,28 +693,53 @@ namespace itk{
             //make symmetric
             for (int l1=0;l1<this->m_nSegmentationLabels;++l1){
                 for (int l2=l1;l2<this->m_nSegmentationLabels;++l2){
-                     m_labelProbs[l2][l1]=m_labelProbs[l1][l2];
+                    m_labelProbs[l2][l1]=m_labelProbs[l1][l2];
                 }
             }
 
-
+        }
+        virtual void ResamplePotentials(double segmentationScalingFactor){
+            if (segmentationScalingFactor!=1.0){
+                LOGV(3)<<"Resampling RGB image for segmentation pairwise"<<endl;
+                this->m_scaledTargetRGBImage=FilterUtils<RGBImageType>::LinearResample(this->m_targetRGBImage,segmentationScalingFactor,true);
+            }else
+                this->m_scaledTargetRGBImage=this->m_targetRGBImage;
             
         }
-
-
         virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2){
+            return getPotential(idx1,idx2,label1,label2,false);
+        }
+
+        virtual double getPotential(IndexType idx1, IndexType idx2, int label1, int label2,bool nonExp){
             //equal labels don't have costs
             if (label1==label2) return 0;
 
             double gradientCost;
-            double factor=1.0;//-log(m_labelProbs[label1][label2]);
+            //LOGV(10)<<VAR(this->m_gradientSigma)<<" "<<VAR(-log(m_labelProbs[label1][label2]))<<endl;
+            double factor=1.0;
+            if (false && ! nonExp)
+                factor=-log(m_labelProbs[label1][label2]);
 
             {
-                double s1=1.0*this->m_scaledTargetGradient->GetPixel(idx1);
-                double s2=1.0*this->m_scaledTargetGradient->GetPixel(idx2);
-                double gradientDiff=(s1-s2)*(s1-s2)/this->m_Sigma;
-                gradientCost=exp(-20*fabs(gradientDiff));
+#if 0                
+                RGBPixelType s1=this->m_scaledTargetRGBImage->GetPixel(idx1);
+                RGBPixelType s2=this->m_scaledTargetRGBImage->GetPixel(idx2);
+#else
+                RGBPixelType s1=this->m_targetRGBImage->GetPixel(idx1);
+                RGBPixelType s2=this->m_targetRGBImage->GetPixel(idx2);
+#endif
+                double gradientDiff=0.0;
+                for (unsigned int c=0;c<3;++c){
+                    double diff = 1.0*s1[c] - s2[c];
+                    gradientDiff+=diff*diff;
+                }
                 
+                if (nonExp){
+                    gradientCost=gradientDiff;
+                }
+                else{
+                    gradientCost=this->m_theta+exp(-0.5*fabs(gradientDiff/this->m_gradientSigma));
+                }
                 //LOGV(30)<<s1<<" "<<s2<<" "<<" "<<gradientDiff<<" "<<gradientCost<<std::endl;
             }
             //return 1.0+1000.0*factor*gradientCost;

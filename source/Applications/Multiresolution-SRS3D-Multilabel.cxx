@@ -63,7 +63,8 @@ int main(int argc, char ** argv)
     // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
     
     typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
-    typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     // //pairwise seg
     // typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;

@@ -119,10 +119,13 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
     
 	/*Initialization*/
 	Double2D tmp4 = AllocDouble_2D(Dim,n);
+	Double2D tmp_vectors = AllocDouble_2D(n,Dim);
+
 	Int1D tmp5 = AllocInt_1D(n);
 	for(int j=0;j<n;j++){  
 		for(int i=0;i<Dim;i++){
 			tmp4[i][j] = obs.element(i,j);
+            tmp_vectors[j][i]=0.0;
 		}
 		tmp5[j] = 0;
 	}
@@ -131,7 +134,6 @@ int unsupervised::estimate(int k_max, const Matrix& obs){
     k_Mean(k_max,tmp4,tmp5,Dim,n);
     
 	int r,roop;
-	Double2D tmp_vectors = AllocDouble_2D(n,Dim);
 	/*Initialization of average and variance*/
 	for(int j=0;j<k_max;j++){
 		r=0;

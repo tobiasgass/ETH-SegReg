@@ -18,6 +18,9 @@ INCLUDE_DIRECTORIES(
  ) 
 
 #Tools
+ADD_EXECUTABLE(SurfaceExtraction SurfaceExtraction.cxx )
+TARGET_LINK_LIBRARIES(SurfaceExtraction  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(DeformImage3D DeformImage3D.cxx )
 TARGET_LINK_LIBRARIES(DeformImage3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DeformImage2D DeformImage2D.cxx )
@@ -51,27 +54,6 @@ ADD_EXECUTABLE(InvertComposeDeformations3D InvertComposeDeformations3d.cxx )
 TARGET_LINK_LIBRARIES(InvertComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(InvertDeformation3D InvertDeformation3D.cxx )
 TARGET_LINK_LIBRARIES(InvertDeformation3D  Utils   ${ITK_LIBRARIES}  )
-
-
-ADD_EXECUTABLE(AddNoiseToImage3D AddNoiseToImage3D.cxx )
-TARGET_LINK_LIBRARIES(AddNoiseToImage3D  Utils   ${ITK_LIBRARIES}  )
-ADD_EXECUTABLE(AddNoiseToImage2D AddNoiseToImage2D.cxx )
-TARGET_LINK_LIBRARIES(AddNoiseToImage2D  Utils   ${ITK_LIBRARIES}  )
-
-ADD_EXECUTABLE(AverageImages3D AverageImages3D.cxx )
-TARGET_LINK_LIBRARIES(AverageImages3D  Utils   ${ITK_LIBRARIES} )
-
-ADD_EXECUTABLE(BinaryThresholdImage3D BinaryThresholdImage3D.cxx )
-TARGET_LINK_LIBRARIES(BinaryThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
-
-ADD_EXECUTABLE(ThresholdImage3D ThresholdImage3D.cxx )
-TARGET_LINK_LIBRARIES(ThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
-
-ADD_EXECUTABLE(FillEmptySlice3D FillEmptySlice3D.cxx )
-TARGET_LINK_LIBRARIES(FillEmptySlice3D  Utils   ${ITK_LIBRARIES}  )
-
-ADD_EXECUTABLE(CreateHumerusSegmentationMask CreateHumerusSegmentationMask.cxx )
-TARGET_LINK_LIBRARIES(CreateHumerusSegmentationMask  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(DistanceTransform3D DistanceTransform3D.cxx )
 TARGET_LINK_LIBRARIES(DistanceTransform3D  Utils   ${ITK_LIBRARIES}  )
@@ -149,3 +131,30 @@ TARGET_LINK_LIBRARIES(GradientDescentRegistration2D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(GradientDescentRegistrationITK GradientDescentITK.cxx )
 TARGET_LINK_LIBRARIES(GradientDescentRegistrationITK  Utils   ${ITK_LIBRARIES}  )
+
+
+#Image manipulations
+
+
+ADD_EXECUTABLE(AddNoiseToImage3D AddNoiseToImage3D.cxx )
+TARGET_LINK_LIBRARIES(AddNoiseToImage3D  Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(AddNoiseToImage2D AddNoiseToImage2D.cxx )
+TARGET_LINK_LIBRARIES(AddNoiseToImage2D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(AverageImages3D AverageImages3D.cxx )
+TARGET_LINK_LIBRARIES(AverageImages3D  Utils   ${ITK_LIBRARIES} )
+
+ADD_EXECUTABLE(BinaryThresholdImage3D BinaryThresholdImage3D.cxx )
+TARGET_LINK_LIBRARIES(BinaryThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ThresholdImage3D ThresholdImage3D.cxx )
+TARGET_LINK_LIBRARIES(ThresholdImage3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(FillEmptySlice3D FillEmptySlice3D.cxx )
+TARGET_LINK_LIBRARIES(FillEmptySlice3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ConvertRGBImageToITK3D ConvertRGBImageToITK3D.cxx )
+TARGET_LINK_LIBRARIES(ConvertRGBImageToITK3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(CreateHumerusSegmentationMask CreateHumerusSegmentationMask.cxx )
+TARGET_LINK_LIBRARIES(CreateHumerusSegmentationMask  Utils   ${ITK_LIBRARIES}  )

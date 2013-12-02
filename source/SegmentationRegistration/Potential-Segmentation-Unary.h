@@ -30,16 +30,26 @@ namespace itk{
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
-
+        
+        static const unsigned short D=ImageType::ImageDimension;
+        
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         SizeType m_targetSize;
         typedef typename itk::StatisticsImageFilter< ImageType > StatisticsFilterType;
+
+        //typedef  itk::RGBPixel<unsigned char> RGBPixelType;
+        typedef  itk::Vector<unsigned char,3> RGBPixelType;
+        //typedef VariableLengthVector< unsigned char > RGBPixelType;
+        typedef typename itk::Image<RGBPixelType,D > RGBImageType;
+        typedef typename RGBImageType::Pointer RGBImagePointerType;
+        
     protected:
         ImageConstPointerType m_targetImage, m_targetGradient,m_atlasImage, m_atlasGradient;
         ImageConstPointerType m_scaledTargetImage, m_scaledTargetGradient,m_scaledTargetAnatomyPrior;
         ImageConstPointerType m_atlasSegmentation;
+        RGBImagePointerType m_targetRGBImage,m_atlasRGBImage,m_scaledTargetRGBImage;
         SpacingType m_displacementFactor;
         //LabelImagePointerType m_baseLabelMap;
         bool m_haveLabelMap;
@@ -70,6 +80,17 @@ namespace itk{
             this->m_targetImage=targetImage;
             this->m_targetSize=this->m_targetImage->GetLargestPossibleRegion().GetSize();
         }
+        void SetTargetImage(string filename){
+            m_targetRGBImage=ImageUtils<RGBImageType>::readImage(filename);
+            this->m_targetSize=this->m_targetRGBImage->GetLargestPossibleRegion().GetSize();
+        }
+
+        void SetAtlasImage(string filename){
+            m_atlasRGBImage=ImageUtils<RGBImageType>::readImage(filename);
+        }
+        virtual void SetProbFile(string filename){
+            LOG<<"This function does not support probability files, this call was futile!"<<endl;
+        }
         void SetTargetGradient(ImageConstPointerType targetGradient){
             this->m_targetGradient=targetGradient;
             
@@ -85,14 +106,27 @@ namespace itk{
             this->m_Sigma*=this->m_Sigma;
                                     
         }
-        void ResamplePotentials(double segmentationScalingFactor){
-            if (segmentationScalingFactor<1.0){
-                //only use gaussian smoothing if downsampling
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,false,false);
-                m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor,false,false);
+        virtual void ResamplePotentials(double segmentationScalingFactor){
+            if (m_targetImage.IsNotNull()){
+                if (segmentationScalingFactor<1.0){
+                    //only use gaussian smoothing if downsampling
+                    m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,false,false);
+                    m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor,false,false);
+                }else{
+                    m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,true,false);
+                    m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor,true,false);
+                }
             }else{
-                m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(m_targetImage,segmentationScalingFactor,true,false);
-                m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(m_targetGradient,segmentationScalingFactor,true,false);
+                if (m_targetRGBImage.IsNotNull()){
+                    LOG<<"RGB image resampling NYI, aborting!"<<endl;
+                    exit(0);
+                    //m_scaledTargetRGBImage=FilterUtils<RGBImageType>::LinearResample(m_targetRGBImage,segmentationScalingFactor,true,false);
+
+                }else{
+                    LOG<<"No target image set for segmentation unary, aborting!"<<endl;
+                    exit(0);
+                }
+
             }
             if (m_targetAnatomyPrior.IsNotNull()) m_scaledTargetAnatomyPrior=FilterUtils<ImageType>::NNResample(m_targetAnatomyPrior,segmentationScalingFactor,false);
         }
@@ -557,13 +591,13 @@ namespace itk{
                 }else
                     totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
                 
-                break;
+                        break;
             default  :
                 if (false && this->m_useTargetAnatomyPrior && ! targetAnatomyPrior ){
                     totalCost = 1;
                 }else
                     totalCost = ( imageIntensity < tissue) ? 1 : 0;
-                break;
+                        break;
             }
 #else
             switch (segmentationLabel) {
@@ -679,7 +713,7 @@ namespace itk{
             //            target.push_back(this->m_targetGradient);
             m_probabilityImages=m_classifier->evalImage(target);
         }
-        void ResamplePotentials(double scale){
+        virtual void ResamplePotentials(double scale){
             m_resampledProbImages= std::vector<FloatImagePointerType>(m_probabilityImages.size());
             for (int i=0;i<m_probabilityImages.size();++i){
                 m_resampledProbImages[i]=FilterUtils<FloatImageType>::LinearResample(m_probabilityImages[i],scale,true);
@@ -706,12 +740,14 @@ namespace itk{
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
+        static const unsigned short D=ImageType::ImageDimension;
 
         typedef TClassifier ClassifierType;
         typedef typename ClassifierType::Pointer ClassifierPointerType;
         typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
         typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
-        
+
+        typedef typename Superclass::RGBImageType RGBImageType;
     protected:
         ClassifierPointerType m_classifier;
         std::vector<FloatImagePointerType> m_probabilityImages,m_resampledProbImages;
@@ -725,23 +761,40 @@ namespace itk{
         virtual void Init(){
             m_trainOnTargetROI=true;
             LOG<<VAR(m_trainOnTargetROI)<<std::endl;
-            m_classifier=  ClassifierType::New();
+            m_classifier=ClassifierType::New();
             m_classifier->setNSegmentationLabels(max(2,this->m_nSegmentationLabels));
-            std::vector<ImageConstPointerType> atlas;
-            if (m_trainOnTargetROI){
-                this->m_atlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_targetImage,false);
-                this->m_atlasSegmentation=FilterUtils<ImageType>::NNResample(this->m_atlasSegmentation,this->m_targetImage,false);
+            if (this->m_atlasImage.IsNotNull()){
+                std::vector<ImageConstPointerType> atlas;
+                if (m_trainOnTargetROI){
+                    this->m_atlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_targetImage,false);
+                    this->m_atlasSegmentation=FilterUtils<ImageType>::NNResample(this->m_atlasSegmentation,this->m_targetImage,false);
+                }
+                atlas.push_back(this->m_atlasImage);
+                m_classifier->setData(atlas,this->m_atlasSegmentation);
+
+                //atlas.push_back(this->m_atlasGradient);
+            }else{
+                LOG<<"training on rgb image"<<endl;
+                m_classifier->setData(this->m_atlasRGBImage, this->m_atlasSegmentation);
+
+                
             }
-            atlas.push_back(this->m_atlasImage);
-            //atlas.push_back(this->m_atlasGradient);
-            m_classifier->setData(atlas,this->m_atlasSegmentation);
+
             m_classifier->train();
             std::vector<ImageConstPointerType> target;
-            target.push_back(this->m_targetImage);
-            //            target.push_back(this->m_targetGradient);
-            m_probabilityImages=m_classifier->evalImage(target);
+            if (this->m_targetImage.IsNotNull()){
+                target.push_back(this->m_targetImage);
+                //            target.push_back(this->m_targetGradient);
+                m_probabilityImages=m_classifier->evalImage(target);
+
+            }else{
+                LOG<<"evaluating on rgb image"<<endl;
+                m_probabilityImages=m_classifier->evalImage(this->m_targetRGBImage);
+
+
+            }
         }
-        void ResamplePotentials(double scale){
+        virtual void ResamplePotentials(double scale){
             m_resampledProbImages= std::vector<FloatImagePointerType>(m_probabilityImages.size());
             for (int i=0;i<m_probabilityImages.size();++i){
                 m_resampledProbImages[i]=FilterUtils<FloatImageType>::LinearResample(m_probabilityImages[i],scale,true);
@@ -755,7 +808,7 @@ namespace itk{
         }
     };
 
-      template<class TImage, class TClassifier>
+    template<class TImage, class TClassifier>
     class UnaryPotentialNewSegmentationMultilabelClassifierNoCaching: public UnaryPotentialSegmentation<TImage> {
     public:
         //itk declarations
@@ -803,7 +856,7 @@ namespace itk{
             LOGI(10,m_probabilityImages=m_classifier->evalImage(target));
 
         }
-        void ResamplePotentials(double scale){
+        virtual void ResamplePotentials(double scale){
 
             this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample(this->m_targetImage,scale,true);
             this->m_scaledTargetGradient=FilterUtils<ImageType>::LinearResample(this->m_targetGradient,scale,true);
@@ -814,6 +867,76 @@ namespace itk{
             double i1=this->m_scaledTargetImage->GetPixel(targetIndex);
             double i2=this->m_scaledTargetGradient->GetPixel(targetIndex);
             double prob= m_classifier->getProbability(segmentationLabel,i1,i2);
+            if (prob<=0) 
+                return 10000.0;
+            else{
+                prob=min(1.0,prob);
+                return -log(prob);
+            }
+        }
+    };
+
+
+    template<class TImage, class TClassifier>
+    class UnaryPotentialSegmentationProbFile: public UnaryPotentialNewSegmentationMultilabelClassifier<TImage,TClassifier> {
+    public:
+        //itk declarations
+        typedef UnaryPotentialSegmentationProbFile            Self;
+        typedef UnaryPotentialNewSegmentationMultilabelClassifier<TImage,TClassifier> Superclass;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        
+        typedef TImage ImageType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::ConstPointer ImageConstPointerType;
+        static const unsigned short D=ImageType::ImageDimension;
+
+    
+        typedef  itk::Vector<double,4> ProbabilityPixelType;
+        typedef typename itk::Image<ProbabilityPixelType,D > ProbabilityImageType;
+
+        typedef typename ProbabilityImageType::Pointer ProbabilityImagePointerType;
+    protected:
+        ProbabilityImagePointerType m_probImage;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialNewSegmentationMultilabelClassifier, Object);
+     
+        virtual void SetProbFile(string filename){
+            this->m_probImage=ImageUtils<ProbabilityImageType>::readImage(filename);
+            if (this->m_targetImage.IsNotNull()){
+                LOGV(3)<<"Resampling prob file "<<endl;
+                this->m_probImage=FilterUtils<ProbabilityImageType>::LinearResample( this->m_probImage,
+                                                                                     this->m_targetImage->GetRequestedRegion().GetSize(),
+                                                                                     this->m_targetImage->GetOrigin(),
+                                                                                     this->m_targetImage->GetSpacing(),
+                                                                                     this->m_targetImage->GetDirection(),
+                                                                                     true
+                                                                                     );
+            }
+        }
+     
+        virtual void Init(){
+            if (!this->m_probImage.IsNotNull())
+                {
+                    LOG<<"ERROR, prob file not properly loaded for prob file seg unary, aborting"<<endl;
+                    exit(0);
+                }
+        }
+        virtual void ResamplePotentials(double scale){
+            if (scale !=1.0){
+                LOG<<"RESAMPLING OF PROB IMAGE POTENTIALS NOT YET IMPLEMENTED"<<endl;
+                exit(0);
+            }
+        }
+
+        virtual double getPotential(IndexType targetIndex, int segmentationLabel){
+
+         
+            double prob=  this->m_probImage->GetPixel(targetIndex)[segmentationLabel];
+            //LOGV(5)<<VAR(targetIndex)<<" "<<VAR(segmentationLabel)<<" "<<VAR(prob)<<endl;
             if (prob<=0) 
                 return 10000.0;
             else{

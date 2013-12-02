@@ -64,6 +64,9 @@ class FilterUtils {
     typedef typename InputImage::IndexType InputImageIndex;
     typedef typename InputImage::RegionType InputImageRegion;
     typedef typename InputImage::SpacingType SpacingType;
+    typedef typename InputImage::SizeType SizeType;
+    typedef typename InputImage::DirectionType DirectionType;
+    typedef typename InputImage::PointType OriginType;
 
     typedef typename OutputImage::Pointer OutputImagePointer;
     typedef typename OutputImage::IndexType OutputImageIndex;
@@ -86,23 +89,15 @@ class FilterUtils {
     //    typedef itk::ConnectedComponentImageFilter<InputImage,OutputImage>  ConnectedComponentImageFilterType;
     typedef itk::RelabelComponentImageFilter<InputImage,OutputImage>  RelabelComponentImageFilterType;
     typedef itk::ShiftScaleImageFilter<InputImage,OutputImage>  ShiftScaleImageFilterType;
-    //typedef itk::DiscreteGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
     typedef itk::SmoothingRecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+    //typedef itk::RecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+    //typedef itk::DiscreteGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
     typedef itk::FastMarchingImageFilter<OutputImage>  FastMarchingImageFilterType;
     //REMI:typedef itk::PasteImageFilter<InputImage,OutputImage>  PasteImageFilterType;
 
-    typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
-    typedef typename ErodeFilterType::Pointer ErodeFilterPointer;
-    typedef typename DilateFilterType::Pointer DilateFilterPointer;
-    typedef typename CastImageFilterType::Pointer CastFilterPointer;
-    typedef typename MaskImageFilterType::Pointer MaskImageFilterPointer;
-    typedef typename MaskNegatedImageFilterType::Pointer MaskNegatedImageFilterPointer;
-    typedef typename SubtractFilterType::Pointer SubtractFilterPointer;
-    typedef typename AddFilterType::Pointer AddFilterPointer;
+  
+  
     //    typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
-    typedef typename RelabelComponentImageFilterType::Pointer RelabelComponentImageFilterPointer;
-    typedef typename ShiftScaleImageFilterType::Pointer ShiftScaleImageFilterPointer;
-    typedef typename DiscreteGaussianImageFilterType::Pointer DiscreteGaussianImageFilterPointer;
     typedef typename FastMarchingImageFilterType::Pointer FastMarchingImageFilterPointer;
     //REMI:typedef typename PasteImageFilterType::Pointer PasteImageFilterPointer;
 
@@ -116,7 +111,6 @@ class FilterUtils {
     typedef typename itk::LinearInterpolateImageFunction<InputImage, double> LinearInterpolatorType;
     typedef typename LinearInterpolatorType::Pointer LinearInterpolatorPointerType;
     typedef typename itk::BSplineInterpolateImageFunction<InputImage, double> BSplineInterpolatorType;
-    typedef typename BSplineInterpolatorType::Pointer BSplineInterpolatorPointerType;
     typedef typename itk::NearestNeighborInterpolateImageFunction<InputImage, double> NNInterpolatorType;
     typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
     typedef typename itk::ResampleImageFilter< InputImage , OutputImage>	ResampleFilterType;
@@ -287,7 +281,7 @@ public:
         for (uint d=0;d<InputImage::ImageDimension;++d){
             //determine new spacing
             //never increase resolution!
-            if (scale>1.0){
+             if (scale>1.0){
                 spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
             }else{
                 spacing[d]=max(inputSpacing[d],newSpacing);//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
@@ -351,7 +345,7 @@ public:
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
         if (smooth){
-            InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing()-input->GetSpacing());
+            InputImagePointer smoothedInput = gaussian(input,(reference->GetSpacing()-input->GetSpacing())/2);
             resampler->SetInput(smoothedInput);
         }else{
             resampler->SetInput(input);
@@ -364,7 +358,23 @@ public:
         resampler->Update();
         return resampler->GetOutput();
     }
-
+    static OutputImagePointer LinearResample( InputImagePointer input,  SizeType size, OriginType origin, SpacingType spacing, DirectionType dir, bool smooth) {
+        LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
+        ResampleFilterPointerType resampler=ResampleFilterType::New();
+        if (smooth){
+            InputImagePointer smoothedInput = gaussian(input,(spacing-input->GetSpacing())/2);
+            resampler->SetInput(smoothedInput);
+        }else{
+            resampler->SetInput(input);
+        }
+        resampler->SetInterpolator(interpol);
+        resampler->SetOutputOrigin(origin);
+		resampler->SetOutputSpacing (spacing );
+		resampler->SetOutputDirection ( dir );
+		resampler->SetSize ( size );
+        resampler->Update();
+        return resampler->GetOutput();
+    }
   
     static OutputImagePointer LinearResample( InputImagePointer input,  InputImagePointer reference, bool smooth) {
         return LinearResample((ConstInputImagePointer)input,(ConstInputImagePointer)reference, smooth);
@@ -393,6 +403,8 @@ public:
     }
 
     static OutputImagePointer BSplineResampleSegmentation( InputImagePointer input,  ConstInputImagePointer reference) {
+        typedef typename BSplineInterpolatorType::Pointer BSplineInterpolatorPointerType;
+
         int nSegmentations = getMax(input)+1;
         typedef typename itk::Image<float,InputImage::ImageDimension> FloatImageType;
         std::vector<typename FloatImageType::Pointer> segmentationImages(nSegmentations);
@@ -478,6 +490,8 @@ public:
                                               OutputImagePixelType shift = 0
                                               ) {
 
+        typedef typename ShiftScaleImageFilterType::Pointer ShiftScaleImageFilterPointer;
+
         ShiftScaleImageFilterPointer filter =
             ShiftScaleImageFilterType::New();
 
@@ -497,6 +511,7 @@ public:
         if (! image.IsNotNull()){
             return NULL;
         }
+        typedef typename DiscreteGaussianImageFilterType::Pointer DiscreteGaussianImageFilterPointer;
 
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
@@ -535,7 +550,8 @@ public:
             }
             spacing[d]=sqrt(spacing[d]);
         }
-            
+        typedef typename DiscreteGaussianImageFilterType::Pointer DiscreteGaussianImageFilterPointer;
+
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
         LOGV(4)<<"gaussian smoothing with "<<VAR(spacing)<<endl;
@@ -550,6 +566,7 @@ public:
     // relabel components according to its size.
     // Largest component 1, second largest 2, ...
     static OutputImagePointer relabelComponents(InputImagePointer image) {
+        typedef typename RelabelComponentImageFilterType::Pointer RelabelComponentImageFilterPointer;
 
         RelabelComponentImageFilterPointer filter =
             RelabelComponentImageFilterType::New();
@@ -561,6 +578,8 @@ public:
     }
 
     static OutputImagePointer cast(ConstInputImagePointer image) {
+        typedef typename CastImageFilterType::Pointer CastFilterPointer;
+
         CastFilterPointer castFilter = CastImageFilterType::New();
         castFilter->SetInput(image);
         castFilter->Update();
@@ -569,6 +588,8 @@ public:
 
     // cast the image to the output type
     static OutputImagePointer cast(InputImagePointer image) {
+    typedef typename CastImageFilterType::Pointer CastFilterPointer;
+
         CastFilterPointer castFilter = CastImageFilterType::New();
         castFilter->SetInput(image);
         castFilter->Update();
@@ -576,6 +597,8 @@ public:
     }
     
     static OutputImagePointer truncateCast(InputImagePointer image) {
+    typedef typename CastImageFilterType::Pointer CastFilterPointer;
+
         InputImagePointer trunc=FilterUtils<InputImage,InputImage>::thresholding(image,std::numeric_limits<OutputImagePixelType>::min(), std::numeric_limits<OutputImagePixelType>::max());
         CastFilterPointer castFilter = CastImageFilterType::New();
         castFilter->SetInput(image);
@@ -606,6 +629,7 @@ public:
     static OutputImagePointer substract(
                                         InputImagePointer image1, InputImagePointer image2
                                         ) {
+        typedef typename SubtractFilterType::Pointer SubtractFilterPointer;
         SubtractFilterPointer substractFilter = SubtractFilterType::New();
         substractFilter->SetInput1(image1);
         substractFilter->SetInput2(image2);
@@ -623,6 +647,8 @@ public:
     static OutputImagePointer add(
                                   InputImagePointer image1, InputImagePointer image2
                                   ) {
+        typedef typename AddFilterType::Pointer AddFilterPointer;
+
         AddFilterPointer addFilter = AddFilterType::New();
         addFilter->SetInput1(image1);
         addFilter->SetInput2(image2);
@@ -638,6 +664,7 @@ public:
                                    InputImagePointer image,
                                    InputImagePointer mask
                                    ) {
+        typedef typename MaskImageFilterType::Pointer MaskImageFilterPointer;
         MaskImageFilterPointer filter = MaskImageFilterType::New();
 
         filter->SetInput1(image);
@@ -655,6 +682,7 @@ public:
                                           InputImagePointer image,
                                           InputImagePointer mask
                                           ) {
+        typedef typename MaskNegatedImageFilterType::Pointer MaskNegatedImageFilterPointer;
         MaskNegatedImageFilterPointer filter = MaskNegatedImageFilterType::New();
 
         filter->SetInput1(image);
@@ -675,6 +703,8 @@ public:
                                                  OutputImagePixelType insideValue = 1,
                                                  OutputImagePixelType outsideValue = 0
                                                  ) {
+  typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
+  
         BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
         thresholder->SetInput(inputImage);
 
@@ -694,6 +724,8 @@ public:
                                                     OutputImagePixelType insideValue = 1,
                                                     OutputImagePixelType outsideValue = 0
                                                     ) {
+ typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
+  
         BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
         thresholder->SetInput(inputImage);
 
@@ -711,6 +743,8 @@ public:
                                                      OutputImagePixelType insideValue = 1,
                                                      OutputImagePixelType outsideValue = 0
                                                      ) {
+ typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
+  
         BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
         thresholder->SetInput(inputImage);
         thresholder->SetUpperThreshold( upperThreshold );
@@ -797,7 +831,7 @@ public:
                                       ) {
         StructuringElementTypeRadius rad; rad.Fill(radius);
         StructuringElementType K = StructuringElementType::Ball( rad );
-
+  typedef typename ErodeFilterType::Pointer ErodeFilterPointer;
         ErodeFilterPointer erosionFilter = ErodeFilterType::New();
         erosionFilter->SetKernel(K);
         erosionFilter->SetErodeValue(valueToErode);
@@ -818,6 +852,7 @@ public:
                                        ) {
         StructuringElementTypeRadius rad; rad.Fill(radius);
         StructuringElementType K = StructuringElementType::Ball( rad );
+    typedef typename DilateFilterType::Pointer DilateFilterPointer;
 
         DilateFilterPointer dilateFilter  = DilateFilterType::New();
         dilateFilter->SetKernel(K);

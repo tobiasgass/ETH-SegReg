@@ -186,6 +186,7 @@ namespace itk{
             return m_finalSegmentation;
         }
         virtual void Init(){
+            logSetStage("SRS initialisation");
             bool coherence= (m_config->coherence);
             bool segment=m_config->segment;
             bool regist= m_config->regist;
@@ -231,10 +232,30 @@ namespace itk{
                 
             }
             if (segment){
+
+              
                 m_unarySegmentationPot->SetTargetImage(m_targetImage);
                 m_unarySegmentationPot->SetTargetGradient((ConstImagePointerType)m_targetGradientImage);
+                m_pairwiseSegmentationPot->SetTargetImage(m_targetImage);
+                m_pairwiseSegmentationPot->SetTargetGradient((ConstImagePointerType)m_targetGradientImage);
+                if (m_config->targetRGBImageFilename==""){
+                  
+                }else{
+                    m_unarySegmentationPot->SetTargetImage(m_config->targetRGBImageFilename);
+                    m_pairwiseSegmentationPot->SetRGBTargetImage(m_config->targetRGBImageFilename);
+
+                }
                 m_unarySegmentationPot->SetAtlasImage(m_atlasImage);
                 m_unarySegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
+                m_pairwiseSegmentationPot->SetAtlasImage(m_atlasImage);
+                m_pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
+                if (m_config->atlasRGBImageFilename==""){
+                   
+                }else{
+                    m_unarySegmentationPot->SetAtlasImage(m_config->atlasRGBImageFilename);
+                    m_pairwiseSegmentationPot->SetRGBAtlasImage(m_config->atlasRGBImageFilename);
+                }
+
                 m_unarySegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
                 m_unarySegmentationPot->SetGradientScaling(m_config->pairwiseSegmentationWeight);
                 m_unarySegmentationPot->SetNSegmentationLabels(m_config->nSegmentations);
@@ -242,16 +263,20 @@ namespace itk{
                     m_unarySegmentationPot->SetTargetAnatomyPrior(this->GetInput(5));
                     m_unarySegmentationPot->SetUseTargetAnatomyPrior(m_config->useTargetAnatomyPrior);
                 }
+                if (m_config->segmentationUnaryProbFilename!=""){
+                    m_unarySegmentationPot->SetProbFile(m_config->segmentationUnaryProbFilename);
+                }
                 m_unarySegmentationPot->Init();
-                m_pairwiseSegmentationPot->SetTargetImage(m_targetImage);
-                m_pairwiseSegmentationPot->SetTargetGradient((ConstImagePointerType)m_targetGradientImage);
-                m_pairwiseSegmentationPot->SetAtlasImage(m_atlasImage);
-                m_pairwiseSegmentationPot->SetAtlasGradient((ConstImagePointerType)m_atlasGradientImage);
+            
                 m_pairwiseSegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
                 m_pairwiseSegmentationPot->SetNSegmentationLabels(m_config->nSegmentations);
+                m_pairwiseSegmentationPot->SetAlpha(m_config->alpha);
+                m_pairwiseSegmentationPot->SetTheta(m_config->theta);
+
                 m_pairwiseSegmentationPot->Init();//m_config->pairWiseProbsFilename,m_config->train);
                 m_pairwiseSegmentationPot->evalImage(m_targetImage,(ConstImagePointerType)m_targetGradientImage);
             }
+            logResetStage;
             
         }
         virtual void Update(){

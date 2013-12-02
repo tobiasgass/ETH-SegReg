@@ -71,7 +71,10 @@ public:
 	typedef typename ImageType::SizeType RegionSizeType;
 	typedef typename ImageType::RegionType RegionType;
 	typedef typename ImageType::OffsetType OffsetType;
+	typedef typename ImageType::PointType PointType;
+	typedef typename ImageType::DirectionType DirectionType;
 	typedef typename ImageType::SpacingType SpacingType;
+
     static const unsigned int D=ImageType::ImageDimension;
 
     typedef  itk::ContinuousIndex<double,D> ContinuousIndexType;
@@ -250,6 +253,17 @@ public:
 		img->Allocate();
 		return img;
 	};
+
+    static ImagePointerType createEmpty(RegionType region, PointType origin, SpacingType spacing, DirectionType dir) {
+		ImagePointerType img=ImageType::New();
+		img->SetRegions(region);
+        img->SetOrigin(origin);
+		img->SetSpacing(spacing);
+		img->SetDirection(dir);
+		img->Allocate();
+		return img;
+	};
+
 	static ImagePointerType createEmpty(ImagePointerType refImg) {
 		return createEmpty((ConstImagePointerType)refImg);
 	};

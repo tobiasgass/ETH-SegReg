@@ -862,7 +862,7 @@ public:
             }
         }
         pair<ImagePointerType,ImagePointerType> result=std::make_pair(deformed,mask);
-        LOGV(7)<<VAR(image->GetLargestPossibleRegion().GetSize())<<" "<<deformation->GetLargestPossibleRegion().GetSize()<<" "<<deformed->GetLargestPossibleRegion().GetSize()<<endl;
+        LOGV(10)<<VAR(image->GetLargestPossibleRegion().GetSize())<<" "<<deformation->GetLargestPossibleRegion().GetSize()<<" "<<deformed->GetLargestPossibleRegion().GetSize()<<endl;
         logResetStage;
         return result;
     }
