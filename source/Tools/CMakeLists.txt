@@ -71,7 +71,11 @@ TARGET_LINK_LIBRARIES(convertPointToIndex3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(CombineBinarySegmentations3D CombineBinarySegmentations3D.cxx )
 TARGET_LINK_LIBRARIES(CombineBinarySegmentations3D  Utils   ${ITK_LIBRARIES} )
 
+ADD_EXECUTABLE(FuseSegmentationMaxVote3D FuseSegmentationMaxVote3D.cxx )
+TARGET_LINK_LIBRARIES(FuseSegmentationMaxVote3D  Utils   ${ITK_LIBRARIES} )
 
+ADD_EXECUTABLE(FuseSegmentationWeightedMaxVote3D FuseSegmentationWeightedMaxVote3D.cxx )
+TARGET_LINK_LIBRARIES(FuseSegmentationWeightedMaxVote3D  Utils   ${ITK_LIBRARIES} )
 
 ADD_EXECUTABLE(CombineAffine3D CombineAffine3D.cxx )
 TARGET_LINK_LIBRARIES(CombineAffine3D  Utils   ${ITK_LIBRARIES}  )
@@ -109,6 +113,11 @@ TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationErrorTwoDef3D Utils   ${ITK_LIB
 ADD_EXECUTABLE(ComputeDeformationError2D ComputeDeformationError2D.cxx )
 TARGET_LINK_LIBRARIES(ComputeDeformationError2D Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(ComputeDeformationErrorGroup2D ComputeDeformationErrorGroup2D.cxx )
+TARGET_LINK_LIBRARIES(ComputeDeformationErrorGroup2D Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ComputeDeformationErrorGroup3D ComputeDeformationErrorGroup3D.cxx )
+TARGET_LINK_LIBRARIES(ComputeDeformationErrorGroup3D Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SubtractDeformations3D SubtractDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(SubtractDeformations3D Utils   ${ITK_LIBRARIES}  )
@@ -116,6 +125,11 @@ TARGET_LINK_LIBRARIES(SubtractDeformations3D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComputeDeformedGridImage2D ComputeDeformedGridImage2D.cxx )
 TARGET_LINK_LIBRARIES(ComputeDeformedGridImage2D Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(ComputeDeformationStatistics3D ComputeDeformationStatistics3D.cxx )
+TARGET_LINK_LIBRARIES(ComputeDeformationStatistics3D Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ComputeDeformationStatistics2D ComputeDeformationStatistics2D.cxx )
+TARGET_LINK_LIBRARIES(ComputeDeformationStatistics2D Utils   ${ITK_LIBRARIES}  )
 #Compare images
 
 ADD_EXECUTABLE(CompareImages2D CompareImages2D.cxx )
@@ -124,6 +138,8 @@ TARGET_LINK_LIBRARIES(CompareImages2D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(CompareImagesAutoTransform2D CompareImagesAutoTransform2D.cxx )
 TARGET_LINK_LIBRARIES(CompareImagesAutoTransform2D Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(GetImageMinMax3D GetImageMinMax3D.cxx )
+TARGET_LINK_LIBRARIES(GetImageMinMax3D Utils   ${ITK_LIBRARIES}  )
 
 #registration
 ADD_EXECUTABLE(GradientDescentRegistration2D GradientDescentRegistration2D.cxx )
@@ -158,3 +174,12 @@ TARGET_LINK_LIBRARIES(ConvertRGBImageToITK3D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(CreateHumerusSegmentationMask CreateHumerusSegmentationMask.cxx )
 TARGET_LINK_LIBRARIES(CreateHumerusSegmentationMask  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ResampleImage3D ResampleImage3D.cxx )
+TARGET_LINK_LIBRARIES(ResampleImage3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ResampleImage2D ResampleImage2D.cxx )
+TARGET_LINK_LIBRARIES(ResampleImage2D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(CastShortToUchar2D CastShortToUchar2D.cxx )
+TARGET_LINK_LIBRARIES(CastShortToUchar2D  Utils   ${ITK_LIBRARIES}  )

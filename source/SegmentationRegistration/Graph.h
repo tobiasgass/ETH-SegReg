@@ -248,6 +248,7 @@ namespace itk{
             double minSpacing=m_imageSpacing[minDim]*(m_imageSize[minDim]-1)/(shortestN-1);
             minSpacing=minSpacing>=1?minSpacing:1.0;
             LOGV(8)<<"spacing for resampling this edge to "<<shortestN<<" pixels :"<<minSpacing<<endl;
+
             //calculate spacing and size for all image dimensions using
             for (int d=0;d<ImageType::ImageDimension;++d){
 

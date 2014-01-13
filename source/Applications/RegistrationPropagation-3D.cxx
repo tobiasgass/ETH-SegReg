@@ -1,16 +1,15 @@
 #include <stdio.h>
 #include <iostream>
-#include "Registration-Propagation-Modular.h"
-#include "Registration-UpdateResidual.h"
-#include "Registration-circles.h"
-#include "Registration-Propagation-Indirect.h"
+//#include "Registration-Propagation-Modular.h"
+//#include "Registration-UpdateResidual.h"
+//#include "Registration-circles.h"
+//#include "Registration-Propagation-Indirect.h"
 //#include "Registration-Propagation-Indirect-Statismo.h"
-#include "Registration-Propagation-Indirect-CircleWeighting.h"
+//#include "Registration-Propagation-Indirect-CircleWeighting.h"
 //#include "Registration-Propagation-LocalSim.h"
 #include "Registration-Propagation-MRF.h"
-#include "MRFRegistrationFuser.h"
 
-using namespace std;
+//using namespace std;
 
 
 
@@ -21,8 +20,8 @@ int main(int argc, char ** argv)
     typedef itk::Image<PixelType,D> ImageType;
     //RegistrationUpdateResidual<ImageType> net;
     //RegistrationPropagationModular<ImageType> net;
-    //RegistrationPropagationLocalSim<ImageType> net;
-    RegistrationPropagationLocalSim<ImageType,MRFRegistrationFuser<ImageType> > net;
+    RegistrationPropagationMRF<ImageType> net;
+    //RegistrationPropagationLocalSim<ImageType > net;
     //RegistrationPropagationIndirect<ImageType> net;
     //RegistrationPropagationIndirectCircleWeight<ImageType> net;
     //RegistrationPropagationIndirectStatismo<ImageType> net;

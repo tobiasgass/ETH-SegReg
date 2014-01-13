@@ -322,6 +322,52 @@ public:
     static OutputImagePointer NNResample( InputImagePointer input,  double scale,bool smooth) {
         return LinearResample((ConstInputImagePointer)input,scale,smooth,true);
     }
+
+
+    //resamp
+     static OutputImagePointer EmptyResample( InputImagePointer input,  double scale) {
+
+         typename InputImage::SpacingType spacing,inputSpacing;
+         typename InputImage::SizeType size,inputSize;
+         typename InputImage::PointType origin,inputOrigin;
+         typename InputImage::RegionType region;;
+         inputOrigin=input->GetOrigin();
+         inputSize=input->GetLargestPossibleRegion().GetSize();
+         inputSpacing=input->GetSpacing();
+         double minSpacing=std::numeric_limits<double>::max();
+         for (uint d=0;d<InputImage::ImageDimension;++d){
+             if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
+         }
+         double newSpacing=minSpacing/scale;
+         LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
+         for (uint d=0;d<InputImage::ImageDimension;++d){
+             //determine new spacing
+             //never increase resolution!
+             if (scale>1.0){
+                 spacing[d]=newSpacing;
+             }else{
+                 spacing[d]=max(inputSpacing[d],newSpacing);
+             }
+             //calculate new image size
+             size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
+             //finalize spacing as a function of the new size
+             spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
+             
+             origin[d]=inputOrigin[d];
+         }
+
+         OutputImagePointer result=OutputImage::New();
+         result->SetOrigin(origin);
+         result->SetSpacing(spacing);
+         result->SetDirection(input->GetDirection());
+         region.SetSize(size);
+         result->SetRegions(region);
+         return result;
+         
+    }
+
+
+
     static OutputImagePointer NNResample( ConstInputImagePointer input,  ConstInputImagePointer reference, bool smooth) {
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();  

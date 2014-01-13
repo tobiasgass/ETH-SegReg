@@ -168,6 +168,7 @@ namespace itk{
                             ThresholdImageFilterType;
                         typename ThresholdImageFilterType::Pointer thresholdFilter
                             = ThresholdImageFilterType::New();
+                        thresholdFilter->SetInPlace(false);
                         thresholdFilter->SetInput(dt1);
                         thresholdFilter->ThresholdBelow(0);
                         thresholdFilter->SetOutsideValue(0 );
@@ -307,6 +308,7 @@ namespace itk{
 
             if (auxiliarySegmentation){
                 result=min(result,1.0);
+                LOGV(16)<<VAR(result)<<endl;
             }
             result=0.5*result*result;//exp(result)-1;
            

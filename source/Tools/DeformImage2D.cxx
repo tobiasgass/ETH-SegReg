@@ -34,10 +34,12 @@ int main(int argc, char ** argv)
     argstream * as=new argstream(argc,argv);
     string moving,target="",def,output;
     bool NN=false;
+    int nFrames=1;
     (*as) >> parameter ("moving", moving, " filename of moving image", true);
     (*as) >> parameter ("target", target, " filename of target image", false);
     (*as) >> parameter ("def", def, " filename of deformation", true);
     (*as) >> parameter ("out", output, " output filename", true);
+    (*as) >> parameter ("nFrames", nFrames, "number of frames :)", false);
     (*as) >> option ("NN", NN," use NN interpolation");
     (*as) >> help();
     as->defaultErrorHandling();
@@ -49,14 +51,33 @@ int main(int argc, char ** argv)
         deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,ref);
     }
   
+    if (nFrames==1){
+        if (NN){
+            LOG<<"Performing NN interpolation"<<endl;
+            ImageUtils<ImageType>::writeImage(output, (TransfUtils<ImageType,Displacement>::warpImage(image,deformation,true) ));
+        }
+        else{
+            LOG<<"Performing linear interpolation"<<endl;
+            ImageUtils<ImageType>::writeImage(output,  TransfUtils<ImageType,Displacement>::warpImage(image,deformation) );
+        }
+    }else{
+        for (int i=0;i<nFrames;++i){
+            double fraction=1.0*i/nFrames;
+            LabelImagePointerType fracDef=TransfUtils<ImageType>::multiplyOutOfPlace(deformation,fraction);
+            ostringstream oss;
+            oss<<output<<"-frame-"<<i<<"-of-"<<nFrames<<".png";
+            if (NN){
+                //LOG<<"Performing NN interpolation"<<endl;
+                ImageUtils<ImageType>::writeImage(oss.str(), (TransfUtils<ImageType,Displacement>::warpImage(image,fracDef,true) ));
+            }
+            else{
+                //LOG<<"Performing linear interpolation"<<endl;
+                ImageUtils<ImageType>::writeImage(oss.str(),  TransfUtils<ImageType,Displacement>::warpImage(image,fracDef) );
+            }
+            
 
-    if (NN){
-        LOG<<"Performing NN interpolation"<<endl;
-        ImageUtils<ImageType>::writeImage(output, (TransfUtils<ImageType,Displacement>::warpImage(image,deformation,true) ));
-    }
-    else{
-        LOG<<"Performing linear interpolation"<<endl;
-        ImageUtils<ImageType>::writeImage(output,  TransfUtils<ImageType,Displacement>::warpImage(image,deformation) );
+        }
+
     }
 
 	return 1;

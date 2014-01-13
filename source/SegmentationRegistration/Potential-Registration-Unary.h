@@ -1538,7 +1538,7 @@ namespace itk{
                     double weight=1.0-(centerPoint-neighborPoint).GetNorm()/maxNorm;
                     sum+=weight*fabs(f-m)*fabs(f-m);
                     count+=weight;
-                }else  if (this->m_noOutSidePolicy &&( inside && ! inBounds )){
+                }else  if (this->m_noOutSidePolicy &&( !inside && inBounds )){
                     return 1e10;
                 } 
             }

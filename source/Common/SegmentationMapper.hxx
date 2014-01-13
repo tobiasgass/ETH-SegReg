@@ -9,7 +9,7 @@ class SegmentationMapper{
 public:
     
     typedef typename ImageType::Pointer ImagePointerType;
-    typedef  boost::bimap<int,int> MapType;
+    typedef boost::bimap<int,int> MapType;
     typedef MapType::value_type MapValueType;
     typedef typename ImageUtils<ImageType>::ImageIteratorType ImageIteratorType;
 private:
@@ -49,9 +49,11 @@ public:
         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++ resultIt){
             int l=resultIt.Get();
             if (m_map.left.find(l)==m_map.left.end()){
-                LOG<<"could not find map for label "<<l<<endl;
+                LOGV(4)<<"could not find map for label "<<l<<endl;
+                resultIt.Set(0);
+            }else{
+                resultIt.Set(m_map.left.find(l)->second);
             }
-            resultIt.Set(m_map.left.find(l)->second);
         }
         LOG<<"Found "<<m_nLabels<<" segmentation labels."<<std::endl;
         return result;
@@ -65,11 +67,12 @@ public:
         ImageIteratorType resultIt(result,input->GetLargestPossibleRegion());
         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++ resultIt){
             int l=resultIt.Get();
-            if (m_map.left.find(l)==m_map.left.end()){
-                LOG<<"could not find map for label "<<l<<endl;
-            }
-            resultIt.Set(m_map.left.find(l)->second);
-        }
+             if (m_map.left.find(l)==m_map.left.end()){
+                LOGV(4)<<"could not find map for label "<<l<<endl;
+                resultIt.Set(0);
+            }else{
+                resultIt.Set(m_map.left.find(l)->second);
+            }        }
         return result;
     }
 
@@ -86,13 +89,15 @@ public:
         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++ resultIt){
             int l=resultIt.Get();
             if (m_map.right.find(l)==m_map.right.end()){
-                LOG<<"could not find map for label "<<l<<endl;
+                LOGV(3)<<"could not find map for label "<<l<<endl;
+                resultIt.Set(0);
+            }else{
+                resultIt.Set(m_map.right.find(l)->second);
             }
-            resultIt.Set(m_map.right.find(l)->second);
         }
            return result;
 
     }
-
+    int getNumberOfLabels(){return m_nLabels;}
 
 };//class SegmentationMapper

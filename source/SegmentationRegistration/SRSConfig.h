@@ -64,6 +64,8 @@ public:
     bool cachePotentials;
     double segDistThresh;
     double theta;
+    bool linearDeformationInterpolation;
+    bool histNorm;
 private:
 	argstream * as;
 public:
@@ -131,6 +133,8 @@ public:
         atlasRGBImageFilename="";
         segmentationUnaryProbFilename="";
         theta=0;
+        linearDeformationInterpolation=false;
+        histNorm=false;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -296,6 +300,8 @@ public:
 
         (*as) >> option ("evalContinuously",evalContinuously ,"evaluate optimization at each step. slower, but also returns actual energy and changes in labellings during each iteration.");
         (*as) >> option ("GCO",GCO ,"Use (alpha expansion) graph cuts instead of TRW-S for optimization.");
+        (*as) >> option ("linearDeformationInterpolation",linearDeformationInterpolation ,"Use linear interpolation for deformation field upsampling.");
+        (*as) >> option ("histNorm",histNorm ,"Use histogram normalization to adapt the atlas intensity distribution to the target.");
          
         (*as) >> parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
         (*as) >> parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);

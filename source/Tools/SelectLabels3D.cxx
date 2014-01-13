@@ -45,9 +45,13 @@ int main(int argc, char * argv [])
 	string segmentationFilename,outputFilename="";
     int verbose=0;
     string labelList="";
+    int targetLabel=-1;
+    bool binary=false;
 	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
 	as >> parameter ("o", outputFilename, "output image (file name)", true);
 	as >> parameter ("labelList", labelList, "list of labels to evaluate", false);
+	as >> parameter ("label", targetLabel, "labels to evaluate", false);
+	as >> option ("bin", binary, "compute binary labelling");
 	as >> parameter ("v", verbose, "verbosity level", false);
 
 	as >> help();
@@ -59,6 +63,7 @@ int main(int argc, char * argv [])
         ImageUtils<LabelImage>::readImage(segmentationFilename);
 
     std::vector<int> listOfLabels;
+    if (labelList!=""){
     ifstream ifs(labelList.c_str());
     int old=-1;
     do{
@@ -72,17 +77,23 @@ int main(int argc, char * argv [])
         LOGV(1)<<" "<<VAR(tmp)<<endl;
     } while (!ifs.eof());
     ifs.close();
-
+    }
     LabelImagePointerType result=ImageUtils<LabelImage>::createEmpty(segmentedImg);
     typedef itk::ImageRegionIterator<LabelImage> IteratorType;
     IteratorType it1(segmentedImg,segmentedImg->GetLargestPossibleRegion());
     IteratorType it2(result,segmentedImg->GetLargestPossibleRegion());
     for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2){
         int label=it1.Get();
-        //set label to zero if not in list; requires ordererd list of labels
-        if ( ! binary_search(listOfLabels.begin(), listOfLabels.end(), label) ){
-            label=0;
+        if (labelList !=""){
+            //set label to zero if not in list; requires ordererd list of labels
+            if ( ! binary_search(listOfLabels.begin(), listOfLabels.end(), label) ){
+                label=0;
+            }
+        }else{
+            label=label*(label==targetLabel);
         }
+        if (binary)
+            label=label!=0;
         it2.Set(label);
     }
     

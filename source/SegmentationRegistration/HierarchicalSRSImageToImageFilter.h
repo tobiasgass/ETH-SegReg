@@ -242,7 +242,7 @@ namespace itk{
                   
                 }else{
                     m_unarySegmentationPot->SetTargetImage(m_config->targetRGBImageFilename);
-                    m_pairwiseSegmentationPot->SetRGBTargetImage(m_config->targetRGBImageFilename);
+                    //m_pairwiseSegmentationPot->SetRGBTargetImage(m_config->targetRGBImageFilename);
 
                 }
                 m_unarySegmentationPot->SetAtlasImage(m_atlasImage);
@@ -253,7 +253,7 @@ namespace itk{
                    
                 }else{
                     m_unarySegmentationPot->SetAtlasImage(m_config->atlasRGBImageFilename);
-                    m_pairwiseSegmentationPot->SetRGBAtlasImage(m_config->atlasRGBImageFilename);
+                    //m_pairwiseSegmentationPot->SetRGBAtlasImage(m_config->atlasRGBImageFilename);
                 }
 
                 m_unarySegmentationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
@@ -280,7 +280,7 @@ namespace itk{
             
         }
         virtual void Update(){
-            bool bSpline=true;
+            bool bSpline=!m_config->linearDeformationInterpolation;
             bool coherence= (m_config->coherence);
             bool segment=m_config->segment;
             bool regist= m_config->regist;

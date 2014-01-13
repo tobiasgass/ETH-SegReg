@@ -382,20 +382,22 @@ public:
         filter->UpdateLargestPossibleRegion();
         InternalImagePointer i1SquareBar=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
         LOGI(8,ImageUtils<InternalImage>::writeImage("i1SquareBar.mha",i1SquareBar));
+        i1Square=NULL;
        
         filter->SetInput(i2Square);
         filter->UpdateLargestPossibleRegion();
         InternalImagePointer i2SquareBar=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
         //FilterUtils<InternalImage,InternalImage>::lowerThresholding(i2SquareBar,0);
         LOGI(8,ImageUtils<InternalImage>::writeImage("i2SquareBar.mha",i2SquareBar));
-
+        i2Square=NULL;
         //compute squares of local means
         InternalImagePointer i1BarSquare=ImageUtils<InternalImage>::localSquare(i1Bar);
         InternalImagePointer i2BarSquare=ImageUtils<InternalImage>::localSquare(i2Bar);
         //multiply i1 and i2 locally
         InternalImagePointer i1i2=ImageUtils<InternalImage>::multiplyImageOutOfPlace(i1Cast,i2Cast);
         LOGI(8,ImageUtils<InternalImage>::writeImage("i1i2.mha",i1i2));
-
+        i1Cast=NULL;
+        i2Cast=NULL;
         LOGI(8,ImageUtils<InternalImage>::writeImage("i1BarSquare.mha",i1BarSquare));
         LOGI(8,ImageUtils<InternalImage>::writeImage("i2BarSquare.mha",i2BarSquare));
 
@@ -405,6 +407,7 @@ public:
         filter->UpdateLargestPossibleRegion();
         InternalImagePointer i1Timesi2Bar=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
         LOGI(8,ImageUtils<InternalImage>::writeImage("i1Timesi2Bar.mha",i1Timesi2Bar));
+        i1i2=NULL;
 
         //finish
         InternalImagePointer result=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 

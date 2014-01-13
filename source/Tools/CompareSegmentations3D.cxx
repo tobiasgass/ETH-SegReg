@@ -20,7 +20,7 @@
 using namespace std;
 
 const unsigned int D=3;
-typedef short Label;
+typedef int Label;
 typedef itk::Image< Label, D >  LabelImage;
 typedef itk::Image< float, D > TRealImage;
 typedef  LabelImage::Pointer LabelImagePointerType;
@@ -57,7 +57,7 @@ int main(int argc, char * argv [])
     double threshold=1;
     int evalLabel=1;
     bool connectedComponent=false;
-    int labelsToEvaluate=1;
+    int labelsToEvaluate=-1;
     int verbose=0;
     string labelList="";
     bool evalAll=false;
@@ -145,6 +145,9 @@ int main(int argc, char * argv [])
     int sum = 0;
     unsigned totalEdges = 0;
     float mean=0;
+    if (labelsToEvaluate<0 && (labelList == "")){
+        labelsToEvaluate=segmentationMapper.getNumberOfLabels()-1;
+    }
     for (int l=0;l<labelsToEvaluate;++l){
         if (listOfLabels.size()){
             evalLabel=listOfLabels[l];
@@ -210,6 +213,7 @@ int main(int argc, char * argv [])
             std::cout<<" Mean "<< mean;
             std::cout<<" MaxAbs "<< maxAbsDistance<<" ";
         }
+        std::cout<<endl;
         //std::cout<<endl;
         ++evalLabel;
     }

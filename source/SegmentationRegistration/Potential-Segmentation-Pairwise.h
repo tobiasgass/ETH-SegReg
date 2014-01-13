@@ -68,6 +68,9 @@ namespace itk{
                 LOG<<"warning, trying to load RGB iamge in unsuitable pairwise segmentation function!"<<endl;
             }
         }
+        virtual void SetRGBTargetImage(string filename){ if (filename!="") LOG<<"Warning, call does nothing!"<<endl;}
+        virtual void SetRGBAtlasImage(string filename){if (filename!="") LOG<<"Warning, call does nothing!"<<endl;}
+
         void SetAlpha(double a){m_alpha=a;}
         void SetTheta(double a){m_theta=a;}
         void SetNSegmentationLabels(int n){m_nSegmentationLabels=2;}

@@ -27,11 +27,13 @@
 #include <itkAddImageFilter.h>
 #include "Metrics.h"
 #include "itkLabelOverlapMeasuresImageFilter.h"
+#include "MRFRegistrationFuser.h"
+#include <itkDisplacementFieldJacobianDeterminantFilter.h>
 
 using namespace std;
 
-template <class ImageType, class RegistrationFuserType>
-class RegistrationPropagationLocalSim{
+template <class ImageType>
+class RegistrationPropagationMRF{
 public:
     typedef typename ImageType::PixelType PixelType;
     static const unsigned int D=ImageType::ImageDimension;
@@ -53,6 +55,8 @@ public:
     typedef typename  itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
     typedef   ImageNeighborhoodIteratorType * ImageNeighborhoodIteratorPointerType;
     typedef typename  ImageNeighborhoodIteratorType::RadiusType RadiusType;
+
+    typedef MRFRegistrationFuser<ImageType> RegistrationFuserType;
 
     typedef typename itk::AddImageFilter<DeformationFieldType,DeformationFieldType,DeformationFieldType> DeformationAddFilterType;
     typedef map<string,ImagePointerType> ImageCacheType;
@@ -84,7 +88,11 @@ public:
         double m_pairwiseWeight=1.0;
         bool useHardConstraints=false;
         bool m_refineSolution=false;
+        bool estimateMRF=false,estimateMean=false;
+        int refineIter=0;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+        (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
+        (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images", true);
         (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -96,10 +104,10 @@ public:
         (*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
         (*as) >> parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
         (*as) >> option ("hardConstraints", useHardConstraints,"Use hard constraints in the MRF to prevent folding.");
-        (*as) >> option ("refine", m_refineSolution,"refine MRF solution by adding the result as new labels to the MRF and re-solving until convergence.");
+        (*as) >> parameter ("refineIter", refineIter,"refine MRF solution by adding the result as new labels to the MRF and re-solving until convergence.",false);
         (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
         (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-        (*as) >> parameter ("alpha", alpha,"update rate",false);
+        (*as) >> parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
         (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file>", false);
         (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);       
@@ -109,7 +117,13 @@ public:
         (*as) >> help();
         as->defaultErrorHandling();
        
-
+        if (!estimateMRF && !estimateMean){
+            LOG<<"Neither MRF nor mean estimation activated, assuming MRF estimation is desired!"<<endl;
+            LOG<<"Neither MRF nor mean estimation activated, assuming MRF estimation is desired!"<<endl;
+            LOG<<"Neither MRF nor mean estimation activated, assuming MRF estimation is desired!"<<endl;
+            //estimateMRF=true;
+        }
+        LOG<<VAR(estimateMRF)<<" "<<VAR(estimateMean)<<endl;
         for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
 
         mkdir(outputDir.c_str(),0755);
@@ -279,6 +293,9 @@ public:
             double m_TRE=0.0;
             double m_energy=0.0;
             double m_similarity=0.0;
+            double m_averageMinJac=0;
+            double m_minMinJacobian=100000000;
+
             for (ImageListIteratorType sourceImageIterator=inputImages.begin();sourceImageIterator!=inputImages.end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
@@ -286,106 +303,166 @@ public:
                     string targetID= targetImageIterator->first;
                     if (targetID !=sourceID){
                         ++count;
-
-                        RegistrationFuserType estimator;
-                        estimator.setPairwiseWeight(m_pairwiseWeight);
-                        estimator.setGridSpacing(controlGridSpacingFactor);
-                        estimator.setHardConstraints(useHardConstraints);
+                        DeformationFieldPointerType result;
                         DeformationFieldPointerType deformationSourceTarget;
                         deformationSourceTarget = deformationCache[sourceID][targetID];
-                        
-                        if (radius>0){
-                            ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,deformationSourceTarget);
-                            FloatImagePointerType metric=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                            FilterUtils<FloatImageType>::lowerThresholding(metric,0.0001);
-                            estimator.addImage(deformationSourceTarget,metric);
-                        }else{
-                            estimator.addImage(deformationSourceTarget);
-                        }
-                        for (ImageListIteratorType intermediateImageIterator=inputImages.begin();intermediateImageIterator!=inputImages.end();++intermediateImageIterator){                //iterate over intermediates
-                            string intermediateID= intermediateImageIterator->first;
-                            if (targetID != intermediateID && sourceID!=intermediateID){
-                                //get all deformations for full circle
-                                DeformationFieldPointerType deformationSourceIntermed;
-                                deformationSourceIntermed = deformationCache[sourceID][intermediateID];
-                                DeformationFieldPointerType deformationIntermedTarget;
-                                deformationIntermedTarget = deformationCache[intermediateID][targetID];
-                                LOGV(3)<<"Adding "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
-                                DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
-                                if (radius>0){
-                                    ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,indirectDef);
-                                    FloatImagePointerType metricImage;
-                                    switch(metric){
-                                    case NCC:
-                                        metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                        break;
-                                    case MSD:
-                                        metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                        break;
-                                    case MAD:
-                                        metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                        break;
-                                    default:
-                                        metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                        if (estimateMRF || estimateMean){
 
-                                    }
-                                    FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
-                                    estimator.addImage(indirectDef,metricImage);
-                                }else{
-                                    estimator.addImage(indirectDef);
-                                }
-
-
-                            }//if
-                        }//intermediate image
-                        ImagePointerType labelImage;
-                        double energy=estimator.finalize(labelImage);
-                        DeformationFieldPointerType result=estimator.getMean();
-                        if (m_refineSolution){
-                            LOGV(1)<<VAR(energy)<<endl;
-                            for (int iter=0;iter<10;++iter){
-                                ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,result);
-                                FloatImagePointerType metricImage;
-                                switch(metric){
-                                case NCC:
-                                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                    break;
-                                case MSD:
-                                    metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                    break;
-                                case MAD:
-                                    metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                    break;
-                                default:
-                                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
-                                }
-                                FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
-                                estimator.addImage(result,metricImage);
-                                double newEnergy=estimator.finalize(labelImage);
-                                if (newEnergy >energy )
-                                    break;
-                                result=estimator.getMean();
-                                LOGV(1)<<VAR(iter)<<" "<<VAR(energy)<<" "<<(energy-newEnergy)/energy<<endl;
-                                if ( (energy-newEnergy)/energy < 1e-2) {
-                                    LOGV(1)<<"refinement converged, stopping."<<endl;
-                                    break;
-                                }
-                                energy=newEnergy;
+                            RegistrationFuserType estimator;
+                            estimator.setAlpha(alpha);
+                            estimator.setPairwiseWeight(m_pairwiseWeight);
+                            estimator.setGridSpacing(controlGridSpacingFactor);
+                            estimator.setHardConstraints(useHardConstraints);
+                       
+                            GaussianEstimatorVectorImage<ImageType> meanEstimator;
+                            if (radius>0){
+                                ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,deformationSourceTarget);
+                                FloatImagePointerType metric=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                FilterUtils<FloatImageType>::lowerThresholding(metric,0.0001);
+                                if (estimateMRF)
+                                    estimator.addImage(deformationSourceTarget,metric);
+                                if (estimateMean)
+                                    meanEstimator.addImage(deformationSourceTarget,metric);
+                            }else{
+                                if (estimateMRF)
+                                    estimator.addImage(deformationSourceTarget);
+                                if (estimateMean)
+                                    meanEstimator.addImage(deformationSourceTarget);
 
                             }
-                        }
-                        m_energy+=energy;
-                        if (outputDir!=""){
-                            ostringstream oss;
-                            oss<<outputDir<<"/avgDeformation-"<<sourceID<<"-TO-"<<targetID<<".mha";
-                            ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
+                            for (ImageListIteratorType intermediateImageIterator=inputImages.begin();intermediateImageIterator!=inputImages.end();++intermediateImageIterator){                //iterate over intermediates
+                                string intermediateID= intermediateImageIterator->first;
+                                if (targetID != intermediateID && sourceID!=intermediateID){
+                                    //get all deformations for full circle
+                                    DeformationFieldPointerType deformationSourceIntermed;
+                                    deformationSourceIntermed = deformationCache[sourceID][intermediateID];
+                                    DeformationFieldPointerType deformationIntermedTarget;
+                                    deformationIntermedTarget = deformationCache[intermediateID][targetID];
+                                    LOGV(3)<<"Adding "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
+                                    DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
+                                    if (radius>0){
+                                        ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,indirectDef);
+                                        FloatImagePointerType metricImage;
+                                        switch(metric){
+                                        case NCC:
+                                            metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        case MSD:
+                                            metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        case MAD:
+                                            metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        default:
+                                            metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
 
-                            ostringstream oss2;
-                            oss2<<outputDir<<"/labelImage-"<<sourceID<<"-TO-"<<targetID<<".nii";
-                            ImageUtils<ImageType>::writeImage(oss2.str(),labelImage);
+                                        }
+                                        FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
+                                        if (estimateMRF)
+                                            estimator.addImage(indirectDef,metricImage);
+                                        if (estimateMean)
+                                            meanEstimator.addImage(indirectDef,metricImage);
+                                    }else{
+                                        if (estimateMRF)
+                                            estimator.addImage(indirectDef);
+                                        if (estimateMean)
+                                            meanEstimator.addImage(indirectDef);
+                                    }
 
-                        }
+
+                                }//if
+                            }//intermediate image
+                            ImagePointerType labelImage;
                             
+                            if (estimateMean)
+                                meanEstimator.finalize();
+
+                            if (! estimateMRF){
+                                DeformationFieldPointerType meanDef=meanEstimator.getMean();
+                                result=meanDef;
+                            }else{
+
+                                if (estimateMean){
+                                    DeformationFieldPointerType meanDef=meanEstimator.getMean();
+                                    if (radius>0){
+                                        ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,meanDef);
+                                        FloatImagePointerType metricImage;
+                                        switch(metric){
+                                        case NCC:
+                                            metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        case MSD:
+                                            metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        case MAD:
+                                            metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        default:
+                                            metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                    
+                                        }
+                                        FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
+                                        estimator.addImage(meanDef,metricImage);
+                                    }else{
+                                        estimator.addImage(meanDef);
+                                    }
+                                }
+                                
+                        
+                                double energy=estimator.finalize(labelImage);
+                                result=estimator.getMean();
+                                LOGV(1)<<VAR(energy)<<endl;
+                                for (int iter=0;iter<refineIter;++iter){
+                                    //estimator.setAlpha(pow(2.0,1.0*iter)*alpha);
+
+                                        ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,result);
+                                        FloatImagePointerType metricImage;
+                                        switch(metric){
+                                        case NCC:
+                                            metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        case MSD:
+                                            metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        case MAD:
+                                            metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                            break;
+                                        default:
+                                            metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImageIterator->second,radius,m_sigma);
+                                        }
+                                        FilterUtils<FloatImageType>::lowerThresholding(metricImage,0.0001);
+                                        estimator.addImage(result,metricImage);
+                                        double newEnergy=estimator.finalize(labelImage);
+                                        LOGV(1)<<VAR(iter)<<" "<<VAR(newEnergy)<<" "<<(energy-newEnergy)/energy<<endl;
+                                        if (newEnergy >energy )
+                                            break;
+                                        result=estimator.getMean();
+                                        if ( (energy-newEnergy)/energy < 1e-4) {
+                                            LOGV(1)<<"refinement converged, stopping."<<endl;
+                                            break;
+                                        }
+                                        energy=newEnergy;
+
+                                    }
+                                estimator.setAlpha(alpha);
+
+                                m_energy+=energy;
+                            }
+                            if (outputDir!=""){
+                                ostringstream oss;
+                                oss<<outputDir<<"/avgDeformation-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                                ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
+
+                                ostringstream oss2;
+                                oss2<<outputDir<<"/labelImage-"<<sourceID<<"-TO-"<<targetID<<".nii";
+                                ImageUtils<ImageType>::writeImage(oss2.str(),labelImage);
+
+                            }
+                        }else{
+                            result=deformationSourceTarget;
+                        }//if (estimateMean || estimateMRF)
+
+
                         TMPdeformationCache[sourceID][targetID]=result;
 
                         // compare landmarks
@@ -422,7 +499,19 @@ public:
                         }
                         m_similarity+=similarity;
                         //create mask of valid deformation region
-
+                        
+                        typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;
+                        typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+                        jacobianFilter->SetInput(result);
+                        jacobianFilter->SetUseImageSpacingOff();
+                        jacobianFilter->Update();
+                        FloatImagePointerType jac=jacobianFilter->GetOutput();
+                        double minJac = FilterUtils<FloatImageType>::getMin(jac);
+                        //LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<< " " << VAR(minJac) <<" " <<VAR(nCC)<<endl;
+                        m_averageMinJac+=minJac;
+                        if (minJac<m_minMinJacobian){
+                            m_minMinJacobian=minJac;
+                        }
                         
                     }//if
 
@@ -434,13 +523,14 @@ public:
             m_TRE/=count;
             m_energy/=count;
             m_similarity/=count;
+            m_averageMinJac/=count;
             error=TransfUtils<ImageType>::computeError(&TMPdeformationCache,&trueDeformations,&imageIDs);
             //inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
-            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_energy)<<" "<<VAR(m_similarity)<<endl;
+            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_energy)<<" "<<VAR(m_similarity)<<" "<<VAR(m_averageMinJac)<<" "<<VAR(m_minMinJacobian)<<endl;
             if (m_similarity>m_oldSimilarity){
                 LOG<<"Similarity increased, stopping and returning previous estimate."<<endl;
                 break;
-            }else if ( (m_oldSimilarity-m_similarity)/m_oldSimilarity < 1e-2) { //else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
+            }else if ( fabs((m_oldSimilarity-m_similarity)/m_oldSimilarity) < 1e-3) { //else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
                 LOG<<"Optimization converged, stopping."<<endl;
                 deformationCache=TMPdeformationCache;
                 break;

@@ -67,12 +67,13 @@ int main(int argc, char ** argv)
     //pairwise segmentation potential choices
 
     //    typedef UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
+    typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
-    typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    //typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
     //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
-    
+    typedef PairwisePotentialSegmentationContrastWithGradient<ImageType> SegmentationPairwisePotentialType;
+
     //registration unary potential
     typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -81,6 +82,7 @@ int main(int argc, char ** argv)
 
     //Registration pairwise potential
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
+    //typedef PairwisePotentialRegistrationL1< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     //Coherence potential
     typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;

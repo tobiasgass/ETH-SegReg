@@ -229,6 +229,71 @@ namespace itk{
             return 1.0/(1+exp(-result));
         }
     };//class
+ template<class TLabelMapper,class TImage>
+    class PairwisePotentialRegistrationL1 : public PairwisePotentialRegistration<TLabelMapper,TImage>{
+    public:
+        //itk declarations
+        typedef PairwisePotentialRegistrationL1            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        static const unsigned int D=ImageType::ImageDimension;
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::PointType PointType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+  
+        
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(RegistrationPairwisePotentialSigmoid, Object);
+
+   
+        
+     virtual inline double getPotential(PointType pt1, PointType pt2,LabelType displacement1, LabelType displacement2){
+
+            double result=0;
+            IndexType targetIndex1, targetIndex2;
+            //LOGV(50)<<VAR(targetIndex1)<<endl;            
+            this->m_baseLabelMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
+            //LOGV(50)<<VAR(targetIndex1)<<endl;            
+            this->m_baseLabelMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
+            //LOG<<VAR(targetIndex1)<<" "<<this->m_baseLabelMap->GetLargestPossibleRegion().GetSize()<<endl;
+			LabelType oldl1=this->m_baseLabelMap->GetPixel((targetIndex1));
+			LabelType oldl2=this->m_baseLabelMap->GetPixel((targetIndex2));
+			double d1,d2;
+			//double delta;
+            //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
+            //LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
+            if (this->m_fullRegPairwise){
+                displacement1+=oldl1;
+                displacement2+=oldl2;
+            }
+            
+            LabelType diff=displacement1-displacement2;
+
+            result=0.0;
+            for (unsigned int d=0;d<D;++d){
+                result+=fabs(diff[d]);
+            }
+          
+            if (this->m_threshold<numeric_limits<double>::max()){
+                result=min(this->m_maxDist*this->m_threshold,(result));
+            }
+            return (result);
+        }
+    };//class
 
     template<class TLabelMapper,class TImage>
     class PairwisePotentialRegistrationACP : public PairwisePotentialRegistration<TLabelMapper,TImage>{

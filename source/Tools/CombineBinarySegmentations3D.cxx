@@ -37,14 +37,13 @@ int main(int argc, char ** argv)
     
     GaussianEstimatorScalarImage<ImageType> accumulator;
     int label=atoi(argv[2]);
-    ImagePointerType img = ImageUtils<ImageType>::readImage(argv[3]);
-
+    ImagePointerType img = FilterUtils<ImageType>::binaryThresholdingLow(ImageUtils<ImageType>::readImage(argv[3]),1);
     ImageUtils<ImageType>::multiplyImage(img,label);
     ImageUtils<ImageType>::ImageIteratorType it1(img,img->GetRequestedRegion());
     for (int i=4;i<argc;i+=2){
         label=atoi(argv[i]);
         ImagePointerType img2 = ImageUtils<ImageType>::readImage(argv[i+1]);
-        ImageUtils<ImageType>::multiplyImage(img2,label);
+        //ImageUtils<ImageType>::multiplyImage(img2,label);
         ImageUtils<ImageType>::ImageIteratorType it2(img2,img2->GetRequestedRegion());
         it1.GoToBegin();it2.GoToBegin();
         for (;!it1.IsAtEnd();++it1,++it2){
@@ -53,7 +52,7 @@ int main(int argc, char ** argv)
                 if (it1.Get()){
                     //cout<<"duplicate labelling for pixel "<<it1.GetIndex()<<" "<<VAR(it1.Get())<<" "<<VAR(val2)<<endl;
                 }else{
-                    it1.Set(val2);
+                    it1.Set(label);
                 }
             }
         }

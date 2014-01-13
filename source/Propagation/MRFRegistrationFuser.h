@@ -32,13 +32,13 @@ public:
     static const int D=ImageType::ImageDimension;
     typedef TypeGeneral TRWType;
     typedef MRFEnergy<TRWType> MRFType;
-    typedef TRWType::REAL Real;
+    typedef typename TRWType::REAL Real;
     typedef typename MRFType::NodeId NodeType;
     typedef typename MRFType::EdgeId EdgeType;
 private:
     std::vector<DeformationFieldPointerType> m_lowResDeformations;
     std::vector<FloatImagePointerType> m_lowResLocalWeights;
-    double m_gridSpacing,m_pairwiseWeight;
+    double m_gridSpacing,m_pairwiseWeight,m_alpha;
     DeformationFieldPointerType m_lowResResult, m_result;
     FloatImagePointerType m_gridImage,m_highResGridImage;
     int m_count;
@@ -50,8 +50,10 @@ public:
         m_gridImage=NULL;
         m_count=0;
         m_hardConstraints=false;
+        m_alpha=1.0;
     }
     void setPairwiseWeight(double w){m_pairwiseWeight=w;}
+    void setAlpha(double a){m_alpha=a;}
     void setGridSpacing(double s){m_gridSpacing=s;}
     void setHardConstraints(bool b){m_hardConstraints=b;}
     void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
@@ -95,8 +97,8 @@ public:
             IndexType idx=gridIt.GetIndex();
             for (int l1=0;l1<nRegLabels;++l1) {
                 if (m_lowResLocalWeights.size()==m_count){
-                    D1[l1]=-log(m_lowResLocalWeights[l1]->GetPixel(idx));
-                    //D1[l1]=1-(m_lowResLocalWeights[l1]->GetPixel(idx));
+                    //D1[l1]=-log(m_lowResLocalWeights[l1]->GetPixel(idx));
+                    D1[l1]=1.0-(m_lowResLocalWeights[l1]->GetPixel(idx));
                     LOGV(3)<<l1<<" "<<VAR(D1[l1])<<" "<<m_lowResLocalWeights[l1]->GetPixel(idx)<<endl;
                 }else
                     D1[l1]=1;
@@ -133,14 +135,14 @@ public:
                              double distanceNormalizer=(point-neighborPoint).GetNorm();
                              DeformationType displacementDifference=(displacements[l1]-neighborDisplacement);
                              double weight;
-                             bool checkFolding=point[i]-neighborPoint[i] + displacementDifference[i] > 0;
+                             bool checkFolding=point[i]-neighborPoint[i] + displacementDifference[i] >= 0;
                              if (m_hardConstraints && checkFolding ){
                                  //folding!
                                  // (p1+d1)-(p2+d2) > 0
                                  LOGV(3)<<VAR(point[i])<<" "<<VAR(neighborPoint[i])<<" "<<VAR(displacements[l1][i])<< " " <<VAR(neighborDisplacement[i])<<endl;
                                  weight=100000;
                              }else{
-                                 weight=m_pairwiseWeight*(displacementDifference.GetSquaredNorm()/distanceNormalizer);
+                                 weight=m_pairwiseWeight*(displacementDifference.GetSquaredNorm()/distanceNormalizer) + (m_alpha)*(l1!=l2);
                                  //weight=m_pairwiseWeight*(l1!=l2);
                              }
                              Vreg[l1+l2*nRegLabels]=weight;

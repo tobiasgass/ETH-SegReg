@@ -38,6 +38,6 @@ int main(int argc, char ** argv)
     
     ImageUtils<LabelImageType>::writeImage(argv[3],composedDeformation);
     
-    LOG<<"deformed image "<<argv[1]<<endl;
+    LOG<<" "<<argv[1]<<endl;
 	return 1;
 }
