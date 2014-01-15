@@ -43,6 +43,7 @@ private:
     FloatImagePointerType m_gridImage,m_highResGridImage;
     int m_count;
     bool m_hardConstraints;
+    double m_relativeLB;
 public:
     MRFRegistrationFuser(){
         m_gridSpacing=8;
@@ -56,6 +57,7 @@ public:
     void setAlpha(double a){m_alpha=a;}
     void setGridSpacing(double s){m_gridSpacing=s;}
     void setHardConstraints(bool b){m_hardConstraints=b;}
+   
     void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
         if (!m_gridImage.IsNotNull()){
             if (m_gridSpacing<=0){
@@ -168,6 +170,7 @@ public:
         float t = (float) ((double)(finish - opt_start) / CLOCKS_PER_SEC);
         LOGV(2)<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound <<std::endl;
 
+        m_relativeLB=energy/lowerBound*100.0;
         //get output and upsample
 
         m_lowResResult=ImageUtils<DeformationFieldType>::duplicate(m_lowResDeformations[0]);
@@ -191,7 +194,7 @@ public:
     DeformationFieldPointerType getMean(){return m_result;}
     DeformationFieldPointerType getVariance(){return NULL;}
     DeformationFieldPointerType getStdDev(){return NULL;}
-
+    double getRelativeLB(){return m_relativeLB;}
     FloatImagePointerType getLikelihood(DeformationFieldPointerType img, double s=1.0){
         FloatImagePointerType result=TransfUtils<FloatImageType>::createEmptyFloat(img);
         return result;

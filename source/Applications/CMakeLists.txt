@@ -101,6 +101,8 @@ TARGET_LINK_LIBRARIES(RegProp2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib
 ADD_EXECUTABLE(RegProp3D RegistrationPropagation-3D.cxx )
 TARGET_LINK_LIBRARIES(RegProp3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  ${STATISMO_LIBRARIES} )
 
+ADD_EXECUTABLE(RegFuse2D RegistrationFusion2D.cxx )
+TARGET_LINK_LIBRARIES(RegFuse2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${STATISMO_LIBRARIES} )
 
 
 
