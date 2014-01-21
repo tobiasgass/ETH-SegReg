@@ -860,6 +860,18 @@ public:
         return cast(inputImage);
     }
 
+    static OutputImagePixelType sum(InputImagePointer inputImage) {
+
+        itk::ImageRegionIterator<InputImage> it(
+                                                inputImage, inputImage->GetLargestPossibleRegion());
+        OutputImagePixelType result=0;
+        for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+            result+=it.Get();
+        }
+
+        return result;
+    }
+
     static OutputImagePointer select(
                                      InputImagePointer inputImage,
                                      InputImagePixelType value

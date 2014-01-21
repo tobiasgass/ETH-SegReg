@@ -148,3 +148,21 @@ MyTimer timeLOG;
 double tOpt=0;
 double tUnary=0;
 double tPairwise=0;
+
+struct MatchPathSeparator
+{
+    bool operator()( char ch ) const
+    {
+        return ch == '/';
+    }
+};
+
+std::string
+basename( std::string const& pathname )
+{
+    return std::string( 
+        std::find_if( pathname.rbegin(), pathname.rend(),
+                      MatchPathSeparator() ).base(),
+        pathname.end() );
+}
+

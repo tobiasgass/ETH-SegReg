@@ -207,7 +207,15 @@ public:
         DeformationFieldPointerType result;
         for (int i=0;i<nDeformations;++i){
             DeformationFieldPointerType def=ImageUtils<DeformationFieldType>::readImage(inputDeformationFilenameList[i]);
-            addImage(weightingName,metric,estimator,meanEstimator,targetImage,sourceImage,def,estimateMean,estimateMRF,radius,m_gamma);
+            FloatImagePointerType weightImage=addImage(weightingName,metric,estimator,meanEstimator,targetImage,sourceImage,def,estimateMean,estimateMRF,radius,m_gamma);
+            if (weightImage.IsNotNull() && outputDir!=""){
+                ostringstream oss;
+                string fName=inputDeformationFilenameList[i];
+                replace(fName.begin(), fName.end(), '/', '_' );
+                LOG<<VAR(fName)<<endl;
+                oss<<outputDir<<"/"<<outputFilename<<"-weights-"<<fName;
+                LOGI(2,ImageUtils<FloatImageType>::writeImage(oss.str(),weightImage));
+            }
         }
         double m_energy=0.0;
         double relativeClosenessToLB;
@@ -258,7 +266,7 @@ public:
             if (estimateMRF){
                 ostringstream oss2;
                 oss2<<outputDir<<"/"<<outputFilename<<"-labelImage.nii";
-                ImageUtils<ImageType>::writeImage(oss2.str(),labelImage);
+                LOGI(1,ImageUtils<ImageType>::writeImage(oss2.str(),labelImage));
             }
             
         }
@@ -313,7 +321,13 @@ public:
         jacobianFilter->SetUseImageSpacingOff();
         jacobianFilter->Update();
         FloatImagePointerType jac=jacobianFilter->GetOutput();
+        if (outputDir!=""){
+            ostringstream filename;
+            filename<<outputDir<<"/"<<outputFilename<<"-jacobian.mha";
+            LOGI(1,ImageUtils<FloatImageType>::writeImage(filename.str(),jac));
+        }
         double minJac = FilterUtils<FloatImageType>::getMin(jac);
+        double maxJac = FilterUtils<FloatImageType>::getMax(jac);
         //LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<< " " << VAR(minJac) <<" " <<VAR(nCC)<<endl;
         m_averageMinJac+=minJac;
         if (minJac<m_minMinJacobian){
@@ -344,17 +358,18 @@ public:
             //error=TransfUtils<ImageType>::computeDeformationNormMask(diff,mask);
             error=TransfUtils<ImageType>::computeDeformationNorm(diff);
         }
-        LOG<<VAR(error)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_energy)<<" "<<VAR(relativeClosenessToLB)<<" "<<VAR(similarity)<<" "<<VAR(m_minMinJacobian)<<endl;
+        LOG <<VAR(error)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_energy)<<" "<<VAR(relativeClosenessToLB)<<" "<<VAR(similarity)<<" "<<VAR(minJac)<<" "<<VAR(maxJac)<<endl;
 
       
     }//run
 protected:
    
-    void addImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_gamma){
+    FloatImagePointerType addImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_gamma){
         
+        FloatImagePointerType metricImage;
         if (weighting=="global" || weighting=="local" || weighting=="globallocal"){
             ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImage,def);
-            FloatImagePointerType metricImage;
+
             if (weighting=="local" || weighting=="globallocal"){
                 switch(metric){
                 case NCC:
@@ -403,6 +418,7 @@ protected:
             if (estimateMean)
                 meanEstimator.addImage(def);
         }
+        return metricImage;
     }
     
 

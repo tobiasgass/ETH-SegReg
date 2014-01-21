@@ -91,6 +91,7 @@ public:
         bool m_refineSolution=false;
         bool estimateMRF=false,estimateMean=false;
         int refineIter=0;
+        string source="",target="";
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
         (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
@@ -112,6 +113,10 @@ public:
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
         (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file>", false);
         (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);       
+        (*as) >> parameter ("source",source , "source ID, will only compute updated registrations for <source>", false);       
+        (*as) >> parameter ("target",target , "target ID, will only compute updated registrations for <source>", false);       
+        (*as) >> option ("noCaching", dontCacheDeformations, "do not cache Deformations. will yield a higher IO load as some deformations need to be read multiple times.");
+
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
         (*as) >> parameter ("verbose", verbose,"get verbose output",false);
@@ -125,6 +130,9 @@ public:
         }
         LOG<<VAR(estimateMRF)<<" "<<VAR(estimateMean)<<endl;
         for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
+
+        if (dontCacheDeformations)
+            maxHops=1;
 
         mkdir(outputDir.c_str(),0755);
         logSetStage("IO");
@@ -188,28 +196,28 @@ public:
             LOG<<"CACHING all deformations!"<<endl;
         }
         map< string, map <string, DeformationFieldPointerType> > deformationCache, trueDeformations;
-        map< string, map <string, string> > deformationFilenames;
+        map< string, map <string, string> > deformationFilenames,trueDeformationFilenames;
         map<string, map<string, float> > globalWeights;
         {
             ifstream ifs(deformationFileList.c_str());
             while (!ifs.eof()){
-                string intermediateID,targetID,defFileName;
-                ifs >> intermediateID;
-                if (intermediateID!=""){
+                string sourceID,targetID,defFileName;
+                ifs >> sourceID;
+                if (sourceID!=""){
                     ifs >> targetID;
                     ifs >> defFileName;
-                    if (inputImages.find(intermediateID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
-                        LOGV(1)<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                    if (inputImages.find(sourceID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
+                        LOGV(1)<<sourceID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                         //exit(0);
                     }else{
                         if (!dontCacheDeformations){
-                            LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
-                            deformationCache[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
-                            globalWeights[intermediateID][targetID]=1.0;
+                            LOGV(3)<<"Reading deformation "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
+                            deformationCache[sourceID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
+                            globalWeights[sourceID][targetID]=1.0;
                         }else{
-                            LOGV(3)<<"Reading filename "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
-                            deformationFilenames[intermediateID][targetID]=defFileName;
-                            globalWeights[intermediateID][targetID]=1.0;
+                            LOGV(3)<<"Reading filename "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
+                            deformationFilenames[sourceID][targetID]=defFileName;
+                            globalWeights[sourceID][targetID]=1.0;
                         }
                     }
                 }
@@ -218,22 +226,22 @@ public:
         if (trueDefListFilename!=""){
             ifstream ifs(trueDefListFilename.c_str());
             while (!ifs.eof()){
-                string intermediateID,targetID,defFileName;
-                ifs >> intermediateID;
-                if (intermediateID!=""){
+                string sourceID,targetID,defFileName;
+                ifs >> sourceID;
+                if (sourceID!=""){
                     ifs >> targetID;
                     ifs >> defFileName;
-                    if (inputImages.find(intermediateID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
-                        LOGV(1)<<intermediateID<<" or "<<targetID<<" not in image database, skipping"<<endl;
+                    if (inputImages.find(sourceID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
+                        LOGV(1)<<sourceID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                         //exit(0);
                     }else{
                         if (!dontCacheDeformations){
-                            LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<intermediateID<<" to "<<targetID<<endl;
-                            trueDeformations[intermediateID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
+                            LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
+                            trueDeformations[sourceID][targetID]=ImageUtils<DeformationFieldType>::readImage(defFileName);
                           
                         }else{
-                            LOG<<"error, not caching true defs not implemented"<<endl;
-                            exit(0);
+                            trueDeformationFilenames[sourceID][targetID]=defFileName;
+
                         }
                     }
                 }
@@ -243,13 +251,13 @@ public:
         if (weightListFilename!=""){
             ifstream ifs(weightListFilename.c_str());
             while (!ifs.eof()){
-                string intermediateID,targetID;
-                ifs >> intermediateID;
+                string sourceID,targetID;
+                ifs >> sourceID;
                 ifs >> targetID;
-                if (inputImages.find(intermediateID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
-                    LOG << intermediateID<<" or "<<targetID<<" not in image database while reading weights, skipping"<<endl;
+                if (inputImages.find(sourceID)==inputImages.end() || inputImages.find(targetID)==inputImages.end() ){
+                    LOG << sourceID<<" or "<<targetID<<" not in image database while reading weights, skipping"<<endl;
                 }else{
-                    ifs >> globalWeights[intermediateID][targetID];
+                    ifs >> globalWeights[sourceID][targetID];
                 }
             }
         }
@@ -290,6 +298,7 @@ public:
             double globalResidual=0.0;
             double trueResidual=0.0;
             double m_dice=0.0;
+            double m_volumeWeightedDice=0.0;
             double m_TRE=0.0;
             double m_energy=0.0;
             double m_similarity=0.0;
@@ -299,13 +308,23 @@ public:
             for (ImageListIteratorType sourceImageIterator=inputImages.begin();sourceImageIterator!=inputImages.end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
+                //skip source images if only one source should be evaluated
+                if (source != "" && sourceID!=source)
+                    continue;
                 for (ImageListIteratorType targetImageIterator=inputImages.begin();targetImageIterator!=inputImages.end();++targetImageIterator){                //iterate over targets
                     string targetID= targetImageIterator->first;
+                    //skip target image if only one target should be evaluated
+                    if (target !="" && target!=targetID)
+                        continue;
                     if (targetID !=sourceID){
                         ++count;
                         DeformationFieldPointerType result;
                         DeformationFieldPointerType deformationSourceTarget;
-                        deformationSourceTarget = deformationCache[sourceID][targetID];
+                        if (dontCacheDeformations){
+                            deformationSourceTarget = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[sourceID][targetID]);
+                        }else{
+                            deformationSourceTarget = deformationCache[sourceID][targetID];
+                        }
                         if (estimateMRF || estimateMean){
 
                             RegistrationFuserType estimator;
@@ -322,9 +341,14 @@ public:
                                 if (targetID != intermediateID && sourceID!=intermediateID){
                                     //get all deformations for full circle
                                     DeformationFieldPointerType deformationSourceIntermed;
-                                    deformationSourceIntermed = deformationCache[sourceID][intermediateID];
                                     DeformationFieldPointerType deformationIntermedTarget;
-                                    deformationIntermedTarget = deformationCache[intermediateID][targetID];
+                                    if (dontCacheDeformations){
+                                        deformationSourceIntermed = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[sourceID][intermediateID]);
+                                        deformationIntermedTarget = ImageUtils<DeformationFieldType>::readImage(deformationFilenames[intermediateID][targetID]);
+                                    }else{
+                                        deformationSourceIntermed = deformationCache[sourceID][intermediateID];
+                                        deformationIntermedTarget = deformationCache[intermediateID][targetID];
+                                    }
                                     LOGV(3)<<"Adding "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
                                     DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
                                     addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,indirectDef,estimateMean,estimateMRF,radius,m_sigma);
@@ -387,8 +411,9 @@ public:
                             result=deformationSourceTarget;
                         }//if (estimateMean || estimateMRF)
 
-
-                        TMPdeformationCache[sourceID][targetID]=result;
+                        if (maxHops>1 || !dontCacheDeformations){
+                            TMPdeformationCache[sourceID][targetID]=result;
+                        }
 
                         // compare landmarks
                         if (m_landmarkFileList.size()){
@@ -403,18 +428,27 @@ public:
                             ImagePointerType groundTruthImg=segmentationMapper.FindMapAndApplyMap((m_groundTruthSegmentations)[targetID]);
                             ImagePointerType segmentedImg=segmentationMapper.ApplyMap(deformedSeg);
                             double dice=0.0;
+                            double volumeWeightedDice=0.0;
+                            double weightSum=0.0;
                             for (int i=1;i<segmentationMapper.getNumberOfLabels();++i){
                                 typedef typename itk::LabelOverlapMeasuresImageFilter<ImageType> OverlapMeasureFilterType;
                                 typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
-                                filter->SetSourceImage(FilterUtils<ImageType>::select(groundTruthImg,i));
+                                ImagePointerType binaryGT=FilterUtils<ImageType>::select(groundTruthImg,i);
+                                filter->SetSourceImage(binaryGT);
                                 filter->SetTargetImage(FilterUtils<ImageType>::select(segmentedImg,i));
                                 filter->SetCoordinateTolerance(1e-4);
                                 filter->Update();
                                 dice+=filter->GetDiceCoefficient();
+                                double weight=FilterUtils<ImageType>::sum(binaryGT);
+                                volumeWeightedDice+=weight*dice;
+                                weightSum+=weight;
                             }
                             dice/=(segmentationMapper.getNumberOfLabels()-1.0);
-                            LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(dice)<<endl;
+                            volumeWeightedDice/=weightSum;
+                            LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(dice)<<" "<<VAR(volumeWeightedDice)<<endl;
                             m_dice+=dice;
+                            m_volumeWeightedDice+=volumeWeightedDice;
+                            
                         }
                         
                         double similarity;
@@ -453,13 +487,17 @@ public:
               
             }//source images
             m_dice/=count;
+            m_volumeWeightedDice/=count;
             m_TRE/=count;
             m_energy/=count;
             m_similarity/=count;
             m_averageMinJac/=count;
-            error=TransfUtils<ImageType>::computeError(&TMPdeformationCache,&trueDeformations,&imageIDs);
+            if (!dontCacheDeformations || maxHops>1){
+                //error computation only available when all deformations are cached
+                error=TransfUtils<ImageType>::computeError(&TMPdeformationCache,&trueDeformations,&imageIDs);
+            }
             //inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
-            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_energy)<<" "<<VAR(m_similarity)<<" "<<VAR(m_averageMinJac)<<" "<<VAR(m_minMinJacobian)<<endl;
+            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_volumeWeightedDice)<<" "<<VAR(m_energy)<<" "<<VAR(m_similarity)<<" "<<VAR(m_averageMinJac)<<" "<<VAR(m_minMinJacobian)<<endl;
             if (m_similarity>m_oldSimilarity){
                 LOG<<"Similarity increased, stopping and returning previous estimate."<<endl;
                 break;

@@ -18,6 +18,10 @@ INCLUDE_DIRECTORIES(
  ) 
 
 #Tools
+ADD_EXECUTABLE(PrintImageContent2D PrintImageContent2D.cxx )
+TARGET_LINK_LIBRARIES(PrintImageContent2D  Utils   ${ITK_LIBRARIES}  )
+
+
 ADD_EXECUTABLE(SurfaceExtraction SurfaceExtraction.cxx )
 TARGET_LINK_LIBRARIES(SurfaceExtraction  Utils   ${ITK_LIBRARIES}  )
 
@@ -134,7 +138,8 @@ TARGET_LINK_LIBRARIES(ComputeDeformationStatistics2D Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(CompareImages2D CompareImages2D.cxx )
 TARGET_LINK_LIBRARIES(CompareImages2D Utils   ${ITK_LIBRARIES}  )
-
+ADD_EXECUTABLE(ComputeLocalSimilarity2D ComputeLocalSimilarity2D.cxx )
+TARGET_LINK_LIBRARIES(ComputeLocalSimilarity2D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(CompareImagesAutoTransform2D CompareImagesAutoTransform2D.cxx )
 TARGET_LINK_LIBRARIES(CompareImagesAutoTransform2D Utils   ${ITK_LIBRARIES}  )
 

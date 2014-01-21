@@ -64,8 +64,10 @@ int main(int argc, char ** argv)
     double norm;
     FloatImagePointerType diff2=TransfUtils<ImageType>::computeLocalDeformationNorm(differ->GetOutput(),sigma,&norm, mask);
     LOG<<VAR(norm)<<endl;
-    if (argc>3)
-        ImageUtils<ImageType>::writeImage(argv[3],FilterUtils<FloatImageType,ImageType>::truncateCast(diff2));
+    if (argc>3){
+        //ImageUtils<ImageType>::writeImage(argv[3],FilterUtils<FloatImageType,ImageType>::truncateCast(diff2));
+        ImageUtils<FloatImageType>::writeImage(argv[3],diff2);
+    }
 
 
     

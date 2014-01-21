@@ -22,6 +22,7 @@ public:
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::SizeType SizeType;
+    typedef typename ImageType::SpacingType SpacingType;
     typedef typename TransfUtils<ImageType>::DisplacementType DeformationType;
     typedef typename TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
@@ -44,6 +45,7 @@ private:
     int m_count;
     bool m_hardConstraints;
     double m_relativeLB;
+    SpacingType m_gridSpacings;
 public:
     MRFRegistrationFuser(){
         m_gridSpacing=8;
@@ -69,6 +71,7 @@ public:
             m_gridImage=FilterUtils<FloatImageType>::NNResample(m_highResGridImage,
                                                                 1.0/m_gridSpacing,
                                                                 false);
+            m_gridSpacings=m_gridImage->GetSpacing();
         }            
         if (weights.IsNotNull()){
             m_lowResLocalWeights.push_back(FilterUtils<FloatImageType>::LinearResample(weights,m_gridImage,false));
@@ -101,7 +104,7 @@ public:
                 if (m_lowResLocalWeights.size()==m_count){
                     //D1[l1]=-log(m_lowResLocalWeights[l1]->GetPixel(idx));
                     D1[l1]=1.0-(m_lowResLocalWeights[l1]->GetPixel(idx));
-                    LOGV(3)<<l1<<" "<<VAR(D1[l1])<<" "<<m_lowResLocalWeights[l1]->GetPixel(idx)<<endl;
+                    LOGV(7)<<l1<<" "<<VAR(D1[l1])<<" "<<m_lowResLocalWeights[l1]->GetPixel(idx)<<endl;
                 }else
                     D1[l1]=1;
             }
@@ -137,14 +140,51 @@ public:
                              double distanceNormalizer=(point-neighborPoint).GetNorm();
                              DeformationType displacementDifference=(displacements[l1]-neighborDisplacement);
                              double weight;
-                             bool checkFolding=point[i]-neighborPoint[i] + displacementDifference[i] >= 0;
+                             bool checkFolding=false;
+                             double k=1.0/D+0.0000001;
+                             double K=5;
+#if 0
+                             checkFolding=point[i]-neighborPoint[i] + displacementDifference[i] >= 0 || neighborPoint[i]+neighborDisplacement[i]>= point[i]+displacements[l1][i] + 2.0*(neighborPoint[i]-point[i]);#
+
+                             for (int d2=0;d2<D;++d2){
+                                 if (d2!=i){
+                                     checkFolding = checkFolding || (fabs(displacementDifference[i])> 2*fabs(point[i]-neighborPoint[i]));
+                                 }
+                                 
+                             }
+
+#else
+                             for (int d2=0;d2<D;++d2){
+                                 if (d2!=i){
+                                     checkFolding = checkFolding || fabs(displacementDifference[d2])>m_gridSpacings[d2]*k;
+                                     //checkFolding = checkFolding || (fabs(displacementDifference[d2]) > fabs(point[i]-neighborPoint[i]));
+                                 } else{
+                                     //checkFolding = checkFolding || displacementDifference[d2] +point[i]-neighborPoint[i] >= 0;
+                                     //checkFolding = checkFolding || (fabs(displacementDifference[d2]) > 2*fabs(point[i]-neighborPoint[i]));
+                                     checkFolding = checkFolding 
+                                         || (-displacementDifference[d2])  < -1.0*k*m_gridSpacings[d2]
+                                         ||  (-displacementDifference[d2]) > K*m_gridSpacings[d2];
+                                     
+                                 }
+                                 
+                             }
+                             
+                             
+                             
+#endif
                              if (m_hardConstraints && checkFolding ){
                                  //folding!
                                  // (p1+d1)-(p2+d2) > 0
-                                 LOGV(3)<<VAR(point[i])<<" "<<VAR(neighborPoint[i])<<" "<<VAR(displacements[l1][i])<< " " <<VAR(neighborDisplacement[i])<<endl;
-                                 weight=100000;
+                                 LOGV(6)<<VAR(point[i])<<" "<<VAR(neighborPoint[i])<<" "<<VAR(displacements[l1][i])<< " " <<VAR(neighborDisplacement[i])<<endl;
+                                 weight=10000000;
+                                 //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
+
                              }else{
-                                 weight=m_pairwiseWeight*(displacementDifference.GetSquaredNorm()/distanceNormalizer) + (m_alpha)*(l1!=l2);
+                                 
+                                 weight=m_pairwiseWeight*(displacementDifference.GetSquaredNorm()/(distanceNormalizer)) ;//+ (m_alpha)*(l1!=l2);
+                                 
+                                 //student-t; fusion flow paper
+                                 //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
                                  //weight=m_pairwiseWeight*(l1!=l2);
                              }
                              Vreg[l1+l2*nRegLabels]=weight;
@@ -159,18 +199,18 @@ public:
         //solve MRF
         MRFEnergy<TRWType>::Options options;
         TRWType::REAL energy=-1, lowerBound=-1;
-        options.m_iterMax = 50; // maximum number of iterations
+        options.m_iterMax = 1000; // maximum number of iterations
         options.m_printMinIter=1;
         options.m_printIter=1;
         options.verbose=2;
-        options.m_eps=-1;
+        options.m_eps=1e-7;
         clock_t opt_start=clock();
         m_optimizer->Minimize_TRW_S(options, lowerBound, energy);
         clock_t finish = clock();
         float t = (float) ((double)(finish - opt_start) / CLOCKS_PER_SEC);
         LOGV(2)<<"Finished after "<<t<<" , resulting energy is "<<energy<<" with lower bound "<< lowerBound <<std::endl;
 
-        m_relativeLB=energy/lowerBound*100.0;
+        m_relativeLB=lowerBound/energy;
         //get output and upsample
 
         m_lowResResult=ImageUtils<DeformationFieldType>::duplicate(m_lowResDeformations[0]);
@@ -186,6 +226,7 @@ public:
         }
         
         m_result=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage);
+        //m_result=TransfUtils<FloatImageType>::linearInterpolateDeformationField(m_lowResResult,m_highResGridImage);
         //m_result=TransfUtils<FloatImageType>::computeDeformationFieldFromBSplineTransform(m_lowResResult,m_highResGridImage);
         delete m_optimizer;
         return energy;
