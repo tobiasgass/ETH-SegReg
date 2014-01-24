@@ -78,11 +78,16 @@ public:
         }
         //m_lowResDeformations.push_back(TransfUtils<FloatImageType>::computeBSplineTransformFromDeformationField(img,m_gridImage));
         m_lowResDeformations.push_back(TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(img,m_gridImage));
+        //m_lowResDeformations.push_back(TransfUtils<FloatImageType>::computeBSplineTransformFromDeformationField(img,m_gridImage));
         ++m_count;
     }
     double finalize(ImagePointerType & labelImage=NULL){
         int nRegLabels=m_count;
-         
+        bool useAuxLabel=false;
+        if (useAuxLabel){
+            nRegLabels++;
+            LOG<<"Adding auxiliary lables to avoid problems with over-constrained hard constraints for positive jacobians"<<endl;
+        }
         //build MRF
        
         MRFType * m_optimizer;
@@ -92,7 +97,9 @@ public:
         SizeType size=m_gridImage->GetLargestPossibleRegion().GetSize();
         int nRegNodes=m_gridImage->GetLargestPossibleRegion().GetNumberOfPixels();
         vector<NodeType> regNodes(nRegNodes,NULL);
-
+        
+        
+      
         //iterate coarse grid for unaries
         FloatImageIteratorType gridIt(m_gridImage,m_gridImage->GetLargestPossibleRegion());
         bool buff;
@@ -101,12 +108,14 @@ public:
             
             IndexType idx=gridIt.GetIndex();
             for (int l1=0;l1<nRegLabels;++l1) {
-                if (m_lowResLocalWeights.size()==m_count){
+                if (l1<m_count){
                     //D1[l1]=-log(m_lowResLocalWeights[l1]->GetPixel(idx));
                     D1[l1]=1.0-(m_lowResLocalWeights[l1]->GetPixel(idx));
                     LOGV(7)<<l1<<" "<<VAR(D1[l1])<<" "<<m_lowResLocalWeights[l1]->GetPixel(idx)<<endl;
-                }else
-                    D1[l1]=1;
+                }else{
+                    //penalty for aux label
+                    D1[l1]=2;
+                }
             }
 
             d=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx,size,buff);
@@ -122,7 +131,9 @@ public:
             IndexType idx=gridIt.GetIndex();
             std::vector<DeformationType> displacements(nRegLabels);
             for (int l1=0;l1<nRegLabels;++l1){
-                displacements[l1]=m_lowResDeformations[l1]->GetPixel(idx);
+                if (l1<m_lowResLocalWeights.size()){
+                    displacements[l1]=m_lowResDeformations[l1]->GetPixel(idx);
+                }
             }
             PointType point,neighborPoint;
             m_gridImage->TransformIndexToPhysicalPoint(idx,point);
@@ -135,59 +146,79 @@ public:
                  if (m_gridImage->GetLargestPossibleRegion().IsInside(neighborIndex)){
                      for (int l1=0;l1<nRegLabels;++l1){
                          for (int l2=0;l2<nRegLabels;++l2){
-                             DeformationType neighborDisplacement=m_lowResDeformations[l2]->GetPixel(neighborIndex);
-                             m_gridImage->TransformIndexToPhysicalPoint(neighborIndex,neighborPoint);
-                             double distanceNormalizer=(point-neighborPoint).GetNorm();
-                             DeformationType displacementDifference=(displacements[l1]-neighborDisplacement);
-                             double weight;
-                             bool checkFolding=false;
-                             double k=1.0/D+0.0000001;
-                             double K=5;
-#if 0
-                             checkFolding=point[i]-neighborPoint[i] + displacementDifference[i] >= 0 || neighborPoint[i]+neighborDisplacement[i]>= point[i]+displacements[l1][i] + 2.0*(neighborPoint[i]-point[i]);#
+                             double weight=0.0;
+                             if (l1<m_count && l2<m_count){
+                                 DeformationType neighborDisplacement=m_lowResDeformations[l2]->GetPixel(neighborIndex);
+                                 m_gridImage->TransformIndexToPhysicalPoint(neighborIndex,neighborPoint);
+                                 double distanceNormalizer=(point-neighborPoint).GetNorm();
+                                 DeformationType displacementDifference=(displacements[l1]-neighborDisplacement);
+                                 bool checkFolding=false;
+                                 double k=1.0/D+0.0000001;
+                                 double K=0.5;
 
-                             for (int d2=0;d2<D;++d2){
-                                 if (d2!=i){
-                                     checkFolding = checkFolding || (fabs(displacementDifference[i])> 2*fabs(point[i]-neighborPoint[i]));
-                                 }
+
+#if 1
+
                                  
-                             }
-
-#else
-                             for (int d2=0;d2<D;++d2){
-                                 if (d2!=i){
-                                     checkFolding = checkFolding || fabs(displacementDifference[d2])>m_gridSpacings[d2]*k;
-                                     //checkFolding = checkFolding || (fabs(displacementDifference[d2]) > fabs(point[i]-neighborPoint[i]));
-                                 } else{
-                                     //checkFolding = checkFolding || displacementDifference[d2] +point[i]-neighborPoint[i] >= 0;
-                                     //checkFolding = checkFolding || (fabs(displacementDifference[d2]) > 2*fabs(point[i]-neighborPoint[i]));
-                                     checkFolding = checkFolding 
-                                         || (-displacementDifference[d2])  < -1.0*k*m_gridSpacings[d2]
-                                         ||  (-displacementDifference[d2]) > K*m_gridSpacings[d2];
+                                 for (int d2=0;d2<D;++d2){
+                                     if (d2!=i){
+                                         checkFolding = checkFolding || fabs(displacementDifference[d2])>m_gridSpacings[d2]*k;
+                                         //checkFolding = checkFolding || (fabs(displacementDifference[d2]) > fabs(point[i]-neighborPoint[i]));
+                                     } else{
+                                         //checkFolding = checkFolding || displacementDifference[d2] +point[i]-neighborPoint[i] >= 0;
+                                         //checkFolding = checkFolding || (fabs(displacementDifference[d2]) > 2*fabs(point[i]-neighborPoint[i]));
+                                         checkFolding = checkFolding 
+                                             || (-displacementDifference[d2])  < -1.0*k*m_gridSpacings[d2]
+                                             ||  (-displacementDifference[d2]) > K*m_gridSpacings[d2];
+                                         
+                                     }
                                      
                                  }
                                  
-                             }
+                                 
+                                 
+                                 
+                                 if (m_hardConstraints && checkFolding ){
+                                     //folding!
+                                     // (p1+d1)-(p2+d2) > 0
+                                     LOGV(6)<<VAR(point[i])<<" "<<VAR(neighborPoint[i])<<" "<<VAR(displacements[l1][i])<< " " <<VAR(neighborDisplacement[i])<<endl;
+                                     weight=10000000;
+                                     //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
+                                     
+                                 }else{
+                                     
+                                     weight=m_pairwiseWeight*(displacementDifference.GetSquaredNorm()/(distanceNormalizer)) ;//+ (m_alpha)*(l1!=l2);
+                                     
+                                     //student-t; fusion flow paper
+                                     //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
+                                     //weight=m_pairwiseWeight*(l1!=l2);
+                                 }
+                         
+#else
                              
-                             
-                             
+                                 for (int d2=0;d2<D;++d2){
+                                     double dispDiff=-displacementDifference[d2] ;
+                                     if ( dispDiff < -1.0*k*m_gridSpacings[d2] ){
+                                         double pen=(dispDiff + 1.0*k*m_gridSpacings[d2] );
+                                         weight+=m_pairwiseWeight*0.5*pen*pen;
+                                     }
+                                     if (dispDiff > K*m_gridSpacings[d2]){
+                                         double pen=(displacementDifference[d2] - 1.0*K*m_gridSpacings[d2] );
+                                         weight+=m_pairwiseWeight*0.5*pen*pen;
+                                     }
+                                 }
+                                 
+                                 
+                                 
 #endif
-                             if (m_hardConstraints && checkFolding ){
-                                 //folding!
-                                 // (p1+d1)-(p2+d2) > 0
-                                 LOGV(6)<<VAR(point[i])<<" "<<VAR(neighborPoint[i])<<" "<<VAR(displacements[l1][i])<< " " <<VAR(neighborDisplacement[i])<<endl;
-                                 weight=10000000;
-                                 //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
-
+                             }else if (l1<m_count || l2<m_count){
+                                 weight=0;
                              }else{
-                                 
-                                 weight=m_pairwiseWeight*(displacementDifference.GetSquaredNorm()/(distanceNormalizer)) ;//+ (m_alpha)*(l1!=l2);
-                                 
-                                 //student-t; fusion flow paper
-                                 //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
-                                 //weight=m_pairwiseWeight*(l1!=l2);
+                                 //do not allow aux labels next to each other? or should one?
+                                 weight=0;//1000000;
                              }
                              Vreg[l1+l2*nRegLabels]=weight;
+                           
                          }
                      }
                      int d2=ImageUtils<ImageType>::ImageIndexToLinearIndex(neighborIndex,size,buff);
@@ -217,13 +248,67 @@ public:
         labelImage=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(m_gridImage);
         DeformationImageIteratorType resIt(m_lowResResult, m_lowResResult->GetLargestPossibleRegion());
         resIt.GoToBegin();
+        int countAuxLabel=0;
         for (;!resIt.IsAtEnd();++resIt){
             IndexType idx=resIt.GetIndex();
             int linearIndex=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx,size,buff);
             int label=m_optimizer->GetSolution(regNodes[linearIndex]);
-            resIt.Set(m_lowResDeformations[label]->GetPixel(idx));
+            if (!useAuxLabel || label<m_count){
+                resIt.Set(m_lowResDeformations[label]->GetPixel(idx));
+            } else if (useAuxLabel){
+                countAuxLabel++;
+            }
             labelImage->SetPixel(resIt.GetIndex(),label);
         }
+        if (useAuxLabel){
+            LOGV(2)<<VAR(countAuxLabel)<<std::endl;
+
+            //compute displacements for auxiliary labels by interpolation
+            while (countAuxLabel>0){
+                countAuxLabel=0;
+                 resIt.GoToBegin();
+                 for (;!resIt.IsAtEnd();++resIt){
+                     IndexType idx=resIt.GetIndex();
+                     int linearIndex=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx,size,buff);
+                     int label=m_optimizer->GetSolution(regNodes[linearIndex]);
+                     //check auxLabel
+                     if (label == nRegLabels-1){
+                         //check if solved neighbors exist and accumulate their displacement
+                         DeformationType disp;
+                         disp.Fill(0.0);
+                         int countValidNeighb=0;
+                         //forward and backwards neighbor
+                         for (int dir=-1;dir<2;dir+=2){
+                             //axes
+                             for (int i=0;i<D;++i){
+                                 OffsetType off;
+                                 off.Fill(0);
+                                 off[i]=dir;
+                                 IndexType neighborIndex=idx+off;
+                                 //check inside
+                                 if(m_gridImage->GetLargestPossibleRegion().IsInside(neighborIndex)){
+                                     int linearIndexN=ImageUtils<ImageType>::ImageIndexToLinearIndex(neighborIndex,size,buff);
+                                     int labelN=m_optimizer->GetSolution(regNodes[linearIndexN]);
+                                     if (labelN<m_count){
+                                         //neighbor is not labelled with aux label
+                                         ++countValidNeighb;
+                                         disp+=m_lowResDeformations[labelN]->GetPixel(neighborIndex);
+                                     }
+                                 }
+                             }
+                         }
+                         if (countValidNeighb>0){
+                             resIt.Set(disp*1.0/countValidNeighb);
+                             labelImage->SetPixel(resIt.GetIndex(),-1);
+                         }else{
+                             countAuxLabel++;
+                         }
+                             
+                     }//aux label found
+                 }//resIt
+                 LOGV(2)<<VAR(countAuxLabel)<<std::endl;
+            }//while
+        }//if hardCounstraints
         
         m_result=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage);
         //m_result=TransfUtils<FloatImageType>::linearInterpolateDeformationField(m_lowResResult,m_highResGridImage);

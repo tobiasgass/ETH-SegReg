@@ -89,9 +89,14 @@ class FilterUtils {
     //    typedef itk::ConnectedComponentImageFilter<InputImage,OutputImage>  ConnectedComponentImageFilterType;
     typedef itk::RelabelComponentImageFilter<InputImage,OutputImage>  RelabelComponentImageFilterType;
     typedef itk::ShiftScaleImageFilter<InputImage,OutputImage>  ShiftScaleImageFilterType;
+
+#define RECURSIVEGAUSSIAN
+#ifdef RECURSIVEGAUSSIAN
     typedef itk::SmoothingRecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
     //typedef itk::RecursiveGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+#else
     //typedef itk::DiscreteGaussianImageFilter<InputImage,OutputImage>  DiscreteGaussianImageFilterType;
+#endif
     typedef itk::FastMarchingImageFilter<OutputImage>  FastMarchingImageFilterType;
     //REMI:typedef itk::PasteImageFilter<InputImage,OutputImage>  PasteImageFilterType;
 
@@ -551,7 +556,7 @@ public:
 
     // smooth the image with a discrete gaussian filter
     static OutputImagePointer gaussian(
-                                       ConstInputImagePointer image, float variance, bool spacing=true
+                                       ConstInputImagePointer image, float sigma, bool spacing=true
                                        ) {
         
         if (! image.IsNotNull()){
@@ -564,8 +569,11 @@ public:
 
 
         filter->SetInput(image);
-        filter->SetSigma(variance);
-        //filter->SetVariance(variance);
+#ifdef RECURSIVEGAUSSIAN
+        filter->SetSigma(sigma);
+#else
+        filter->SetVariance(sigma*sigma);
+#endif
         //if (!spacing)
         //  filter->SetUseImageSpacingOff();
         filter->Update();
@@ -602,8 +610,11 @@ public:
             DiscreteGaussianImageFilterType::New();
         LOGV(4)<<"gaussian smoothing with "<<VAR(spacing)<<endl;
         filter->SetInput(image);
+#ifdef RECURSIVEGAUSSIAN
         filter->SetSigmaArray(spacing);
-       
+#else
+        
+#endif       
         filter->Update();
         LOGV(4)<<"success"<<endl;
         return filter->GetOutput();

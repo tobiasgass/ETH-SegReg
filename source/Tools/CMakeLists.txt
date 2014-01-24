@@ -21,6 +21,11 @@ INCLUDE_DIRECTORIES(
 ADD_EXECUTABLE(PrintImageContent2D PrintImageContent2D.cxx )
 TARGET_LINK_LIBRARIES(PrintImageContent2D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(PrintImageContent3D PrintImageContent3D.cxx )
+TARGET_LINK_LIBRARIES(PrintImageContent3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ConvertDeformation2D ConvertDeformation2D.cxx )
+TARGET_LINK_LIBRARIES(ConvertDeformation2D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SurfaceExtraction SurfaceExtraction.cxx )
 TARGET_LINK_LIBRARIES(SurfaceExtraction  Utils   ${ITK_LIBRARIES}  )
@@ -56,8 +61,12 @@ TARGET_LINK_LIBRARIES(TestDeformationResampling2D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(InvertComposeDeformations3D InvertComposeDeformations3d.cxx )
 TARGET_LINK_LIBRARIES(InvertComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(InvertDeformation3D InvertDeformation3D.cxx )
 TARGET_LINK_LIBRARIES(InvertDeformation3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(InvertDeformation2D InvertDeformation2D.cxx )
+TARGET_LINK_LIBRARIES(InvertDeformation2D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(DistanceTransform3D DistanceTransform3D.cxx )
 TARGET_LINK_LIBRARIES(DistanceTransform3D  Utils   ${ITK_LIBRARIES}  )

@@ -331,7 +331,7 @@ public:
         if (sigma==0.0) sigma=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
-#define RECURSIVE
+        #define RECURSIVE
 
 #ifdef RECURSIVE
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;

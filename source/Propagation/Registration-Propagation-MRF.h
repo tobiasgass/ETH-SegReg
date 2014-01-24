@@ -92,6 +92,7 @@ public:
         bool estimateMRF=false,estimateMean=false;
         int refineIter=0;
         string source="",target="";
+        bool runEndless=false;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
         (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
@@ -116,6 +117,7 @@ public:
         (*as) >> parameter ("source",source , "source ID, will only compute updated registrations for <source>", false);       
         (*as) >> parameter ("target",target , "target ID, will only compute updated registrations for <source>", false);       
         (*as) >> option ("noCaching", dontCacheDeformations, "do not cache Deformations. will yield a higher IO load as some deformations need to be read multiple times.");
+        (*as) >> option ("runEndless", runEndless, "do not check for convergence.");
 
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -334,8 +336,12 @@ public:
                             estimator.setHardConstraints(useHardConstraints);
                        
                             GaussianEstimatorVectorImage<ImageType> meanEstimator;
-                            addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,deformationSourceTarget,estimateMean,estimateMRF,radius,m_sigma);
-
+                            FloatImagePointerType weightImage=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,deformationSourceTarget,estimateMean,estimateMRF,radius,m_sigma);
+                            if (weightImage.IsNotNull() && outputDir!=""){
+                                ostringstream oss;
+                                oss<<outputDir<<"/lncc-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                                LOGI(2,ImageUtils<FloatImageType>::writeImage(oss.str(),weightImage));
+                            }
                             for (ImageListIteratorType intermediateImageIterator=inputImages.begin();intermediateImageIterator!=inputImages.end();++intermediateImageIterator){                //iterate over intermediates
                                 string intermediateID= intermediateImageIterator->first;
                                 if (targetID != intermediateID && sourceID!=intermediateID){
@@ -351,8 +357,12 @@ public:
                                     }
                                     LOGV(3)<<"Adding "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
                                     DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
-                                    addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,indirectDef,estimateMean,estimateMRF,radius,m_sigma);
-
+                                    FloatImagePointerType weightImage=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,indirectDef,estimateMean,estimateMRF,radius,m_sigma);
+                                    if (weightImage.IsNotNull() && outputDir!=""){
+                                        ostringstream oss;
+                                        oss<<outputDir<<"/lncc-"<<sourceID<<"-TO-"<<targetID<<"-via-"<<intermediateID<<".mha";
+                                        LOGI(4,ImageUtils<FloatImageType>::writeImage(oss.str(),weightImage));
+                                    }
 
                                 }//if
                             }//intermediate image
@@ -430,6 +440,7 @@ public:
                             double dice=0.0;
                             double volumeWeightedDice=0.0;
                             double weightSum=0.0;
+                            LOGV(3)<<"IndividDice "<<VAR(sourceID)<<" "<<VAR(targetID);
                             for (int i=1;i<segmentationMapper.getNumberOfLabels();++i){
                                 typedef typename itk::LabelOverlapMeasuresImageFilter<ImageType> OverlapMeasureFilterType;
                                 typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
@@ -439,10 +450,12 @@ public:
                                 filter->SetCoordinateTolerance(1e-4);
                                 filter->Update();
                                 dice+=filter->GetDiceCoefficient();
+                                LOGI(3,std::cout<<" label: "<<segmentationMapper.GetInverseMappedLabel(i)<<" "<<filter->GetDiceCoefficient());
                                 double weight=FilterUtils<ImageType>::sum(binaryGT);
-                                volumeWeightedDice+=weight*dice;
+                                volumeWeightedDice+=weight*filter->GetDiceCoefficient();
                                 weightSum+=weight;
                             }
+                            LOGI(3,std::cout<<endl);
                             dice/=(segmentationMapper.getNumberOfLabels()-1.0);
                             volumeWeightedDice/=weightSum;
                             LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(dice)<<" "<<VAR(volumeWeightedDice)<<endl;
@@ -498,13 +511,15 @@ public:
             }
             //inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_volumeWeightedDice)<<" "<<VAR(m_energy)<<" "<<VAR(m_similarity)<<" "<<VAR(m_averageMinJac)<<" "<<VAR(m_minMinJacobian)<<endl;
-            if (m_similarity>m_oldSimilarity){
-                LOG<<"Similarity increased, stopping and returning previous estimate."<<endl;
-                break;
-            }else if ( fabs((m_oldSimilarity-m_similarity)/m_oldSimilarity) < 1e-3) { //else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
-                LOG<<"Optimization converged, stopping."<<endl;
-                deformationCache=TMPdeformationCache;
-                break;
+            if (!runEndless){
+                if (m_similarity>m_oldSimilarity){
+                    LOG<<"Similarity increased, stopping and returning previous estimate."<<endl;
+                    break;
+                }else if ( fabs((m_oldSimilarity-m_similarity)/m_oldSimilarity) < 1e-3) { //else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
+                    LOG<<"Optimization converged, stopping."<<endl;
+                    deformationCache=TMPdeformationCache;
+                    break;
+                }
             }
             m_oldEnergy=m_energy;
             m_oldSimilarity=m_similarity;
@@ -548,11 +563,11 @@ protected:
         return result;
     }        
   
-    void addImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_sigma){
-        
+    FloatImagePointerType addImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_sigma){
+        FloatImagePointerType metricImage;
+
         if (weighting=="global" || weighting=="local" || weighting=="globallocal"){
             ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImage,def);
-            FloatImagePointerType metricImage;
             if (weighting=="local" || weighting=="globallocal"){
             switch(metric){
             case NCC:
@@ -601,6 +616,7 @@ protected:
             if (estimateMean)
                 meanEstimator.addImage(def);
         }
+        return metricImage;
     }
     
 

@@ -11,3 +11,5 @@
 2013-09-18.10-35-55 2013-09-18 10:35:55 cd work/src/Novel-SRS/source/Applications/
 2013-09-18.10-43-40 2013-09-18 10:36:01 kdiff3 CLERC2D.cxx CLERC3D.cxx 
 2013-09-23.11-05-13 2013-09-23 11:05:13 emacs CLERC2D.cxx &
+2014-01-22.13-41-12 2014-01-22 13:41:12 cd ../Applications/
+2014-01-22.13-41-14 2014-01-22 13:41:13 grep histNorm *

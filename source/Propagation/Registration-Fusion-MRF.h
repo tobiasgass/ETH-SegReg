@@ -31,6 +31,7 @@
 #include "MRFRegistrationFuser.h"
 #include <itkDisplacementFieldJacobianDeterminantFilter.h>
 #include "SegmentationMapper.hxx"
+#include "itkHistogramMatchingImageFilter.h"
 
 using namespace std;
 
@@ -93,6 +94,7 @@ public:
         bool estimateMRF=false,estimateMean=false;
         int refineIter=0;
         string outputFilename;
+        bool histNorm=false;
         string outputDir="./";
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
@@ -121,6 +123,7 @@ public:
         (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
         (*as) >> parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
+        (*as) >> option ("histNorm", histNorm,"Match source histogram to target histogram!");
       
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -185,6 +188,17 @@ public:
         ImagePointerType targetImage=ImageUtils<ImageType>::readImage(targetFileName);
         ImagePointerType sourceImage=ImageUtils<ImageType>::readImage(sourceFileName);
 
+        if (histNorm){
+            typedef itk::HistogramMatchingImageFilter<ImageType,ImageType> HEFilterType;
+            typename HEFilterType::Pointer IntensityEqualizeFilter = HEFilterType::New();
+            IntensityEqualizeFilter->SetReferenceImage(targetImage  );
+            IntensityEqualizeFilter->SetInput( sourceImage );
+            IntensityEqualizeFilter->SetNumberOfHistogramLevels( 100);
+            IntensityEqualizeFilter->SetNumberOfMatchPoints( 15);
+            IntensityEqualizeFilter->ThresholdAtMeanIntensityOn();
+            IntensityEqualizeFilter->Update();
+            sourceImage=IntensityEqualizeFilter->GetOutput();
+        }
         //split comma separated list
         std::stringstream   myStream( inputDeformationFilenames );
         char          temp[1000];
@@ -262,7 +276,8 @@ public:
         if (outputDir!=""){
             ostringstream oss;
             oss<<outputDir<<"/"<<outputFilename<<"-avgDeformation.mha";
-            ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
+            if (result.IsNotNull())
+                ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
             if (estimateMRF){
                 ostringstream oss2;
                 oss2<<outputDir<<"/"<<outputFilename<<"-labelImage.nii";
@@ -321,7 +336,7 @@ public:
         jacobianFilter->SetUseImageSpacingOff();
         jacobianFilter->Update();
         FloatImagePointerType jac=jacobianFilter->GetOutput();
-        if (outputDir!=""){
+        if (outputDir!="" && jac.IsNotNull()){
             ostringstream filename;
             filename<<outputDir<<"/"<<outputFilename<<"-jacobian.mha";
             LOGI(1,ImageUtils<FloatImageType>::writeImage(filename.str(),jac));

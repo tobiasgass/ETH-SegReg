@@ -550,7 +550,7 @@ public:
                 resampler->SetOutputSpacing( reference->GetSpacing() );
                 resampler->SetOutputOrigin( reference->GetOrigin());
                 resampler->SetOutputDirection( reference->GetDirection());
-#if 0              
+#if 1              
                 //lastly compute Bspline coefficients for said resolution oO
                 decomposition2->SetSplineOrder( SplineOrder );
                 decomposition2->SetInput( resampler->GetOutput() );
@@ -615,18 +615,39 @@ public:
                 parameterImages[k]=getComponent(labelImg,k);
                 
             }
-        bSplineTransform->SetCoefficientImages( parameterImages );
-        
+        try{
+            bSplineTransform->SetCoefficientImages( parameterImages );
+        }catch( itk::ExceptionObject & err ){
+            LOG<<err<<endl;
+            exit(0);
+        }
+
+        LOGV(5)<<"Initialised bspline, now allocating iterator"<<endl;
         LabelIterator lIt(fullDeformationField,fullDeformationField->GetLargestPossibleRegion());
         lIt.GoToBegin();
-        
-        for (;!lIt.IsAtEnd();++lIt){
+        LOGV(5)<<"beginning iteration"<<endl;
+        for (;!lIt.IsAtEnd();++lIt){        
+            LOGV(5)<<"inside iteration"<<endl;
             IndexType idx=lIt.GetIndex();
+            LOGV(5)<<idx<<endl;
             PointType originPoint, deformedPoint;
-            reference->TransformIndexToPhysicalPoint(idx,originPoint);
-            deformedPoint=bSplineTransform->TransformPoint(originPoint);
-            DisplacementType deformation=deformedPoint-originPoint;
-            lIt.Set(deformation);
+            if (reference->GetLargestPossibleRegion().IsInside(idx)){
+                LOGV(5)<<"is inside!"<<endl;
+                reference->TransformIndexToPhysicalPoint(idx,originPoint);
+                LOGV(5)<<VAR(originPoint)<<endl;
+                try{
+                    deformedPoint=bSplineTransform->TransformPoint(originPoint);
+                }catch( itk::ExceptionObject & err ){
+                    LOG<<err<<endl;
+                    exit(0);
+                }
+
+                LOGV(5)<<VAR(deformedPoint)<<endl;
+                DisplacementType deformation=deformedPoint-originPoint;
+                lIt.Set(deformation);
+            }else{
+                LOG<<VAR(idx)<<" not inside reference???"<<std::endl;
+            }
         }
         LOGV(6)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
