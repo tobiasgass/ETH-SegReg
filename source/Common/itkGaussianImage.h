@@ -38,6 +38,7 @@ public:
             m_mean=floatImg;
             m_variance=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(floatImg,floatImg);
         }else{
+            floatImg=FilterUtils<FloatImageType>::LinearResample(floatImg,m_mean,false);
             m_mean=FilterUtils<FloatImageType>::add(m_mean,floatImg);
             m_variance=FilterUtils<FloatImageType>::add(m_variance,ImageUtils<FloatImageType>::multiplyImageOutOfPlace(floatImg,floatImg));
             count++;
@@ -50,19 +51,22 @@ public:
                 return;
             }
             LOGV(6)<<VAR(count)<<endl;
+            ImageUtils<FloatImageType>::multiplyImage(m_mean,1.0/count);
+
             FloatImagePointerType squaredMean=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(m_mean,m_mean);
-            ImageUtils<FloatImageType>::multiplyImage(squaredMean,1.0/count);
+            //            ImageUtils<FloatImageType>::multiplyImage(squaredMean,1.0/count);
+
             LOGI(6,ImageUtils<FloatImageType>::writeImage("squaredMean.nii",squaredMean));
             LOGI(6,ImageUtils<FloatImageType>::writeImage("preVariance.nii",m_variance));
             
-            ImageUtils<FloatImageType>::multiplyImage(m_mean,1.0/count);
             LOGI(6,ImageUtils<FloatImageType>::writeImage("mean.nii",m_mean));
-            m_variance=FilterUtils<FloatImageType>::substract(m_variance,squaredMean);
             if (count>1){
                 ImageUtils<FloatImageType>::multiplyImage(m_variance,1.0/(count-1));
             }else{
                 LOGV(2)<<"Warning, only one observation in gauss estimator, variance estimator will not be usefull"<<endl;
-            }
+            }          
+            m_variance=FilterUtils<FloatImageType>::substract(m_variance,squaredMean);
+          
             LOGI(6,ImageUtils<FloatImageType>::writeImage("variance.nii",m_variance));
             finalized = true; 
         }
@@ -80,6 +84,7 @@ public:
         return m_mean;
     }
     ImagePointerType getVariance(){return FilterUtils<FloatImageType,ImageType>::cast(m_variance);}
+    FloatImagePointerType getFloatVariance(){return (m_variance);}
 
     
 };//class

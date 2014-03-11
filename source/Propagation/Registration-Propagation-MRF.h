@@ -93,6 +93,7 @@ public:
         int refineIter=0;
         string source="",target="";
         bool runEndless=false;
+        bool indivCompare=false;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
         (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
@@ -118,6 +119,7 @@ public:
         (*as) >> parameter ("target",target , "target ID, will only compute updated registrations for <source>", false);       
         (*as) >> option ("noCaching", dontCacheDeformations, "do not cache Deformations. will yield a higher IO load as some deformations need to be read multiple times.");
         (*as) >> option ("runEndless", runEndless, "do not check for convergence.");
+        (*as) >> option ("indivCompare", indivCompare, "individually compare pre- and post registration similarity, and only update if sim has improved or stayed the same.");
 
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -327,6 +329,22 @@ public:
                         }else{
                             deformationSourceTarget = deformationCache[sourceID][targetID];
                         }
+                        
+                        double initialSimilarity;
+                        ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,deformationSourceTarget);
+                        switch(metric){
+                        case NCC:
+                            initialSimilarity=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        case MSD:
+                            initialSimilarity=Metrics<ImageType,FloatImageType>::msd(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        case MAD:
+                            initialSimilarity=Metrics<ImageType,FloatImageType>::mad(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        }
+                        
+                        
                         if (estimateMRF || estimateMean){
 
                             RegistrationFuserType estimator;
@@ -421,6 +439,29 @@ public:
                             result=deformationSourceTarget;
                         }//if (estimateMean || estimateMRF)
 
+                        
+                        double similarity;
+                        warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,result);
+                        switch(metric){
+                        case NCC:
+                            similarity=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        case MSD:
+                            similarity=Metrics<ImageType,FloatImageType>::msd(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        case MAD:
+                            similarity=Metrics<ImageType,FloatImageType>::mad(warpedSourceImage,targetImageIterator->second);
+                            break;
+                        }
+
+                        if (indivCompare && similarity>initialSimilarity){
+                            //fall back to initial solution since similarity has actually decreased
+                            similarity=initialSimilarity;
+                            result=deformationSourceTarget;
+
+                        }
+                        m_similarity+=similarity;
+
                         if (maxHops>1 || !dontCacheDeformations){
                             TMPdeformationCache[sourceID][targetID]=result;
                         }
@@ -464,20 +505,7 @@ public:
                             
                         }
                         
-                        double similarity;
-                        ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImageIterator->second,result);
-                        switch(metric){
-                        case NCC:
-                            similarity=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImageIterator->second);
-                            break;
-                        case MSD:
-                            similarity=Metrics<ImageType,FloatImageType>::msd(warpedSourceImage,targetImageIterator->second);
-                            break;
-                        case MAD:
-                            similarity=Metrics<ImageType,FloatImageType>::mad(warpedSourceImage,targetImageIterator->second);
-                            break;
-                        }
-                        m_similarity+=similarity;
+                    
                         //create mask of valid deformation region
                         
                         typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;

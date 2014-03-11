@@ -12,7 +12,8 @@
 #include "MRFEnergy.h"
 #include "minimize.cpp"
 #include "treeProbabilities.cpp"
-
+#include <itkVectorGradientMagnitudeImageFilter.h>
+#include "itkGaussianImage.h"
 template<class ImageType>
 class MRFRegistrationFuser : public GaussianEstimatorVectorImage<ImageType>{
 
@@ -46,6 +47,9 @@ private:
     bool m_hardConstraints;
     double m_relativeLB;
     SpacingType m_gridSpacings;
+    bool m_anisotropicSmoothing;
+    GaussianEstimatorScalarImage<FloatImageType> m_smoothingEstimator;
+
 public:
     MRFRegistrationFuser(){
         m_gridSpacing=8;
@@ -54,12 +58,13 @@ public:
         m_count=0;
         m_hardConstraints=false;
         m_alpha=1.0;
+        m_anisotropicSmoothing=false;
     }
     void setPairwiseWeight(double w){m_pairwiseWeight=w;}
     void setAlpha(double a){m_alpha=a;}
     void setGridSpacing(double s){m_gridSpacing=s;}
     void setHardConstraints(bool b){m_hardConstraints=b;}
-   
+    void setAnisoSmoothing(bool a){m_anisotropicSmoothing=a;}
     void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
         if (!m_gridImage.IsNotNull()){
             if (m_gridSpacing<=0){
@@ -73,13 +78,22 @@ public:
                                                                 false);
             m_gridSpacings=m_gridImage->GetSpacing();
         }            
+      
+        DeformationFieldPointerType def=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(img,m_gridImage);
+        m_lowResDeformations.push_back(def);
+        //m_lowResDeformations.push_back(TransfUtils<FloatImageType>::computeBSplineTransformFromDeformationField(img,m_gridImage));
+        //m_lowResDeformations.push_back(TransfUtils<FloatImageType>::computeBSplineTransformFromDeformationField(img,m_gridImage));
+        ++m_count;
         if (weights.IsNotNull()){
             m_lowResLocalWeights.push_back(FilterUtils<FloatImageType>::LinearResample(weights,m_gridImage,false));
         }
-        //m_lowResDeformations.push_back(TransfUtils<FloatImageType>::computeBSplineTransformFromDeformationField(img,m_gridImage));
-        m_lowResDeformations.push_back(TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(img,m_gridImage));
-        //m_lowResDeformations.push_back(TransfUtils<FloatImageType>::computeBSplineTransformFromDeformationField(img,m_gridImage));
-        ++m_count;
+        if (m_anisotropicSmoothing){
+            typedef  typename itk::VectorGradientMagnitudeImageFilter<DeformationFieldType> FilterType;
+            typename FilterType::Pointer filter=FilterType::New();
+            filter->SetInput(def);
+            filter->Update();
+            m_smoothingEstimator.addImage(filter->GetOutput());//FilterUtils<FloatImageType>::LinearResample(weights,m_gridImage,false));
+        }
     }
     double finalize(ImagePointerType & labelImage=NULL){
         int nRegLabels=m_count;
@@ -89,7 +103,12 @@ public:
             LOG<<"Adding auxiliary lables to avoid problems with over-constrained hard constraints for positive jacobians"<<endl;
         }
         //build MRF
-       
+        FloatImagePointerType anisoSmoothingWeights;
+        if (m_anisotropicSmoothing){
+            m_smoothingEstimator.finalize();
+            anisoSmoothingWeights=m_smoothingEstimator.getMean();
+        }
+            
         MRFType * m_optimizer;
         m_optimizer= new MRFType(TRWType::GlobalSize());
         TRWType::REAL D1[nRegLabels];
@@ -138,6 +157,11 @@ public:
             PointType point,neighborPoint;
             m_gridImage->TransformIndexToPhysicalPoint(idx,point);
             d=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx,size,buff);
+            double normalizer=-1.0;
+            if (anisoSmoothingWeights.IsNotNull()){
+                normalizer=anisoSmoothingWeights->GetPixel(idx);
+            }
+            
             for (int i=0;i<D;++i){
                  OffsetType off;
                  off.Fill(0);
@@ -147,77 +171,49 @@ public:
                      for (int l1=0;l1<nRegLabels;++l1){
                          for (int l2=0;l2<nRegLabels;++l2){
                              double weight=0.0;
+                             DeformationType neighborDisplacement=m_lowResDeformations[l2]->GetPixel(neighborIndex);
+                             m_gridImage->TransformIndexToPhysicalPoint(neighborIndex,neighborPoint);
+                             double distanceNormalizer=(point-neighborPoint).GetNorm();
+                             DeformationType displacementDifference=(displacements[l1]-neighborDisplacement);
                              if (l1<m_count && l2<m_count){
-                                 DeformationType neighborDisplacement=m_lowResDeformations[l2]->GetPixel(neighborIndex);
-                                 m_gridImage->TransformIndexToPhysicalPoint(neighborIndex,neighborPoint);
-                                 double distanceNormalizer=(point-neighborPoint).GetNorm();
-                                 DeformationType displacementDifference=(displacements[l1]-neighborDisplacement);
-                                 bool checkFolding=false;
-                                 double k=1.0/D+0.0000001;
-                                 double K=0.5;
-
-
-#if 1
-
-                                 
-                                 for (int d2=0;d2<D;++d2){
-                                     if (d2!=i){
-                                         checkFolding = checkFolding || fabs(displacementDifference[d2])>m_gridSpacings[d2]*k;
-                                         //checkFolding = checkFolding || (fabs(displacementDifference[d2]) > fabs(point[i]-neighborPoint[i]));
-                                     } else{
-                                         //checkFolding = checkFolding || displacementDifference[d2] +point[i]-neighborPoint[i] >= 0;
-                                         //checkFolding = checkFolding || (fabs(displacementDifference[d2]) > 2*fabs(point[i]-neighborPoint[i]));
-                                         checkFolding = checkFolding 
-                                             || (-displacementDifference[d2])  < -1.0*k*m_gridSpacings[d2]
-                                             ||  (-displacementDifference[d2]) > K*m_gridSpacings[d2];
-                                         
+                                
+                         
+                                 if (m_hardConstraints){
+                                     //fessler penalty 
+                                     bool checkFolding=false;
+                                     double k=0.0;//1.0/D+0.0000001;
+                                     double K=0.0;//0.5;
+                                     for (int d2=0;d2<D;++d2){
+                                         double dispDiff=-displacementDifference[d2] ;
+                                         if ( dispDiff < -1.0*k*m_gridSpacings[d2] ){
+                                             double pen=(dispDiff + 1.0*k*m_gridSpacings[d2] );
+                                             weight+=0.5*pen*pen*pen*pen;
+                                         }
+                                         if (dispDiff > K*m_gridSpacings[d2]){
+                                             double pen=(displacementDifference[d2] - 1.0*K*m_gridSpacings[d2] );
+                                             weight+=0.5*pen*pen;
+                                         }
                                      }
-                                     
                                  }
-                                 
-                                 
-                                 
-                                 
-                                 if (m_hardConstraints && checkFolding ){
-                                     //folding!
-                                     // (p1+d1)-(p2+d2) > 0
-                                     LOGV(6)<<VAR(point[i])<<" "<<VAR(neighborPoint[i])<<" "<<VAR(displacements[l1][i])<< " " <<VAR(neighborDisplacement[i])<<endl;
-                                     weight=10000000;
-                                     //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
-                                     
-                                 }else{
-                                     
-                                     weight=m_pairwiseWeight*(displacementDifference.GetSquaredNorm()/(distanceNormalizer)) ;//+ (m_alpha)*(l1!=l2);
-                                     
+                                 else{
+                                     weight=(displacementDifference.GetSquaredNorm()/(distanceNormalizer)) ;//+ (m_alpha)*(l1!=l2);
                                      //student-t; fusion flow paper
                                      //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
                                      //weight=m_pairwiseWeight*(l1!=l2);
                                  }
                          
-#else
-                             
-                                 for (int d2=0;d2<D;++d2){
-                                     double dispDiff=-displacementDifference[d2] ;
-                                     if ( dispDiff < -1.0*k*m_gridSpacings[d2] ){
-                                         double pen=(dispDiff + 1.0*k*m_gridSpacings[d2] );
-                                         weight+=m_pairwiseWeight*0.5*pen*pen;
-                                     }
-                                     if (dispDiff > K*m_gridSpacings[d2]){
-                                         double pen=(displacementDifference[d2] - 1.0*K*m_gridSpacings[d2] );
-                                         weight+=m_pairwiseWeight*0.5*pen*pen;
-                                     }
-                                 }
-                                 
-                                 
-                                 
-#endif
                              }else if (l1<m_count || l2<m_count){
                                  weight=0;
                              }else{
                                  //do not allow aux labels next to each other? or should one?
                                  weight=0;//1000000;
                              }
-                             Vreg[l1+l2*nRegLabels]=weight;
+                             if (normalizer>0){
+                                 weight=(weight*distanceNormalizer- (normalizer*normalizer));
+                                 weight*=weight;
+                                         
+                             }
+                             Vreg[l1+l2*nRegLabels]=m_pairwiseWeight*weight;
                            
                          }
                      }

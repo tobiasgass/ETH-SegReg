@@ -1,4 +1,4 @@
-
+  
 #pragma once
 
 #include <stdio.h>
@@ -96,6 +96,7 @@ public:
         string outputFilename;
         bool histNorm=false;
         string outputDir="./";
+        bool anisoSmoothing=false;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
         (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
@@ -124,6 +125,7 @@ public:
         (*as) >> parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
         (*as) >> option ("histNorm", histNorm,"Match source histogram to target histogram!");
+        (*as) >> option ("anisoSmooth", anisoSmoothing,"Anisotropically penalize unsmooth deformations, using statistics from the input");
       
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -216,7 +218,7 @@ public:
         estimator.setPairwiseWeight(m_pairwiseWeight);
         estimator.setGridSpacing(controlGridSpacingFactor);
         estimator.setHardConstraints(useHardConstraints);
-        
+        estimator.setAnisoSmoothing(anisoSmoothing);
         GaussianEstimatorVectorImage<ImageType> meanEstimator;
         DeformationFieldPointerType result;
         for (int i=0;i<nDeformations;++i){

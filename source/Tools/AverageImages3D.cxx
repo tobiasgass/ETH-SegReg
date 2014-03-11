@@ -31,23 +31,25 @@ int main(int argc, char ** argv)
     string inFile, outFile;
     double variance=1.0,mean=0.0;
   
-    if (argc<4){
-        LOG<<"Usage: AverageImages3D <outputFile> <input1> <input2> ..."<<endl;
+    if (argc<5){
+        LOG<<"Usage: AverageImages3D <outputMean> <outputVariance> <input1> <input2> ..."<<endl;
         exit(0);
     }
     
     GaussianEstimatorScalarImage<ImageType> accumulator;
-    ImagePointerType img = ImageUtils<ImageType>::readImage(argv[2]);
+    ImagePointerType img = ImageUtils<ImageType>::readImage(argv[3]);
     accumulator.addImage(img);
     
-    for (int i=3;i<argc;++i){
+    for (int i=4;i<argc;++i){
          ImagePointerType img2 = ImageUtils<ImageType>::readImage(argv[i]);
          accumulator.addImage(img2);
     }
     accumulator.finalize();
     FloatImagePointerType floatMean=accumulator.getFloatMean();
     ImagePointerType intMean=FilterUtils<FloatImageType,ImageType>::round(floatMean);
+    //    ImageUtils<ImageType>::writeImage(argv[1],intMean);
     ImageUtils<ImageType>::writeImage(argv[1],intMean);
+    ImageUtils<FloatImageType>::writeImage(argv[2],accumulator.getFloatVariance());
 
 	return 1;
 }
