@@ -86,7 +86,7 @@ class FilterUtils {
     typedef itk::MaskNegatedImageFilter<InputImage,InputImage,OutputImage> MaskNegatedImageFilterType;
     typedef itk::SubtractImageFilter <InputImage,InputImage,OutputImage> SubtractFilterType;
     typedef itk::AddImageFilter <InputImage,InputImage,OutputImage> AddFilterType;
-    //    typedef itk::ConnectedComponentImageFilter<InputImage,OutputImage>  ConnectedComponentImageFilterType;
+    //typedef itk::ConnectedComponentImageFilter<InputImage,OutputImage>  ConnectedComponentImageFilterType;
     typedef itk::RelabelComponentImageFilter<InputImage,OutputImage>  RelabelComponentImageFilterType;
     typedef itk::ShiftScaleImageFilter<InputImage,OutputImage>  ShiftScaleImageFilterType;
 
@@ -102,7 +102,7 @@ class FilterUtils {
 
   
   
-    //    typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
+    //typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
     typedef typename FastMarchingImageFilterType::Pointer FastMarchingImageFilterPointer;
     //REMI:typedef typename PasteImageFilterType::Pointer PasteImageFilterPointer;
 

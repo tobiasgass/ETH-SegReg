@@ -58,6 +58,7 @@ public:
     typedef typename  ImageNeighborhoodIteratorType::RadiusType RadiusType;
 
     typedef MRFRegistrationFuser<ImageType> RegistrationFuserType;
+    typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;
 
     typedef typename itk::AddImageFilter<DeformationFieldType,DeformationFieldType,DeformationFieldType> DeformationAddFilterType;
     typedef map<string,ImagePointerType> ImageCacheType;
@@ -75,7 +76,7 @@ public:
         int verbose=0;
         double pWeight=1.0;
         int radius=3;
-        int controlGridSpacingFactor=4;
+        double controlGridSpacingFactor=4;
         int maxHops=1;
         bool uniformUpdate=true;
         string metricName="NCC";
@@ -94,6 +95,9 @@ public:
         string source="",target="";
         bool runEndless=false;
         bool indivCompare=false;
+        int nKernels=20;
+        int refineSeamIter=0;
+
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
         (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
@@ -112,7 +116,7 @@ public:
         (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
         (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
         (*as) >> parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
-        (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
+        //  (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
         (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file>", false);
         (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);       
         (*as) >> parameter ("source",source , "source ID, will only compute updated registrations for <source>", false);       
@@ -120,6 +124,7 @@ public:
         (*as) >> option ("noCaching", dontCacheDeformations, "do not cache Deformations. will yield a higher IO load as some deformations need to be read multiple times.");
         (*as) >> option ("runEndless", runEndless, "do not check for convergence.");
         (*as) >> option ("indivCompare", indivCompare, "individually compare pre- and post registration similarity, and only update if sim has improved or stayed the same.");
+        (*as) >> parameter ("refineSeamIter", refineSeamIter,"refine MRF solution at seams by smoothing the result and fusing it with the original solution.",false);
 
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
@@ -404,6 +409,85 @@ public:
                                 double energy=estimator.finalize(labelImage);
                                 result=estimator.getMean();
                                 LOGV(1)<<VAR(energy)<<endl;
+                                if (refineSeamIter>0){
+                                    LOG<<"Refining seams by smoothing solution with maximally "<<nKernels<<" kernels.."<<endl;
+                                    DeformationFieldPointerType originalFusionResult=result;
+                                    RegistrationFuserType seamEstimator;
+                                    double kernelBaseWidth=0.5;//1.0;//pow(-1.0*minJac,1.0/D);
+
+                                    seamEstimator.setAlpha(alpha);
+                                    seamEstimator.setGridSpacing(controlGridSpacingFactor);
+                                    seamEstimator.setHardConstraints(useHardConstraints);
+                                    seamEstimator.setAnisoSmoothing(false);
+                                    //seamEstimator.setAlpha(pow(2.0,1.0*iter)*alpha);
+                                    addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,originalFusionResult,false,estimateMRF,radius,m_sigma);
+               
+                                    //kernelSigmas= kernelBaseWidth/4,kbw/2,kbw,2*kbw,4*kbw
+                                    int k=0;
+                                    for (;k<nKernels;++k){
+                                        //double kernelSigma=kernelBaseWidth*(k+1);//pow(2.0,1.0*(k));
+                                        double kernelSigma=kernelBaseWidth*pow(1.5,1.0*(k));
+                                        DeformationFieldPointerType smoothedResult=TransfUtils<ImageType>::gaussian(result,kernelSigma);
+                                        addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,smoothedResult,false,estimateMRF,radius,m_sigma);
+                                        typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+                                        jacobianFilter->SetInput(smoothedResult);
+                                        jacobianFilter->SetUseImageSpacingOff();
+                                        jacobianFilter->Update();
+                                        FloatImagePointerType jac=jacobianFilter->GetOutput();
+                                        double minJac = FilterUtils<FloatImageType>::getMin(jac);
+                                        if (minJac>0)
+                                            break;
+                                    }
+                                    LOGV(1)<<"Actual number of kernels: "<<VAR(k)<<endl;
+                                    int iter = 0 ;
+                                    ImagePointerType mask;
+                                    for (;iter<refineSeamIter;++iter){
+                                        typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+                                        jacobianFilter->SetInput(result);
+                                        jacobianFilter->SetUseImageSpacingOff();
+                                        jacobianFilter->Update();
+                                        FloatImagePointerType jac=jacobianFilter->GetOutput();
+                                        double minJac = FilterUtils<FloatImageType>::getMin(jac);
+                                        if (minJac>0)
+                                            break;
+                                        mask=FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jac,0.0));
+                                        //ImageUtils<ImageType>::writeImage("mask.nii",mask);
+                                        LOGV(2)<<VAR(minJac)<<endl;
+                                        mask=FilterUtils<ImageType>::dilation(mask,max(1.0*controlGridSpacingFactor,min(100.0,-20.0*minJac)));
+                                        //ImageUtils<ImageType>::writeImage("mask-dilated.nii",mask);
+                                        if (iter>0){
+                                            if (iter>1)
+                                                replaceFirstImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,result,false,estimateMRF,radius,m_sigma);
+                                            else{
+                                                replaceFirstImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,result,false,estimateMRF,radius,m_sigma);
+                                                addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,originalFusionResult,false,estimateMRF,radius,m_sigma);
+                                            }
+                                        }else{
+                                            if (outputDir!=""){
+                                                ostringstream oss2;
+                                                oss2<<outputDir<<"/jacobianDetWithNegVals-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                                                LOGI(2,ImageUtils<FloatImageType>::writeImage(oss2.str(),jac));
+                                            }
+                                        }
+                                        seamEstimator.setPairwiseWeight(m_pairwiseWeight*pow(2.0,1.0*iter));
+                                        seamEstimator.setMask(mask);
+                                        double newEnergy=seamEstimator.finalize(labelImage);
+                                        LOGV(1)<<VAR(iter)<<" "<<VAR(newEnergy)<<" "<<(energy-newEnergy)/energy<<endl;
+                                        //if (newEnergy >energy )
+                                        //  break;
+                                        result=seamEstimator.getMean();
+                                        //if ( (energy-newEnergy)/energy < 1e-5) {
+                                        //  LOGV(1)<<"refinement converged, stopping."<<endl;
+                                        //  break;
+                                        //}
+                                        energy=newEnergy;
+                                        //relativeClosenessToLB=seamEstimator.getRelativeLB();
+                                        
+                                    }
+                                    LOG<<VAR(iter)<<endl;
+                                }
+                                
+
                                 for (int iter=0;iter<refineIter;++iter){
                                     //estimator.setAlpha(pow(2.0,1.0*iter)*alpha);
                                     addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,result,false,estimateMRF,radius,m_sigma);
@@ -508,7 +592,6 @@ public:
                     
                         //create mask of valid deformation region
                         
-                        typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;
                         typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
                         jacobianFilter->SetInput(result);
                         jacobianFilter->SetUseImageSpacingOff();
@@ -597,41 +680,41 @@ protected:
         if (weighting=="global" || weighting=="local" || weighting=="globallocal"){
             ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImage,def);
             if (weighting=="local" || weighting=="globallocal"){
-            switch(metric){
-            case NCC:
-                metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_sigma);
-                break;
-            case MSD:
-                metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImage,radius,m_sigma);
-                break;
-            case MAD:
-                metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImage,radius,m_sigma);
-                break;
-            default:
-                metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_sigma);
-            }
+                switch(metric){
+                case NCC:
+                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_sigma);
+                    break;
+                case MSD:
+                    metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImage,radius,m_sigma);
+                    break;
+                case MAD:
+                    metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImage,radius,m_sigma);
+                    break;
+                default:
+                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_sigma);
+                }
             }else{
                 metricImage=FilterUtils<ImageType,FloatImageType>::createEmpty(targetImage);
                 metricImage->FillBuffer(1.0);
             }
             double globalWeight=1.0;
             if (weighting=="global" || weighting=="globallocal"){
-                   switch(metric){
-                   case NCC:
-                       globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
-                       break;
-                   case MSD:
-                       globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
-                       break;
-                   case MAD:
-                       globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
-                       break;
-                   default:
-                       globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
-                   }
-                   LOGV(2)<<VAR(globalWeight)<<" "<<VAR(pow(globalWeight,m_sigma))<<endl;
-                   globalWeight=pow(globalWeight,m_sigma); 
-                   ImageUtils<FloatImageType>::multiplyImage(metricImage,globalWeight);
+                switch(metric){
+                case NCC:
+                    globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
+                    break;
+                case MSD:
+                    globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
+                    break;
+                case MAD:
+                    globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
+                    break;
+                default:
+                    globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
+                }
+                LOGV(2)<<VAR(globalWeight)<<" "<<VAR(pow(globalWeight,m_sigma))<<endl;
+                globalWeight=pow(globalWeight,m_sigma); 
+                ImageUtils<FloatImageType>::multiplyImage(metricImage,globalWeight);
             }
             FilterUtils<FloatImageType>::lowerThresholding(metricImage,std::numeric_limits<float>::epsilon());
             if (estimateMRF)
@@ -647,6 +730,62 @@ protected:
         return metricImage;
     }
     
+    
+ FloatImagePointerType replaceFirstImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_gamma){
+        
+        FloatImagePointerType metricImage;
+        if (weighting=="global" || weighting=="local" || weighting=="globallocal"){
+            ImagePointerType warpedSourceImage=TransfUtils<ImageType>::warpImage(sourceImage,def);
 
+            if (weighting=="local" || weighting=="globallocal"){
+                switch(metric){
+                case NCC:
+                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_gamma);
+                    break;
+                case MSD:
+                    metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImage,radius,m_gamma);
+                    break;
+                case MAD:
+                    metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImage,radius,m_gamma);
+                    break;
+                default:
+                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_gamma);
+                }
+            }else{
+                metricImage=FilterUtils<ImageType,FloatImageType>::createEmpty(targetImage);
+                metricImage->FillBuffer(1.0);
+            }
+            double globalWeight=1.0;
+            if (weighting=="global" || weighting=="globallocal"){
+                switch(metric){
+                case NCC:
+                    globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
+                    break;
+                case MSD:
+                    globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
+                    break;
+                case MAD:
+                    globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
+                    break;
+                default:
+                    globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
+                }
+                LOGV(2)<<VAR(globalWeight)<<" "<<VAR(pow(globalWeight,m_gamma))<<endl;
+                globalWeight=pow(globalWeight,m_gamma); 
+                ImageUtils<FloatImageType>::multiplyImage(metricImage,globalWeight);
+            }
+            FilterUtils<FloatImageType>::lowerThresholding(metricImage,std::numeric_limits<float>::epsilon());
+            if (estimateMRF)
+                estimator.replaceFirstImage(def,metricImage);
+            if (estimateMean)
+                meanEstimator.addImage(def,metricImage);
+        }else{
+            if (estimateMRF)
+                estimator.addImage(def);
+            if (estimateMean)
+                meanEstimator.addImage(def);
+        }
+        return metricImage;
+    }
    
 };//class
