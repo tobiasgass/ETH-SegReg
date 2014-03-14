@@ -97,7 +97,8 @@ public:
         bool indivCompare=false;
         int nKernels=20;
         int refineSeamIter=0;
-
+        double smoothIncrease=1.2;
+        bool useMaskForSSR=false;
         //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
         (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
@@ -125,7 +126,8 @@ public:
         (*as) >> option ("runEndless", runEndless, "do not check for convergence.");
         (*as) >> option ("indivCompare", indivCompare, "individually compare pre- and post registration similarity, and only update if sim has improved or stayed the same.");
         (*as) >> parameter ("refineSeamIter", refineSeamIter,"refine MRF solution at seams by smoothing the result and fusing it with the original solution.",false);
-
+        (*as) >> parameter ("smoothIncrease", smoothIncrease,"factor to increase smoothing with per iteration for SSR.",false);
+        (*as) >> option ("useMask", useMaskForSSR,"only update pixels with negative jac dets (or in the vincinity of those) when using SSR.");
         //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
         //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
         (*as) >> parameter ("verbose", verbose,"get verbose output",false);
@@ -405,8 +407,8 @@ public:
 
                                 }
                                 
-                        
-                                double energy=estimator.finalize(labelImage);
+                                estimator.finalize();
+                                double energy=estimator.solve();
                                 result=estimator.getMean();
                                 LOGV(1)<<VAR(energy)<<endl;
                                 if (refineSeamIter>0){
@@ -416,6 +418,7 @@ public:
                                     double kernelBaseWidth=0.5;//1.0;//pow(-1.0*minJac,1.0/D);
 
                                     seamEstimator.setAlpha(alpha);
+                                    //seamEstimator.setGridSpacing(1);
                                     seamEstimator.setGridSpacing(controlGridSpacingFactor);
                                     seamEstimator.setHardConstraints(useHardConstraints);
                                     seamEstimator.setAnisoSmoothing(false);
@@ -435,10 +438,17 @@ public:
                                         jacobianFilter->Update();
                                         FloatImagePointerType jac=jacobianFilter->GetOutput();
                                         double minJac = FilterUtils<FloatImageType>::getMin(jac);
-                                        if (minJac>0)
+                                        if (minJac>0.1)
                                             break;
                                     }
                                     LOGV(1)<<"Actual number of kernels: "<<VAR(k)<<endl;
+#if 1
+                                    seamEstimator.setPairwiseWeight(m_pairwiseWeight);
+                                    seamEstimator.finalize();
+                                    energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR);
+                                    result=seamEstimator.getMean();
+                                    labelImage=seamEstimator.getLabelImage();
+#else
                                     int iter = 0 ;
                                     ImagePointerType mask;
                                     for (;iter<refineSeamIter;++iter){
@@ -471,7 +481,8 @@ public:
                                         }
                                         seamEstimator.setPairwiseWeight(m_pairwiseWeight*pow(2.0,1.0*iter));
                                         seamEstimator.setMask(mask);
-                                        double newEnergy=seamEstimator.finalize(labelImage);
+                                        seamEstimator.finalize();
+                                        double newEnergy=seamEstimator.solve();
                                         LOGV(1)<<VAR(iter)<<" "<<VAR(newEnergy)<<" "<<(energy-newEnergy)/energy<<endl;
                                         //if (newEnergy >energy )
                                         //  break;
@@ -483,15 +494,17 @@ public:
                                         energy=newEnergy;
                                         //relativeClosenessToLB=seamEstimator.getRelativeLB();
                                         
-                                    }
+                                    }//refineSeamIter
                                     LOG<<VAR(iter)<<endl;
+#endif
                                 }
                                 
 
                                 for (int iter=0;iter<refineIter;++iter){
                                     //estimator.setAlpha(pow(2.0,1.0*iter)*alpha);
                                     addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,result,false,estimateMRF,radius,m_sigma);
-                                    double newEnergy=estimator.finalize(labelImage);
+                                    estimator.finalize();
+                                    double newEnergy=estimator.solve();
                                     LOGV(1)<<VAR(iter)<<" "<<VAR(newEnergy)<<" "<<(energy-newEnergy)/energy<<endl;
                                     if (newEnergy >energy )
                                         break;
@@ -598,7 +611,7 @@ public:
                         jacobianFilter->Update();
                         FloatImagePointerType jac=jacobianFilter->GetOutput();
                         double minJac = FilterUtils<FloatImageType>::getMin(jac);
-                        //LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<< " " << VAR(minJac) <<" " <<VAR(nCC)<<endl;
+                        LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<< " " << VAR(minJac) <<endl;
                         m_averageMinJac+=minJac;
                         if (minJac<m_minMinJacobian){
                             m_minMinJacobian=minJac;

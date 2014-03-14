@@ -36,7 +36,7 @@
 #include "itkTransformFactoryBase.h"
 #include "itkTransformFactory.h"
 #include "itkMatrixOffsetTransformBase.h"
- 
+#include <itkDisplacementFieldJacobianDeterminantFilter.h>
 using namespace std;
 
 template<class ImageType, class CDisplacementPrecision=float, class COutputPrecision=double,class CFloatPrecision=float>
@@ -1491,7 +1491,20 @@ public:
 
         return filter->GetOutput();
     }
+    static FloatImagePointerType getJacDets(DeformationFieldPointerType def){
+        typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;
+        typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+        jacobianFilter->SetInput(def);
+        jacobianFilter->SetUseImageSpacingOn();
+        jacobianFilter->Update();
+        return jacobianFilter->GetOutput();
+    }
 
+    static double getMinJacDet(DeformationFieldPointerType def){
+
+        return FilterUtils<FloatImageType>::getMin(getJacobian(def));
+        
+    }
     static FloatImagePointerType getComponent(DeformationFieldPointerType def, int d){
         FloatImagePointerType result=createEmptyFloat(def);
         typedef itk::ImageRegionIterator<DeformationFieldType> DeformationIteratorType;
