@@ -37,6 +37,8 @@
 #include "itkTransformFactory.h"
 #include "itkMatrixOffsetTransformBase.h"
 #include <itkDisplacementFieldJacobianDeterminantFilter.h>
+#include <itkDisplacementFieldToBSplineImageFilter.h>
+#include "itkConstantPadImageFilter.h"
 using namespace std;
 
 template<class ImageType, class CDisplacementPrecision=float, class COutputPrecision=double,class CFloatPrecision=float>
@@ -86,9 +88,13 @@ public:
     typedef itk::SubtractImageFilter<DeformationFieldType,DeformationFieldType,
                                      DeformationFieldType>                           SubtracterType;
     typedef typename SubtracterType::Pointer                  SubtracterPointer;
+    //#define DISCRETEGAUSSIAN
 
-    //typedef itk::DiscreteGaussianImageFilter<DeformationFieldType,DeformationFieldType>  DiscreteGaussianImageFilterType;
+#ifdef DISCRETEGAUSSIAN
+    typedef itk::DiscreteGaussianImageFilter<DeformationFieldType,DeformationFieldType>  DiscreteGaussianImageFilterType;
+#else
     typedef itk::SmoothingRecursiveGaussianImageFilter<DeformationFieldType,DeformationFieldType>  DiscreteGaussianImageFilterType;
+#endif
     typedef typename DiscreteGaussianImageFilterType::Pointer DiscreteGaussianImageFilterPointer;
     
     typedef map< string, map <string, DeformationFieldPointerType> > DeformationCacheType;
@@ -586,6 +592,59 @@ public:
         LOGV(6)<<"Finshed extrapolation"<<std::endl;
         return fullDeformationField;
     }
+
+    static DeformationFieldPointerType deformationFieldToBSpline(DeformationFieldPointerType labelImg, ImagePointerType reference){
+        typedef typename itk::DisplacementFieldToBSplineImageFilter<DeformationFieldType> FilterType;
+        typename FilterType::Pointer bspliner=FilterType::New();
+        bspliner->SetDisplacementField(labelImg);
+        typename FilterType::ArrayType numberOfControlPoints;
+        int splineOrder=3;
+        for (int d=0;d<D;++d){
+            numberOfControlPoints[d]=reference->GetLargestPossibleRegion().GetSize()[d];//+splineOrder-1;
+        }
+        LOG<<VAR(numberOfControlPoints)<<endl;
+        bspliner->SetNumberOfControlPoints(numberOfControlPoints);
+        bspliner->SetNumberOfFittingLevels( 1 );
+        bspliner->SetSplineOrder( splineOrder );
+        bspliner->EnforceStationaryBoundaryOff();
+        //bspliner->EnforceStationaryBoundaryOn();
+        //        bspliner->SetEnforceStationaryBoundary( false );
+        bspliner->EstimateInverseOff();
+        try{
+            bspliner->Update();
+        }catch( itk::ExceptionObject & excp )
+            {
+                std::cerr << "Exception thrown " << std::endl;
+                std::cerr << excp << std::endl;
+            }
+        DeformationFieldPointerType result=ImageUtils<DeformationFieldType>::duplicateConst(bspliner->GetDisplacementFieldControlPointLattice());
+        LOG<<result->GetLargestPossibleRegion().GetSize()<<endl;
+        LOG<<result->GetSpacing()<<endl;
+#if 0
+        result->SetSpacing(reference->GetSpacing());
+        result->SetOrigin(reference->GetOrigin());
+        result->SetDirection(reference->GetDirection());
+
+
+        typedef typename itk::ConstantPadImageFilter< DeformationFieldType,DeformationFieldType > PadFilterType;
+        typename PadFilterType::Pointer padder=PadFilterType::New();
+        typename ImageType::SizeType lower,upper;
+        lower.Fill(1);
+        upper.Fill(1);
+        padder->SetPadLowerBound(lower);
+        padder->SetPadUpperBound(upper);
+        DisplacementType zer;
+        zer.Fill(0);
+        padder->SetConstant(zer);
+        padder->SetInput(result);
+        padder->Update();
+        result=padder->GetOutput();
+#endif
+        return bspliner->GetOutput();;
+        
+    }
+
+
 
     static DeformationFieldPointerType computeDeformationFieldFromBSplineTransform(DeformationFieldPointerType labelImg,ImagePointerType reference){ 
      
@@ -1465,8 +1524,13 @@ public:
             DiscreteGaussianImageFilterType::New();
       
         filter->SetInput(image);
+#ifdef DISCRETEGAUSSIAN
+        if (variance*variance>32)
+            filter->SetMaximumKernelWidth(ceil(variance)*ceil(variance));
+        filter->SetVariance(variance*variance);
+#else
         filter->SetSigma(variance);
-        //filter->SetVariance(variance*variance);
+#endif
         filter->Update();
 
         return filter->GetOutput();
@@ -1478,15 +1542,27 @@ public:
 
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
+
+#ifdef DISCRETEGAUSSIAN
+        double s[D];
+        for (int d=0;d<DeformationFieldType::ImageDimension;++d){
+            if (spacing[d]==0){
+                spacing[d]=1e-5;
+            }
+            s[d]=(spacing[d]);
+        }
+        filter->SetVariance(s);
+#else
         for (int d=0;d<DeformationFieldType::ImageDimension;++d){
             if (spacing[d]==0){
                 spacing[d]=1e-5;
             }
             spacing[d]=sqrt(spacing[d]);
         }
-          
-        filter->SetInput(image);
         filter->SetSigmaArray(spacing);
+#endif     
+        filter->SetInput(image);
+
         filter->Update();
 
         return filter->GetOutput();

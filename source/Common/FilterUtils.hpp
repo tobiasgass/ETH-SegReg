@@ -78,6 +78,9 @@ class FilterUtils {
     typedef itk::FlatStructuringElement< InputImage::ImageDimension > StructuringElementType;
     typedef typename StructuringElementType::RadiusType StructuringElementTypeRadius;
 
+    typedef itk::Image<double,D> FloatImageType;
+    typedef typename FloatImageType::Pointer FloatImagePointerType;
+
     typedef itk::BinaryThresholdImageFilter<InputImage,OutputImage> BinaryThresholdFilter;
     typedef itk::BinaryErodeImageFilter<InputImage, OutputImage, StructuringElementType > ErodeFilterType;
     typedef itk::BinaryDilateImageFilter<InputImage, OutputImage, StructuringElementType > DilateFilterType;
@@ -142,6 +145,14 @@ public:
     //resample with an uniform scaling factor
 
     static OutputImagePointer gradient(ConstInputImagePointer input){
+        
+        typename GradientFilterType::Pointer gradientFilter = GradientFilterType::New();
+        gradientFilter->SetInput(input);
+        gradientFilter->Update();
+        return gradientFilter->GetOutput();
+
+    }
+    static OutputImagePointer gradient(InputImagePointer input){
         
         typename GradientFilterType::Pointer gradientFilter = GradientFilterType::New();
         gradientFilter->SetInput(input);
@@ -871,11 +882,11 @@ public:
         return cast(inputImage);
     }
 
-    static OutputImagePixelType sum(InputImagePointer inputImage) {
+    static double sum(InputImagePointer inputImage) {
 
         itk::ImageRegionIterator<InputImage> it(
                                                 inputImage, inputImage->GetLargestPossibleRegion());
-        OutputImagePixelType result=0;
+        double result=0;
         for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
             result+=it.Get();
         }
@@ -931,6 +942,19 @@ public:
         dilateFilter->Update();
 
         return dilateFilter->GetOutput();
+    }
+
+    // perform dilation (mathematical morphology) with a given label image
+    // using a ball with a given radius
+    static OutputImagePointer myDilation(
+                                       InputImagePointer labelImage, unsigned radius,
+                                       InputImagePixelType valueToDilate = 1
+                                       ) {
+     
+        FloatImagePointerType dist=FilterUtils<InputImage,FloatImageType>::distanceMapByFastMarcher(labelImage,valueToDilate);
+        return FilterUtils<FloatImageType,OutputImage>::binaryThresholdingHigh(dist,1.0*radius);
+
+        //        return dilateFilter->GetOutput();
     }
 
 

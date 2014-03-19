@@ -72,21 +72,23 @@ public:
     void setMask(ImagePointerType mask){m_mask=mask;}
     
     //add deformation (with optinal weights)
-    void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
+    void addImage(DeformationFieldPointerType img,FloatImagePointerType weights){
         if (!m_gridImage.IsNotNull()){
             if (m_gridSpacing<=0){
                 LOG<<VAR(m_gridSpacing)<<endl;
                 exit(0);
             }
             //initialize
-            m_highResGridImage=TransfUtils<FloatImageType>::createEmptyImage(img);
+            m_highResGridImage=ImageUtils<FloatImageType>::createEmpty(weights);//TransfUtils<FloatImageType>::createEmptyImage(img);
             m_gridImage=FilterUtils<FloatImageType>::NNResample(m_highResGridImage,
                                                                 1.0/m_gridSpacing,
                                                                 false);
             m_gridSpacings=m_gridImage->GetSpacing();
         }            
       
-        DeformationFieldPointerType def=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(img,m_gridImage);
+        DeformationFieldPointerType def=img;
+        if (def->GetLargestPossibleRegion().GetSize()!=m_gridImage->GetLargestPossibleRegion().GetSize())
+            def=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(img,m_gridImage);
         m_lowResDeformations.push_back(def);
         //m_lowResDeformations.push_back(TransfUtils<FloatImageType>::computeBSplineTransformFromDeformationField(img,m_gridImage));
         //m_lowResDeformations.push_back(TransfUtils<FloatImageType>::computeBSplineTransformFromDeformationField(img,m_gridImage));
@@ -127,6 +129,7 @@ public:
     double finalize(){
         m_lowResResult=ImageUtils<DeformationFieldType>::duplicate(m_lowResDeformations[0]);
         m_labelImage=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(m_gridImage);
+        m_labelImage->FillBuffer(0);
 
     }
     double solve(){
@@ -165,51 +168,71 @@ public:
         
         //iterate coarse grid for unaries
         FloatImageIteratorType gridIt(m_gridImage,m_gridImage->GetLargestPossibleRegion());
-        ImageIteratorType * maskIt;
-        maskIt=new ImageIteratorType(m_mask,m_mask->GetLargestPossibleRegion());
-        maskIt->GoToBegin();
+        ImageIteratorType maskIt;
+        maskIt=ImageIteratorType(m_mask,m_mask->GetLargestPossibleRegion());
+        maskIt.GoToBegin();
 
         bool buff;
         gridIt.GoToBegin();
-        int countInside=0;
+        int countInside=0,countFringe=0;
         for (int d=0;!gridIt.IsAtEnd();++gridIt,++d){
             
-            bool insideMask=maskIt->Get()>0;
-            ++(*maskIt);
+            bool insideMask=maskIt.Get()>0;
+            ++maskIt;
             if (!insideMask)
                 continue;
         
             ++countInside;
             IndexType idx=gridIt.GetIndex();
-            for (int l1=0;l1<nRegLabels;++l1) {
-                if (l1<m_count){
-                    //D1[l1]=-log(m_lowResLocalWeights[l1]->GetPixel(idx));
-                    D1[l1]=1.0-(m_lowResLocalWeights[l1]->GetPixel(idx));
-                    LOGV(7)<<l1<<" "<<VAR(D1[l1])<<" "<<m_lowResLocalWeights[l1]->GetPixel(idx)<<endl;
-                }else{
-                    //penalty for aux label
-                    D1[l1]=2;
-                }
-            }
-
             d=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx,size,buff);
-            regNodes[d] = 
-                m_optimizer->AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
+
+            if (maskIt.Get()!=2){
+                for (int l1=0;l1<nRegLabels;++l1) {
+                    if (l1<m_count){
+                        //D1[l1]=-log(m_lowResLocalWeights[l1]->GetPixel(idx));
+                        D1[l1]=1.0-(m_lowResLocalWeights[l1]->GetPixel(idx));
+                    LOGV(7)<<l1<<" "<<VAR(D1[l1])<<" "<<m_lowResLocalWeights[l1]->GetPixel(idx)<<endl;
+                    }else{
+                        //penalty for aux label
+                        D1[l1]=2;
+                    }
+                }
+                
+                regNodes[d] = 
+                    m_optimizer->AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
+            }else{
+                //get label from previous estimate and fix to that label :)
+                int label=  m_labelImage->GetPixel(idx);
+                
+                 for (int l1=0;l1<nRegLabels;++l1) {
+                    if (l1==label){
+                        //D1[l1]=-log(m_lowResLocalWeights[l1]->GetPixel(idx));
+                        D1[l1]=1.0-(m_lowResLocalWeights[l1]->GetPixel(idx));
+                    LOGV(7)<<l1<<" "<<VAR(D1[l1])<<" "<<m_lowResLocalWeights[l1]->GetPixel(idx)<<endl;
+                    }else{
+                        //penalty for aux label
+                        D1[l1]=10000000;
+                    }
+                }
+                regNodes[d] = 
+                    m_optimizer->AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
+                ++countFringe;
+
+            }
         }
-        LOGV(1)<<VAR(countInside)<<endl;
+        LOGV(1)<<VAR(countInside)<<" "<<VAR(countFringe)<<endl;
      
         //iterate coarse grid for pairwises
         gridIt.GoToBegin();
         if (m_mask.IsNotNull()){
-            maskIt->GoToBegin();
+            maskIt.GoToBegin();
         }
-        TRWType::REAL Vreg[nRegLabels*nRegLabels];
         for (int d=0;!gridIt.IsAtEnd();++gridIt,++d){
-            bool insideMask=maskIt->Get()>0;
-            ++(*maskIt);
+            bool insideMask=maskIt.Get()>0;
+            ++maskIt;
             if (!insideMask)
                 continue;
-            
+            int nRegLabelsNode1=nRegLabels;//maskIt.Get()!=2?nRegLabels:1;
 
             IndexType idx=gridIt.GetIndex();
             //LOGV(1)<<VAR(idx)<<endl;
@@ -239,47 +262,110 @@ public:
                 }
                 if (m_gridImage->GetLargestPossibleRegion().IsInside(neighborIndex)){
                     //LOGV(1)<<VAR(neighborIndex)<<endl;
+                    
+                    int nRegLabelsNode2=nRegLabels;//m_mask->GetPixel(idx)!=2?nRegLabels:1;
+                    
+                    
+                    TRWType::REAL Vreg[nRegLabelsNode1*nRegLabelsNode2];
 
-                    for (int l1=0;l1<nRegLabels;++l1){
-                        for (int l2=0;l2<nRegLabels;++l2){
+                    for (int l1=0;l1<nRegLabelsNode1;++l1){
+                        int label1=l1;//nRegLabelsNode1!=1?l1:m_labelImage->GetPixel(idx);
+                        for (int l2=0;l2<nRegLabelsNode2;++l2){
+                            int label2=l2;//nRegLabelsNode2!=1?l2:m_labelImage->GetPixel(neighborIndex);
                             double weight=0.0;
-                            DeformationType neighborDisplacement=m_lowResDeformations[l2]->GetPixel(neighborIndex);
+                            DeformationType neighborDisplacement=m_lowResDeformations[label2]->GetPixel(neighborIndex);
                             m_gridImage->TransformIndexToPhysicalPoint(neighborIndex,neighborPoint);
                             double distanceNormalizer=(point-neighborPoint).GetNorm();
-                            DeformationType displacementDifference=(displacements[l1]-neighborDisplacement);
-                            if (l1<m_count && l2<m_count){
+                            DeformationType displacementDifference=(displacements[label1]-neighborDisplacement);
+                            if (label1<m_count && label2<m_count){
                                 
                          
                                 if (m_hardConstraints){
                                     //fessler penalty 
                                     bool checkFolding=false;
-                                    double k=0.0;//1.0/D+0.0000001;
-                                    double K=0.0;//0.5;
+                                    double k=1;//1.0/D-0.0000001;
+                                    double K=3;
+#if 0
+
+#if 0
                                     for (int d2=0;d2<D;++d2){
                                         double dispDiff=-displacementDifference[d2] ;
                                         if ( dispDiff < -1.0*k*m_gridSpacings[d2] ){
-                                            double pen=(dispDiff + 1.0*k*m_gridSpacings[d2] );
-                                            weight+=0.5*pen*pen;
+                                            //double pen=(dispDiff + 1.0*k*m_gridSpacings[d2] );
+                                            weight+=100000.0;//0.5*pen*pen;
                                         }
                                         if (dispDiff > K*m_gridSpacings[d2]){
-                                            double pen=(displacementDifference[d2] - 1.0*K*m_gridSpacings[d2] );
-                                            weight+=fabs(0.5*pen);
+                                            //double pen=(displacementDifference[d2] - 1.0*K*m_gridSpacings[d2] );
+                                            weight+=100000.0;//fabs(0.5*pen);
                                         }
                                     }
+#else
+
+                                    //fucking fessler :D
+                                    for (int d2=0;d2<D;++d2){
+                                        //this should now be 
+                                        double dispDiff=-displacementDifference[d2] ;
+                                        if (d2==i){
+                                            if ( dispDiff < -1.0*k*m_gridSpacings[d2] ){
+                                                //double pen=(dispDiff + 1.0*k*m_gridSpacings[d2] );
+                                                weight+=100000.0;//0.5*pen*pen;
+                                            }
+                                            if (dispDiff > K*m_gridSpacings[d2]){
+                                                //double pen=(displacementDifference[d2] - 1.0*K*m_gridSpacings[d2] );
+                                                weight+=100000.0;//fabs(0.5*pen);
+                                            }
+                                        }else{
+                                            if (fabs(dispDiff)>1.0*k*m_gridSpacings[d2]){
+                                                weight+=100000.0;
+                                            }
+                                        }
+
+                                    }
+
+
+#endif
+#else
+                                    
+                                    DeformationType displacementDifference2=(neighborDisplacement-displacements[label1]);
+                                    for (int d2=0;d2<D;++d2){
+                                        double dispDiff=displacementDifference2[d2] ;
+                                        if (d2==i){
+                                            if ( dispDiff < -0 ){
+                                                if (dispDiff<=-m_gridSpacings[d2]){
+                                                    weight+=100000.0;//0.5*pen*pen;
+                                                }
+                                                else{
+                                                    double pen=(1.0+dispDiff/m_gridSpacings[d2] );
+                                                    weight+=1.0/(pen*pen);
+                                                    
+                                                }
+
+                                            }else{
+                                                weight+=dispDiff*dispDiff;
+                                            }
+                                        }else{
+                                           weight+=dispDiff*dispDiff;
+                                        }
+                                    }
+                                    weight=weight/distanceNormalizer;
+#endif
                                 }
                                 else{
-                                    //weight=(displacementDifference-(point-neighborPoint)).GetSquaredNorm();///(distanceNormalizer)) ;//+ (m_alpha)*(l1!=l2);
-                                    weight=(displacementDifference.GetSquaredNorm()/(distanceNormalizer));//+ (m_alpha)*(l1!=l2);
+                                  
+                                    
+                                    //weight=(displacementDifference-(point-neighborPoint)).GetSquaredNorm();///(distanceNormalizer)) ;//+ (m_alpha)*(label1!=label2);
+                                    weight=(displacementDifference.GetSquaredNorm()/(distanceNormalizer));//+ (m_alpha)*(label1!=label2);
+                                
                                     //for (int d2=0;d2<D;++d2){
                                     //weight+=fabs(displacementDifference[d2])/sqrt(distanceNormalizer);
                                     //}
 
                                     //student-t; fusion flow paper
                                     //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
-                                    //weight=m_pairwiseWeight*(l1!=l2);
+                                    //weight=m_pairwiseWeight*(label1!=label2);
                                 }
                          
-                            }else if (l1<m_count || l2<m_count){
+                            }else if (label1<m_count || label2<m_count){
                                 weight=0;
                             }else{
                                 //do not allow aux labels next to each other? or should one?
@@ -290,7 +376,9 @@ public:
                                 weight*=weight;
                                          
                             }
-                            Vreg[l1+l2*nRegLabels]=m_pairwiseWeight*weight;
+                            //label1=nRegLabelsNode1>1?label1:0;
+                            //                            label2=nRegLabelsNode2>1?label2:0;
+                            Vreg[label1+label2*nRegLabelsNode1]=m_pairwiseWeight*weight;
                            
                         }
                     }
@@ -320,13 +408,13 @@ public:
         DeformationImageIteratorType resIt(m_lowResResult, m_lowResResult->GetLargestPossibleRegion());
         resIt.GoToBegin();
         int countAuxLabel=0;
-        maskIt->GoToBegin();
+        maskIt.GoToBegin();
         for (;!resIt.IsAtEnd();++resIt){
             IndexType idx=resIt.GetIndex();
             int linearIndex=ImageUtils<ImageType>::ImageIndexToLinearIndex(idx,size,buff);
             bool insideMask=true;
-            insideMask=maskIt->Get()>0;
-            ++(*maskIt);
+            insideMask=maskIt.Get()!=2 && maskIt.Get();
+            ++(maskIt);
             int label;
             if (insideMask){
                 label=m_optimizer->GetSolution(regNodes[linearIndex]);
@@ -335,7 +423,6 @@ public:
                 m_labelImage->SetPixel(idx,label);
             }
         }
-        delete maskIt;
       
      
         //m_result=TransfUtils<FloatImageType>::linearInterpolateDeformationField(m_lowResResult,m_highResGridImage);
@@ -344,7 +431,13 @@ public:
         return energy;
     }
 
-    DeformationFieldPointerType getMean(){return    m_result=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage);return m_result;}
+    DeformationFieldPointerType getMean(){
+        m_result=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage);
+        return m_result;
+    }
+    //DeformationFieldPointerType getMean(){m_result=TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(     m_lowResDeformations[0],m_highResGridImage);return m_result;}
+
+    DeformationFieldPointerType getLowResResult(){return    m_lowResResult;}
     ImagePointerType getLabelImage(){return m_labelImage;}
     DeformationFieldPointerType getVariance(){return NULL;}
     DeformationFieldPointerType getStdDev(){return NULL;}
@@ -354,31 +447,79 @@ public:
         return result;
     }
 
-    double solveUntilPosJacDet(int maxIter,double increaseSmoothing,bool useMask){
+    double solveUntilPosJacDet(int maxIter,double increaseSmoothing,bool useJacMask, double ballRadius, ImagePointerType mask=NULL){
         double energy;
         double minJac=-1;
         finalize();
         double mmJac=0;
         int iter=0;
+        if (mask.IsNotNull()){
+            useJacMask=false;
+            setMask(mask);
+        }
         for (;iter<maxIter;++iter){
             //FloatImagePointerType jacDets=TransfUtils<ImageType>::getJacDets(m_lowResResult);
-            FloatImagePointerType jacDets=TransfUtils<ImageType>::getJacDets(getMean());
+         
+            FloatImagePointerType jacDets=TransfUtils<ImageType>::getJacDets(m_lowResResult);
             minJac=FilterUtils<FloatImageType>::getMin(jacDets);
-        
+            //bool lowResNegJacTest=(FilterUtils<FloatImageType>::getMin(TransfUtils<ImageType>::getJacDets(m_lowResResult))<=0);
+            if (minJac>0.0){
+                //            LOGV(3)<<VAR(lowResNegJacTest)<<" "<<(minJac<=0)<<endl;
+                jacDets=TransfUtils<ImageType>::getJacDets(TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage));
+                minJac=FilterUtils<FloatImageType>::getMin(jacDets);
+            }
+           
+            double negJacFrac=FilterUtils<FloatImageType>::sum(FilterUtils<FloatImageType>::binaryThresholdingHigh(jacDets,0.0));
             
-            LOGV(2)<<VAR(iter)<<" "<<VAR(minJac)<<endl;
-            double fessler=fesslerTest();
-            LOGV(2)<< VAR(( (fessler<0) == minJac<0 ))<<" "<<VAR(fessler)<<" "<<VAR(minJac)<<endl;
+            negJacFrac/=jacDets->GetLargestPossibleRegion().GetNumberOfPixels();
+            LOGV(2)<<VAR(iter)<<" "<<VAR(minJac)<<" "<<VAR(negJacFrac)<<endl;
+         
+
             double fac=1.0;
             if (minJac<0.0) fac=-1.0;
             if (minJac>mmJac)
                 break;
-            if (useMask){
+            if (useJacMask){
+                int sumPixels=0;
                 ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jacDets,mmJac));
+
+                if (mask->GetLargestPossibleRegion().GetSize()!=m_gridImage->GetLargestPossibleRegion().GetSize()){
+                    //if mask needs to be resampled, we first dilate it with a small ball to avoid 'forgetting' negative pixels due to the resampling
+                    mask=FilterUtils<ImageType>::dilation(mask,m_gridSpacings[0]);
+                    mask= FilterUtils<ImageType>::NNResample(mask,FilterUtils<FloatImageType,ImageType>::cast(m_gridImage),false);
+                }
+
+
                 ImageUtils<ImageType>::writeImage("mask.nii",mask);
-                LOGV(2)<<"dilating mask with a ball of "<<min(100.0,fac*20.0*minJac)<<" px."<<endl;
-                mask=FilterUtils<ImageType>::dilation(mask,max(1.0*m_gridSpacings[0],min(100.0,fac*20.0*minJac)));
-                ImageUtils<ImageType>::writeImage("mask-dilated.nii",mask);
+                do{
+                    //double ballRadius=min(100.0,fac*50.0*minJac);
+                    //ballRadius=m_gridSpacings[0];
+                    LOGV(2)<<"dilating mask with a ball of "<<ballRadius<<" mm."<<endl;
+                    //if (ballRadius<20)
+                    //dilation is in pixel units -.-
+                    ImagePointerType testMask=FilterUtils<ImageType>::dilation(mask,ballRadius/m_gridSpacings[0]);
+                    //else{
+                    //dilation by distance map is faster for large radii
+                    //ImagePointerType testMask=FilterUtils<ImageType>::myDilation(mask,ballRadius);
+                    //}
+                    ImageUtils<ImageType>::writeImage("mask-dilated.nii",testMask);
+                    //mask=computeLocallyDilatedMask(jacDets, mmJac, 50.0);
+                    sumPixels=FilterUtils<ImageType>::sum(testMask);
+                    LOGV(3)<<VAR(sumPixels)<<endl;
+                    if (sumPixels<2){
+                        ballRadius*=2;
+                    }else{
+                        mask=testMask;
+                    }
+                }while (sumPixels<2);
+
+
+                ImagePointerType oneMoreMask=FilterUtils<ImageType>::dilation(mask,1);
+                oneMoreMask=FilterUtils<ImageType>::substract(oneMoreMask,mask);
+                ImageUtils<ImageType>::multiplyImage(oneMoreMask,2);
+                mask=FilterUtils<ImageType>::add(mask,oneMoreMask);
+                ImageUtils<ImageType>::writeImage("mask-final.nii",mask);
+                    
                 setMask(mask);
                                                         
             }
@@ -391,6 +532,48 @@ public:
 
     }
 
+
+    ImagePointerType computeLocallyDilatedMask(FloatImagePointerType jac, double jacThresh,double dilateFactor){
+        LOGV(2)<<"Locally dilating mask with a ball of "<<min(100.0,50.0)<<"*minJac px."<<endl;
+        ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jac,jacThresh));
+        mask=FilterUtils<ImageType>::dilation(mask,1.0*m_gridSpacings[0]);//,min(100.0,50.0*minJacPerComp[c])),c+1);
+        typedef itk::ConnectedComponentImageFilter<ImageType,ImageType>  ConnectedComponentImageFilterType;
+        typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
+        
+        ConnectedComponentImageFilterPointer filter =
+            ConnectedComponentImageFilterType::New();
+        
+        filter->SetInput(mask);
+        filter->Update();
+        ImagePointerType components=filter->GetOutput();
+        int nComponents=filter->GetObjectCount();
+        std::vector<double> minJacPerComp(nComponents,jacThresh);
+
+        FloatImageIteratorType jacIt(jac,jac->GetLargestPossibleRegion());
+        ImageIteratorType it(components,components->GetLargestPossibleRegion());
+        jacIt.GoToBegin();
+        it.GoToBegin();
+        for (;!it.IsAtEnd();++it,++jacIt){
+            int comp=it.Get();
+            if (comp>0){
+                double jac=jacIt.Get();
+                if (jac<minJacPerComp[comp-1])
+                    minJacPerComp[comp-1]=jac;
+
+            }
+
+        }
+
+        for (int c=0;c<nComponents;++c){
+            double dilation=min(50.0,fabs(dilateFactor*minJacPerComp[c]));
+            LOGV(3)<<VAR(c)<<" "<<VAR(minJacPerComp[c])<<" "<<VAR(dilation)<<endl;
+            if (dilation>0.0)
+                components=FilterUtils<ImageType>::dilation(components,dilation,c+1);
+        }
+        return FilterUtils<ImageType>::binaryThresholdingLow(components,1);
+        
+
+    }
     double fesslerTest(){
         
         double minDiff=100000000;

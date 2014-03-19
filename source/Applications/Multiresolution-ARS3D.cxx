@@ -108,7 +108,7 @@ int main(int argc, char ** argv)
     logSetStage("Preprocessing");
     //preprocessing 1: gradients
     ImagePointerType targetGradient, atlasGradient;
-    ImagePointerType tissuePrior;
+    ImagePointerType targetAnatomyPrior;
     if (filterConfig.segment){
         if (filterConfig.targetGradientFilename!=""){
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
@@ -124,8 +124,8 @@ int main(int argc, char ** argv)
             LOGI(10,ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient));
         }
         
-        if (filterConfig.useTissuePrior){
-            tissuePrior=Preprocessing<ImageType>::computeSoftTissueEstimate(targetImage);
+        if (filterConfig.useTargetAnatomyPrior){
+            targetAnatomyPrior=Preprocessing<ImageType>::computeSoftTissueEstimate(targetImage);
         }
         //preprocessing 2: multilabel
         if (filterConfig.computeMultilabelAtlasSegmentation){
@@ -149,8 +149,8 @@ int main(int argc, char ** argv)
             atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale,true);
             //targetGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetGradient,sigma),scale);
             //atlasGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasGradient,sigma),scale);
-            if (filterConfig.useTissuePrior){
-                tissuePrior=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)(targetImage)),scale,true);
+            if (filterConfig.useTargetAnatomyPrior){
+                targetAnatomyPrior=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)(targetImage)),scale,true);
             }
         }
     }
@@ -162,8 +162,8 @@ int main(int argc, char ** argv)
     filter->setAtlasImage(atlasImage);
     filter->setAtlasGradient(atlasGradient);
     filter->setAtlasSegmentation(atlasSegmentation);
-    if (filterConfig.useTissuePrior){
-        filter->setTissuePrior(tissuePrior);
+    if (filterConfig.useTargetAnatomyPrior){
+        filter->setTargetAnatomyPrior(targetAnatomyPrior);
     }
     DeformationFieldPointerType transf=NULL;
     if (filterConfig.affineBulkTransform!=""){
@@ -192,11 +192,12 @@ int main(int argc, char ** argv)
     tmpSegL=filterConfig.nSegmentations;
 
     DeformationFieldPointerType intermediateDeformation;
-    ImagePointerType intermediateSegmentation;
+    ImagePointerType intermediateSegmentation,previousSegmentation=NULL;
     double lastSegEnergy=10000;
     double lastRegEnergy=10000;
     logResetStage;//IO
     logSetStage("ARS iteration");
+    
     for (int iteration=0;iteration<10;++iteration){    
         filterConfig.ARSTolerance= pow(filterConfig.toleranceBase,max(0,10-iteration-1)+1);
 
@@ -242,6 +243,16 @@ int main(int argc, char ** argv)
         lastSegEnergy=segEnergy;
         lastRegEnergy=regEnergy;
         ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(originalAtlasSegmentation,intermediateDeformation,true);
+        double dice,hd,msd;
+        int maxLabel=FilterUtils<ImageType>::getMax(deformedAtlasSegmentation);
+        if (previousSegmentation.IsNotNull()){
+            SegmentationTools<ImageType>::computeOverlap(previousSegmentation, intermediateSegmentation, dice,msd,hd,maxLabel,false);
+            LOGV(-1)<<" Iteration :"<<iteration<<" "<<VAR(dice)<<endl;         
+        }
+        previousSegmentation=intermediateSegmentation;
+
+        
+
 
         ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
         ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,intermediateSegmentation);

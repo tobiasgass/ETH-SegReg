@@ -412,6 +412,22 @@ public:
                                 result=estimator.getMean();
                                 LOGV(1)<<VAR(energy)<<endl;
                                 if (refineSeamIter>0){
+
+
+                                    typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+                                    jacobianFilter->SetInput(result);
+                                    jacobianFilter->SetUseImageSpacingOff();
+                                    jacobianFilter->Update();
+                                    FloatImagePointerType jac=jacobianFilter->GetOutput();
+                                    double minJac = FilterUtils<FloatImageType>::getMin(jac);
+                                    if (minJac<0){
+                                        if (outputDir!=""){
+                                            ostringstream oss2;
+                                            oss2<<outputDir<<"/jacobianDetWithNegVals-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                                            LOGI(3,ImageUtils<FloatImageType>::writeImage(oss2.str(),jac));
+                                        }
+                                    
+
                                     LOG<<"Refining seams by smoothing solution with maximally "<<nKernels<<" kernels.."<<endl;
                                     DeformationFieldPointerType originalFusionResult=result;
                                     RegistrationFuserType seamEstimator;
@@ -423,81 +439,51 @@ public:
                                     seamEstimator.setHardConstraints(useHardConstraints);
                                     seamEstimator.setAnisoSmoothing(false);
                                     //seamEstimator.setAlpha(pow(2.0,1.0*iter)*alpha);
-                                    addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,originalFusionResult,false,estimateMRF,radius,m_sigma);
-               
+                                    
+                                    //hacky shit to avoid oversmoothing
+                                    FloatImagePointerType weights=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,originalFusionResult,false,estimateMRF,radius,m_sigma);
+                                    seamEstimator.addImage(estimator.getLowResResult(),weights);
+
                                     //kernelSigmas= kernelBaseWidth/4,kbw/2,kbw,2*kbw,4*kbw
                                     int k=0;
+                                    DeformationFieldPointerType smoothedResult=result;
+                                    kernelBaseWidth=0.5;
+                                    double exp=2;
+                                    double previousSigma=0.0;
+                                    double kernelSigma;
                                     for (;k<nKernels;++k){
                                         //double kernelSigma=kernelBaseWidth*(k+1);//pow(2.0,1.0*(k));
-                                        double kernelSigma=kernelBaseWidth*pow(1.5,1.0*(k));
-                                        DeformationFieldPointerType smoothedResult=TransfUtils<ImageType>::gaussian(result,kernelSigma);
+                                        LOGV(3)<<VAR(k)<<endl;
+                                        kernelSigma=kernelBaseWidth*pow(exp,1.0*(k));
+                                        LOGV(3)<<VAR(kernelSigma)<<endl;
+#if 0
+                                        smoothedResult=TransfUtils<ImageType>::gaussian(result,kernelSigma);
+#else
+                                        double actualSigma=sqrt(pow(kernelSigma,2.0)-pow(previousSigma,2.0));
+                                        LOGV(3)<<VAR(actualSigma)<<endl;
+                                        smoothedResult=TransfUtils<ImageType>::gaussian(smoothedResult,actualSigma);
+                                        previousSigma=actualSigma;
+#endif
+                                        LOGV(3)<<"Smoothed result with gaussian.."<<endl;
                                         addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,smoothedResult,false,estimateMRF,radius,m_sigma);
                                         typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
                                         jacobianFilter->SetInput(smoothedResult);
-                                        jacobianFilter->SetUseImageSpacingOff();
                                         jacobianFilter->Update();
                                         FloatImagePointerType jac=jacobianFilter->GetOutput();
-                                        double minJac = FilterUtils<FloatImageType>::getMin(jac);
-                                        if (minJac>0.1)
+                                        double minJac2 = FilterUtils<FloatImageType>::getMin(jac);
+                                        LOGV(3)<<VAR(minJac2)<<endl;
+                                        if (minJac2>0.1)
                                             break;
                                     }
+                                    LOGV(3)<<VAR(minJac/kernelSigma)<<endl;
                                     LOGV(1)<<"Actual number of kernels: "<<VAR(k)<<endl;
-#if 1
                                     seamEstimator.setPairwiseWeight(m_pairwiseWeight);
                                     seamEstimator.finalize();
-                                    energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR);
+                                    energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,3.0*kernelSigma);
                                     result=seamEstimator.getMean();
                                     labelImage=seamEstimator.getLabelImage();
-#else
-                                    int iter = 0 ;
-                                    ImagePointerType mask;
-                                    for (;iter<refineSeamIter;++iter){
-                                        typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
-                                        jacobianFilter->SetInput(result);
-                                        jacobianFilter->SetUseImageSpacingOff();
-                                        jacobianFilter->Update();
-                                        FloatImagePointerType jac=jacobianFilter->GetOutput();
-                                        double minJac = FilterUtils<FloatImageType>::getMin(jac);
-                                        if (minJac>0)
-                                            break;
-                                        mask=FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jac,0.0));
-                                        //ImageUtils<ImageType>::writeImage("mask.nii",mask);
-                                        LOGV(2)<<VAR(minJac)<<endl;
-                                        mask=FilterUtils<ImageType>::dilation(mask,max(1.0*controlGridSpacingFactor,min(100.0,-20.0*minJac)));
-                                        //ImageUtils<ImageType>::writeImage("mask-dilated.nii",mask);
-                                        if (iter>0){
-                                            if (iter>1)
-                                                replaceFirstImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,result,false,estimateMRF,radius,m_sigma);
-                                            else{
-                                                replaceFirstImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,result,false,estimateMRF,radius,m_sigma);
-                                                addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,originalFusionResult,false,estimateMRF,radius,m_sigma);
-                                            }
-                                        }else{
-                                            if (outputDir!=""){
-                                                ostringstream oss2;
-                                                oss2<<outputDir<<"/jacobianDetWithNegVals-"<<sourceID<<"-TO-"<<targetID<<".mha";
-                                                LOGI(2,ImageUtils<FloatImageType>::writeImage(oss2.str(),jac));
-                                            }
-                                        }
-                                        seamEstimator.setPairwiseWeight(m_pairwiseWeight*pow(2.0,1.0*iter));
-                                        seamEstimator.setMask(mask);
-                                        seamEstimator.finalize();
-                                        double newEnergy=seamEstimator.solve();
-                                        LOGV(1)<<VAR(iter)<<" "<<VAR(newEnergy)<<" "<<(energy-newEnergy)/energy<<endl;
-                                        //if (newEnergy >energy )
-                                        //  break;
-                                        result=seamEstimator.getMean();
-                                        //if ( (energy-newEnergy)/energy < 1e-5) {
-                                        //  LOGV(1)<<"refinement converged, stopping."<<endl;
-                                        //  break;
-                                        //}
-                                        energy=newEnergy;
-                                        //relativeClosenessToLB=seamEstimator.getRelativeLB();
-                                        
-                                    }//refineSeamIter
-                                    LOG<<VAR(iter)<<endl;
-#endif
-                                }
+                                    }//neg jac
+                                }//refine seams
                                 
 
                                 for (int iter=0;iter<refineIter;++iter){
@@ -612,6 +598,11 @@ public:
                         FloatImagePointerType jac=jacobianFilter->GetOutput();
                         double minJac = FilterUtils<FloatImageType>::getMin(jac);
                         LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<< " " << VAR(minJac) <<endl;
+                        if (outputDir!=""){
+                            ostringstream oss2;
+                            oss2<<outputDir<<"/jacobianDetsFinal-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                            LOGI(3,ImageUtils<FloatImageType>::writeImage(oss2.str(),jac));
+                        }
                         m_averageMinJac+=minJac;
                         if (minJac<m_minMinJacobian){
                             m_minMinJacobian=minJac;
@@ -639,7 +630,7 @@ public:
                 if (m_similarity>m_oldSimilarity){
                     LOG<<"Similarity increased, stopping and returning previous estimate."<<endl;
                     break;
-                }else if ( fabs((m_oldSimilarity-m_similarity)/m_oldSimilarity) < 1e-3) { //else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
+                }else if ( fabs((m_oldSimilarity-m_similarity)/m_oldSimilarity) < 1e-4) { //else if ( (m_oldEnergy-m_energy)/m_oldEnergy < 1e-2) {
                     LOG<<"Optimization converged, stopping."<<endl;
                     deformationCache=TMPdeformationCache;
                     break;
@@ -735,8 +726,10 @@ protected:
             if (estimateMean)
                 meanEstimator.addImage(def,metricImage);
         }else{
-            if (estimateMRF)
-                estimator.addImage(def);
+            if (estimateMRF){
+                //estimator.addImage(def);
+                LOG<<"you should never come here.."<<endl;
+            }
             if (estimateMean)
                 meanEstimator.addImage(def);
         }

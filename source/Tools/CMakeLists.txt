@@ -197,3 +197,9 @@ TARGET_LINK_LIBRARIES(ResampleImage2D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(CastShortToUchar2D CastShortToUchar2D.cxx )
 TARGET_LINK_LIBRARIES(CastShortToUchar2D  Utils   ${ITK_LIBRARIES}  )
+
+#tests
+
+
+ADD_EXECUTABLE(DeformationToBSplineTest2D DeformationToBSplineTest2D.cxx )
+TARGET_LINK_LIBRARIES(DeformationToBSplineTest2D  Utils   ${ITK_LIBRARIES}  )
