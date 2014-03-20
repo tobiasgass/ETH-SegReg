@@ -838,7 +838,20 @@ public:
         return outputImage;
     }
 
-
+     static OutputImagePointer invert(
+                                    InputImagePointer inputImage
+                                    ) {
+        OutputImagePointer outputImage=createEmpty(ConstInputImagePointer(inputImage));
+        itk::ImageRegionIterator<InputImage> it(
+                                                inputImage, inputImage->GetLargestPossibleRegion());
+        itk::ImageRegionIterator<OutputImage> it2(
+                                                 outputImage, outputImage->GetLargestPossibleRegion());
+        for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
+            double val=it.Get();
+            it2.Set(val>0.0?0.0:1.0);
+        }
+        return outputImage;
+    }
 
 
     // assign pixels with intensities above upperThreshold

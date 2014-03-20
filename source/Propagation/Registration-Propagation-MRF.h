@@ -451,19 +451,19 @@ public:
                                     double exp=2;
                                     double previousSigma=0.0;
                                     double kernelSigma;
+                                    ImagePointerType negJacMaskPrevious=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
+                                    FloatImagePointerType localKernelWidths=ImageUtils<FloatImageType>::createEmpty(jac);
+                                    localKernelWidths->FillBuffer(0.0);
                                     for (;k<nKernels;++k){
                                         //double kernelSigma=kernelBaseWidth*(k+1);//pow(2.0,1.0*(k));
                                         LOGV(3)<<VAR(k)<<endl;
                                         kernelSigma=kernelBaseWidth*pow(exp,1.0*(k));
                                         LOGV(3)<<VAR(kernelSigma)<<endl;
-#if 0
-                                        smoothedResult=TransfUtils<ImageType>::gaussian(result,kernelSigma);
-#else
+
                                         double actualSigma=sqrt(pow(kernelSigma,2.0)-pow(previousSigma,2.0));
                                         LOGV(3)<<VAR(actualSigma)<<endl;
                                         smoothedResult=TransfUtils<ImageType>::gaussian(smoothedResult,actualSigma);
                                         previousSigma=actualSigma;
-#endif
                                         LOGV(3)<<"Smoothed result with gaussian.."<<endl;
                                         addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,smoothedResult,false,estimateMRF,radius,m_sigma);
                                         typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
@@ -472,14 +472,33 @@ public:
                                         FloatImagePointerType jac=jacobianFilter->GetOutput();
                                         double minJac2 = FilterUtils<FloatImageType>::getMin(jac);
                                         LOGV(3)<<VAR(minJac2)<<endl;
-                                        if (minJac2>0.1)
+                                        //get negative jacobian value locations
+                                        ImagePointerType negJacMask=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
+                                        //subtract and invert to get locations of removed negative JDs
+                                        //ImagePointerType removedNegJacMask=FilterUtils<ImageType>::substract(negJacMaskPrevious,negJacMask));
+                                        ImagePointerType removedNegJacMask=FilterUtils<ImageType>::binaryThresholding(FilterUtils<ImageType>::add(negJacMaskPrevious,negJacMask),1,1);
+                                        //create image with sigma at locations where nJDs were removed
+                                        FloatImagePointerType kernelWidthForRemovednJDs=ImageUtils<FloatImageType>::createEmpty(jac);
+                                        kernelWidthForRemovednJDs->FillBuffer(actualSigma);
+                                        kernelWidthForRemovednJDs=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(kernelWidthForRemovednJDs,FilterUtils<ImageType,FloatImageType>::cast(removedNegJacMask));
+                                        //add to localKernelWidths image
+                                        LOGI(3,ImageUtils<FloatImageType>::writeImage("localKernelWidths-New.nii",kernelWidthForRemovednJDs));
+                                        LOGI(3,ImageUtils<FloatImageType>::writeImage("localKernelWidths-old.nii",localKernelWidths));
+                                        
+                                        localKernelWidths=FilterUtils<FloatImageType>::add(localKernelWidths,kernelWidthForRemovednJDs);
+                                        
+                                        negJacMaskPrevious=negJacMask;
+                                        
+                                        if (minJac2>0.2)
                                             break;
                                     }
+                                    LOGI(3,ImageUtils<FloatImageType>::writeImage("localKernelWidths.nii",localKernelWidths));
+
                                     LOGV(3)<<VAR(minJac/kernelSigma)<<endl;
                                     LOGV(1)<<"Actual number of kernels: "<<VAR(k)<<endl;
                                     seamEstimator.setPairwiseWeight(m_pairwiseWeight);
                                     seamEstimator.finalize();
-                                    energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,3.0*kernelSigma);
+                                    energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,3.0*kernelSigma,localKernelWidths);
                                     result=seamEstimator.getMean();
                                     labelImage=seamEstimator.getLabelImage();
                                     }//neg jac

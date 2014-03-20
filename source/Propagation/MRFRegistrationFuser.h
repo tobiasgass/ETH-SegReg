@@ -447,7 +447,7 @@ public:
         return result;
     }
 
-    double solveUntilPosJacDet(int maxIter,double increaseSmoothing,bool useJacMask, double ballRadius, ImagePointerType mask=NULL){
+    double solveUntilPosJacDet(int maxIter,double increaseSmoothing,bool useJacMask, double ballRadius, FloatImagePointerType localBallRadii,ImagePointerType mask=NULL){
         double energy;
         double minJac=-1;
         finalize();
@@ -457,6 +457,7 @@ public:
             useJacMask=false;
             setMask(mask);
         }
+        localBallRadii=FilterUtils<FloatImageType>::NNResample(localBallRadii,m_gridImage,false);
         for (;iter<maxIter;++iter){
             //FloatImagePointerType jacDets=TransfUtils<ImageType>::getJacDets(m_lowResResult);
          
@@ -490,20 +491,17 @@ public:
                 }
 
 
-                ImageUtils<ImageType>::writeImage("mask.nii",mask);
+                LOGI(3,ImageUtils<ImageType>::writeImage("mask.nii",mask));
                 do{
                     //double ballRadius=min(100.0,fac*50.0*minJac);
                     //ballRadius=m_gridSpacings[0];
                     LOGV(2)<<"dilating mask with a ball of "<<ballRadius<<" mm."<<endl;
-                    //if (ballRadius<20)
+
                     //dilation is in pixel units -.-
-                    ImagePointerType testMask=FilterUtils<ImageType>::dilation(mask,ballRadius/m_gridSpacings[0]);
-                    //else{
-                    //dilation by distance map is faster for large radii
-                    //ImagePointerType testMask=FilterUtils<ImageType>::myDilation(mask,ballRadius);
-                    //}
-                    ImageUtils<ImageType>::writeImage("mask-dilated.nii",testMask);
-                    //mask=computeLocallyDilatedMask(jacDets, mmJac, 50.0);
+                    //ImagePointerType testMask=FilterUtils<ImageType>::dilation(mask,ballRadius/m_gridSpacings[0]);
+                    ImagePointerType testMask=computeLocallyDilatedMask(mask, mmJac,3,localBallRadii);
+                    LOGI(3,ImageUtils<ImageType>::writeImage("mask-dilated.nii",testMask));
+
                     sumPixels=FilterUtils<ImageType>::sum(testMask);
                     LOGV(3)<<VAR(sumPixels)<<endl;
                     if (sumPixels<2){
@@ -518,7 +516,7 @@ public:
                 oneMoreMask=FilterUtils<ImageType>::substract(oneMoreMask,mask);
                 ImageUtils<ImageType>::multiplyImage(oneMoreMask,2);
                 mask=FilterUtils<ImageType>::add(mask,oneMoreMask);
-                ImageUtils<ImageType>::writeImage("mask-final.nii",mask);
+                LOGI(3,ImageUtils<ImageType>::writeImage("mask-final.nii",mask));
                     
                 setMask(mask);
                                                         
@@ -533,10 +531,10 @@ public:
     }
 
 
-    ImagePointerType computeLocallyDilatedMask(FloatImagePointerType jac, double jacThresh,double dilateFactor){
+    ImagePointerType computeLocallyDilatedMask(ImagePointerType mask, double jacThresh,double dilateFactor, FloatImagePointerType localBallRadii){
         LOGV(2)<<"Locally dilating mask with a ball of "<<min(100.0,50.0)<<"*minJac px."<<endl;
-        ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jac,jacThresh));
-        mask=FilterUtils<ImageType>::dilation(mask,1.0*m_gridSpacings[0]);//,min(100.0,50.0*minJacPerComp[c])),c+1);
+        //ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jac,jacThresh));
+        mask=FilterUtils<ImageType>::dilation(mask,1.0);//,min(100.0,50.0*minJacPerComp[c])),c+1);
         typedef itk::ConnectedComponentImageFilter<ImageType,ImageType>  ConnectedComponentImageFilterType;
         typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
         
@@ -547,9 +545,9 @@ public:
         filter->Update();
         ImagePointerType components=filter->GetOutput();
         int nComponents=filter->GetObjectCount();
-        std::vector<double> minJacPerComp(nComponents,jacThresh);
+        std::vector<double> minJacPerComp(nComponents,0);
 
-        FloatImageIteratorType jacIt(jac,jac->GetLargestPossibleRegion());
+        FloatImageIteratorType jacIt(localBallRadii,mask->GetLargestPossibleRegion());
         ImageIteratorType it(components,components->GetLargestPossibleRegion());
         jacIt.GoToBegin();
         it.GoToBegin();
@@ -557,7 +555,7 @@ public:
             int comp=it.Get();
             if (comp>0){
                 double jac=jacIt.Get();
-                if (jac<minJacPerComp[comp-1])
+                if (jac>minJacPerComp[comp-1])
                     minJacPerComp[comp-1]=jac;
 
             }
@@ -565,7 +563,7 @@ public:
         }
 
         for (int c=0;c<nComponents;++c){
-            double dilation=min(50.0,fabs(dilateFactor*minJacPerComp[c]));
+            double dilation=max(1.0,min(50.0,fabs(dilateFactor*minJacPerComp[c]/m_gridSpacings[0])));
             LOGV(3)<<VAR(c)<<" "<<VAR(minJacPerComp[c])<<" "<<VAR(dilation)<<endl;
             if (dilation>0.0)
                 components=FilterUtils<ImageType>::dilation(components,dilation,c+1);
