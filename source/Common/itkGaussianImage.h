@@ -8,7 +8,7 @@
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 
-template<class ImageType>
+template<class ImageType,class FloatPrecision=float>
 class GaussianEstimatorScalarImage{
 
 public:
@@ -17,7 +17,7 @@ public:
 	typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::SizeType SizeType;
     static const int D=ImageType::ImageDimension;
-    typedef itk::Image<float,D> FloatImageType;
+    typedef itk::Image<FloatPrecision,D> FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
 
 
@@ -113,7 +113,7 @@ public:
  }
 };
 
-template<class ImageType>
+template<class ImageType,class FloatPrecision=float>
 class GaussianEstimatorVectorImage{
 
 public:
@@ -122,10 +122,11 @@ public:
 	typedef typename ImageType::IndexType IndexType;
 	typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::SizeType SizeType;
-    typedef typename TransfUtils<ImageType>::DisplacementType DeformationType;
-    typedef typename TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
+    typedef TransfUtils<ImageType, float,double,FloatPrecision> TransfUtilsType;
+    typedef typename TransfUtilsType::DisplacementType DeformationType;
+    typedef typename TransfUtilsType::DeformationFieldType DeformationFieldType;
     typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
-    typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+    typedef typename ImageUtils<ImageType,FloatPrecision>::FloatImageType FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
     typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
     typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationImageIteratorType;
@@ -146,9 +147,9 @@ public:
         count=1;
         if (weights.IsNotNull()){
             m_localWeights=ImageUtils<FloatImageType>::duplicate(weights);
-            img=TransfUtils<ImageType>::locallyScaleDeformation(img,weights);
+            img=TransfUtilsType::locallyScaleDeformation(img,weights);
         }
-        m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(img,img);
+        m_variance=TransfUtilsType::multiplyOutOfPlace(img,img);
         m_mean=ImageUtils<DeformationFieldType>::duplicate(img);
     }
     void addImage(DeformationFieldPointerType img,FloatImagePointerType weights=NULL){
@@ -156,17 +157,17 @@ public:
             count=1;
             if (weights.IsNotNull()){
                 m_localWeights=ImageUtils<FloatImageType>::duplicate(weights);
-                img=TransfUtils<ImageType>::locallyScaleDeformation(img,weights);
+                img=TransfUtilsType::locallyScaleDeformation(img,weights);
             }
-            m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(img,img);
+            m_variance=TransfUtilsType::multiplyOutOfPlace(img,img);
             m_mean=ImageUtils<DeformationFieldType>::duplicate(img);
         }else{
             if (weights.IsNotNull()){
                 m_localWeights=FilterUtils<FloatImageType>::add(m_localWeights,weights);
-                img=TransfUtils<ImageType>::locallyScaleDeformation(img,weights);
+                img=TransfUtilsType::locallyScaleDeformation(img,weights);
             }
-            m_mean=TransfUtils<ImageType>::add(m_mean,img);
-            m_variance=TransfUtils<ImageType>::add(m_variance,TransfUtils<ImageType>::multiplyOutOfPlace(img,img));
+            m_mean=TransfUtilsType::add(m_mean,img);
+            m_variance=TransfUtilsType::add(m_variance,TransfUtilsType::multiplyOutOfPlace(img,img));
             count++;
         }
        
@@ -176,15 +177,15 @@ public:
             TransfUtils<FloatImageType>::divide(m_mean,m_localWeights);
             TransfUtils<FloatImageType>::divide(m_variance,m_localWeights);
         }else{
-            m_mean=TransfUtils<ImageType>::multiplyOutOfPlace(m_mean,1.0/count);
-            m_variance=TransfUtils<ImageType>::multiplyOutOfPlace(m_variance,1.0/(count-1));
+            m_mean=TransfUtilsType::multiplyOutOfPlace(m_mean,1.0/count);
+            m_variance=TransfUtilsType::multiplyOutOfPlace(m_variance,1.0/(count-1));
         }
-        m_variance=TransfUtils<ImageType>::subtract(m_variance,TransfUtils<ImageType>::multiplyOutOfPlace(m_mean,m_mean));
+        m_variance=TransfUtilsType::subtract(m_variance,TransfUtilsType::multiplyOutOfPlace(m_mean,m_mean));
     }
 
     DeformationFieldPointerType getMean(){return m_mean;}
     DeformationFieldPointerType getVariance(){return m_variance;}
-    DeformationFieldPointerType getStdDev(){return TransfUtils<ImageType>::localSqrt(m_variance);}
+    DeformationFieldPointerType getStdDev(){return TransfUtilsType::localSqrt(m_variance);}
 
     FloatImagePointerType getLikelihood(DeformationFieldPointerType img, double s=1.0){
         FloatImagePointerType result=TransfUtils<FloatImageType>::createEmptyFloat(img);

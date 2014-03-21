@@ -805,24 +805,46 @@ public:
 
         return thresholder->GetOutput();
     }
+    
     static OutputImagePointer binaryThresholdingHigh(
                                                      InputImagePointer inputImage,
                                                      InputImagePixelType upperThreshold,
                                                      OutputImagePixelType insideValue = 1,
                                                      OutputImagePixelType outsideValue = 0
                                                      ) {
- typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
-  
+        typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
+        
         BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
         thresholder->SetInput(inputImage);
         thresholder->SetUpperThreshold( upperThreshold );
         thresholder->SetInsideValue(insideValue);
         thresholder->SetOutsideValue(outsideValue);
-
+        
         thresholder->Update();
-
+        
         return thresholder->GetOutput();
     }
+
+    static OutputImagePointer myBinaryThresholdingHigh(
+                                                       InputImagePointer inputImage,
+                                                       InputImagePixelType upperThreshold,
+                                                       OutputImagePixelType insideValue = 1,
+                                                       OutputImagePixelType outsideValue = 0
+                                                       ) {
+
+        OutputImagePointer outputImage=createEmpty(ConstInputImagePointer(inputImage));
+        itk::ImageRegionIterator<InputImage> it(
+                                                inputImage, inputImage->GetLargestPossibleRegion());
+        itk::ImageRegionIterator<OutputImage> it2(
+                                                  outputImage, outputImage->GetLargestPossibleRegion());
+        for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
+            double val=it.Get();
+            it2.Set(val<=upperThreshold?insideValue:outsideValue);
+        }
+        return outputImage;
+
+    }
+
     static OutputImagePointer round(
                                     InputImagePointer inputImage
                                     ) {

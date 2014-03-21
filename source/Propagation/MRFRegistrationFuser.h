@@ -14,7 +14,7 @@
 #include "treeProbabilities.cpp"
 #include <itkVectorGradientMagnitudeImageFilter.h>
 #include "itkGaussianImage.h"
-template<class ImageType>
+template<class ImageType,class FloatPrecision=float>
 class MRFRegistrationFuser : public GaussianEstimatorVectorImage<ImageType>{
 
 public:
@@ -27,7 +27,7 @@ public:
     typedef typename TransfUtils<ImageType>::DisplacementType DeformationType;
     typedef typename TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
-    typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+    typedef typename ImageUtils<ImageType,FloatPrecision>::FloatImageType FloatImageType;
     typedef typename FloatImageType::Pointer FloatImagePointerType;
     typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
     typedef typename itk::ImageRegionIterator<ImageType> ImageIteratorType;
@@ -83,6 +83,8 @@ public:
             m_gridImage=FilterUtils<FloatImageType>::NNResample(m_highResGridImage,
                                                                 1.0/m_gridSpacing,
                                                                 false);
+            m_gridImage->FillBuffer(0.0);
+            m_highResGridImage->FillBuffer(0.0);
             m_gridSpacings=m_gridImage->GetSpacing();
         }            
       
@@ -97,7 +99,7 @@ public:
             m_lowResLocalWeights.push_back(FilterUtils<FloatImageType>::LinearResample(weights,m_gridImage,false));
         }
         if (m_anisotropicSmoothing){
-            typedef  typename itk::VectorGradientMagnitudeImageFilter<DeformationFieldType> FilterType;
+            typedef  typename itk::VectorGradientMagnitudeImageFilter<DeformationFieldType,double> FilterType;
             typename FilterType::Pointer filter=FilterType::New();
             filter->SetInput(def);
             filter->Update();
@@ -447,7 +449,7 @@ public:
         return result;
     }
 
-    double solveUntilPosJacDet(int maxIter,double increaseSmoothing,bool useJacMask, double ballRadius, FloatImagePointerType localBallRadii,ImagePointerType mask=NULL){
+    double solveUntilPosJacDet(int maxIter,double increaseSmoothing,bool useJacMask, double ballRadius, ImagePointerType mask=NULL){
         double energy;
         double minJac=-1;
         finalize();
@@ -457,17 +459,21 @@ public:
             useJacMask=false;
             setMask(mask);
         }
-        localBallRadii=FilterUtils<FloatImageType>::NNResample(localBallRadii,m_gridImage,false);
         for (;iter<maxIter;++iter){
             //FloatImagePointerType jacDets=TransfUtils<ImageType>::getJacDets(m_lowResResult);
          
-            FloatImagePointerType jacDets=TransfUtils<ImageType>::getJacDets(m_lowResResult);
+            FloatImagePointerType jacDets=TransfUtils<ImageType,float,double,double>::getJacDets(m_lowResResult);
             minJac=FilterUtils<FloatImageType>::getMin(jacDets);
             //bool lowResNegJacTest=(FilterUtils<FloatImageType>::getMin(TransfUtils<ImageType>::getJacDets(m_lowResResult))<=0);
             if (minJac>0.0){
                 //            LOGV(3)<<VAR(lowResNegJacTest)<<" "<<(minJac<=0)<<endl;
-                jacDets=TransfUtils<ImageType>::getJacDets(TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage));
+                LOGV(2)<<"MinJac of coarse test was positive ("<<minJac<<"); now testing high resolution deformation.."<<endl;
+                jacDets=TransfUtils<ImageType,float,double,double>::getJacDets(TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage));
+                LOGI(3,ImageUtils<ImageType>::writeImage("highResNegJac.nii",FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jacDets,0.0)));
                 minJac=FilterUtils<FloatImageType>::getMin(jacDets);
+                if (jacDets->GetSpacing()!=m_gridImage->GetSpacing()){
+                    jacDets=FilterUtils<FloatImageType>::minimumResample(jacDets,m_gridImage,m_gridImage->GetSpacing()[0]/jacDets->GetSpacing()[0]);
+                }
             }
            
             double negJacFrac=FilterUtils<FloatImageType>::sum(FilterUtils<FloatImageType>::binaryThresholdingHigh(jacDets,0.0));
@@ -482,12 +488,14 @@ public:
                 break;
             if (useJacMask){
                 int sumPixels=0;
-                ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jacDets,mmJac));
+                //ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jacDets,mmJac));
+                ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::myBinaryThresholdingHigh(jacDets,mmJac);
 
                 if (mask->GetLargestPossibleRegion().GetSize()!=m_gridImage->GetLargestPossibleRegion().GetSize()){
                     //if mask needs to be resampled, we first dilate it with a small ball to avoid 'forgetting' negative pixels due to the resampling
-                    mask=FilterUtils<ImageType>::dilation(mask,m_gridSpacings[0]);
-                    mask= FilterUtils<ImageType>::NNResample(mask,FilterUtils<FloatImageType,ImageType>::cast(m_gridImage),false);
+                    //mask=FilterUtils<ImageType>::dilation(mask,m_gridSpacings[0]);
+                    //mask= FilterUtils<ImageType>::NNResample(mask,FilterUtils<FloatImageType,ImageType>::cast(m_gridImage),false);
+                    LOG<<"SHOULD NOT HAPPEN!"<<endl;
                 }
 
 
@@ -499,7 +507,7 @@ public:
 
                     //dilation is in pixel units -.-
                     //ImagePointerType testMask=FilterUtils<ImageType>::dilation(mask,ballRadius/m_gridSpacings[0]);
-                    ImagePointerType testMask=computeLocallyDilatedMask(mask, mmJac,3,localBallRadii);
+                    ImagePointerType testMask=computeLocallyDilatedMask(jacDets, mmJac, ballRadius);
                     LOGI(3,ImageUtils<ImageType>::writeImage("mask-dilated.nii",testMask));
 
                     sumPixels=FilterUtils<ImageType>::sum(testMask);
@@ -510,9 +518,9 @@ public:
                         mask=testMask;
                     }
                 }while (sumPixels<2);
-
-
-                ImagePointerType oneMoreMask=FilterUtils<ImageType>::dilation(mask,1);
+                
+                
+                ImagePointerType oneMoreMask=FilterUtils<ImageType>::dilation(mask,m_gridSpacings[0]/mask->GetSpacing()[0]);
                 oneMoreMask=FilterUtils<ImageType>::substract(oneMoreMask,mask);
                 ImageUtils<ImageType>::multiplyImage(oneMoreMask,2);
                 mask=FilterUtils<ImageType>::add(mask,oneMoreMask);
@@ -531,10 +539,11 @@ public:
     }
 
 
-    ImagePointerType computeLocallyDilatedMask(ImagePointerType mask, double jacThresh,double dilateFactor, FloatImagePointerType localBallRadii){
+    ImagePointerType computeLocallyDilatedMask(FloatImagePointerType jac, double jacThresh,double dilateFactor){
+       
         LOGV(2)<<"Locally dilating mask with a ball of "<<min(100.0,50.0)<<"*minJac px."<<endl;
-        //ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jac,jacThresh));
-        mask=FilterUtils<ImageType>::dilation(mask,1.0);//,min(100.0,50.0*minJacPerComp[c])),c+1);
+        ImagePointerType mask= (FilterUtils<FloatImageType,ImageType>::myBinaryThresholdingHigh(jac,jacThresh));
+        mask=FilterUtils<ImageType>::dilation(mask,m_gridSpacings[0]/mask->GetSpacing()[0]);//,min(100.0,50.0*minJacPerComp[c])),c+1);
         typedef itk::ConnectedComponentImageFilter<ImageType,ImageType>  ConnectedComponentImageFilterType;
         typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
         
@@ -545,9 +554,9 @@ public:
         filter->Update();
         ImagePointerType components=filter->GetOutput();
         int nComponents=filter->GetObjectCount();
-        std::vector<double> minJacPerComp(nComponents,0);
+        std::vector<double> minJacPerComp(nComponents,jacThresh);
 
-        FloatImageIteratorType jacIt(localBallRadii,mask->GetLargestPossibleRegion());
+        FloatImageIteratorType jacIt(jac,jac->GetLargestPossibleRegion());
         ImageIteratorType it(components,components->GetLargestPossibleRegion());
         jacIt.GoToBegin();
         it.GoToBegin();
@@ -555,15 +564,15 @@ public:
             int comp=it.Get();
             if (comp>0){
                 double jac=jacIt.Get();
-                if (jac>minJacPerComp[comp-1])
+                if (jac<minJacPerComp[comp-1])
                     minJacPerComp[comp-1]=jac;
 
             }
 
         }
-
+     
         for (int c=0;c<nComponents;++c){
-            double dilation=max(1.0,min(50.0,fabs(dilateFactor*minJacPerComp[c]/m_gridSpacings[0])));
+            double dilation=max(1.0,min(50.0,fabs(dilateFactor*minJacPerComp[c]/mask->GetSpacing()[0])));
             LOGV(3)<<VAR(c)<<" "<<VAR(minJacPerComp[c])<<" "<<VAR(dilation)<<endl;
             if (dilation>0.0)
                 components=FilterUtils<ImageType>::dilation(components,dilation,c+1);

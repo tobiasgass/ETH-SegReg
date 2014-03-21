@@ -1568,7 +1568,7 @@ public:
         return filter->GetOutput();
     }
     static FloatImagePointerType getJacDets(DeformationFieldPointerType def){
-        typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;
+        typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,CFloatPrecision> DisplacementFieldJacobianDeterminantFilterType;
         typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
         jacobianFilter->SetInput(def);
         jacobianFilter->SetUseImageSpacingOn();

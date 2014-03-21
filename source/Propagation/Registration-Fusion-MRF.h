@@ -45,7 +45,7 @@ public:
     typedef typename  ImageType::OffsetType OffsetType;
     typedef typename  ImageType::SizeType SizeType;
     typedef typename  ImageType::ConstPointer ImageConstPointerType;
-    typedef typename  ImageUtils<ImageType>::FloatImageType FloatImageType;
+    typedef typename  ImageUtils<ImageType,double>::FloatImageType FloatImageType;
     typedef typename  FloatImageType::Pointer FloatImagePointerType;
 
     typedef typename  TransfUtils<ImageType>::DisplacementType DisplacementType;
@@ -58,8 +58,8 @@ public:
     typedef   ImageNeighborhoodIteratorType * ImageNeighborhoodIteratorPointerType;
     typedef typename  ImageNeighborhoodIteratorType::RadiusType RadiusType;
 
-    typedef MRFRegistrationFuser<ImageType> RegistrationFuserType;
-    typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;
+    typedef MRFRegistrationFuser<ImageType,double> RegistrationFuserType;
+    typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,double> DisplacementFieldJacobianDeterminantFilterType;
 
     typedef typename itk::AddImageFilter<DeformationFieldType,DeformationFieldType,DeformationFieldType> DeformationAddFilterType;
     typedef map<string,ImagePointerType> ImageCacheType;
@@ -226,7 +226,7 @@ public:
         estimator.setGridSpacing(controlGridSpacingFactor);
         estimator.setHardConstraints(useHardConstraints);
         estimator.setAnisoSmoothing(anisoSmoothing);
-        GaussianEstimatorVectorImage<ImageType> meanEstimator;
+        GaussianEstimatorVectorImage<ImageType,double> meanEstimator;
         DeformationFieldPointerType result;
         for (int i=0;i<nDeformations;++i){
             DeformationFieldPointerType def=ImageUtils<DeformationFieldType>::readImage(inputDeformationFilenameList[i]);
@@ -286,16 +286,10 @@ public:
 
                 seamEstimator.setAlpha(alpha);
                 seamEstimator.setGridSpacing(controlGridSpacingFactor);
-                //seamEstimator.setGridSpacing(1);
-                seamEstimator.setHardConstraints(true);//useHardConstraints);
+                seamEstimator.setHardConstraints(useHardConstraints);
                 seamEstimator.setAnisoSmoothing(false);
                 //seamEstimator.setAlpha(pow(2.0,1.0*iter)*alpha);
-#if 0
-                FloatImagePointerType seams=FilterUtils<ImageType,FloatImageType>::gradient(labelImage);
-                ImageUtils<FloatImageType>::writeImage("seams.nii",seams);
-                ImagePointerType seamMask=FilterUtils<ImageType>::dilation(FilterUtils<FloatImageType,ImageType>::binaryThresholdingLow(seams,0.1),2);
-                ImageUtils<ImageType>::writeImage("seamMask.nii",seamMask);
-#endif           
+ 
                 //hacky shit to avoid oversmoothing
                 FloatImagePointerType weights=addImage(weightingName,metric,estimator,meanEstimator,targetImage,sourceImage,originalFusionResult,false,estimateMRF,radius,m_gamma);
                 seamEstimator.addImage(estimator.getLowResResult(),weights);
@@ -306,10 +300,11 @@ public:
                 kernelBaseWidth=0.5;
                 double exp=1.5;
                 DeformationFieldPointerType smoothedResult=result;
+#ifdef USELOCALSIGMASFORDILATION
                 ImagePointerType negJacMaskPrevious=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
-
                 FloatImagePointerType localKernelWidths=ImageUtils<FloatImageType>::duplicate(jac);
                 localKernelWidths->FillBuffer(0.0);
+#endif
                 for (;k<nKernels;++k){
                     
                     kernelSigma=kernelBaseWidth*pow(exp,1.0*(k));
@@ -325,6 +320,7 @@ public:
                     FloatImagePointerType jac=jacobianFilter->GetOutput();
                     double minJac2 = FilterUtils<FloatImageType>::getMin(jac);
                     LOGV(3)<<VAR(minJac2)<<endl;
+#ifdef USELOCALSIGMASFORDILATION
                     //get negative jacobian value locations
                     ImagePointerType negJacMask=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
                     //subtract and invert to get locations of removed negative JDs
@@ -342,16 +338,22 @@ public:
                     localKernelWidths=FilterUtils<FloatImageType>::add(localKernelWidths,kernelWidthForRemovednJDs);
 
                     negJacMaskPrevious=negJacMask;
-                    
-                    if (minJac2>0.2)
+#endif                    
+                    if (minJac2>0.1)
                         break;
                 }
                 LOG<<"Actual number of kernels: "<<VAR(k)<<endl;
                 LOGV(3)<<VAR(minJac)<<" "<<VAR(minJac/kernelSigma)<<" "<<VAR(kernelSigma)<<endl;
+#ifdef USELOCALSIGMASFORDILATION
                 LOGI(3,ImageUtils<FloatImageType>::writeImage("localKernelWidths.nii",localKernelWidths));
+#endif
                 seamEstimator.setPairwiseWeight(m_pairwiseWeight);
                 seamEstimator.finalize();
+#ifdef USELOCALSIGMASFORDILATION
                 energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,3.0*kernelSigma,localKernelWidths);
+#else
+                energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,50);
+#endif
                 result=seamEstimator.getMean();
                 }//actual neg jac
             }//refine seams
@@ -481,7 +483,7 @@ public:
     }//run
 protected:
    
-    FloatImagePointerType addImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_gamma){
+    FloatImagePointerType addImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType,double> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_gamma){
         
         FloatImagePointerType metricImage;
         if (weighting=="global" || weighting=="local" || weighting=="globallocal"){
@@ -540,7 +542,7 @@ protected:
         return metricImage;
     }
     
- FloatImagePointerType replaceFirstImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_gamma){
+    FloatImagePointerType replaceFirstImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType,double> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_gamma){
         
         FloatImagePointerType metricImage;
         if (weighting=="global" || weighting=="local" || weighting=="globallocal"){
