@@ -449,6 +449,129 @@ public:
         return result;
     }
 
+#define USELOCALSIGMASFORDILATION
+#ifdef USELOCALSIGMASFORDILATION
+    double solveUntilPosJacDet(int maxIter,double increaseSmoothing, bool useJacMask,FloatImagePointerType localDilationRadii=NULL){
+        double energy;
+        double minJac=-1;
+        finalize();
+        double mmJac=0;
+        int iter=0;
+        if (useJacMask && localDilationRadii->GetSpacing()!=m_gridImage->GetSpacing()){
+            localDilationRadii=FilterUtils<FloatImageType>::maximumResample(localDilationRadii,m_gridImage,m_gridImage->GetSpacing()[0]/localDilationRadii->GetSpacing()[0]);
+        }
+        LOGI(3,ImageUtils<FloatImageType>::writeImage("resampledDilationRadii.nii",localDilationRadii));
+
+        for (;iter<maxIter;++iter){
+          
+            FloatImagePointerType jacDets=TransfUtils<ImageType,float,double,double>::getJacDets(m_lowResResult);
+            minJac=FilterUtils<FloatImageType>::getMin(jacDets);
+            if (minJac>0.0){
+                LOGV(2)<<"MinJac of coarse test was positive ("<<minJac<<"); now testing high resolution deformation.."<<endl;
+                jacDets=TransfUtils<ImageType,float,double,double>::getJacDets(TransfUtils<FloatImageType>::bSplineInterpolateDeformationField(m_lowResResult,m_highResGridImage));
+                LOGI(3,ImageUtils<ImageType>::writeImage("highResNegJac.nii",FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jacDets,0.0)));
+                minJac=FilterUtils<FloatImageType>::getMin(jacDets);
+                if (jacDets->GetSpacing()!=m_gridImage->GetSpacing()){
+                    jacDets=FilterUtils<FloatImageType>::minimumResample(jacDets,m_gridImage,m_gridImage->GetSpacing()[0]/jacDets->GetSpacing()[0]);
+                }
+            }
+           
+            double negJacFrac=FilterUtils<FloatImageType>::sum(FilterUtils<FloatImageType>::binaryThresholdingHigh(jacDets,0.0));
+            
+            negJacFrac/=jacDets->GetLargestPossibleRegion().GetNumberOfPixels();
+            LOGV(2)<<VAR(iter)<<" "<<VAR(minJac)<<" "<<VAR(negJacFrac)<<endl;
+         
+
+            double fac=1.0;
+            if (minJac<0.0) fac=-1.0;
+            if (minJac>mmJac)
+                break;
+            if (useJacMask){
+                int sumPixels=0;
+                //ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::cast(FilterUtils<FloatImageType>::binaryThresholdingHigh(jacDets,mmJac));
+                ImagePointerType mask= FilterUtils<FloatImageType,ImageType>::myBinaryThresholdingHigh(jacDets,mmJac);
+
+                if (mask->GetLargestPossibleRegion().GetSize()!=m_gridImage->GetLargestPossibleRegion().GetSize()){
+                    LOG<<"SHOULD NOT HAPPEN!"<<endl;
+                }
+
+
+                LOGI(3,ImageUtils<ImageType>::writeImage("mask.nii",mask));
+                do{
+                    
+                    LOGV(2)<<"Locally dilating mask with a ball of 3sigma  mm."<<endl;
+
+                    //dilation is in pixel units -.-
+                    ImagePointerType testMask=computeLocallyDilatedMask(mask,localDilationRadii);
+                    LOGI(3,ImageUtils<ImageType>::writeImage("mask-dilated.nii",testMask));
+
+                    sumPixels=FilterUtils<ImageType>::sum(testMask);
+                    LOGV(3)<<VAR(sumPixels)<<endl;
+                    mask=testMask;
+                    
+                }while (sumPixels<2);
+                
+                
+                ImagePointerType oneMoreMask=FilterUtils<ImageType>::dilation(mask,m_gridSpacings[0]/mask->GetSpacing()[0]);
+                oneMoreMask=FilterUtils<ImageType>::substract(oneMoreMask,mask);
+                ImageUtils<ImageType>::multiplyImage(oneMoreMask,2);
+                mask=FilterUtils<ImageType>::add(mask,oneMoreMask);
+                LOGI(3,ImageUtils<ImageType>::writeImage("mask-final.nii",mask));
+                    
+                setMask(mask);
+                                                        
+            }
+            energy=solve();
+            m_pairwiseWeight*=increaseSmoothing;
+                    
+        }
+        LOGV(1)<<"SSR iterations :"<<iter<<endl;
+        return energy;
+
+    }
+
+
+    ImagePointerType computeLocallyDilatedMask(ImagePointerType mask,FloatImagePointerType dilationRadii){
+       
+        //LOGV(2)<<"Locally dilating mask with a ball of "<<min(100.0,50.0)<<"*minJac px."<<endl;
+
+        typedef itk::ConnectedComponentImageFilter<ImageType,ImageType>  ConnectedComponentImageFilterType;
+        typedef typename ConnectedComponentImageFilterType::Pointer ConnectedComponentImageFilterPointer;
+        
+        ConnectedComponentImageFilterPointer filter =
+            ConnectedComponentImageFilterType::New();
+        
+        filter->SetInput(mask);
+        filter->Update();
+        ImagePointerType components=filter->GetOutput();
+        int nComponents=filter->GetObjectCount();
+
+        std::vector<double> maxSigmaPerComp(nComponents,0);
+
+        FloatImageIteratorType jacIt(dilationRadii,dilationRadii->GetLargestPossibleRegion());
+        ImageIteratorType it(components,components->GetLargestPossibleRegion());
+        jacIt.GoToBegin();
+        it.GoToBegin();
+        for (;!it.IsAtEnd();++it,++jacIt){
+            int comp=it.Get();
+            if (comp>0){
+                double jac=jacIt.Get();
+                if (jac>maxSigmaPerComp[comp-1])
+                    maxSigmaPerComp[comp-1]=jac;
+
+            }
+
+        } 
+        for (int c=0;c<nComponents;++c){
+            double dilation=max(1.0,ceil(maxSigmaPerComp[c]/m_gridSpacings[0]));
+            LOGV(3)<<VAR(c)<<" "<<VAR(maxSigmaPerComp[c])<<" "<<VAR(dilation)<<endl;
+            components=FilterUtils<ImageType>::dilation(components,dilation,c+1);
+        }
+        return FilterUtils<ImageType>::binaryThresholdingLow(components,1);
+        
+
+    }
+#else
     double solveUntilPosJacDet(int maxIter,double increaseSmoothing,bool useJacMask, double ballRadius, ImagePointerType mask=NULL){
         double energy;
         double minJac=-1;
@@ -581,6 +704,7 @@ public:
         
 
     }
+#endif
     double fesslerTest(){
         
         double minDiff=100000000;

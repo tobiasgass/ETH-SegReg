@@ -298,7 +298,7 @@ public:
                 double kernelSigma;
                 double previousSigma=0.0;
                 kernelBaseWidth=0.5;
-                double exp=1.5;
+                double exp=2;
                 DeformationFieldPointerType smoothedResult=result;
 #ifdef USELOCALSIGMASFORDILATION
                 ImagePointerType negJacMaskPrevious=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
@@ -309,7 +309,7 @@ public:
                     
                     kernelSigma=kernelBaseWidth*pow(exp,1.0*(k));
                     double actualSigma=sqrt(pow(kernelSigma,2.0)-pow(previousSigma,2.0));
-                    LOGV(3)<<VAR(actualSigma)<<endl;
+                    LOGV(3)<<VAR(kernelSigma)<<" "<<VAR(actualSigma)<<endl;
                     smoothedResult=TransfUtils<ImageType>::gaussian(smoothedResult,actualSigma);
                     previousSigma=actualSigma;
                     addImage(weightingName,metric,seamEstimator,meanEstimator,targetImage,sourceImage,smoothedResult,false,estimateMRF,radius,m_gamma);
@@ -329,7 +329,7 @@ public:
                     //ImagePointerType removedNegJacMask=FilterUtils<ImageType>::binaryThresholdingHigh(FilterUtils<ImageType>::add(negJacMaskPrevious,negJacMask),1);
                     //create image with sigma at locations where nJDs were removed
                     FloatImagePointerType kernelWidthForRemovednJDs=ImageUtils<FloatImageType>::createEmpty(jac);
-                    kernelWidthForRemovednJDs->FillBuffer(actualSigma);
+                    kernelWidthForRemovednJDs->FillBuffer(3.0*kernelSigma);
                     kernelWidthForRemovednJDs=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(kernelWidthForRemovednJDs,FilterUtils<ImageType,FloatImageType>::cast(removedNegJacMask));
                     //add to localKernelWidths image
                     LOGI(3,ImageUtils<FloatImageType>::writeImage("localKernelWidths-New.nii",kernelWidthForRemovednJDs));
@@ -350,7 +350,7 @@ public:
                 seamEstimator.setPairwiseWeight(m_pairwiseWeight);
                 seamEstimator.finalize();
 #ifdef USELOCALSIGMASFORDILATION
-                energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,3.0*kernelSigma,localKernelWidths);
+                energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,localKernelWidths);
 #else
                 energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,50);
 #endif

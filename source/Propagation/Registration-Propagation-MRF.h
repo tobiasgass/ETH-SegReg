@@ -482,7 +482,7 @@ public:
                                         ImagePointerType removedNegJacMask=FilterUtils<ImageType>::binaryThresholding(FilterUtils<ImageType>::add(negJacMaskPrevious,negJacMask),1,1);
                                         //create image with sigma at locations where nJDs were removed
                                         FloatImagePointerType kernelWidthForRemovednJDs=ImageUtils<FloatImageType>::createEmpty(jac);
-                                        kernelWidthForRemovednJDs->FillBuffer(actualSigma);
+                                        kernelWidthForRemovednJDs->FillBuffer(3.0*kernelSigma);
                                         kernelWidthForRemovednJDs=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(kernelWidthForRemovednJDs,FilterUtils<ImageType,FloatImageType>::cast(removedNegJacMask));
                                         //add to localKernelWidths image
                                         LOGI(3,ImageUtils<FloatImageType>::writeImage("localKernelWidths-New.nii",kernelWidthForRemovednJDs));
@@ -502,7 +502,7 @@ public:
                                     seamEstimator.setPairwiseWeight(m_pairwiseWeight);
                                     seamEstimator.finalize();
 #ifdef USELOCALSIGMASFORDILATION
-                                    energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,3.0,localKernelWidths);
+                                    energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,localKernelWidths);
 #else
                                     energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,50);
 #endif

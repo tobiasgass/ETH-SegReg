@@ -229,6 +229,40 @@ public:
     }
 
 
+
+    static OutputImagePointer maximumResample( InputImagePointer input, InputImagePointer reference, double radius =-1.0) {
+        OutputImagePointer result = createEmpty(reference);
+        itk::ImageRegionIteratorWithIndex<OutputImage>  resultIt(result,result->GetLargestPossibleRegion());
+        typedef typename itk::NeighborhoodIterator<InputImage> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        RadiusType r;
+        if (radius>0.0)
+            r.Fill(radius);
+        else{
+            //nyi
+            r.Fill(8);
+        }
+        ImageNeighborhoodIteratorType inputIt(r,input,input->GetLargestPossibleRegion());
+        for (resultIt.GoToBegin();!resultIt.IsAtEnd();++resultIt){
+            InputImageIndex idx=resultIt.GetIndex();
+            OutputImagePointType pt;
+            result->TransformIndexToPhysicalPoint(idx,pt);
+            input->TransformPhysicalPointToIndex(pt,idx);
+            inputIt.SetLocation(idx);
+            double maxVal=std::numeric_limits<OutputImagePixelType>::min();
+            for (int i=0;i<inputIt.Size();++i){
+                bool inside;
+                double value=inputIt.GetPixel(i,inside);
+                if (inside && value>maxVal)
+                    maxVal=value;
+
+            }
+            resultIt.Set(maxVal);
+        }
+        return result;
+    }
+
+
 #ifdef ISOTROPIC_RESAMPLING
   
     static OutputImagePointer LinearResample( ConstInputImagePointer input,  double scale, bool smooth,bool nnResample=false) {
