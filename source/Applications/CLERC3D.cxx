@@ -119,6 +119,9 @@ int main(int argc, char ** argv){
     bool filterMetricWithGradient=false;
     bool lineSearch=false;
     bool useConstraints=false;
+    double annealing=1.0;
+    int robustLSQIter=0;
+    double robustFitTuningParam=2.12;
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
@@ -141,6 +144,8 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwsym", wSymmetry,"weight for def1 in circle",false);
     (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
     (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"weight for error variable being forced to be similar to the inconsitency statistics",false);
+    (*as) >> parameter ("robustLSQIter",robustLSQIter ,"iterations for robust least square reweighting based on bisquare weights. !",false);
+    (*as) >> parameter ("robustFitTuningParam",robustFitTuningParam ,"Tuning parameter for robust lsq fitting. bigger value will lead to weaker penalization of outliers, and vice versa!",false);
     (*as) >> option ("roiShift", roiShift,"Shift ROI by half spacing after each iteration, to sample from different points.");
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
@@ -152,6 +157,8 @@ int main(int argc, char ** argv){
     (*as) >> option ("filterMetricWithGradient", filterMetricWithGradient,"Multiply local metric with target and warped source image gradients to filter out smooth regions.");
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
+    (*as) >> parameter ("annealing",annealing ,"increase regularization by annealing factor in each iteration.",false);
+
     (*as) >> option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
     (*as) >> option ("evalLowResolutionDeformations", evalLowResolutionDeformationss," Use only the (upsampled) low resolution deformation for further processing. This is faster (ofc), but less accurate.");
 
@@ -181,6 +188,7 @@ int main(int argc, char ** argv){
 
     for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
 
+    ++robustLSQIter;
  
     logSetStage("IO");
     logSetVerbosity(verbose);
@@ -289,6 +297,7 @@ int main(int argc, char ** argv){
         std::vector<string> buff;
         atlasSegmentations=ImageUtils<ImageType>::readImageList(atlasSegmentationFileList,buff);
     }
+    LOGV(1)<<VAR(atlasSegmentations.size())<<endl;
     ImageCacheType groundTruthSegmentations;
     if (groundTruthSegmentationFileList!=""){
         std::vector<string> buff;
@@ -339,6 +348,8 @@ int main(int argc, char ** argv){
     solver->setImages(inputImages);
     solver->setMasks(inputMasks);
     solver->setROI(ROI);
+    solver->setRobustLSQIter(robustLSQIter);
+    solver->setRobustFitTuningParam(robustFitTuningParam);
     solver->Initialize();
     int c=1;
 
@@ -353,7 +364,7 @@ int main(int argc, char ** argv){
         double averageNCC=solver->getAverageNCC();
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
         for (iter=1;iter<maxHops+1;++iter){
-            if (! iter % 5){
+            if (false && ! iter % 5){
                 solver->doubleImageResolution();
             }
             solver->createSystem();
@@ -374,10 +385,9 @@ int main(int argc, char ** argv){
             minJac=solver->getMinJac();
             averageNCC=solver->getAverageNCC();
             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
-            if (updateDeformations){
-                solver->setWeightTransformationSimilarity(wwt*pow(1.2,1.0*iter),true);
-                ++c;
-            }
+            solver->setWeightTransformationSimilarity(wwt*pow(annealing,1.0*iter),true);
+            ++c;
+                
             if (iter == maxHops){
                 //double resolution
             }

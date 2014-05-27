@@ -17,7 +17,6 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkImageRegionIteratorWithIndex.h"
 #include "itkImageRegionConstIterator.h"
-#include "itkNormalizeImageFilter.h"
 #include "itkSmoothingRecursiveGaussianImageFilter.h"
 #include <boost/random.hpp>
 #include "time.h"
@@ -83,19 +82,9 @@ public:
     typedef itk::Vector<FloatPrecision,D> FloatVectorType;
     typedef itk::Image<FloatVectorType,D> FloatVectorImageType;
     typedef typename FloatVectorImageType::Pointer FloatVectorImagePointerType;
-#if 0
-     typedef itk::NormalizeImageFilter<ImageType,ImageType> NormalizeImageFilterType;
-    typedef typename NormalizeImageFilterType::Pointer NormalizeImageFilterPointerType;
-#endif
+
 private:
-#if 0
-    static ImagePointerType normalizeImage(ImagePointerType input){
-        NormalizeImageFilterPointerType filter=NormalizeImageFilterType::New();
-        filter->SetInput(input);
-        filter->Update();
-        return filter->GetOutput();
-    }
-#endif
+
 	static void ITKImageToVTKImage(ImagePointerType image) {
 
 		// fix origin
@@ -134,7 +123,8 @@ public:
             std::cerr << "Could not read image from "<<fileName<<" "<<std::endl;
 			std::cerr << err << std::endl;
 		}
-		return reader->GetOutput();
+            return reader->GetOutput();
+       
 	}
 
 	/* Read an itk image from a file */

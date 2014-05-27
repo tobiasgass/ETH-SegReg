@@ -142,7 +142,7 @@ namespace itk{
 
             maxFilter->SetInput(segImage);
             maxFilter->Update();
-            m_nSegmentationLabels=max( m_nSegmentationLabels,maxFilter->GetMaximumOutput()->Get()+1);
+            m_nSegmentationLabels=max( m_nSegmentationLabels,(int)maxFilter->GetMaximumOutput()->Get()+1);
             if (m_nSegmentationLabels>m_nSegmentationLabels){
                 LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(m_nSegmentationLabels)<<endl;
                 LOG<<VAR(maxFilter->GetMaximumOutput()->Get()+1)<<endl;

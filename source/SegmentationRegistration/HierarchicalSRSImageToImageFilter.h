@@ -225,6 +225,8 @@ namespace itk{
                 m_unaryRegistrationPot->setThreshold(m_config->thresh_UnaryReg);
                 m_unaryRegistrationPot->setLogPotential(m_config->log_UnaryReg);
                 m_unaryRegistrationPot->setNoOutsidePolicy(m_config->penalizeOutside);
+                m_unaryRegistrationPot->SetAtlasLandmarksFile(m_config->atlasLandmarkFilename);
+                m_unaryRegistrationPot->SetTargetLandmarksFile(m_config->targetLandmarkFilename);
 
                 m_pairwiseRegistrationPot->setThreshold(m_config->thresh_PairwiseReg);
                 m_pairwiseRegistrationPot->setFullRegularization(m_config->fullRegPairwise);
@@ -334,7 +336,7 @@ namespace itk{
                 m_config->nLevels=1;
                 m_config->iterationsPerLevel=1;
             }
-            bool computeLowResolutionBsplineIfPossible=false;
+            bool computeLowResolutionBsplineIfPossible=m_config->useLowResBSpline;
             LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
             int l=0;
@@ -416,6 +418,10 @@ namespace itk{
                     m_unaryRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
                     m_unaryRegistrationPot->SetAtlasMaskImage(m_atlasMaskImage);
+                    if (m_config->alpha > 0 && segment){
+                        LOG<<"WARNING, alpha used for both seg and reg potentials, this will likely break stuff"<<endl;
+                    }
+                    m_unaryRegistrationPot->SetAlpha(m_config->alpha);
 #if 0
                     LOG<<"WARNING: patch size 11x11 for unary registration potential " << endl;
                     m_unaryRegistrationPot->SetRadius(graph->getSpacing()*5);
@@ -424,7 +430,6 @@ namespace itk{
 #endif
 #if 0
                     m_unaryRegistrationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
-                    m_unaryRegistrationPot->SetAlpha(m_config->alpha);
                     m_unaryRegistrationPot->SetTargetGradient(m_targetImageGradient);
 #endif          
                     m_unaryRegistrationPot->Init();

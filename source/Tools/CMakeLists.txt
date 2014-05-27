@@ -84,6 +84,9 @@ TARGET_LINK_LIBRARIES(convertPointToIndex3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(CombineBinarySegmentations3D CombineBinarySegmentations3D.cxx )
 TARGET_LINK_LIBRARIES(CombineBinarySegmentations3D  Utils   ${ITK_LIBRARIES} )
 
+ADD_EXECUTABLE(AddSegmentationToImage3D AddSegmentationToImage3D.cxx )
+TARGET_LINK_LIBRARIES(AddSegmentationToImage3D  Utils   ${ITK_LIBRARIES} )
+
 ADD_EXECUTABLE(FuseSegmentationMaxVote3D FuseSegmentationMaxVote3D.cxx )
 TARGET_LINK_LIBRARIES(FuseSegmentationMaxVote3D  Utils   ${ITK_LIBRARIES} )
 

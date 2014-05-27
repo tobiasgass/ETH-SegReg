@@ -563,6 +563,7 @@ public:
 
         } 
         for (int c=0;c<nComponents;++c){
+            if (maxSigmaPerComp[c]<1) maxSigmaPerComp[c]=16;
             double dilation=max(1.0,ceil(maxSigmaPerComp[c]/m_gridSpacings[0]));
             LOGV(3)<<VAR(c)<<" "<<VAR(maxSigmaPerComp[c])<<" "<<VAR(dilation)<<endl;
             components=FilterUtils<ImageType>::dilation(components,dilation,c+1);

@@ -34,7 +34,7 @@ int main(int argc, char ** argv)
 
     //define types.
 	
-    typedef short int PixelType;
+    typedef float PixelType;
 	const unsigned int D=3;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -71,8 +71,8 @@ int main(int argc, char ** argv)
     typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
-    //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
@@ -102,10 +102,18 @@ int main(int argc, char ** argv)
     logSetVerbosity(filterConfig.verbose);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
+    if (filterConfig.normalizeImages){
+        targetImage=FilterUtils<ImageType>::normalizeImage(targetImage);
+    }
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage;
-    if (filterConfig.atlasFilename!="") atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+    if (filterConfig.atlasFilename!="") {
+        atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+        if (filterConfig.normalizeImages){
+            atlasImage=FilterUtils<ImageType>::normalizeImage(atlasImage);
+        }
+    }
     if (!atlasImage) {LOG<<"Warning: no atlas image loaded!"<<endl;
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation;

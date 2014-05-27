@@ -66,10 +66,17 @@ public:
     double theta;
     bool linearDeformationInterpolation;
     bool histNorm;
+    bool normalizeImages;
+    bool useLowResBSpline;
+    string atlasLandmarkFilename,targetLandmarkFilename;
 private:
 	argstream * as;
 public:
 	SRSConfig(){
+        atlasLandmarkFilename="";
+        targetLandmarkFilename="";
+        useLowResBSpline=false;
+        normalizeImages=false;
 		defFilename="";
         outputDeformedSegmentationFilename="deformedAtlasSegmentation.nii";
         outputDeformedFilename="deformedAtlas.nii";
@@ -227,6 +234,10 @@ public:
 
         //optional
 		(*as) >> parameter ("ma", atlasMaskFilename, "atlas mask image for masking the registration unary potential (file name)", false);
+
+		(*as) >> parameter ("lma", atlasLandmarkFilename, "atlas landmark file name", false);
+		(*as) >> parameter ("lmt", targetLandmarkFilename, "target landmark file name", false);
+
 		(*as) >> parameter ("gt", targetGradientFilename, "target gradient image (file name)", false);
         (*as) >> parameter ("ga", atlasGradientFilename, "atlas gradient image (file name)", false);
         (*as) >> parameter ("targetAnatomyPriorFilename", targetAnatomyPriorFilename, "targetAnatomy prior image (file name)", false);
@@ -253,6 +264,8 @@ public:
         (*as) >> option ("penalizeOutside",penalizeOutside ,"Penalize registrations falling outside of moving image.");
         (*as) >> option ("normalizePotentials",normalizePotentials ,"divide all potentials by the total number of the respective potential. This balances forces in the two-layer SRS graph (somewhat).");
         (*as) >> option ("cachePotentials"  ,cachePotentials,"Cache all potential function values before calling the optimizer. requires more memory, but will speed up things!.");
+        (*as) >> option ("normalizeImages",normalizeImages ,"Normalize images to zero mean and unit variance. NO CHECK IF PIXELTYPE IS INTEGER!");
+        (*as) >> option ("useLowResBSpline",useLowResBSpline ,"Only upsample deformation field to the resolution used in registration unary computation. Speeds up the process a bit, looses some accuracy. DOES NOT WORK/HAVE ANY EFFECT WHEN SRS IS USED!");
 
         
 

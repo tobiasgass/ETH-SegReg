@@ -47,7 +47,8 @@ int main(int argc, char ** argv)
   
  
     distanceTransform->SetInput(outImage);
-    distanceTransform->SquaredDistanceOn();
+    //distanceTransform->SquaredDistanceOn();
+    distanceTransform->SquaredDistanceOff();
     distanceTransform->UseImageSpacingOn();
     distanceTransform->Update();
     FloatImagePointerType result=distanceTransform->GetOutput();

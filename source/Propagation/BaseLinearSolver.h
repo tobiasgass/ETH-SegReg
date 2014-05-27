@@ -10,10 +10,12 @@ class LinearSolver{
 public:
 
     LinearSolver(){
-        if (!(m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
+#if 1
+        if (!(m_ep = engOpen("matlab-8.1r2013a -nodesktop -nodisplay -nosplash -nojvm"))) {
             fprintf(stderr, "\nCan't start MATLAB engine\n");
             exit(EXIT_FAILURE);
         }
+#endif
         haveInit=false;
     }
 

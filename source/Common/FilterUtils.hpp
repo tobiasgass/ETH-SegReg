@@ -51,6 +51,7 @@
 #include "itkLaplacianRecursiveGaussianImageFilter.h"
 #include "itkGradientMagnitudeImageFilter.h"
 #include "itkNormalizedCorrelationImageToImageMetric.h"
+#include "itkNormalizeImageFilter.h"
 
 using namespace std;
 
@@ -129,7 +130,8 @@ class FilterUtils {
 
     typedef typename itk::LaplacianRecursiveGaussianImageFilter<InputImage,OutputImage> LaplacianFilterType;
     typedef typename itk::GradientMagnitudeImageFilter<InputImage,OutputImage> GradientFilterType;
-
+     typedef itk::NormalizeImageFilter<InputImage,OutputImage> NormalizeImageFilterType;
+    typedef typename NormalizeImageFilterType::Pointer NormalizeImageFilterPointerType;
 
 public:
 	static OutputImagePointer createEmpty(InputImagePointer refImg) {
@@ -143,7 +145,12 @@ public:
 	};
     //#define  ISOTROPIC_RESAMPLING
     //resample with an uniform scaling factor
-
+    static OutputImagePointer normalizeImage(InputImagePointer input){
+        NormalizeImageFilterPointerType filter=NormalizeImageFilterType::New();
+        filter->SetInput(input);
+        filter->Update();
+        return filter->GetOutput();
+    }
     static OutputImagePointer gradient(ConstInputImagePointer input){
         
         typename GradientFilterType::Pointer gradientFilter = GradientFilterType::New();

@@ -383,7 +383,7 @@ public:
             oss<<outputDir<<"/"<<outputFilename<<"-avgDeformation.mha";
             if (result.IsNotNull())
                 ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
-            if (estimateMRF){
+            if (estimateMRF && labelImage.IsNotNull()){
                 ostringstream oss2;
                 oss2<<outputDir<<"/"<<outputFilename<<"-labelImage.nii";
                 LOGI(1,ImageUtils<ImageType>::writeImage(oss2.str(),labelImage));

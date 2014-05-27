@@ -410,6 +410,7 @@ public:
                                 estimator.finalize();
                                 double energy=estimator.solve();
                                 result=estimator.getMean();
+                                labelImage=estimator.getLabelImage();
                                 LOGV(1)<<VAR(energy)<<endl;
                                 if (refineSeamIter>0){
 
@@ -428,7 +429,7 @@ public:
                                         }
                                     
 
-                                    LOG<<"Refining seams by smoothing solution with maximally "<<nKernels<<" kernels.."<<endl;
+                                        LOGV(1)<<"Refining seams by smoothing solution with maximally "<<nKernels<<" kernels.."<<endl;
                                     DeformationFieldPointerType originalFusionResult=result;
                                     RegistrationFuserType seamEstimator;
                                     double kernelBaseWidth=0.5;//1.0;//pow(-1.0*minJac,1.0/D);
@@ -507,7 +508,7 @@ public:
                                     energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,50);
 #endif
                                     result=seamEstimator.getMean();
-                                    labelImage=seamEstimator.getLabelImage();
+                                    //labelImage=seamEstimator.getLabelImage();
                                     }//neg jac
                                 }//refine seams
                                 
@@ -537,7 +538,7 @@ public:
                                 ostringstream oss;
                                 oss<<outputDir<<"/avgDeformation-"<<sourceID<<"-TO-"<<targetID<<".mha";
                                 ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
-                                if (estimateMRF){
+                                if (estimateMRF && labelImage.IsNotNull()){
                                     ostringstream oss2;
                                     oss2<<outputDir<<"/labelImage-"<<sourceID<<"-TO-"<<targetID<<".nii";
                                     ImageUtils<ImageType>::writeImage(oss2.str(),labelImage);
@@ -650,7 +651,7 @@ public:
                 //error computation only available when all deformations are cached
                 error=TransfUtils<ImageType>::computeError(&TMPdeformationCache,&trueDeformations,&imageIDs);
             }
-            //inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
+            inconsistency = TransfUtils<ImageType>::computeInconsistency(&deformationCache,&imageIDs,&trueDeformations);
             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(m_TRE)<<" "<<VAR(m_dice)<<" "<<VAR(m_volumeWeightedDice)<<" "<<VAR(m_energy)<<" "<<VAR(m_similarity)<<" "<<VAR(m_averageMinJac)<<" "<<VAR(m_minMinJacobian)<<endl;
             if (!runEndless){
                 if (m_similarity>m_oldSimilarity){
