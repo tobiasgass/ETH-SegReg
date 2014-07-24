@@ -122,6 +122,7 @@ namespace itk{
                 //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale);
                 //m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),1);
                 //m_scaledAtlasImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale),1);
+                m_baseLabelMap=TransfUtils<ImageType>::bSplineInterpolateDeformationField(m_baseLabelMap,m_scaledTargetImage);
                 if (m_atlasMaskImage.IsNotNull()){
                     m_scaledAtlasMaskImage=FilterUtils<ImageType>::NNResample(m_atlasMaskImage,m_scale,false);                }
             }else{
@@ -343,727 +344,6 @@ namespace itk{
         }
     };//class
 
-    template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationSAD : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
-    public:
-        //itk declarations
-        typedef UnaryPotentialRegistrationSAD           Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
-        typedef	TImage ImageType;
-        typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
-        typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::SizeType SizeType;
-        typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
-        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
-        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
-        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
-        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
-        typedef typename ImageType::PointType PointType;
-
-    public:
-        /** Method for creation through the object factory. */
-        itkNewMacro(Self);
-        /** Standard part of every itk Object. */
-        itkTypeMacro(RegistrationUnaryPotentialSAD, Object);
-
-        UnaryPotentialRegistrationSAD(){}
-        
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
-            double result=0;
-            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
-                targetIndex[d]*=this->m_scale;
-                if (targetIndex[d]>=(int)this->m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()[d]) targetIndex[d]--;
-            }
-         
-            
-            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
-            //          nIt->SetLocation(targetIndex);
-            this->nIt.SetLocation(targetIndex);
-            double count=0;
-            //double sum=0.0;
-            for (unsigned int i=0;i<this->nIt.Size();++i){
-                bool inBounds;
-                double f=this->nIt.GetPixel(i,inBounds);
-                if (inBounds){
-                    IndexType neighborIndex=this->nIt.GetIndex(i);
-                    //this should be weighted somehow
-                    //double weight=1.0;
-                    PointType p;
-                    this->m_scaledTargetImage->TransformIndexToPhysicalPoint(neighborIndex,p);
-                    p +=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
-                    ContinuousIndexType idx2;
-                    this->m_scaledAtlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
-                    double m;
-                    if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
-                        //continue;
-                        m=0;
-                    }else{
-                        m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
-                    }
-                    result+=fabs(m-f);
-                    count+=1;
-                }
-
-            }
-
-            if (count)
-                return result/count;
-            else
-                return 999999999;
-        }
-    };//class
-    
-    template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationNCCWithSegmentationPrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
-    public:
-        //itk declarations
-        typedef UnaryPotentialRegistrationNCCWithSegmentationPrior           Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
-        typedef	TImage ImageType;
-        typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
-        typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::SizeType SizeType;
-        typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
-        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
-        static const unsigned int D=ImageType::ImageDimension;
-        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
-        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
-
-        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
-        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
-        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
-        typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
-        typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
-        
-    private:
-        ConstImagePointerType m_segmentationPrior, m_atlasSegmentation;
-        double m_alpha,m_beta;
-        NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
-        SRSPotentialPointerType m_srsPotential;
-        
-    public:
-        /** Method for creation through the object factory. */
-        itkNewMacro(Self);
-        /** Standard part of every itk Object. */
-        itkTypeMacro(UnaryPotentialRegistrationNCCWithSegmentationPrior, Object);
-
-      
-        
-        void SetSegmentationPrior(ConstImagePointerType prior){
-            if (prior){
-                if (this->m_scale!=1.0){
-                    m_segmentationPrior=FilterUtils<ImageType>::NNResample((prior),this->m_scale);
-                }else{
-                    m_segmentationPrior=prior;  
-            
-                }
-            }
-        }
-     
-        void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
-        void SetAlpha(double alpha){m_alpha=alpha;}
-        void SetBeta(double beta){m_beta=beta;}
-        
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
-            double result=0;
-          
-            LabelType trueDisplacement=disp;
-            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
-                targetIndex[d]*=this->m_scale;
-            }
-            LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
-            //disp+=baseDisp;
-            //LOG<<baseDisp<<" "<<disp<<std::endl;
-            baseDisp*=this->m_scale;
-            disp*=this->m_scale;
-            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
-            //          nIt->SetLocation(targetIndex);
-            this->nIt.SetLocation(targetIndex);
-            double count=0;
-            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
-            double segmentationPenalty=0.0,distanceSum=0.0;
-            for (unsigned int i=0;i<this->nIt.Size();++i){
-                bool inBounds;
-                double f=this->nIt.GetPixel(i,inBounds);
-                if (inBounds){
-                    IndexType neighborIndex=this->nIt.GetIndex(i);
-                    //this should be weighted somehow
-                    ContinuousIndexType idx2(neighborIndex);
-                    //double weight=1.0;
-                    LabelType baseDisplacement=this->m_baseLabelMap->GetPixel(neighborIndex);
-                    LabelType finalDisplacement=disp+baseDisplacement*this->m_scale;
-                    
-                    idx2+=finalDisplacement;
-
-                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
-                    double m;
-                    if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
-                        continue;
-                        m=0;
-                        
-#if 0
-                        for (int d=0;d<ImageType::ImageDimension;++d){
-                            if (idx2[d]>=this->m_atlasInterpolator->GetEndContinuousIndex()[d]){
-                                idx2[d]=this->m_atlasInterpolator->GetEndContinuousIndex()[d]-0.5;
-                            }
-                            else if (idx2[d]<this->m_atlasInterpolator->GetStartContinuousIndex()[d]){
-                                idx2[d]=this->m_atlasInterpolator->GetStartContinuousIndex()[d]+0.5;
-                            }
-                        }
-#endif
-                    }else{
-                        m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
-                    }
-                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
-                    sff+=f*f;
-                    smm+=m*m;
-                    sfm+=f*m;
-                    sf+=f;
-                    sm+=m;
-                    count+=1;
-                    if (this->m_segmentationPrior && this->m_alpha>0){
-                        double weight=1.0;
-                        IndexType trueIndex=neighborIndex;
-                        for (unsigned int d=0;d<D;++d){
-                            weight*=1.0-fabs((1.0*targetIndex[d]-neighborIndex[d])/(this->m_radius[d]));
-                            trueIndex[d]/=this->m_scale;
-                        }
-                        int segmentationPriorLabel=(this->m_segmentationPrior->GetPixel(neighborIndex));
-                        //double penalty=weight*this->m_srsPotential->getPotential(neighborIndex,neighborIndex,disp,segmentationPriorLabel);
-                        double penalty=weight*this->m_srsPotential->getPotential(trueIndex,trueIndex,trueDisplacement+baseDisplacement,segmentationPriorLabel);
-                        segmentationPenalty+=penalty;
-                        //LOG<<targetIndex<<" "<<neighborIndex<<" "<<weight<<" "<<segmentationPriorLabel<<" "<<penalty<<endl;
-                        distanceSum+=1;//weight;
-                    }
-                }
-
-            }
-            if (count){
-                sff -= ( sf * sf / count );
-                smm -= ( sm * sm / count );
-                sfm -= ( sf * sm / count );
-                if (smm*sff>0){
-                    //result=(1-1.0*sfm/sqrt(smm*sff))/2;
-                    result=((1+1.0*sfm/sqrt(smm*sff))/2);
-                    result=result>0?result:0.00000001;
-                    result=m_beta*(-1.0)*log(result);
-                    if (distanceSum){
-                        result+=this->m_alpha*segmentationPenalty/distanceSum;
-                        
-                    }
-                }
-                else {
-                    if (sfm>0) result=0;
-                    else result=1;
-                }
-              
-
-            }
-            //no correlation whatsoever
-            else result=-log(0.0000000000000000001);
-            //result=result>0.5?0.5:result;
-            return result;
-        }
-
-    };//class
-    template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationNCCWithBonePrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
-    public:
-        //itk declarations
-        typedef UnaryPotentialRegistrationNCCWithBonePrior           Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
-        typedef	TImage ImageType;
-        typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
-        typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::SizeType SizeType;
-        typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
-        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
-        static const unsigned int D=ImageType::ImageDimension;
-        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
-        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
-
-        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
-        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
-        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
-    private:
-        ConstImagePointerType m_targetSheetness, m_scaledTargetSheetness, m_atlasSegmentation, m_scaledAtlasSegmentation;
-        double m_alpha;
-        NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
-        
-    public:
-        /** Method for creation through the object factory. */
-        itkNewMacro(Self);
-        /** Standard part of every itk Object. */
-        itkTypeMacro(RegistrationUnaryPotentialWithBonePrior, Object);
-
-        UnaryPotentialRegistrationNCCWithBonePrior(){}
-        
-      
-        void SetAtlasSegmentation(ConstImagePointerType atlas){
-            m_atlasSegmentation=atlas;
-            
-            if (this->m_scale!=1.0){
-                m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((atlas),this->m_scale);
-            }else{
-                m_scaledAtlasSegmentation=atlas;
-            
-            }
-            m_atlasSegmentationInterpolator=NNInterpolatorType::New();
-            m_atlasSegmentationInterpolator->SetInputImage(m_scaledAtlasSegmentation);
-        }
-        void SetAlpha(double alpha){m_alpha=alpha;}
-        
-        double getSegmentationCost(int deformedSegmentationLabel, double imageIntensity, int s){
-            
-            int segmentationProb;
-            int tissue=(-500+1000)*255.0/2000;
-            if (deformedSegmentationLabel>0) {
-                segmentationProb = (imageIntensity < tissue) ? 1:0;
-            }else{
-                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000  &&s>0 ) ? 1 : 0;
-            }
-            return segmentationProb;
-
-        }
-          
-        void SetTargetSheetness(ConstImagePointerType img){
-            m_targetSheetness=img;
-            if (this->m_scale!=1.0){
-                m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
-
-            }else{
-                m_scaledTargetSheetness=img;
-            }
-        }
-        virtual void Init(){
-            logSetStage("InitRegUnary");
-            assert(this->m_targetImage);
-            assert(this->m_atlasImage);
-            assert(this->m_targetSheetness);
-            assert(this->m_atlasSegmentation);
-            if (this->m_scale!=1.0){
-                this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
-                this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
-                this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale,false);
-                this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
-            }
-            assert(this->radiusSet);
-            for (int d=0;d<ImageType::ImageDimension;++d){
-                this->m_scaledRadius[d]=this->m_radius[d]*this->m_scale;
-            }
-            //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
-            this->nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
-            this->m_atlasInterpolator=InterpolatorType::New();
-            this->m_atlasInterpolator->SetInputImage(this->m_scaledAtlasImage);
-            this->m_atlasSegmentationInterpolator=NNInterpolatorType::New();
-            this->m_atlasSegmentationInterpolator->SetInputImage(this->m_scaledAtlasSegmentation);
-            logResetStage;
-        }
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
-            double result=0;
-            int bone=(300+1000)*255.0/2000;
-            int tissue=(-500+1000)*255.0/2000;
-
-            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
-                targetIndex[d]*=this->m_scale;
-            }
-            //LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
-            //LOG<<baseDisp<<" "<<disp<<std::endl;
-            //baseDisp*=this->m_scale;
-            disp*=this->m_scale;
-            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
-            //          nIt->SetLocation(targetIndex);
-            this->nIt.SetLocation(targetIndex);
-            double count=0;
-            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
-            double segmentationPenalty=0.0,distanceSum=0.0;
-            for (unsigned int i=0;i<this->nIt.Size();++i){
-                bool inBounds;
-                double f=this->nIt.GetPixel(i,inBounds);
-                if (inBounds){
-                    IndexType neighborIndex=this->nIt.GetIndex(i);
-                    //this should be weighted somehow
-                    ContinuousIndexType idx2(neighborIndex);
-                    //double weight=1.0;
-
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
-
-                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
-                    double m;
-                    if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
-                        assert(!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2));
-                        continue;
-                        m=0;
-                        
-#if 0
-                        for (int d=0;d<ImageType::ImageDimension;++d){
-                            if (idx2[d]>=this->m_atlasInterpolator->GetEndContinuousIndex()[d]){
-                                idx2[d]=this->m_atlasInterpolator->GetEndContinuousIndex()[d]-0.5;
-                            }
-                            else if (idx2[d]<this->m_atlasInterpolator->GetStartContinuousIndex()[d]){
-                                idx2[d]=this->m_atlasInterpolator->GetStartContinuousIndex()[d]+0.5;
-                            }
-                        }
-#endif
-                    }else{
-                        m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
-                    }
-                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
-                    sff+=f*f;
-                    smm+=m*m;
-                    sfm+=f*m;
-                    sf+=f;
-                    sm+=m;
-                    count+=1;
-                    double weight=1.0;
-                    for (unsigned int d=0;d<D;++d){
-                        weight*=1.0-fabs((1.0*targetIndex[d]-neighborIndex[d])/(this->m_scaledRadius[d]));
-                    }
-                    if (this->m_alpha){
-#if 0
-                        if (f>=bone){
-                            int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
-                            if ( !seg){
-                                segmentationPenalty+=weight;
-                            }
-                        }else if ( f<tissue){
-                            int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
-                            if (seg){
-                                segmentationPenalty+=weight;
-                            }
-                        }
-                        distanceSum+=weight;   
-#else
-                        bool atlasTissue=m<tissue;
-                        bool atlasBone=m>bone;
-                        bool targetTissue=f<tissue;
-                        bool targetBone=f>bone;
-                        
-                        distanceSum+=weight;
-                        segmentationPenalty+=weight*( (atlasTissue==targetBone) || (atlasBone==targetTissue));
-                        
-#endif
-                    }
-                }
-
-            }
-            if (count){
-                sff -= ( sf * sf / count );
-                smm -= ( sm * sm / count );
-                sfm -= ( sf * sm / count );
-                if (smm*sff>0){
-#if 0//log NCC
-                    result=((1+1.0*sfm/sqrt(smm*sff))/2);
-                    result=result>0?result:0.00000001;
-                    result=-log(result);
-#else
-                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
-#endif                    
-      
-                    //result>thresh?thresh:result;
-                    //result=-log((1.0*sfm/sqrt(smm*sff)+1)/2);
-                }
-                else {
-                    if (sfm>0) result=0;
-                    else result=1;
-                }
-                // LOG<<targetIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
-                if (distanceSum){
-                    result=(1-this->m_alpha)*result+this->m_alpha*segmentationPenalty/distanceSum;
-                }
-            }
-            //no correlation whatsoever (-log(0.5))
-            else result=-log(0.0000000000000000001);//0.693147;
-            //result=result>0.5?0.5:result;
-            return result;
-        }
-    };//class
-    template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationNCCWithDistanceBonePrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
-    public:
-        //itk declarations
-        typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior           Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
-        typedef	TImage ImageType;
-        typedef typename ImageType::Pointer ImagePointerType;
-        typedef typename ImageType::ConstPointer ConstImagePointerType;
-
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
-        typedef typename ImageType::IndexType IndexType;
-        typedef typename ImageType::SizeType SizeType;
-        typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
-        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
-        static const unsigned int D=ImageType::ImageDimension;
-        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
-        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
-
-        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
-        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
-        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
-        typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
-        typedef typename FloatImageType::Pointer FloatImagePointerType;
-        typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
-        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
-        typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
-    private:
-        ConstImagePointerType m_targetSheetness, m_scaledTargetSheetness, m_atlasSegmentation, m_scaledAtlasSegmentation;
-        double m_alpha;
-        NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
-        FloatImageInterpolatorPointerType m_atlasDistanceTransformInterpolator;
-        double sigma1, sigma2, mean1, mean2;
-        FloatImagePointerType  m_distanceTransform;
-    public:
-        /** Method for creation through the object factory. */
-        itkNewMacro(Self);
-        /** Standard part of every itk Object. */
-        itkTypeMacro(RegistrationUnaryPotentialWithBonePrior, Object);
-
-        UnaryPotentialRegistrationNCCWithDistanceBonePrior(){}
-        FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage){
-            typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;
-            typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
-            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
-            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
-            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
-            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                float val=imageIt.Get();
-                imageIt2.Set(val>0);
-                
-            }
-            //distanceTransform->InsideIsPositiveOn();
-            distanceTransform->SetInput(newImage);
-            distanceTransform->SquaredDistanceOn ();
-            distanceTransform->UseImageSpacingOn();
-            distanceTransform->Update();
-            typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
-
-            FloatImagePointerType positiveDM=distanceTransform->GetOutput();
-            FloatImageIterator imageIt3(positiveDM,positiveDM->GetLargestPossibleRegion());        
-            for (imageIt3.GoToBegin();!imageIt3.IsAtEnd();++imageIt3){
-                imageIt3.Set(fabs(imageIt3.Get()));
-            }
-            return  positiveDM;
-        }
-      
-        void SetAtlasSegmentation(ConstImagePointerType atlas){
-            m_atlasSegmentation=atlas;
-            
-            if (this->m_scale!=1.0){
-                m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((atlas),this->m_scale);
-            }else{
-                m_scaledAtlasSegmentation=atlas;
-            
-            }
-            m_atlasSegmentationInterpolator=NNInterpolatorType::New();
-            m_atlasSegmentationInterpolator->SetInputImage(m_scaledAtlasSegmentation);
-            FloatImagePointerType dt1=getDistanceTransform(m_scaledAtlasSegmentation);
-            m_atlasDistanceTransformInterpolator=FloatImageInterpolatorType::New();
-            m_atlasDistanceTransformInterpolator->SetInputImage(dt1);
-            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
-            filter->SetInput(dt1);
-            filter->Update();
-            sigma1=filter->GetSigma();
-            mean1=filter->GetMean();
-            m_distanceTransform=dt1;
-        }
-        void SetAlpha(double alpha){m_alpha=alpha;}
-        
-        double getSegmentationCost(int deformedSegmentationLabel, double imageIntensity, int s){
-            
-            int segmentationProb;
-            int tissue=(-500+1000)*255.0/2000;
-            if (deformedSegmentationLabel>0) {
-                segmentationProb = (imageIntensity < tissue) ? 1:0;
-            }else{
-                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000  &&s>0 ) ? 1 : 0;
-            }
-            return segmentationProb;
-
-        }
-          
-        void SetTargetSheetness(ConstImagePointerType img){
-            m_targetSheetness=img;
-            if (this->m_scale!=1.0){
-                m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
-
-            }else{
-                m_scaledTargetSheetness=img;
-            }
-        }
-        virtual void Init(){
-            logSetStage("InitRegUnary");
-            assert(this->m_targetImage);
-            assert(this->m_atlasImage);
-            assert(this->m_targetSheetness);
-            assert(this->m_atlasSegmentation);
-            if (this->m_scale!=1.0){
-                this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
-                this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
-                this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale);
-                this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
-            }
-            assert(this->radiusSet);
-            for (int d=0;d<ImageType::ImageDimension;++d){
-                this->m_scaledRadius[d]=this->m_radius[d]*this->m_scale;
-            }
-            //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
-            this->nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
-            this->m_atlasInterpolator=InterpolatorType::New();
-            this->m_atlasInterpolator->SetInputImage(this->m_scaledAtlasImage);
-            this->m_atlasSegmentationInterpolator=NNInterpolatorType::New();
-            this->m_atlasSegmentationInterpolator->SetInputImage(this->m_scaledAtlasSegmentation);
-            logResetStage;
-        }
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
-            double result=0;
-            int bone=(300+1000)*255.0/2000;
-            int tissue=(-500+1000)*255.0/2000;
-
-            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
-                targetIndex[d]*=this->m_scale;
-            }
-            //LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
-            //LOG<<baseDisp<<" "<<disp<<std::endl;
-            //baseDisp*=this->m_scale;
-            disp*=this->m_scale;
-            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
-            //          nIt->SetLocation(targetIndex);
-            this->nIt.SetLocation(targetIndex);
-            int count=0, totalCount=0;
-            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
-            double segmentationPenalty=0.0,distanceSum=0.0;
-            for (unsigned int i=0;i<this->nIt.Size();++i){
-                bool inBounds;
-                double f=this->nIt.GetPixel(i,inBounds);
-                if (inBounds){
-                    IndexType neighborIndex=this->nIt.GetIndex(i);
-                    //this should be weighted somehow
-                    ContinuousIndexType idx2(neighborIndex);
-                    //double weight=1.0;
-
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
-
-                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
-                    double m;
-                    totalCount++;
-                    if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
-                        assert(!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2));
-                        continue;
-                        //m=-50;
-                        
-#if 0
-                        for (int d=0;d<ImageType::ImageDimension;++d){
-                            if (idx2[d]>=this->m_atlasInterpolator->GetEndContinuousIndex()[d]){
-                                idx2[d]=this->m_atlasInterpolator->GetEndContinuousIndex()[d]-0.5;
-                            }
-                            else if (idx2[d]<this->m_atlasInterpolator->GetStartContinuousIndex()[d]){
-                                idx2[d]=this->m_atlasInterpolator->GetStartContinuousIndex()[d]+0.5;
-                            }
-                        }
-#endif
-                    }else{
-                        m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
-                    }
-                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
-                    sff+=f*f;
-                    smm+=m*m;
-                    sfm+=f*m;
-                    sf+=f;
-                    sm+=m;
-                    count+=1;
-
-                    if (false &&this->m_alpha){
-                        double weight=1.0;
-                        for (unsigned int d=0;d<D;++d){
-                            weight*=1.0-fabs((1.0*targetIndex[d]-neighborIndex[d])/(this->m_scaledRadius[d]));
-                        }
-
-                        if (f>=bone){
-                            int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
-                            if ( !seg){
-                                double distance=m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2)/sigma1;
-                                segmentationPenalty+=weight*distance;
-                            }
-                        }else if ( f<tissue){
-                            int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
-                            if (seg){
-                                //double distance=m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2)/sigma1;
-                                //segmentationPenalty+=weight*distance;
-                                segmentationPenalty+=weight;
-                            }
-                        }
-                        distanceSum+=weight;   
-                    }
-                }
-
-            }
-            if (count>1){
-                sff -= ( sf * sf / count );
-                smm -= ( sm * sm / count );
-                sfm -= ( sf * sm / count );
-                if (smm*sff>0){
-                    double NCC=sfm/sqrt(smm*sff);
-                    //NCC*=1.0*count/totalCount;
-                    //NCC*=1.0*totalCount/count;
-#if 1
-                    result=((1.0+NCC)/2);
-                    result=result>0?result:0.00000001;
-                    result=-log(result);
-#else
-                    result=(1-NCC)/2;
-#endif
-                    //result*=1.0*count/totalCount;
-                    //result*=1.0*totalCount/count;
-
-                }
-                else {
-                    if (sfm>0) result=0;
-                    else result=1;
-                    //LOG<<"AUTOCORRELATION ZERO "<<count<<endl;
-                }
-                // LOG<<targetIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
-                if (distanceSum){
-                    result=result+this->m_alpha*segmentationPenalty/distanceSum;
-                }
-                //LOG<<"result "<<result<<" penalty factor:"<<1+this->m_alpha*(1.0*totalCount-count)/(totalCount)<<" countDiff:"<<totalCount-count<<endl;
-                result=result*(1+this->m_alpha*(1.0*totalCount-count)/(totalCount+1));//+this->m_alpha*(totalCount-count)/(totalCount+1);
-            }
-            //no correlation whatsoever (-log(0.5))
-            else result=0;//10000000;//100;//-log(0.0000000000000000001);//0.693147;
-            //result=result>0.5?0.5:result;
-            return result;
-        }
-    };//class
-
- 
-
  
  
 
@@ -1126,6 +406,7 @@ namespace itk{
         double m_normalizationFactor;
         bool m_normalize;
         PointsContainerPointer m_atlasLandmarks,m_targetLandmarks;
+        FloatImagePointerType m_unaryPotentialWeights;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -1135,8 +416,10 @@ namespace itk{
         FastUnaryPotentialRegistrationNCC():Superclass(){
             m_normalizationFactor=1.0;
             m_normalize=false;
+            m_unaryPotentialWeights=NULL;
             
         }
+        void SetPotentialWeights(FloatImagePointerType img){m_unaryPotentialWeights=img;}
         void SetAtlasLandmarks(PointsContainerPointer p){m_atlasLandmarks=p;}
         void SetTargetLandmarks(PointsContainerPointer p){m_targetLandmarks=p;}
         void SetAtlasLandmarksFile(string f){
@@ -1294,7 +577,14 @@ namespace itk{
                         IndexType targetIndex;
                         this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
                         double localPot=0;
-                        if (this->m_alpha<1.0) localPot=(1.0-this->m_alpha)*getLocalPotential(targetIndex);
+                        double weight=1.0;
+                        if (m_unaryPotentialWeights.IsNotNull()){
+                             IndexType weightIndex;
+                             m_unaryPotentialWeights->TransformPhysicalPointToIndex(point,weightIndex);
+                             weight=m_unaryPotentialWeights->GetPixel(weightIndex);
+
+                        }
+                        if (this->m_alpha<1.0) localPot=(1.0-this->m_alpha)*weight*getLocalPotential(targetIndex);
                         if (this->m_alpha>0.0 && m_atlasLandmarks.IsNotNull() && m_targetLandmarks.IsNotNull()){
                             //localPot+=getLandmarkPotential
                             //find landmarks close to point
@@ -2378,5 +1668,728 @@ namespace itk{
         }
     };//FastUnaryPotentialRegistrationCategorical
   
+
+    template<class TLabelMapper,class TImage>
+    class UnaryPotentialRegistrationSAD : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    public:
+        //itk declarations
+        typedef UnaryPotentialRegistrationSAD           Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        typedef typename ImageType::PointType PointType;
+
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(RegistrationUnaryPotentialSAD, Object);
+
+        UnaryPotentialRegistrationSAD(){}
+        
+        virtual double getPotential(IndexType targetIndex, LabelType disp){
+            double result=0;
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                targetIndex[d]*=this->m_scale;
+                if (targetIndex[d]>=(int)this->m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()[d]) targetIndex[d]--;
+            }
+         
+            
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //          nIt->SetLocation(targetIndex);
+            this->nIt.SetLocation(targetIndex);
+            double count=0;
+            //double sum=0.0;
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double f=this->nIt.GetPixel(i,inBounds);
+                if (inBounds){
+                    IndexType neighborIndex=this->nIt.GetIndex(i);
+                    //this should be weighted somehow
+                    //double weight=1.0;
+                    PointType p;
+                    this->m_scaledTargetImage->TransformIndexToPhysicalPoint(neighborIndex,p);
+                    p +=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
+                    ContinuousIndexType idx2;
+                    this->m_scaledAtlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
+                    double m;
+                    if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
+                        //continue;
+                        m=0;
+                    }else{
+                        m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
+                    }
+                    result+=fabs(m-f);
+                    count+=1;
+                }
+
+            }
+
+            if (count)
+                return result/count;
+            else
+                return 999999999;
+        }
+    };//class
+    
+    template<class TLabelMapper,class TImage>
+    class UnaryPotentialRegistrationNCCWithSegmentationPrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    public:
+        //itk declarations
+        typedef UnaryPotentialRegistrationNCCWithSegmentationPrior           Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+        static const unsigned int D=ImageType::ImageDimension;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
+
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
+        typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
+        
+    private:
+        ConstImagePointerType m_segmentationPrior, m_atlasSegmentation;
+        double m_alpha,m_beta;
+        NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
+        SRSPotentialPointerType m_srsPotential;
+        
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(UnaryPotentialRegistrationNCCWithSegmentationPrior, Object);
+
+      
+        
+        void SetSegmentationPrior(ConstImagePointerType prior){
+            if (prior){
+                if (this->m_scale!=1.0){
+                    m_segmentationPrior=FilterUtils<ImageType>::NNResample((prior),this->m_scale);
+                }else{
+                    m_segmentationPrior=prior;  
+            
+                }
+            }
+        }
+     
+        void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
+        void SetAlpha(double alpha){m_alpha=alpha;}
+        void SetBeta(double beta){m_beta=beta;}
+        
+        virtual double getPotential(IndexType targetIndex, LabelType disp){
+            double result=0;
+          
+            LabelType trueDisplacement=disp;
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                targetIndex[d]*=this->m_scale;
+            }
+            LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
+            //disp+=baseDisp;
+            //LOG<<baseDisp<<" "<<disp<<std::endl;
+            baseDisp*=this->m_scale;
+            disp*=this->m_scale;
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //          nIt->SetLocation(targetIndex);
+            this->nIt.SetLocation(targetIndex);
+            double count=0;
+            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
+            double segmentationPenalty=0.0,distanceSum=0.0;
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double f=this->nIt.GetPixel(i,inBounds);
+                if (inBounds){
+                    IndexType neighborIndex=this->nIt.GetIndex(i);
+                    //this should be weighted somehow
+                    ContinuousIndexType idx2(neighborIndex);
+                    //double weight=1.0;
+                    LabelType baseDisplacement=this->m_baseLabelMap->GetPixel(neighborIndex);
+                    LabelType finalDisplacement=disp+baseDisplacement*this->m_scale;
+                    
+                    idx2+=finalDisplacement;
+
+                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    double m;
+                    if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
+                        continue;
+                        m=0;
+                        
+#if 0
+                        for (int d=0;d<ImageType::ImageDimension;++d){
+                            if (idx2[d]>=this->m_atlasInterpolator->GetEndContinuousIndex()[d]){
+                                idx2[d]=this->m_atlasInterpolator->GetEndContinuousIndex()[d]-0.5;
+                            }
+                            else if (idx2[d]<this->m_atlasInterpolator->GetStartContinuousIndex()[d]){
+                                idx2[d]=this->m_atlasInterpolator->GetStartContinuousIndex()[d]+0.5;
+                            }
+                        }
+#endif
+                    }else{
+                        m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
+                    }
+                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    sff+=f*f;
+                    smm+=m*m;
+                    sfm+=f*m;
+                    sf+=f;
+                    sm+=m;
+                    count+=1;
+                    if (this->m_segmentationPrior && this->m_alpha>0){
+                        double weight=1.0;
+                        IndexType trueIndex=neighborIndex;
+                        for (unsigned int d=0;d<D;++d){
+                            weight*=1.0-fabs((1.0*targetIndex[d]-neighborIndex[d])/(this->m_radius[d]));
+                            trueIndex[d]/=this->m_scale;
+                        }
+                        int segmentationPriorLabel=(this->m_segmentationPrior->GetPixel(neighborIndex));
+                        //double penalty=weight*this->m_srsPotential->getPotential(neighborIndex,neighborIndex,disp,segmentationPriorLabel);
+                        double penalty=weight*this->m_srsPotential->getPotential(trueIndex,trueIndex,trueDisplacement+baseDisplacement,segmentationPriorLabel);
+                        segmentationPenalty+=penalty;
+                        //LOG<<targetIndex<<" "<<neighborIndex<<" "<<weight<<" "<<segmentationPriorLabel<<" "<<penalty<<endl;
+                        distanceSum+=1;//weight;
+                    }
+                }
+
+            }
+            if (count){
+                sff -= ( sf * sf / count );
+                smm -= ( sm * sm / count );
+                sfm -= ( sf * sm / count );
+                if (smm*sff>0){
+                    //result=(1-1.0*sfm/sqrt(smm*sff))/2;
+                    result=((1+1.0*sfm/sqrt(smm*sff))/2);
+                    result=result>0?result:0.00000001;
+                    result=m_beta*(-1.0)*log(result);
+                    if (distanceSum){
+                        result+=this->m_alpha*segmentationPenalty/distanceSum;
+                        
+                    }
+                }
+                else {
+                    if (sfm>0) result=0;
+                    else result=1;
+                }
+              
+
+            }
+            //no correlation whatsoever
+            else result=-log(0.0000000000000000001);
+            //result=result>0.5?0.5:result;
+            return result;
+        }
+
+    };//class
+    template<class TLabelMapper,class TImage>
+    class UnaryPotentialRegistrationNCCWithBonePrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    public:
+        //itk declarations
+        typedef UnaryPotentialRegistrationNCCWithBonePrior           Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+        static const unsigned int D=ImageType::ImageDimension;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
+
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+    private:
+        ConstImagePointerType m_targetSheetness, m_scaledTargetSheetness, m_atlasSegmentation, m_scaledAtlasSegmentation;
+        double m_alpha;
+        NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
+        
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(RegistrationUnaryPotentialWithBonePrior, Object);
+
+        UnaryPotentialRegistrationNCCWithBonePrior(){}
+        
+      
+        void SetAtlasSegmentation(ConstImagePointerType atlas){
+            m_atlasSegmentation=atlas;
+            
+            if (this->m_scale!=1.0){
+                m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((atlas),this->m_scale);
+            }else{
+                m_scaledAtlasSegmentation=atlas;
+            
+            }
+            m_atlasSegmentationInterpolator=NNInterpolatorType::New();
+            m_atlasSegmentationInterpolator->SetInputImage(m_scaledAtlasSegmentation);
+        }
+        void SetAlpha(double alpha){m_alpha=alpha;}
+        
+        double getSegmentationCost(int deformedSegmentationLabel, double imageIntensity, int s){
+            
+            int segmentationProb;
+            int tissue=(-500+1000)*255.0/2000;
+            if (deformedSegmentationLabel>0) {
+                segmentationProb = (imageIntensity < tissue) ? 1:0;
+            }else{
+                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000  &&s>0 ) ? 1 : 0;
+            }
+            return segmentationProb;
+
+        }
+          
+        void SetTargetSheetness(ConstImagePointerType img){
+            m_targetSheetness=img;
+            if (this->m_scale!=1.0){
+                m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
+
+            }else{
+                m_scaledTargetSheetness=img;
+            }
+        }
+        virtual void Init(){
+            logSetStage("InitRegUnary");
+            assert(this->m_targetImage);
+            assert(this->m_atlasImage);
+            assert(this->m_targetSheetness);
+            assert(this->m_atlasSegmentation);
+            if (this->m_scale!=1.0){
+                this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
+                this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
+                this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale,false);
+                this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
+            }
+            assert(this->radiusSet);
+            for (int d=0;d<ImageType::ImageDimension;++d){
+                this->m_scaledRadius[d]=this->m_radius[d]*this->m_scale;
+            }
+            //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
+            this->nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
+            this->m_atlasInterpolator=InterpolatorType::New();
+            this->m_atlasInterpolator->SetInputImage(this->m_scaledAtlasImage);
+            this->m_atlasSegmentationInterpolator=NNInterpolatorType::New();
+            this->m_atlasSegmentationInterpolator->SetInputImage(this->m_scaledAtlasSegmentation);
+            logResetStage;
+        }
+        virtual double getPotential(IndexType targetIndex, LabelType disp){
+            double result=0;
+            int bone=(300+1000)*255.0/2000;
+            int tissue=(-500+1000)*255.0/2000;
+
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                targetIndex[d]*=this->m_scale;
+            }
+            //LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
+            //LOG<<baseDisp<<" "<<disp<<std::endl;
+            //baseDisp*=this->m_scale;
+            disp*=this->m_scale;
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //          nIt->SetLocation(targetIndex);
+            this->nIt.SetLocation(targetIndex);
+            double count=0;
+            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
+            double segmentationPenalty=0.0,distanceSum=0.0;
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double f=this->nIt.GetPixel(i,inBounds);
+                if (inBounds){
+                    IndexType neighborIndex=this->nIt.GetIndex(i);
+                    //this should be weighted somehow
+                    ContinuousIndexType idx2(neighborIndex);
+                    //double weight=1.0;
+
+                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+
+                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    double m;
+                    if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
+                        assert(!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2));
+                        continue;
+                        m=0;
+                        
+#if 0
+                        for (int d=0;d<ImageType::ImageDimension;++d){
+                            if (idx2[d]>=this->m_atlasInterpolator->GetEndContinuousIndex()[d]){
+                                idx2[d]=this->m_atlasInterpolator->GetEndContinuousIndex()[d]-0.5;
+                            }
+                            else if (idx2[d]<this->m_atlasInterpolator->GetStartContinuousIndex()[d]){
+                                idx2[d]=this->m_atlasInterpolator->GetStartContinuousIndex()[d]+0.5;
+                            }
+                        }
+#endif
+                    }else{
+                        m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
+                    }
+                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    sff+=f*f;
+                    smm+=m*m;
+                    sfm+=f*m;
+                    sf+=f;
+                    sm+=m;
+                    count+=1;
+                    double weight=1.0;
+                    for (unsigned int d=0;d<D;++d){
+                        weight*=1.0-fabs((1.0*targetIndex[d]-neighborIndex[d])/(this->m_scaledRadius[d]));
+                    }
+                    if (this->m_alpha){
+#if 0
+                        if (f>=bone){
+                            int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
+                            if ( !seg){
+                                segmentationPenalty+=weight;
+                            }
+                        }else if ( f<tissue){
+                            int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
+                            if (seg){
+                                segmentationPenalty+=weight;
+                            }
+                        }
+                        distanceSum+=weight;   
+#else
+                        bool atlasTissue=m<tissue;
+                        bool atlasBone=m>bone;
+                        bool targetTissue=f<tissue;
+                        bool targetBone=f>bone;
+                        
+                        distanceSum+=weight;
+                        segmentationPenalty+=weight*( (atlasTissue==targetBone) || (atlasBone==targetTissue));
+                        
+#endif
+                    }
+                }
+
+            }
+            if (count){
+                sff -= ( sf * sf / count );
+                smm -= ( sm * sm / count );
+                sfm -= ( sf * sm / count );
+                if (smm*sff>0){
+#if 0//log NCC
+                    result=((1+1.0*sfm/sqrt(smm*sff))/2);
+                    result=result>0?result:0.00000001;
+                    result=-log(result);
+#else
+                    result=(1-1.0*sfm/sqrt(smm*sff))/2;
+#endif                    
+      
+                    //result>thresh?thresh:result;
+                    //result=-log((1.0*sfm/sqrt(smm*sff)+1)/2);
+                }
+                else {
+                    if (sfm>0) result=0;
+                    else result=1;
+                }
+                // LOG<<targetIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
+                if (distanceSum){
+                    result=(1-this->m_alpha)*result+this->m_alpha*segmentationPenalty/distanceSum;
+                }
+            }
+            //no correlation whatsoever (-log(0.5))
+            else result=-log(0.0000000000000000001);//0.693147;
+            //result=result>0.5?0.5:result;
+            return result;
+        }
+    };//class
+    template<class TLabelMapper,class TImage>
+    class UnaryPotentialRegistrationNCCWithDistanceBonePrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    public:
+        //itk declarations
+        typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior           Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+
+        typedef TLabelMapper LabelMapperType;
+        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+        static const unsigned int D=ImageType::ImageDimension;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
+
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
+        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
+    private:
+        ConstImagePointerType m_targetSheetness, m_scaledTargetSheetness, m_atlasSegmentation, m_scaledAtlasSegmentation;
+        double m_alpha;
+        NNInterpolatorPointerType m_segPriorInterpolator,m_atlasSegmentationInterpolator;
+        FloatImageInterpolatorPointerType m_atlasDistanceTransformInterpolator;
+        double sigma1, sigma2, mean1, mean2;
+        FloatImagePointerType  m_distanceTransform;
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(RegistrationUnaryPotentialWithBonePrior, Object);
+
+        UnaryPotentialRegistrationNCCWithDistanceBonePrior(){}
+        FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage){
+            typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;
+            typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
+            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
+            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
+            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
+            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
+            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
+            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
+                float val=imageIt.Get();
+                imageIt2.Set(val>0);
+                
+            }
+            //distanceTransform->InsideIsPositiveOn();
+            distanceTransform->SetInput(newImage);
+            distanceTransform->SquaredDistanceOn ();
+            distanceTransform->UseImageSpacingOn();
+            distanceTransform->Update();
+            typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
+
+            FloatImagePointerType positiveDM=distanceTransform->GetOutput();
+            FloatImageIterator imageIt3(positiveDM,positiveDM->GetLargestPossibleRegion());        
+            for (imageIt3.GoToBegin();!imageIt3.IsAtEnd();++imageIt3){
+                imageIt3.Set(fabs(imageIt3.Get()));
+            }
+            return  positiveDM;
+        }
+      
+        void SetAtlasSegmentation(ConstImagePointerType atlas){
+            m_atlasSegmentation=atlas;
+            
+            if (this->m_scale!=1.0){
+                m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((atlas),this->m_scale);
+            }else{
+                m_scaledAtlasSegmentation=atlas;
+            
+            }
+            m_atlasSegmentationInterpolator=NNInterpolatorType::New();
+            m_atlasSegmentationInterpolator->SetInputImage(m_scaledAtlasSegmentation);
+            FloatImagePointerType dt1=getDistanceTransform(m_scaledAtlasSegmentation);
+            m_atlasDistanceTransformInterpolator=FloatImageInterpolatorType::New();
+            m_atlasDistanceTransformInterpolator->SetInputImage(dt1);
+            typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+            filter->SetInput(dt1);
+            filter->Update();
+            sigma1=filter->GetSigma();
+            mean1=filter->GetMean();
+            m_distanceTransform=dt1;
+        }
+        void SetAlpha(double alpha){m_alpha=alpha;}
+        
+        double getSegmentationCost(int deformedSegmentationLabel, double imageIntensity, int s){
+            
+            int segmentationProb;
+            int tissue=(-500+1000)*255.0/2000;
+            if (deformedSegmentationLabel>0) {
+                segmentationProb = (imageIntensity < tissue) ? 1:0;
+            }else{
+                segmentationProb = ( imageIntensity > (300+1000)*255.0/2000  &&s>0 ) ? 1 : 0;
+            }
+            return segmentationProb;
+
+        }
+          
+        void SetTargetSheetness(ConstImagePointerType img){
+            m_targetSheetness=img;
+            if (this->m_scale!=1.0){
+                m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((img),this->m_scale,true);
+
+            }else{
+                m_scaledTargetSheetness=img;
+            }
+        }
+        virtual void Init(){
+            logSetStage("InitRegUnary");
+            assert(this->m_targetImage);
+            assert(this->m_atlasImage);
+            assert(this->m_targetSheetness);
+            assert(this->m_atlasSegmentation);
+            if (this->m_scale!=1.0){
+                this->m_scaledTargetImage=FilterUtils<ImageType>::LinearResample((this->m_targetImage),this->m_scale,true);
+                this->m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample((this->m_atlasImage),this->m_scale,true);
+                this->m_scaledAtlasSegmentation=FilterUtils<ImageType>::NNResample((m_atlasSegmentation),this->m_scale);
+                this->m_scaledTargetSheetness=FilterUtils<ImageType>::LinearResample((m_targetSheetness),this->m_scale,true);
+            }
+            assert(this->radiusSet);
+            for (int d=0;d<ImageType::ImageDimension;++d){
+                this->m_scaledRadius[d]=this->m_radius[d]*this->m_scale;
+            }
+            //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
+            this->nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
+            this->m_atlasInterpolator=InterpolatorType::New();
+            this->m_atlasInterpolator->SetInputImage(this->m_scaledAtlasImage);
+            this->m_atlasSegmentationInterpolator=NNInterpolatorType::New();
+            this->m_atlasSegmentationInterpolator->SetInputImage(this->m_scaledAtlasSegmentation);
+            logResetStage;
+        }
+        virtual double getPotential(IndexType targetIndex, LabelType disp){
+            double result=0;
+            int bone=(300+1000)*255.0/2000;
+            int tissue=(-500+1000)*255.0/2000;
+
+            for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
+                targetIndex[d]*=this->m_scale;
+            }
+            //LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
+            //LOG<<baseDisp<<" "<<disp<<std::endl;
+            //baseDisp*=this->m_scale;
+            disp*=this->m_scale;
+            //            LOG<<targetIndex<<"\t "<<disp<<"\t "<<std::endl;
+            //          nIt->SetLocation(targetIndex);
+            this->nIt.SetLocation(targetIndex);
+            int count=0, totalCount=0;
+            double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
+            double segmentationPenalty=0.0,distanceSum=0.0;
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                double f=this->nIt.GetPixel(i,inBounds);
+                if (inBounds){
+                    IndexType neighborIndex=this->nIt.GetIndex(i);
+                    //this should be weighted somehow
+                    ContinuousIndexType idx2(neighborIndex);
+                    //double weight=1.0;
+
+                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+
+                    //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
+                    double m;
+                    totalCount++;
+                    if (!this->m_atlasInterpolator->IsInsideBuffer(idx2)){
+                        assert(!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2));
+                        continue;
+                        //m=-50;
+                        
+#if 0
+                        for (int d=0;d<ImageType::ImageDimension;++d){
+                            if (idx2[d]>=this->m_atlasInterpolator->GetEndContinuousIndex()[d]){
+                                idx2[d]=this->m_atlasInterpolator->GetEndContinuousIndex()[d]-0.5;
+                            }
+                            else if (idx2[d]<this->m_atlasInterpolator->GetStartContinuousIndex()[d]){
+                                idx2[d]=this->m_atlasInterpolator->GetStartContinuousIndex()[d]+0.5;
+                            }
+                        }
+#endif
+                    }else{
+                        m=this->m_atlasInterpolator->EvaluateAtContinuousIndex(idx2);
+                    }
+                    //LOG<<f<<" "<<m<<" "<<sff<<" "<<sfm<<" "<<sf<<" "<<sm<<endl;
+                    sff+=f*f;
+                    smm+=m*m;
+                    sfm+=f*m;
+                    sf+=f;
+                    sm+=m;
+                    count+=1;
+
+                    if (false &&this->m_alpha){
+                        double weight=1.0;
+                        for (unsigned int d=0;d<D;++d){
+                            weight*=1.0-fabs((1.0*targetIndex[d]-neighborIndex[d])/(this->m_scaledRadius[d]));
+                        }
+
+                        if (f>=bone){
+                            int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
+                            if ( !seg){
+                                double distance=m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2)/sigma1;
+                                segmentationPenalty+=weight*distance;
+                            }
+                        }else if ( f<tissue){
+                            int seg=this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2)>0.5;
+                            if (seg){
+                                //double distance=m_atlasDistanceTransformInterpolator->EvaluateAtContinuousIndex(idx2)/sigma1;
+                                //segmentationPenalty+=weight*distance;
+                                segmentationPenalty+=weight;
+                            }
+                        }
+                        distanceSum+=weight;   
+                    }
+                }
+
+            }
+            if (count>1){
+                sff -= ( sf * sf / count );
+                smm -= ( sm * sm / count );
+                sfm -= ( sf * sm / count );
+                if (smm*sff>0){
+                    double NCC=sfm/sqrt(smm*sff);
+                    //NCC*=1.0*count/totalCount;
+                    //NCC*=1.0*totalCount/count;
+#if 1
+                    result=((1.0+NCC)/2);
+                    result=result>0?result:0.00000001;
+                    result=-log(result);
+#else
+                    result=(1-NCC)/2;
+#endif
+                    //result*=1.0*count/totalCount;
+                    //result*=1.0*totalCount/count;
+
+                }
+                else {
+                    if (sfm>0) result=0;
+                    else result=1;
+                    //LOG<<"AUTOCORRELATION ZERO "<<count<<endl;
+                }
+                // LOG<<targetIndex<<" "<<segmentationPenalty<<" "<<distanceSum<<endl;
+                if (distanceSum){
+                    result=result+this->m_alpha*segmentationPenalty/distanceSum;
+                }
+                //LOG<<"result "<<result<<" penalty factor:"<<1+this->m_alpha*(1.0*totalCount-count)/(totalCount)<<" countDiff:"<<totalCount-count<<endl;
+                result=result*(1+this->m_alpha*(1.0*totalCount-count)/(totalCount+1));//+this->m_alpha*(totalCount-count)/(totalCount+1);
+            }
+            //no correlation whatsoever (-log(0.5))
+            else result=0;//10000000;//100;//-log(0.0000000000000000001);//0.693147;
+            //result=result>0.5?0.5:result;
+            return result;
+        }
+    };//class
+
+ 
+
+
 }//namespace
 #endif /* POTENTIALS_H_ */

@@ -150,12 +150,9 @@ private:
     double m_spacingBasedSmoothnessReduction;
     bool m_useConstraints;
     double m_minMinJacobian,m_averageNCC;
-    int m_maxItRobustLSQ;
-    double m_robustFitTuningParam;
+    
 public:
     CLERCIndependentDimensions(){
-        m_maxItRobustLSQ=1;
-        m_robustFitTuningParam=2.13;
         m_wTransformationSimilarity=1.0;
         m_wDeformationSmootheness=1.0;
         m_wCircleNorm=1.0;
@@ -206,8 +203,6 @@ public:
     void setBSplineInterpol(bool b){m_bSplineInterpol=b;}
     void setLineSearch(bool b){m_lineSearch=b;}
     void setUseConstraints(bool b){m_useConstraints=b;}
-    void setRobustLSQIter(int i){m_maxItRobustLSQ=i;}
-    void setRobustFitTuningParam(double d){m_robustFitTuningParam=d;}
     void setROI(ImagePointerType ROI){ 
         this->m_ROI=ROI;
         m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
@@ -393,7 +388,7 @@ public:
 
         for (unsigned int d = 0; d< D; ++d){
 #ifdef SEPENGINE       
-            if (!(this->m_ep = engOpen("matlab-8.1r2013a -nodesktop -nodisplay -nosplash -nojvm"))) {
+            if (!(this->m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
                 fprintf(stderr, "\nCan't start MATLAB engine\n");
                 exit(EXIT_FAILURE);
             }
@@ -439,7 +434,6 @@ public:
         
             
             computeTripletEnergies( x,  y, v,  b, c,  eq,d);
-            long int nTripletEquations=eq;
             computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, c,  eq,d);
             LOGV(1)<<VAR(eq)<<" "<<VAR(c)<<endl;
 
@@ -570,98 +564,7 @@ public:
                     TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,C,b2,[],[],lb,ub,init,options);t=toc;"));
 #endif
                 }else{
-                    //TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
-                    engEvalString(this->m_ep, " w =ones(size(b)); ");
-                    //pass variables
-                    std::ostringstream s2;
-                    s2<<"nTriplets="<<nTripletEquations<<";";
-                    engEvalString(this->m_ep, s2.str().c_str());
-                    s2.str("");
-                    s2.clear();
-                    s2<<"tune = "<<m_robustFitTuningParam<<";";
-                    engEvalString(this->m_ep, s2.str().c_str());
-
-                    bool converged=false;
-                    for (int bisQ=0;bisQ<m_maxItRobustLSQ&&(!converged);++bisQ){
-                        {
-                            if (bisQ>0) {LOGV(1)<<"Reweighting matrix.."<<endl;}
-                            engEvalString(this->m_ep, "tic;N=size(b,1); spW=spdiags(w(:),0,N,N);t=toc;");
-                            mxArray * time=engGetVariable(this->m_ep,"t");
-                            double * t = ( double *) mxGetData(time);
-                            LOGADDTIME((int)(t[0]));
-                            mxDestroyArray(time);
-                            if (bisQ>0) {LOGV(1)<<"Done"<<endl;}
-                        }
-                        TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(spW*A,w.*b,[],[],[],[],lb,ub,init,options);t=toc;"));
-                        engEvalString(this->m_ep, "residual=A*x-b;");
-                        if (bisQ>0){
-                            engEvalString(this->m_ep, "change=mean(abs(x-xOld));");
-                            mxArray * change=engGetVariable(this->m_ep,"change");
-                            double * c = ( double *) mxGetData(change);
-                            double ch=c[0];
-                            mxDestroyArray(change);
-                            LOGV(1)<<"mean absolute change of solution after least square reweighting :"<<(ch)<<"mm"<<endl;
-                            if (ch<1e-1)
-                                converged=true;
-                        }
-                        engEvalString(this->m_ep, "xOld=x;");
-                        engEvalString(this->m_ep, "resnorm=norm(residual)^2;");
-                        //estimate of bisquare reweighting
-                        //compute median of absolute derivation of the residual from their median
-#if 0
-                        engEvalString(this->m_ep, "MAD=median( abs(residual(nTriplets:end)-median(residual(nTriplets:end)))); ");
-                        engEvalString(this->m_ep, "s2 = MAD/0.6745;");
-                        engEvalString(this->m_ep, "r = residual(nTriplets:end)/(s2*tune);");
-                        engEvalString(this->m_ep, "w(nTriplets:end) = 1.0 ./ (1.0+r.^2);");
-                        engEvalString(this->m_ep, "w(nTriplets:end) = w(nTriplets:end)/mean(w(nTriplets:end));");
-                        engEvalString(this->m_ep, "MAD=median( abs(residual(1:nTriplets-1)-median(residual(1:nTriplets-1)))); ");
-                        //engEvalString(this->m_ep, "MAD=median( abs(residual(1:end)-median(residual))); ");
-                        engEvalString(this->m_ep, "s1 = MAD/0.6745;");
-                        engEvalString(this->m_ep, "r = residual(1:nTriplets-1)/(s1*tune);");
-                        engEvalString(this->m_ep, "w(1:nTriplets-1) = 1.0 ./ (1.0+r.^2);");
-                        engEvalString(this->m_ep, "meanConsRes=mean(abs(residual(1:nTriplets)));");
-                        s2.str("");
-                        s2.clear();
-                        s2<<"w(1:nTriplets-1) = w(1:nTriplets-1).^(meanConsRes/ "<<m_wCircleNorm<<");";
-                        //engEvalString(this->m_ep, s2.str().c_str());
-                        engEvalString(this->m_ep, "w(1:nTriplets-1) =  w(1:nTriplets-1)/mean(w(1:nTriplets-1));");
-
-#else
-                        engEvalString(this->m_ep, "MAD=median( abs(residual-median(residual))); ");
-                        //estimate of standard dev
-                        engEvalString(this->m_ep, "s = MAD/0.6745;");
-                        engEvalString(this->m_ep, "r = residual/(s*tune);");
-                        engEvalString(this->m_ep, "w = 1.0 ./ (1.0+r.^2);");
-                        //set weight of all inconsistency terms to 1.. will therefore only update the similarity constraint weights
-#endif                
-
-                        //divide by mean weight to preserve overall influence of similarity constraints
-                        //std::ostringstream s3;
-                        //s3<<"w("<<nTripletEquations<<":)/=mean(w("<<nTripletEquations<<":));";
-                        //engEvalString(this->m_ep, s3.str().c_str());
-
-                        
-
-                        LOGI(2,engEvalString(this->m_ep, "min(w)"));
-                        LOGI(2,printf("%s", buffer+2));
-                        LOGI(2,engEvalString(this->m_ep, "max(w)"));
-                        LOGI(2,printf("%s", buffer+2));
-                        LOGI(2,engEvalString(this->m_ep, "mean(w)"));
-                        LOGI(2,printf("%s", buffer+2));
-
-
-                        mxArray * time=engGetVariable(this->m_ep,"t");
-                        double * t = ( double *) mxGetData(time);
-                        LOGADDTIME((int)(t[0]));
-                        mxDestroyArray(time);
-                        LOGV(1)<<VAR(bisQ)<<endl;
-                        LOGI(2,printf("%s", buffer+2));
-                        engEvalString(this->m_ep, " resnorm");
-                        LOGI(2,printf("%s", buffer+2));
-                        LOGI(3,engEvalString(this->m_ep, "output"));
-                        LOGI(3,printf("%s", buffer+2));
-                      
-                    }
+                    TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
                     mxArray * flag=engGetVariable(this->m_ep,"flag");
                     if (flag !=NULL){
                         mxDestroyArray(flag);
@@ -670,20 +573,24 @@ public:
                         TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);t=toc"));
                     }
                        
-                 
+                    LOGI(1,printf("%s", buffer+2));
+                    engEvalString(this->m_ep, " resnorm");
+                    LOGI(1,printf("%s", buffer+2));
+                    engEvalString(this->m_ep, "output");
+                    LOGI(2,printf("%s", buffer+2));
                 }
 
 
 
-             
+                mxArray * time=engGetVariable(this->m_ep,"t");
+                double * t = ( double *) mxGetData(time);
+                LOGADDTIME((int)(t[0]));
+                mxDestroyArray(time);
                 //solve using active set method (backslash)
              
             }else{
-                //solve using pseudo inverserobust fit
+                //solve using pseudo inverse
                 //TIME(engEvalString(this->m_ep, "tic;x = pinv(full(A))*b;toc"));
-                //doesnt work, OOM
-                //TIME(engEvalString(this->m_ep, "tic;[x stats] =robustfit(A,b);t=toc;"));
-
             }
 
             //backtransform indexing
@@ -2175,8 +2082,8 @@ public:
                             region.SetIndex(offset);
                             ImageUtils<ImageType>::setRegion(mask,region,1);
                             DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(updatedDeform,knownDeformation);
-                            m_ADE+=TransfUtils<ImageType>::computeDeformationNorm(diff);
-                            //m_ADE+=TransfUtils<ImageType>::computeDeformationNormMask(diff,mask);
+                            //m_ADE+=TransfUtils<ImageType>::computeDeformationNorm(diff);
+                            m_ADE+=TransfUtils<ImageType>::computeDeformationNormMask(diff,mask);
                         }
                     }
 

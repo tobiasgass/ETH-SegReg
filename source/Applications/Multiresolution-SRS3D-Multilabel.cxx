@@ -19,7 +19,6 @@
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
 #include "NewClassifier.h"
-#include "SegmentationMapper.hxx"
 using namespace std;
 using namespace itk;
 
@@ -35,7 +34,7 @@ int main(int argc, char ** argv)
 
     //define types.
 	
-    typedef int PixelType;
+    typedef float PixelType;
 	const unsigned int D=3;
 	typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -56,15 +55,17 @@ int main(int argc, char ** argv)
     //typedef SegmentationClassifier<ImageType> ClassifierType;
     //typedef HandcraftedBoneSegmentationClassifierMarcel<ImageType> ClassifierType;
     //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
     //typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-  
-    // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
+    // //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     
-    typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
+    //typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
     //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    //typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+
+    // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
+    // //typedef SegmentationGMMClassifier<ImageType> ClassifierType;
+    // //typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     // //pairwise seg
     // typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
@@ -76,13 +77,15 @@ int main(int argc, char ** argv)
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    // //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     
+    //    typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
+
     // //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
     // //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
     // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
@@ -105,18 +108,22 @@ int main(int argc, char ** argv)
     logSetVerbosity(filterConfig.verbose);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
+    if (filterConfig.normalizeImages){
+        targetImage=FilterUtils<ImageType>::normalizeImage(targetImage);
+    }
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage;
-    if (filterConfig.atlasFilename!="") atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+    if (filterConfig.atlasFilename!="") {
+        atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+        if (filterConfig.normalizeImages){
+            atlasImage=FilterUtils<ImageType>::normalizeImage(atlasImage);
+        }
+    }
     if (!atlasImage) {LOG<<"Warning: no atlas image loaded!"<<endl;
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation;
-    SegmentationMapper<ImageType> segmentationMapper;
-    if (filterConfig.atlasSegmentationFilename !=""){
-        atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
-        atlasSegmentation=segmentationMapper.FindMapAndApplyMap(atlasSegmentation);
-    }
+    if (filterConfig.atlasSegmentationFilename !="")atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
     if (!atlasSegmentation) {LOG<<"Warning: no atlas segmentation loaded!"<<endl; }
     
     ImagePointerType targetAnatomyPrior;
@@ -130,6 +137,21 @@ int main(int argc, char ** argv)
 
     logResetStage;
     logSetStage("Preprocessing");
+
+    if (filterConfig.histNorm){
+        // Histogram match the images
+        typedef itk::HistogramMatchingImageFilter<ImageType,ImageType> HEFilterType;
+        HEFilterType::Pointer IntensityEqualizeFilter = HEFilterType::New();
+        IntensityEqualizeFilter->SetReferenceImage(targetImage  );
+        IntensityEqualizeFilter->SetInput( atlasImage );
+        IntensityEqualizeFilter->SetNumberOfHistogramLevels( 100);
+        IntensityEqualizeFilter->SetNumberOfMatchPoints( 15);
+        IntensityEqualizeFilter->ThresholdAtMeanIntensityOn();
+        IntensityEqualizeFilter->Update();
+        atlasImage=IntensityEqualizeFilter->GetOutput();
+
+    }
+
     //preprocessing 1: gradients
     ImagePointerType targetGradient, atlasGradient;
     if (filterConfig.segment){
@@ -210,7 +232,8 @@ int main(int argc, char ** argv)
     if (filterConfig.affineBulkTransform!=""){
         TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig.affineBulkTransform);
         LOGI(8,ImageUtils<ImageType>::writeImage("def.nii",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage)));
-        DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
+        //DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
+        DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,targetImage);
         LOGI(8,ImageUtils<ImageType>::writeImage("def2.nii",TransfUtils<ImageType>::warpImage((ImageType::ConstPointer)originalAtlasImage,transf)));
         filter->setBulkTransform(transf);
     }
@@ -224,7 +247,8 @@ int main(int argc, char ** argv)
        
     }
     logResetStage;//bulk transforms
-
+    originalTargetImage=NULL;
+    originalAtlasImage=NULL;
     // compute SRS
     clock_t FULLstart = clock();
     filter->Init();
@@ -241,19 +265,22 @@ int main(int argc, char ** argv)
     
     //process outputs
     ImagePointerType targetSegmentationEstimate=filter->getTargetSegmentationEstimate();
-    if (targetSegmentationEstimate.IsNotNull()){
-        targetSegmentationEstimate=segmentationMapper.MapInverse(targetSegmentationEstimate);
-    }
-    
-
     DeformationFieldPointerType finalDeformation=filter->getFinalDeformation();
     
     delete filter;
+    if (filterConfig.atlasFilename!="") originalAtlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+    if (filterConfig.targetFilename!="") originalTargetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
 
     //upsample?
     if (filterConfig.downScale<1){
         LOG<<"Upsampling Images.."<<endl;
-        if (finalDeformation.IsNotNull() ) finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
+        if (finalDeformation.IsNotNull() ) {
+            if (filterConfig.linearDeformationInterpolation){
+                finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
+            }else{
+                finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
+            }
+        }
         //this is more or less f***** up
         //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
         if (targetSegmentationEstimate){
@@ -278,7 +305,6 @@ int main(int argc, char ** argv)
             ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
 
         if (originalAtlasSegmentation.IsNotNull()){
-            originalAtlasSegmentation=segmentationMapper.MapInverse(originalAtlasSegmentation);
             ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
             ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
         }

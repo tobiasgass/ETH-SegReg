@@ -400,7 +400,7 @@ public:
                             atlasTargetDeformation=TransfUtils<ImageType,double>::linearInterpolateDeformationField(atlasTargetDeformation, targetImage);
                             //propagate atlas segmentation directly
                             if (weighting==UNIFORM || metric == NONE ){
-                                updateProbabilisticSegmentationUniform(probabilisticSegmentations[targetID],probAtlasSegmentation,weight,atlasTargetDeformation);
+                                updateProbabilisticSegmentationUniform(probabilisticTargetSegmentation,probAtlasSegmentation,weight,atlasTargetDeformation);
                             }else{
                                 ImagePointerType atlasImage=(*atlasImages)[(*atlasIDMap)[atlasID]].second;
                                 if (weighting==GLOBAL){
@@ -441,7 +441,7 @@ public:
                                     DeformationFieldPointerType fullDeformation=TransfUtilsType::composeDeformations(deformation,firstDeformation);
                                     //update
                                     if (weighting==UNIFORM || metric == NONE ){
-                                        updateProbabilisticSegmentationUniform(probabilisticSegmentations[targetID],probAtlasSegmentation,weight,fullDeformation);
+                                        updateProbabilisticSegmentationUniform(probabilisticTargetSegmentation,probAtlasSegmentation,weight,fullDeformation);
                                     }else{
                                         ImagePointerType atlasImage=(*atlasImages)[(*atlasIDMap)[atlasID]].second;
                                         if (weighting==GLOBAL){
@@ -465,7 +465,7 @@ public:
                 ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentationMapper.MapInverse(outputImage));
                 ostringstream tmpSegmentationFilename2;
                 tmpSegmentationFilename2<<outputDir<<"/segmentation-weighting"<<weightingName<<"-metric"<<metricName<<"-target"<<targetID<<"-hop1-ProbImage.mha";
-                LOGI(4,ImageUtils<ProbabilisticVectorImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),probabilisticSegmentations[targetID]));
+                LOGI(4,ImageUtils<ProbabilisticVectorImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),probabilisticTargetSegmentation));
                 
             
             }
@@ -541,11 +541,11 @@ protected:
                     maxProb=p[s];
                 }
             }
-            if (D==2){
-                imgIt.Set(1.0*std::numeric_limits<PixelType>::max()*maxLabel/(nSegmentationLabels-1));
-            }else{
+            // if (D==2){
+            //  imgIt.Set(1.0*std::numeric_limits<PixelType>::max()*maxLabel/(nSegmentationLabels-1));
+            //            }else{
                 imgIt.Set(maxLabel);
-            }
+                //            }
         }
         return result;
     }
@@ -653,6 +653,7 @@ protected:
             double sum=0.0;
             //compute normalizing sum to normalize probabilities(if they're not yet normalized)
             for (int s2=0;s2<nSegmentationLabels;++s2){
+                if (localProbs[s2] < 1e-7) localProbs[s2]=1e-7;
                 sum+=localProbs[s2];
             }
             for (int s2=0;s2<nSegmentationLabels;++s2){
@@ -917,10 +918,10 @@ protected:
         FloatImagePointerType metricImage;
         switch (metric){
         case MSD:
-            metricImage=Metrics<ImageType,FloatImageType>::LSSDAutoNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
+            //metricImage=Metrics<ImageType,FloatImageType>::LSSDAutoNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
             break;
         case MAD:
-            metricImage=Metrics<ImageType,FloatImageType>::LSADAutoNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
+            //metricImage=Metrics<ImageType,FloatImageType>::LSADAutoNorm(deformedMoving.first, targetImage,m_patchRadius[0],m_sigma);
             break;
         case NCC:
             metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(deformedMoving.first, targetImage,m_patchRadius[0], m_sigma);

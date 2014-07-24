@@ -275,7 +275,7 @@ public:
                 if (minJac<0.0){
                 if (outputDir!=""){
                     ostringstream oss2;
-                    oss2<<outputDir<<outputFilename<<"-jacobianDetWithNegVals.mha";
+                    oss2<<outputDir<<"/"<<outputFilename<<"-jacobianDetWithNegVals.mha";
                     LOGI(3,ImageUtils<FloatImageType>::writeImage(oss2.str(),jac));
                 }
                 
@@ -318,6 +318,12 @@ public:
                     jacobianFilter->SetUseImageSpacingOff();
                     jacobianFilter->Update();
                     FloatImagePointerType jac=jacobianFilter->GetOutput();
+                    if (outputDir!=""){
+                        ostringstream oss2;
+                        oss2<<outputDir<<"/"<<outputFilename<<"-jacobianDetWithNegVals-sigma"<<actualSigma<<".mha";
+                        LOGV(3)<<"Saving jac to " << oss2.str()<<endl;
+                        LOGI(3,ImageUtils<FloatImageType>::writeImage(oss2.str(),jac));
+                    }
                     double minJac2 = FilterUtils<FloatImageType>::getMin(jac);
                     LOGV(3)<<VAR(minJac2)<<endl;
 #ifdef USELOCALSIGMASFORDILATION

@@ -102,7 +102,7 @@ namespace itk{
             result=diff.GetNorm();
           
             
-            LOGV(13)<<VAR(result*1e6)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
+            LOGV(13)<<VAR(result)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
             //if (result > 200) result = 20000;
 
             

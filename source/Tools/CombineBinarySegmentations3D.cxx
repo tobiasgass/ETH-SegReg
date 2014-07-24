@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
     double variance=1.0,mean=0.0;
   
     if (argc<4){
-        LOG<<"Usage: AverageImages3D <outputFile> label1 <input1> label2 <input2> ..."<<endl;
+        LOG<<"Usage: CombineBinarySegmentations3D <outputFile> label1 <input1> label2 <input2> ..."<<endl;
         exit(0);
     }
     

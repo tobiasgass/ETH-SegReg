@@ -41,6 +41,9 @@ TARGET_LINK_LIBRARIES(DeformImageAffine3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(DeformLandmarksAffine3D DeformLandmarksAffine3D.cxx )
 TARGET_LINK_LIBRARIES(DeformLandmarksAffine3D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(DeformLandmarks3D DeformLandmarks3D.cxx )
+TARGET_LINK_LIBRARIES(DeformLandmarks3D  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(ComposeDeformations3D ComposeDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(ComposeDeformations3D  Utils   ${ITK_LIBRARIES}  )
 
@@ -152,6 +155,8 @@ ADD_EXECUTABLE(CompareImages2D CompareImages2D.cxx )
 TARGET_LINK_LIBRARIES(CompareImages2D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComputeLocalSimilarity2D ComputeLocalSimilarity2D.cxx )
 TARGET_LINK_LIBRARIES(ComputeLocalSimilarity2D Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(ComputeLocalSimilarity3D ComputeLocalSimilarity3D.cxx )
+TARGET_LINK_LIBRARIES(ComputeLocalSimilarity3D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(CompareImagesAutoTransform2D CompareImagesAutoTransform2D.cxx )
 TARGET_LINK_LIBRARIES(CompareImagesAutoTransform2D Utils   ${ITK_LIBRARIES}  )
 

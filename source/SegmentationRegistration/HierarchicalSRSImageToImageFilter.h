@@ -345,6 +345,7 @@ namespace itk{
             for (;l<m_config->nLevels  ;++l){
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":0");
                 //compute scaling factor for downsampling the images in the registration potential
+                //labelmapper->setDisplacementSamples(m_config->maxDisplacement-2*l);
                 double mantisse=(1/m_config->scale);
                 int exponent=max(0,m_config->nLevels-l-1);
                

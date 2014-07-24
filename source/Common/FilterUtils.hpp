@@ -1020,8 +1020,7 @@ public:
         return dilateFilter->GetOutput();
     }
 
-    // perform dilation (mathematical morphology) with a given label image
-    // using a ball with a given radius
+    // perform dilation (distance based) with a given label image
     static OutputImagePointer myDilation(
                                        InputImagePointer labelImage, unsigned radius,
                                        InputImagePixelType valueToDilate = 1

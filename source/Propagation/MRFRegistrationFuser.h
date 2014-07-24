@@ -70,6 +70,7 @@ public:
     void setHardConstraints(bool b){m_hardConstraints=b;}
     void setAnisoSmoothing(bool a){m_anisotropicSmoothing=a;}
     void setMask(ImagePointerType mask){m_mask=mask;}
+
     
     //add deformation (with optinal weights)
     void addImage(DeformationFieldPointerType img,FloatImagePointerType weights){
@@ -516,7 +517,12 @@ public:
                 oneMoreMask=FilterUtils<ImageType>::substract(oneMoreMask,mask);
                 ImageUtils<ImageType>::multiplyImage(oneMoreMask,2);
                 mask=FilterUtils<ImageType>::add(mask,oneMoreMask);
-                LOGI(3,ImageUtils<ImageType>::writeImage("mask-final.nii",mask));
+
+                ostringstream oss2;
+                oss2<<"mask-dilated-iter"<<iter<<".mha";
+                LOGV(3)<<"Saving mask to " << oss2.str()<<endl;
+                LOGI(3,ImageUtils<ImageType>::writeImage(oss2.str(),mask));
+                //LOGI(3,ImageUtils<ImageType>::writeImage("mask-dilated-iter0.mha",mask));
                     
                 setMask(mask);
                                                         

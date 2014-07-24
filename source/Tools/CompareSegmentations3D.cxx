@@ -61,6 +61,7 @@ int main(int argc, char * argv [])
     int verbose=0;
     string labelList="";
     bool evalAll=false;
+    bool resampleIfNeeded=false;
 	as >> parameter ("g", groundTruth, "groundtruth image (file name)", true);
 	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
 	as >> parameter ("m", maskFilename, "Binary mask in which measures are to be computed (file name)", false);
@@ -73,6 +74,7 @@ int main(int argc, char * argv [])
     as >> option ("all", evalAll, "compute mean overlap [disables hausdorff]");
     as >> option ("h", hausdorff, "compute hausdorff distance(0,1)");
 	as >> option ("l", connectedComponent, "use largest connected component in segmentation");
+	as >> option ("r", resampleIfNeeded, "resample input seg to GT seg if necessary");
 	as >> parameter ("v", verbose, "verbosity level", false);
 
     
@@ -84,6 +86,15 @@ int main(int argc, char * argv [])
         ImageUtils<LabelImage>::readImage(groundTruth);
     LabelImage::Pointer segmentedImg =
         ImageUtils<LabelImage>::readImage(segmentationFilename);
+    if (resampleIfNeeded){
+        if (groundTruthImg->GetSpacing()!=segmentedImg->GetSpacing() 
+            || groundTruthImg->GetOrigin()!=segmentedImg->GetOrigin() 
+            ||groundTruthImg->GetLargestPossibleRegion().GetSize()!=segmentedImg->GetLargestPossibleRegion().GetSize() ){
+            segmentedImg=FilterUtils<LabelImage>::NNResample(segmentedImg,groundTruthImg,false);
+
+        }
+
+    }
 
     LabelImage::Pointer mask = NULL;
     if (maskFilename !=""){

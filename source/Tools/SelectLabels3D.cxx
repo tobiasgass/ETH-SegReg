@@ -82,6 +82,7 @@ int main(int argc, char * argv [])
     typedef itk::ImageRegionIterator<LabelImage> IteratorType;
     IteratorType it1(segmentedImg,segmentedImg->GetLargestPossibleRegion());
     IteratorType it2(result,segmentedImg->GetLargestPossibleRegion());
+    int count=0;
     for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2){
         int label=it1.Get();
         if (labelList !=""){
@@ -94,10 +95,15 @@ int main(int argc, char * argv [])
         }
         if (binary)
             label=label!=0;
+        count+=label>0;
         it2.Set(label);
     }
     
-    ImageUtils<LabelImage>::writeImage(outputFilename,result);
+    if (count){
+        ImageUtils<LabelImage>::writeImage(outputFilename,result);
+    }else{
+        LOG<<"Label count ZERO, not writing output"<<std::endl;
+    }
 
 	return EXIT_SUCCESS;
 }

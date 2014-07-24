@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "itkConstNeighborhoodIterator.h"
+#include "itkLabelOverlapMeasuresImageFilter.h"
 
 using namespace std;
 
@@ -188,12 +189,8 @@ public:
     {
         feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
-
-    
-
-  
         argstream * as=new argstream(argc,argv);
-        string atlasSegmentationFilename,deformationFileList,imageFileList,atlasID="",supportSamplesListFileName="",outputDir=".",outputSuffix="";
+        string groundTruthList="",atlasSegmentationFilename,deformationFileList,imageFileList,atlasID="",supportSamplesListFileName="",outputDir=".",outputSuffix="";
         int verbose=0;
         int nImages=-1;
         double pWeight=1.0;
@@ -203,17 +200,20 @@ public:
         bool SSD=false;
         int radius=3;
         double edgeThreshold=0.0;
-        double edgeCountPenaltyWeight=1.0;
+        double edgeCountPenaltyWeight=0.0;
         bool evalAtlas=false;
         int nRandomSupportSamples=0;
+        double confidenceThreshold=2.0;
         (*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
         (*as) >> parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
+        (*as) >> parameter ("gt", groundTruthList, " list of  ground-truth segmentations", false);
         (*as) >> parameter ("N", nImages,"number of target images", false);
         (*as) >> parameter ("a", atlasID,"atlas ID. if not set, first image in imageFileList is assumed to be the atlas",false);
         (*as) >> parameter ("w", pWeight,"inter-image pairwise potential weight",false);
         (*as) >> parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight",false);
         (*as) >> parameter ("s", sigma,"sigma",false);
+        (*as) >> parameter ("conf", confidenceThreshold,"confidence threshold (0..1]. Only pixels with a 1hop confidence <ct are included in the MRF optimization. Will speedup things, but likely loose accuracy.",false);
         (*as) >> parameter ("O", outputDir,"outputdirectory",false);
         (*as) >> option ("NCC", NCC," use NCC as weighting function");
         (*as) >> option ("SSD", SSD," use SSD as weighing function");
@@ -240,6 +240,8 @@ public:
         bool SAD=!NCC;
         ImagePointerType atlasSegmentationImage=ImageUtils<ImageType>::readImage(atlasSegmentationFilename);
         map<string,ImageInformation> inputImages;
+        map<string,ImagePointerType>  m_groundTruthSegmentations;
+
         LOG<<"Reading images."<<endl;
         unsigned int totalNumberOfPixels=0;
         std::vector<string> imageIDs;
@@ -293,6 +295,22 @@ public:
             nImages=min(nImages,(int)(inputImages.size()));
         else
             nImages=inputImages.size();
+
+        if (groundTruthList!=""){
+            ifstream ifs(groundTruthList.c_str());
+            while( ! ifs.eof() ) 
+                {
+                    string imageID;
+                    ifs >> imageID;                
+                    if (imageID!=""){
+                        ImageInformation img;
+                        string imageFileName ;
+                        ifs >> imageFileName;
+                        LOGV(3)<<"Reading image "<<imageFileName<< "with ID "<<imageID<<endl;
+                        m_groundTruthSegmentations[imageID]=ImageUtils<ImageType>::readImage(imageFileName);
+                    }
+                }
+        }
 
         bool useSupportSamples=false;
         map<string,bool> supportSampleList;
@@ -352,6 +370,11 @@ public:
             }
         }
 
+        if (confidenceThreshold<=1.0){
+            //compute 1hop confidences and network sizes
+
+
+        }
     
   
         logSetStage("Init");
@@ -658,11 +681,24 @@ public:
                 ImageIteratorType imgIt(inputImages[id1].img,inputImages[id1].img->GetLargestPossibleRegion());
                 imgIt.GoToBegin();
                 for (;!imgIt.IsAtEnd();++imgIt,++i){
-                    imgIt.Set(65535*(optimizer->what_segment(i)== MRFType::SINK ));
+                    double mult=D==2?65535:1.0;
+                    
+                    imgIt.Set(mult*(optimizer->what_segment(i)== MRFType::SINK ));
                 }
                 ostringstream tmpSegmentationFilename;
                 tmpSegmentationFilename<<outputDir<<"/segmentation-"<<id1<<"-MRF-nImages"<<nImages<<suffix;
                 ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),inputImages[id1].img);
+
+                if ((m_groundTruthSegmentations)[id1].IsNotNull()){
+                    typedef typename itk::LabelOverlapMeasuresImageFilter<ImageType> OverlapMeasureFilterType;
+                    typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
+                    filter->SetSourceImage((m_groundTruthSegmentations)[id1]);
+                    filter->SetTargetImage(inputImages[id1].img);
+                    filter->SetCoordinateTolerance(1e-4);
+                    filter->Update();
+                    double dice=filter->GetDiceCoefficient();
+                    LOGV(1)<<VAR(atlasID)<<" "<<VAR(id1)<<" "<<VAR(dice)<<endl;
+                }
             }
         }
     

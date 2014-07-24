@@ -42,6 +42,7 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
+        typedef typename ImageType::PointType PointType;
         typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
         typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
         typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
@@ -67,7 +68,8 @@ namespace itk{
         double m_asymm;
       
         double sigma1, sigma2, mean1, mean2, m_tolerance,maxDist,minDist, mDistTarget,mDistSecondary;
-        int m_nSegmentationLabels;
+        int m_nSegmentationLabels,m_auxiliaryLabel;
+
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -78,9 +80,11 @@ namespace itk{
             m_haveLabelMap=false;
             m_asymm=1;
             m_tolerance=9999999999.0;
+            m_auxiliaryLabel=1;
         }
         virtual void freeMemory(){
         }
+        void SetAuxLabel(int l){m_auxiliaryLabel=l;}
         void SetNumberOfSegmentationLabels(int n){m_nSegmentationLabels=n;}
         void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
@@ -143,6 +147,7 @@ namespace itk{
             maxFilter->SetInput(segImage);
             maxFilter->Update();
             m_nSegmentationLabels=max( m_nSegmentationLabels,(int)maxFilter->GetMaximumOutput()->Get()+1);
+            if (m_nSegmentationLabels<2){m_auxiliaryLabel=-1;}
             if (m_nSegmentationLabels>m_nSegmentationLabels){
                 LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(m_nSegmentationLabels)<<endl;
                 LOG<<VAR(maxFilter->GetMaximumOutput()->Get()+1)<<endl;
@@ -210,7 +215,6 @@ namespace itk{
                 m_minDists[l]=fabs(filter->GetMinimumOutput()->Get());
                 LOGV(3)<<"Maximal radius of target object: "<< m_minDists[l]<<endl;
             }
-        
             logResetStage;
         }
         FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage, int value){
@@ -278,7 +282,7 @@ namespace itk{
         //edge from registration to segmentation
         inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
-            ContinuousIndexType idx2(targetIndex2);
+            ContinuousIndexType idx2;//(targetIndex2);
             itk::Vector<float,ImageType::ImageDimension> disp=displacement;
 
             typename ImageType::PointType p;
@@ -315,6 +319,26 @@ namespace itk{
             result=min(999999.0,result);
             
             return result;
+        }
+
+        //Return minimum potential for segmentation node index given a zero displacement
+        inline virtual double getMinZeroPotential(PointType pt){
+            double minPot=std::numeric_limits<double>::max();
+            IndexType bufferIdx;
+            LabelType disp; disp.Fill(0.0);
+            IndexType idx;
+            GetDistanceTransform(0)->TransformPhysicalPointToIndex(pt,idx);
+            for (int i=1;i<this->m_nSegmentationLabels;++i){
+                if (i!=this->m_auxiliaryLabel){
+                    //double pot=sqrt(this->getPotential(idx,bufferIdx,disp,i));
+                    double pot=GetDistanceTransform(i)->GetPixel(idx);
+                    if (pot<minPot){
+                        minPot=pot;
+                    }
+                }
+
+            }
+            return minPot;
         }
     };//class
 
@@ -449,7 +473,8 @@ namespace itk{
                 result=dist;//-this->m_minDists[segmentationLabel];
             }
             
-            return 1.0/(1.0+exp(-(result-this->m_tolerance)));
+            //return 1.0/(1.0+exp(-(result-this->m_tolerance)));
+            return 0.5*result*result;
         }
     };//class
 

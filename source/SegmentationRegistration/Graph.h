@@ -299,14 +299,15 @@ namespace itk{
 
         void ReduceSegmentationNodesByCoherencePotential(double thresh){
             int maxLabel=this->m_nSegmentationLabels-1;
-            LOGV(1)<<"Removing all segmentation nodes with coherence potential larger "<<thresh<<" for label "<<maxLabel<<endl;
-            FloatImagePointerType dist=m_pairwiseSegRegFunction->GetDistanceTransform(maxLabel);
+            LOGV(1)<<"Removing all segmentation nodes with coherence potential larger "<<thresh<<" for all non-aux labels."<<endl;
+            FloatImagePointerType dist=m_pairwiseSegRegFunction->GetDistanceTransform(0);
             m_reducedSegNodes=false;
-            m_borderOfSegmentationROI=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(dist);
+            //m_borderOfSegmentationROI=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(dist);
+            m_borderOfSegmentationROI=FilterUtils<ImageType>::createEmpty(m_targetImage);
             m_borderOfSegmentationROI->FillBuffer(0);
             int actualIdx=0,concurrentIdx=0;
             int nNodes=this->m_targetImage->GetLargestPossibleRegion().GetNumberOfPixels();
-            LOGV(5)<<VAR(dist->GetLargestPossibleRegion().GetSize())<<" "<<this->m_targetImage->GetLargestPossibleRegion().GetSize()<<endl;
+            //LOGV(5)<<VAR(dist->GetLargestPossibleRegion().GetSize())<<" "<<this->m_targetImage->GetLargestPossibleRegion().GetSize()<<endl;
             m_mapIdx1=std::vector<int>(nNodes,-1);
             m_mapIdx1Rev=std::vector<int>(nNodes,-1);
             for (;actualIdx<nNodes;++actualIdx){
@@ -314,9 +315,8 @@ namespace itk{
                 IndexType position1=getImageIndex(actualIdx);
                 PointType pt;
                 m_targetImage->TransformIndexToPhysicalPoint(position1,pt);
-                IndexType position2;
-                dist->TransformPhysicalPointToIndex(pt,position2);
-                float distAtPos=dist->GetPixel(position2);
+             
+                float distAtPos=m_pairwiseSegRegFunction->getMinZeroPotential(pt);//dist->GetPixel(position2);
                 LOGV(9)<<VAR(distAtPos)<<" "<<VAR(thresh)<<endl;
                 if (distAtPos<thresh){
                     m_mapIdx1[actualIdx]=concurrentIdx;
@@ -327,9 +327,11 @@ namespace itk{
                 }
             }
             //erosion can give strange results, fixing by thresholding
+
             m_borderOfSegmentationROI=FilterUtils<ImageType>::substract(m_borderOfSegmentationROI,FilterUtils<ImageType>::binaryThresholding(FilterUtils<ImageType>::erosion(m_borderOfSegmentationROI,1),1,1));
 
             LOGI(6,ImageUtils<ImageType>::writeImage("ROI.nii",m_borderOfSegmentationROI));
+
             m_nSegmentationNodes=concurrentIdx;
             LOG<<"Reduced number of segmentation nodes to "<<100.0*concurrentIdx/actualIdx<<"%; "<<actualIdx<<"->"<<concurrentIdx<<endl;
             m_mapIdx1Rev.resize(concurrentIdx);
