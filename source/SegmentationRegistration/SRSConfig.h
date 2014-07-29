@@ -69,6 +69,7 @@ public:
     bool normalizeImages;
     bool useLowResBSpline;
     string atlasLandmarkFilename,targetLandmarkFilename;
+    std::vector<int> nRegSamples;
 private:
 	argstream * as;
 public:
@@ -221,7 +222,7 @@ public:
 			fromFile.parseFile(filename);
 			copyFrom(fromFile);
 		}
-
+        string regSampleString="";
         //input filenames
         //mandatory
 		(*as) >> parameter ("t", targetFilename, "target image (file name)", false);
@@ -277,7 +278,8 @@ public:
         (*as) >> parameter ("tsc", segDistThresh,"if the distance to target segmentation label is greater than this threshold, the node is excluded from the segmentation graph. Only works in SRS, not in seg only currently.", false);
 
         //other params
-		(*as) >> parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
+		(*as) >> parameter ("max", maxDisplacement,"number of displacement samples per axis", false);
+		(*as) >> parameter ("samp",regSampleString,"displacement sampling hierarchy, eg 6x4x2 for 3 levels", false);
 		(*as) >> parameter ("nLevels", nLevels,"number of grid multiresolution pyramid levels", false);
         imageLevels=nLevels;
 		(*as) >> parameter ("nImageLevels", imageLevels,"number of image multiresolution  levels", false);
@@ -344,6 +346,23 @@ public:
 				levels[i]=tmp_levels[i];
 			}
 		}
+        nRegSamples=std::vector<int>(nLevels,maxDisplacement);
+        if (regSampleString!=""){
+            std::stringstream ss(regSampleString);
+            int i;
+            int c=0;
+            while (ss >> i && c<nLevels)
+                {
+                    nRegSamples[c]=i;
+                    ++c; 
+                    if (ss.peek() == 'x')
+                        ss.ignore();
+                }
+            for (;c<nLevels;++c){
+                nRegSamples[c]=i;
+            }
+            
+        }
         TRW=!GCO;
         coherence= (pairwiseCoherenceWeight>0);
         segment=pairwiseSegmentationWeight>0 ||  unarySegmentationWeight>0 || coherence;

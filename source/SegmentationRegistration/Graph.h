@@ -322,6 +322,7 @@ namespace itk{
                     m_mapIdx1[actualIdx]=concurrentIdx;
                     m_mapIdx1Rev[concurrentIdx]=actualIdx;
                     ++concurrentIdx;
+                    //if (m_pairwiseSegRegFunction->getAtlasSegmentation()->GetPixel(position1)) 
                     m_borderOfSegmentationROI->SetPixel(position1,1);
                     
                 }
@@ -445,9 +446,9 @@ namespace itk{
             if (m_targetSegmentationImage.IsNotNull()){
                 labelIndex=m_targetSegmentationImage->GetPixel(imageIndex);
             }
-            if (  labelIndex>0 && m_reducedSegNodes ){
-                //if trying to label a pixel at the border of the segmentation ROI as FG; penalize strongly
-                if (m_borderOfSegmentationROI->GetPixel(imageIndex) )
+            if ( m_reducedSegNodes ){
+                //if trying to label a pixel at the border of the segmentation ROI; penalize deviations from deformed atlas segmentation
+                if (m_borderOfSegmentationROI->GetPixel(imageIndex) && labelIndex!=m_pairwiseSegRegFunction->getAtlasSegmentation()->GetPixel(imageIndex))
                     return 1000;
             }
                     

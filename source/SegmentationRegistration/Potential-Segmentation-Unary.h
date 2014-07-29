@@ -573,7 +573,7 @@ namespace itk{
         itkTypeMacro(UnaryPotentialSegmentationBoneMarcel, Object);
         virtual double getPotential(IndexType targetIndex, int segmentationLabel){
             int s=this->m_scaledTargetGradient->GetPixel(targetIndex);
-            int bone=(300);
+            int bone=(500);
             int tissue=(-500);
             double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
             double totalCost=1;

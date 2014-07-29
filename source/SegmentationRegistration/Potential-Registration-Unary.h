@@ -122,7 +122,6 @@ namespace itk{
                 //m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale);
                 //m_scaledTargetImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_targetImage,m_scale),1);
                 //m_scaledAtlasImage=FilterUtils<ImageType>::gaussian(FilterUtils<ImageType>::LinearResample(m_atlasImage,m_scale),1);
-                m_baseLabelMap=TransfUtils<ImageType>::bSplineInterpolateDeformationField(m_baseLabelMap,m_scaledTargetImage);
                 if (m_atlasMaskImage.IsNotNull()){
                     m_scaledAtlasMaskImage=FilterUtils<ImageType>::NNResample(m_atlasMaskImage,m_scale,false);                }
             }else{
@@ -136,7 +135,7 @@ namespace itk{
             }
                 
             for (int d=0;d<ImageType::ImageDimension;++d){
-                m_scaledRadius[d]=m_scale*m_radius[d];
+                m_scaledRadius[d]=m_scale*m_radius[d]-1;
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             LOGV(2)<<"Registration unary patch radius " << m_radius << " scale "<< m_scale << " scaledRadius "<< m_scaledRadius << endl;
@@ -161,11 +160,12 @@ namespace itk{
             }
             radiusSet=true;
         }
-
+        
         void SetBaseLabelMap(LabelImagePointerType blm, double scale=1.0){
             m_baseLabelMap=blm;m_haveLabelMap=true;
-            if (scale!=1.0){
-                m_baseLabelMap=TransfUtils<ImageType>::linearInterpolateDeformationField(blm,m_scaledTargetImage);
+            if (blm->GetLargestPossibleRegion().GetSize()!=m_scaledTargetImage->GetLargestPossibleRegion().GetSize()){
+                //m_baseLabelMap=TransfUtils<ImageType>::linearInterpolateDeformationField(blm,m_scaledTargetImage);
+                m_baseLabelMap=TransfUtils<ImageType>::bSplineInterpolateDeformationField(blm,m_scaledTargetImage);
             }
         }
         LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}

@@ -208,6 +208,7 @@ namespace itk{
             else{
                 LOG<<"Switching off coherence module"<<std::endl;
             }
+           
             m_atlasImage = this->GetInput(1);
             m_atlasSegmentationImage = (this->GetInput(2));
             m_targetImage = this->GetInput(0);
@@ -282,6 +283,13 @@ namespace itk{
             
         }
         virtual void Update(){
+            std::string suff;
+            if (ImageType::ImageDimension==2){
+                suff=".png";
+            }
+            if (ImageType::ImageDimension==3){
+                suff=".nii";
+            }
             bool bSpline=!m_config->linearDeformationInterpolation;
             bool coherence= (m_config->coherence);
             bool segment=m_config->segment;
@@ -317,7 +325,7 @@ namespace itk{
 
             ConstImagePointerType m_inputTargetImage=m_targetImage;
             
-            LabelMapperType * labelmapper=new LabelMapperType(m_config->nSegmentations,m_config->maxDisplacement);
+            LabelMapperType * labelmapper=new LabelMapperType(m_config->nSegmentations,m_config->nRegSamples[0]);
             LOGV(5)<<VAR(m_config->nSegmentations)<<" "<<VAR(LabelMapperType::nSegmentations)<<endl;
             int iterationCount=0; 
             int level;
@@ -343,9 +351,9 @@ namespace itk{
             if (LabelMapperType::nDisplacementSamples == 0 ) l=m_config->nLevels-1;
             bool pixelGrid = false;
             for (;l<m_config->nLevels  ;++l){
-                logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":0");
+                logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l));
                 //compute scaling factor for downsampling the images in the registration potential
-                //labelmapper->setDisplacementSamples(m_config->maxDisplacement-2*l);
+                labelmapper->setDisplacementSamples(m_config->nRegSamples[l]);
                 double mantisse=(1/m_config->scale);
                 int exponent=max(0,m_config->nLevels-l-1);
                
@@ -391,11 +399,6 @@ namespace itk{
 
                 }
                 
-                if (false && l>0 && D==3){
-                    LOG<<endl;
-                    LOG<<"WARNING: REDUCING NUMBER OF DISPLACEMENTSAMPLES!!"<<endl;                    LOG<<endl;
-                    labelmapper->setDisplacementSamples(max(1,LabelMapperType::nDisplacementSamples-1));
-                }
                                                                      
                 //init graph
                 LOG<<"Initializing graph structure."<<std::endl;
@@ -433,8 +436,8 @@ namespace itk{
                     m_unaryRegistrationPot->SetAtlasSegmentation(m_atlasSegmentationImage);
                     m_unaryRegistrationPot->SetTargetGradient(m_targetImageGradient);
 #endif          
+                    
                     m_unaryRegistrationPot->Init();
-            
                     m_pairwiseRegistrationPot->SetTargetImage(m_inputTargetImage);
                     m_pairwiseRegistrationPot->SetSpacing(graph->getSpacing());
                     
@@ -460,24 +463,13 @@ namespace itk{
                 graph->setPairwiseCoherenceFunction(m_pairwiseCoherencePot);
                 graph->setPairwiseSegmentationFunction(m_pairwiseSegmentationPot);
 
-                if (regist && ! pixelGrid){
-                    if (computeLowResolutionBsplineIfPossible && !coherence){
-                        //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
-                        previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
-                    }else{
-                        if (bSpline)
-                            previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_targetImage);
-                        else
-                            previousFullDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(previousFullDeformation, m_targetImage);
-                    }
-                }
 
+                if (regist && ! pixelGrid){
+                    previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)graph->getCoarseGraphImage(),false);
+                }
                 if (regist){
-                    if (computeLowResolutionBsplineIfPossible && !coherence){
-                        m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
-                    }else{
-                        m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
-                    }
+                    m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                    //
                 }
 
                 //now scale it according to spacing difference between this and the previous iteration
@@ -486,18 +478,35 @@ namespace itk{
                 LOGV(1)<<"Current displacementFactor :"<<graph->getDisplacementFactor()<<std::endl;
                 LOGV(1)<<"Current grid size :"<<graph->getGridSize()<<std::endl;
                 LOGV(1)<<"Current grid spacing :"<<graph->getSpacing()<<std::endl;
-                
-                //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
+
                 double tolerance;
+                //#ifdef OLD_TOL              
+                //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
+    
                 //tolerance=max(1.0,0.5*(graph->getSpacing()[0]));
-                tolerance=pow(m_config->toleranceBase,exponent+1);
+                double oldtolerance=pow(m_config->toleranceBase,exponent+1);
+                //#else
+                if (l==0){ //calculate acumulated maximum displacement 'capture range'
+                    double maxDispAtFirstLevel=graph->getMaxDisplacementFactor()*m_config->nRegSamples[0];
+                    for (int l2=0;l2<m_config->nLevels;++l2){
+                        double disp=maxDispAtFirstLevel;
+                        if (m_config->nRegSamples[l2]>0){
+                            for (int it2=0;it2<m_config->iterationsPerLevel;++it2){
+                                tolerance+=disp;
+                                disp*=m_config->displacementRescalingFactor;
+                            }
+                        }
+                        maxDispAtFirstLevel/=2;
+                    }
+                    //tolerance+=maxDispAtFirstLevel;
+                }
+                //#endif
                 if (m_config->ARSTolerance>0.0){
                     tolerance=m_config->ARSTolerance;
 
                 }                
                
-                LOGV(4)<<VAR(tolerance)<<endl;
-                m_pairwiseCoherencePot->SetTolerance(tolerance);
+            
                 //m_pairwiseCoherencePot->SetThreshold(max(1.0,(graph->getSpacing()[0])/2));//*(m_config->iterationsPerLevel-i)));
 
                 bool converged=false;
@@ -505,10 +514,13 @@ namespace itk{
                 int i=0;
                 std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
                 if (LabelMapperType::nDisplacementSamples == 0 ) i=m_config->iterationsPerLevel-1;
-                logResetStage;
-                for (;!converged && i<m_config->iterationsPerLevel;++i,++iterationCount){
-                    logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l)+":"+boost::lexical_cast<std::string>(i));
+                LOGV(4)<<VAR(tolerance)<<" "<<VAR(oldtolerance)<<endl;
+                //tolerance gets set only at levels to avoid that the energy changes during inner iterations. if tolerance would change within the inner iterations, convergence criteria based on energy would not be well-defined any more
+                m_pairwiseCoherencePot->SetTolerance(max(2.0,sqrt(tolerance)));
 
+                for (;!converged && i<m_config->iterationsPerLevel;++i,++iterationCount){
+                    logSetStage(":iter"+boost::lexical_cast<std::string>(i));
+                    logSetStage(":InitIter");
                     LOGV(7)<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl;
                     // displacementfactor decreases with iterations
                     LOGV(2)<<VAR(labelScalingFactor)<<endl;
@@ -518,23 +530,29 @@ namespace itk{
                     LOGV(2)<<VAR(graph->getMaxDisplacementFactor())<<endl;
                     //register deformation from previous iteration
                     if (regist){
-                        if (computeLowResolutionBsplineIfPossible && !coherence){
-                            m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
-                        }else{
-                            m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation,scaling);
-                        }
+
+                        m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+
                         m_pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
 
                         //when switching levels of multiresolution, compute normalization factor to equalize the effect of smaller patches in the reg unary.
                         if (! m_config->dontNormalizeRegUnaries) m_unaryRegistrationPot->setNormalize( i==0 && l>0);
                     }
                     if (coherence){
-                        if ( l>0 && i==0 && m_config->segmentationScalingFactor<1.0){
-                            //when segmentaiton is downsampled, the first iteration at each level>0 needs to be re-warped 
-                            deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
-                        }
-                        m_pairwiseCoherencePot->SetBaseLabelMap(previousFullDeformation);
+                        
+                        DeformationFieldPointerType scaledDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation,m_targetImage,false);
+                        deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,scaledDeformation,true);
                         TIME(m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation));
+                        if (m_config->verbose>6){
+                            ostringstream deformedSegmentationFilename;
+                            deformedSegmentationFilename<<m_config->outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
+                            if (ImageType::ImageDimension==2){
+                                if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+                            }
+                            if (ImageType::ImageDimension==3){
+                                if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
+                            }
+                        }
                     }
                     //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
                     //if (segment && (l>0 || i>0)) graph->SetTargetSegmentation((ConstImagePointerType)segmentation);
@@ -549,7 +567,7 @@ namespace itk{
                     //double expDecreasingWeight=exp(-l);
                     //#define TRUNC
                     LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
-                    
+                    logUpdateStage(":Optimization");
                     if (m_config->nSegmentations == 2 && segment && !coherence && !regist){
                         typedef  GC_MRFSolverSeg<GraphModelType> SolverType;
                         SolverType  *mrfSolverGC= new SolverType(graph, m_config->unarySegmentationWeight,
@@ -574,7 +592,7 @@ namespace itk{
                                                           m_config->unaryRegistrationWeight,///pow(sqrt(2.0),l),
                                                           m_config->pairwiseRegistrationWeight, 
                                                           m_config->unarySegmentationWeight,
-                                                          m_config->pairwiseSegmentationWeight*segmentationScalingFactor,
+                                                          m_config->pairwiseSegmentationWeight,//*segmentationScalingFactor,
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
                         }else if (m_config->GCO){
@@ -583,7 +601,7 @@ namespace itk{
                                                           m_config->unaryRegistrationWeight,
                                                           m_config->pairwiseRegistrationWeight, 
                                                           m_config->unarySegmentationWeight,
-                                                          m_config->pairwiseSegmentationWeight*(segmentationScalingFactor),
+                                                          m_config->pairwiseSegmentationWeight,//*(segmentationScalingFactor),
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
                         }
@@ -622,9 +640,10 @@ namespace itk{
                         if (regist || coherence){
                             deformation=graph->getDeformationImage(defLabels);
                         }
-                        if (segment || coherence)
+                        if (segment || coherence){
                             segmentation=graph->getSegmentationImage(mrfSolver->getSegmentationLabels());
-
+                        }
+                        
                         if (m_config->TRW){
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                             delete static_cast<MRFSolverType * >(mrfSolver);
@@ -634,7 +653,7 @@ namespace itk{
                         }
 
                     }
-                    
+
                     //convergence check after second iteration
 #if 1
                     //if energy difference is large, and greater than the threshold, skip this iteration and start over
@@ -675,48 +694,14 @@ namespace itk{
                     //initialise interpolator
                     //deformation
                     DeformationFieldPointerType composedDeformation;
-
-                    if (regist && ! pixelGrid){
-                        if (computeLowResolutionBsplineIfPossible && !coherence){
-                            //if we don't do SRS, the deformation needs only be resampled to the image resolution within the unary registration potential
-                            fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
-                        }else{
-                            if (bSpline){
-                                TIME(fullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation, m_targetImage));
-                            }
-                            else{
-                                TIME(fullDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation, m_targetImage));
-                            }
-                        }
-                    }else if (regist){
-                        fullDeformation = deformation;
-                    }
-   
-                    //apply deformation to atlas image
-                    if (regist || coherence){
-                        composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
-                        //composedDeformation=TransfUtils<ImageType>::composeDeformations(previousFullDeformation,fullDeformation);
-                        //deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,composedDeformation);
-                        
-                        DeformationFieldPointerType lowResDef;
-                        if (!pixelGrid){
-                            if (bSpline)
-                                lowResDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(composedDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
-                            else
-                                lowResDef=TransfUtils<ImageType>::linearInterpolateDeformationField(composedDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
-                        }
-                        else
-                            lowResDef = composedDeformation;
-                        deformedAtlasImage=FilterUtils<ImageType>::NNResample(TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef),m_targetImage,false);
-                        if (m_atlasSegmentationImage.IsNotNull()){
-                            deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,composedDeformation,true);
-                        }
-                        if (m_atlasMaskImage.IsNotNull()){
-                            LOGV(6)<<"Deforming moving mask.."<<endl;
-                            deformedAtlasMaskImage=TransfUtils<ImageType>::warpImage(m_atlasMaskImage,previousFullDeformation);
-                        }
-                    }
+                    logUpdateStage(":Postprocessing");
                     
+                    if (regist || coherence){
+
+                        fullDeformation = deformation;
+                        composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
+                    }
+
       
                     //m_pairwiseCoherencePot->SetThreshold(13);
                     //m_pairwiseCoherencePot->SetThreshold(max(10.0,10*graph->getMaxDisplacementFactor()));
@@ -733,13 +718,22 @@ namespace itk{
                     }
                  
                     if (m_config->verbose>6){
-                        std::string suff;
-                        if (ImageType::ImageDimension==2){
-                            suff=".png";
+                        DeformationFieldPointerType lowResDef;
+                        if (!pixelGrid){
+                            if (bSpline)
+                                lowResDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
+                            else
+                                lowResDef=TransfUtils<ImageType>::linearInterpolateDeformationField(previousFullDeformation,  (ConstImagePointerType)m_unaryRegistrationPot->GetTargetImage());
                         }
-                        if (ImageType::ImageDimension==3){
-                            suff=".nii";
+                        else
+                            lowResDef = composedDeformation;
+                        deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef);
+                      
+                        if (m_atlasMaskImage.IsNotNull()){
+                            LOGV(6)<<"Deforming moving mask.."<<endl;
+                            deformedAtlasMaskImage=TransfUtils<ImageType>::warpImage(m_atlasMaskImage,previousFullDeformation);
                         }
+                       
                         ostringstream deformedFilename;
                         deformedFilename<<m_config->outputDeformedFilename<<"-l"<<l<<"-i"<<i<<suff;
                         ostringstream deformedSegmentationFilename;
@@ -753,7 +747,9 @@ namespace itk{
                             deformedMaskFilename<<m_config->outputDeformedSegmentationFilename<<"-MASK-l"<<l<<"-i"<<i<<suff;
                             ImageUtils<ImageType>::writeImage(deformedMaskFilename.str().c_str(), deformedAtlasMaskImage);
                         }
-                     
+                        if (segment || coherence){
+                            segmentation=FilterUtils<ImageType>::fillHoles(segmentation);
+                        }
                         if (ImageType::ImageDimension==2){
                             if (segment && segmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
                             if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
@@ -775,7 +771,9 @@ namespace itk{
                             }
                         }
                     }
-                    
+#ifndef OLD_TOL
+                    tolerance-=graph->getMaxDisplacementFactor()*m_config->nRegSamples[l];
+#endif                    
                     
                     logResetStage;
                 }//iter
@@ -784,19 +782,8 @@ namespace itk{
                     m_config->displacementScaling*=0.5;
                 }
             }//level
-
-            if (regist || coherence){
-                if (!pixelGrid){
-                    if (bSpline){
-                        m_finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, m_inputTargetImage);
-                    }
-                    else{
-                        m_finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(previousFullDeformation, m_inputTargetImage);
-                    }
-                }
-                else{
-                    m_finalDeformation = previousFullDeformation;
-                }
+            if (segment || coherence){
+                segmentation=FilterUtils<ImageType>::fillHoles(segmentation);
             }
             m_finalSegmentation=(segmentation);
             delete labelmapper;

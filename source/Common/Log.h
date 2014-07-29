@@ -14,6 +14,7 @@ using namespace std;
 
 #define logSetStage(stage) mylog.setStage(stage)
 #define logResetStage mylog.resetStage()
+#define logUpdateStage(stage) mylog.updateStage(stage)
 #define logSetVerbosity(level) mylog.setVerbosity(level)
 #define VAR(x)  #x " = " << x 
 
@@ -50,6 +51,10 @@ public:
     void setStage(std::string stage) {
         m_stages.push(m_stage);
         m_stage = m_stage + stage+":";
+    }
+    void updateStage(std::string stage){
+        resetStage();
+        setStage(stage);
     }
     void resetStage(){
         //std::cout<<"old stage : "<<VAR(m_stage)<<endl;
@@ -91,13 +96,13 @@ MyLog mylog;
 #define LOGADDTIME(t) mylog.addTime(t)
 
 #define LOG \
-    if (mylog.getVerbosity()>=30)                                        \
+    if (mylog.getVerbosity()>=10)                                        \
         (*mylog.mOut) <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
     if (mylog.getVerbosity()<30 )                                 \
         (*mylog.mOut) << mylog.getStatus()<<" "
 
 #define LOGV(level) \
-    if (mylog.getVerbosity()>=level && mylog.getVerbosity()>=30) \
+    if (mylog.getVerbosity()>=level && mylog.getVerbosity()>=10) \
         (*mylog.mOut) <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
     if (mylog.getVerbosity()>=level)                                    \
         (*mylog.mOut)<<mylog.getStatus()<<" ["<<level<<"] "

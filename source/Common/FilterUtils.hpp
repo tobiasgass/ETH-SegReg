@@ -52,6 +52,7 @@
 #include "itkGradientMagnitudeImageFilter.h"
 #include "itkNormalizedCorrelationImageToImageMetric.h"
 #include "itkNormalizeImageFilter.h"
+#include <itkGrayscaleFillholeImageFilter.h>
 
 using namespace std;
 
@@ -1164,5 +1165,50 @@ public:
         }
     }
 
+    static OutputImagePointer upsampleSegmentation(InputImagePointer seg,InputImagePointer ref){
 
+        OutputImagePointer result=FilterUtils<InputImage,OutputImage>::NNResample(seg,ref,false);
+        result->FillBuffer(0);
+        int maxLabel=getMax(seg);
+        typedef typename ImageUtils<InputImage>::FloatImageType FloatImageType;
+        typedef typename ImageUtils<InputImage>::FloatImagePointerType FloatImagePointerType;
+        for (int l=1;l<=maxLabel;++l){
+
+            LOGV(2)<<"Upsampling segmentation for label "<<l<<endl;
+            LOGV(2)<<"Computing distance map"<<endl;
+            FloatImagePointerType distanceMap=FilterUtils<InputImage,FloatImageType>::distanceMapByFastMarcher(FilterUtils<InputImage>::select(seg,l),1);
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMapLow.nii",distanceMap));
+            LOGV(2)<<"Resampling and smoothing distance map..."<<endl;
+            distanceMap=FilterUtils<FloatImageType>::LinearResample(distanceMap,FilterUtils<InputImage,FloatImageType>::cast(ref),false);
+            distanceMap=FilterUtils<FloatImageType>::gaussian(distanceMap,(seg->GetSpacing()-ref->GetSpacing())*0.5);
+            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMaphigh.nii",distanceMap));
+            LOGV(2)<<"Thresholding distance map to get segmentation"<<endl;
+            OutputImagePointer partResult=FilterUtils<FloatImageType,OutputImage>::binaryThresholdingHigh(distanceMap,0.5);
+            LOGV(2)<<"Mapping segmentation labels..."<<endl;
+            combineSegmentations(result,partResult,l);
+        }
+        return result;
+    }
+
+    //combines two segmentations (or images), assuming zero is background
+    //second image always overwrites first
+    static void combineSegmentations(InputImagePointer i1, InputImagePointer i2, int label=1){
+        itk::ImageRegionIterator<InputImage> i1It(i1,i1->GetLargestPossibleRegion());
+        itk::ImageRegionIterator<InputImage> i2It(i2,i2->GetLargestPossibleRegion());
+         for (i1It.GoToBegin(),i2It.GoToBegin();!i1It.IsAtEnd();++i1It,++i2It){
+             int val=i2It.Get();
+             if (val)
+                 i1It.Set(val*label);
+         }
+    }
+
+    static OutputImagePointer fillHoles(InputImagePointer img){
+        typedef typename itk::GrayscaleFillholeImageFilter<InputImage,OutputImage> FilterType;
+        typedef typename FilterType::Pointer FilterPointer;
+        FilterPointer filter=FilterType::New();
+        filter->SetInput(img);
+        filter->Update();
+        return filter->GetOutput();
+
+    }
 };

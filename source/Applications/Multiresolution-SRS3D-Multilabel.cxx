@@ -274,31 +274,30 @@ int main(int argc, char ** argv)
     //upsample?
     if (filterConfig.downScale<1){
         LOG<<"Upsampling Images.."<<endl;
-        if (finalDeformation.IsNotNull() ) {
+       
+        //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
+        if (targetSegmentationEstimate){
+#if 0            
+            targetSegmentationEstimate=FilterUtils<ImageType>::NNResample(targetSegmentationEstimate,originalTargetImage,false);
+#else
+            targetSegmentationEstimate=FilterUtils<ImageType>::upsampleSegmentation(targetSegmentationEstimate,originalTargetImage);
+#endif
+        }
+    }
+
+    if (targetSegmentationEstimate.IsNotNull()){
+
+        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
+    }
+    
+     if (finalDeformation.IsNotNull() ) {
             if (filterConfig.linearDeformationInterpolation){
                 finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
             }else{
                 finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
             }
         }
-        //this is more or less f***** up
-        //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
-        if (targetSegmentationEstimate){
-            targetSegmentationEstimate=FilterUtils<ImageType>::NNResample(targetSegmentationEstimate,originalTargetImage,false);
-#if 0            
-            typedef ImageUtils<ImageType>::FloatImageType FloatImageType;
-            typedef ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
-            LOGI(6,ImageUtils<ImageType>::writeImage("targetSegmentationEstimateLow.nii",targetSegmentationEstimate));
-            FloatImagePointerType distanceMap=FilterUtils<ImageType,FloatImageType>::distanceMapByFastMarcher(FilterUtils<ImageType>::binaryThresholdingLow(targetSegmentationEstimate,1),1);
-            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMapLow.nii",distanceMap));
-            distanceMap=FilterUtils<FloatImageType>::LinearResample(distanceMap,FilterUtils<ImageType,FloatImageType>::cast(originalTargetImage),false);
-            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMaphigh.nii",distanceMap));
-            targetSegmentationEstimate=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(distanceMap,0.5);
-            //targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),scale));
-#endif
-        }
-    }
-
+    
     if (finalDeformation.IsNotNull() ){
         LOG<<"Deforming Images.."<<endl;
         if (filterConfig.defFilename!="")
@@ -310,13 +309,8 @@ int main(int argc, char ** argv)
         }
         ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
         ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
-        LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
+        LOGV(20)<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
 
-    }
-    
-   
-    if (targetSegmentationEstimate.IsNotNull()){
-        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
     }
     
     OUTPUTTIMER;

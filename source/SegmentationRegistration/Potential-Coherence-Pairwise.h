@@ -217,6 +217,8 @@ namespace itk{
             }
             logResetStage;
         }
+
+        ConstImagePointerType getAtlasSegmentation(){return  m_atlasSegmentationImage;}
         FloatImagePointerType getDistanceTransform(ConstImagePointerType segmentationImage, int value){
             assert(segmentationImage.IsNotNull());
             typedef typename itk::SignedMaurerDistanceMapImageFilter< ImageType, FloatImageType > DistanceTransformType;
@@ -249,33 +251,11 @@ namespace itk{
                 positiveDM=FilterUtils<ImageType,FloatImageType>::createEmptyFrom(newImage);
                 positiveDM->FillBuffer(0.0);
             }
-#if 0
-            FloatImageIterator imageIt3(positiveDM,positiveDM->GetLargestPossibleRegion());        
-            for (imageIt3.GoToBegin();!imageIt3.IsAtEnd();++imageIt3){
-                imageIt3.Set(fabs(imageIt3.Get()));
-            }
-#endif
+
             ImageUtils<FloatImageType>::multiplyImage(positiveDM,1.0/this->m_tolerance);
             return  positiveDM;
         }
-#if 0
-        ImagePointerType getFGDT(){
-            typedef itk::ThresholdImageFilter <FloatImageType>
-                ThresholdImageFilterType;
-            typename ThresholdImageFilterType::Pointer thresholdFilter
-                = ThresholdImageFilterType::New();
-            thresholdFilter->SetInput( m_distanceTransform);
-            thresholdFilter->ThresholdOutside(0, 1000);
-            thresholdFilter->SetOutsideValue(1000);
-            typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
-            typename CasterType::Pointer caster=CasterType::New();
-            caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
-            caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
-            caster->SetInput(thresholdFilter->GetOutput());
-            caster->Update();
-            return caster->GetOutput();
-        }
-#endif
+
         void SetTolerance(double t){m_tolerance=t;}
 
 
@@ -304,7 +284,7 @@ namespace itk{
             if (segmentationLabel!=deformedAtlasSegmentation){ 
                 double dist=m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);       
                 //double dist2=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->EvaluateAtContinuousIndex(idx2);
-                result=dist;
+                result=max(0.0,dist);
             }
 
             bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
@@ -329,9 +309,9 @@ namespace itk{
             IndexType idx;
             GetDistanceTransform(0)->TransformPhysicalPointToIndex(pt,idx);
             for (int i=1;i<this->m_nSegmentationLabels;++i){
-                if (i!=this->m_auxiliaryLabel){
+                if (1 || i!=this->m_auxiliaryLabel){
                     //double pot=sqrt(this->getPotential(idx,bufferIdx,disp,i));
-                    double pot=GetDistanceTransform(i)->GetPixel(idx);
+                    double pot=fabs(GetDistanceTransform(i)->GetPixel(idx));
                     if (pot<minPot){
                         minPot=pot;
                     }
@@ -400,8 +380,7 @@ namespace itk{
             if (segmentationLabel!=deformedAtlasSegmentation){ 
                 double dist=this->m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);       
                 //double dist2=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->EvaluateAtContinuousIndex(idx2);
-              
-                result=dist;
+                result=max(0.0,dist);
             }
 
             result=0.5*result*result;//exp(result)-1;
