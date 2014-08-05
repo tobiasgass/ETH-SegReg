@@ -410,17 +410,24 @@ public:
 
                     //LOGV(4)<<"Allocating seg unaries for label "<<l1<<", using "<<1.0*nSegNodes*sizeof( GCoptimization::SparseDataCost ) /(1024*1024)<<" mb memory"<<std::endl;
                     std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
+                    int c=0;
                     for (int d=0;d<nSegNodes;++d){
-                        costas[d].cost=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER;
-                        LOGV(10)<<"node "<<d<<"; seg unary label: "<<l1<<" "<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER<<endl;
-                        costas[d].site=d+GLOBALnRegNodes;
-                        if (m_coherence && !m_register){
-                            double coherenceCost=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
-                            LOGV(8)<<VAR(d)<<" "<<VAR(coherenceCost)<<" "<<VAR(m_pairwiseSegmentationRegistrationWeight)<<endl;
-                            costas[d].cost+=coherenceCost;
+                        double unarySegCost=this->m_GraphModel->getUnarySegmentationPotential(d,l1);
+                        if ( unarySegCost<1000){
+                            costas[c].cost=m_unarySegmentationWeight*MULTIPLIER*unarySegCost;
+                            LOGV(10)<<"node "<<d<<"; seg unary label: "<<l1<<" "<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER<<endl;
+                            costas[c].site=d+GLOBALnRegNodes;
+                            if (m_coherence && !m_register){
+                                double coherenceCost=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
+                                LOGV(8)<<VAR(d)<<" "<<VAR(coherenceCost)<<" "<<VAR(m_pairwiseSegmentationRegistrationWeight)<<endl;
+                                costas[c].cost+=coherenceCost;
+                            }
+                            ++c;
                         }
                     }
-                    m_optimizer->setDataCost(l1+GLOBALnRegLabels,&costas[0],GLOBALnSegNodes);
+                    costas.resize(c);
+                    LOGV(2)<<"Number of nodes with segmentation label "<<l1<<": :"<<c<<endl;
+                    m_optimizer->setDataCost(l1+GLOBALnRegLabels,&costas[0],c);
                 }
           
             clock_t endUnary = clock();

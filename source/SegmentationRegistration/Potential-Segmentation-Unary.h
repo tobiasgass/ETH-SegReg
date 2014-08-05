@@ -575,6 +575,7 @@ namespace itk{
             int s=this->m_scaledTargetGradient->GetPixel(targetIndex);
             int bone=(500);
             int tissue=(-500);
+            double artefact=2000;
             double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
             double totalCost=1;
             int targetAnatomyPrior=0;
@@ -603,11 +604,11 @@ namespace itk{
             switch (segmentationLabel) {
             case 0:
                 
-                totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
+                totalCost = ( imageIntensity > bone) && ( s > 0 ) && (imageIntensity<artefact) ? 1 : 0;
                 
                 break;
             default  :
-                totalCost = ( imageIntensity < tissue) ? 1 : 0;
+                totalCost = ( imageIntensity < tissue || imageIntensity > artefact) ? 1 : 0;
                 break;
             }
 

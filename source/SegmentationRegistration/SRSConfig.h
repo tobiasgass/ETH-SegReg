@@ -70,6 +70,8 @@ public:
     bool useLowResBSpline;
     string atlasLandmarkFilename,targetLandmarkFilename;
     std::vector<int> nRegSamples;
+    std::vector<double> resamplingFactors;
+    int nSegmentationLevels;
 private:
 	argstream * as;
 public:
@@ -143,6 +145,7 @@ public:
         theta=0;
         linearDeformationInterpolation=false;
         histNorm=false;
+        nSegmentationLevels=1;
 	}
     ~SRSConfig(){
 		//delete as;
@@ -283,6 +286,7 @@ public:
 		(*as) >> parameter ("nLevels", nLevels,"number of grid multiresolution pyramid levels", false);
         imageLevels=nLevels;
 		(*as) >> parameter ("nImageLevels", imageLevels,"number of image multiresolution  levels", false);
+		(*as) >> parameter ("nSegmentationLevels", nSegmentationLevels,"number of segmentation multiresolution  levels", false);
 		(*as) >> parameter ("startlevel", startTiling,"start tiling", false);
 		(*as) >> parameter ("iterationsPerLevel", iterationsPerLevel,"iterationsPerLevel", false);
 		(*as) >> parameter ("optIter", optIter,"max iterations of optimizer", false);
@@ -363,6 +367,18 @@ public:
             }
             
         }
+
+        resamplingFactors.push_back(1);
+        resamplingFactors.push_back(0.5);
+        resamplingFactors.push_back(0.3);
+        resamplingFactors.push_back(0.25);
+        resamplingFactors.push_back(0.2);
+        resamplingFactors.push_back(0.17);
+        resamplingFactors.push_back(0.15);
+        resamplingFactors.push_back(0.15);
+        resamplingFactors.push_back(0.15);        
+        resamplingFactors.push_back(0.15);
+        if (imageLevels<0)imageLevels=nLevels;
         TRW=!GCO;
         coherence= (pairwiseCoherenceWeight>0);
         segment=pairwiseSegmentationWeight>0 ||  unarySegmentationWeight>0 || coherence;

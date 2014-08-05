@@ -365,6 +365,17 @@ public:
         }
 
     }
+    static  ImagePointerType addOutOfPlace(ImagePointerType img, PixelType scalar){
+        ImagePointerType result=duplicate(img);
+        typedef itk::ImageRegionIterator<ImageType> IteratorType;
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        IteratorType itRes(result,img->GetLargestPossibleRegion());
+        itRes.GoToBegin();
+        for (it1.GoToBegin();!it1.IsAtEnd();++it1,++itRes){
+            itRes.Set(it1.Get()+scalar);
+        }
+        return result;
+    }
     static  void sqrtImage(ImagePointerType img){
         typedef itk::ImageRegionIterator<ImageType> IteratorType;
         IteratorType it1(img,img->GetLargestPossibleRegion());

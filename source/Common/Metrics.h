@@ -7,6 +7,7 @@
 #include "itkRecursiveGaussianImageFilter.h"
 #include <itkMeanImageFilter.h>
 #include "itkMeanSquaresImageToImageMetric.h"
+#include <itkBoxMeanImageFilter.h>
 
 using namespace std;
 
@@ -210,27 +211,60 @@ public:
         if (sigmaWidth==0.0) sigmaWidth=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
+      
+
+        //InternalImagePointer diff = FilterUtils<InternalImage>::substract(i1Cast,i2Cast);
+        //InternalImagePointer diffSquare = ImageUtils<InternalImage>::localSquare(diff);
+        typename ImageUtils<InternalImage>::ImageIteratorType i1It(i1Cast,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<InternalImage>::ImageIteratorType i2It(i2Cast,i1Cast->GetLargestPossibleRegion());
+        for (i2It.GoToBegin(),i1It.GoToBegin(); i1It.IsAtEnd(); ++i1It, ++i2It){
+            InternalPrecision d=(i1It.Get()-i2It.Get());
+            i1It.Set(d*d);
+        }
+#if 0
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
         typename FilterType::Pointer filter=FilterType::New();
         filter->SetSigma(sigmaWidth);
-
-        InternalImagePointer diff = FilterUtils<InternalImage>::substract(i1Cast,i2Cast);
-        InternalImagePointer diffSquare = ImageUtils<InternalImage>::localSquare(diff);
-
         //compute local means by concolving with gaussian
-        filter->SetInput(diff);
+        filter->SetInput(i1Cast);
         filter->Update();
-        InternalImagePointer i1Bar=(filter->GetOutput()); 
-        
-        
-        return i1Bar;
+        return (filter->GetOutput()); 
+#elif 0
+        typedef typename itk::BoxMeanImageFilter< InternalImage, InternalImage > FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        typename FilterType::RadiusType r;
+        r.Fill(sigmaWidth);
+        filter->SetRadius(r);
+        //compute local means by concolving with gaussian
+        filter->SetInput(i1Cast);
+        return filter->GetOutput();
+
+#endif
+    }
+
+    static inline OutputImagePointer integralSSD(InputImagePointer i1,InputImagePointer i2){
+        InternalImagePointer result=FilterUtils<InputImage,InternalImage>::cast(i1);
+
+      
+
+        //InternalImagePointer diff = FilterUtils<InternalImage>::substract(i1Cast,i2Cast);
+        //InternalImagePointer diffSquare = ImageUtils<InternalImage>::localSquare(diff);
+        typename ImageUtils<InternalImage>::ImageIteratorType i1It(result,result->GetLargestPossibleRegion());
+        typename ImageUtils<InputImage>::ImageIteratorType i2It(i2,result->GetLargestPossibleRegion());
+        InternalPrecision sum=0.0;
+        for (i2It.GoToBegin(),i1It.GoToBegin(); i1It.IsAtEnd(); ++i1It, ++i2It){
+            InternalPrecision d=(i1It.Get()-i2It.Get());
+            sum+=d*d;
+            i1It.Set(sum);
+        }
+        return result;
     }
 
     static inline InternalImagePointer LSAD(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0){
         if (sigmaWidth==0.0) sigmaWidth=0.001;
         return LSAD( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigmaWidth);
     }
-    static inline InternalImagePointer LSAD(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0){
+  static inline InternalImagePointer LSAD(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0){
         if (sigmaWidth==0.0) sigmaWidth=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
@@ -271,7 +305,7 @@ public:
         
         
         return FilterUtils<InternalImage,OutputImage>::cast(result);
-    }
+  }
     static inline OutputImagePointer LSADNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
         if (sigmaWidth==0.0) sigmaWidth=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);

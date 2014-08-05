@@ -228,9 +228,10 @@ namespace itk{
                 m_unaryRegistrationPot->setNoOutsidePolicy(m_config->penalizeOutside);
                 m_unaryRegistrationPot->SetAtlasLandmarksFile(m_config->atlasLandmarkFilename);
                 m_unaryRegistrationPot->SetTargetLandmarksFile(m_config->targetLandmarkFilename);
-
+                m_unaryRegistrationPot->setNormalizeImages(m_config->normalizeImages);
                 m_pairwiseRegistrationPot->setThreshold(m_config->thresh_PairwiseReg);
                 m_pairwiseRegistrationPot->setFullRegularization(m_config->fullRegPairwise);
+                
 
                 
             }
@@ -334,9 +335,10 @@ namespace itk{
             //asm volatile("" ::: "memory");
             DeformationFieldPointerType deformation;
             ImagePointerType segmentation=NULL;
-            if (coherence){
+            if (regist || coherence){
                 deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
-                m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config->nSegmentations);
+                if (coherence)
+                    m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config->nSegmentations);
                 //m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
             }
 
@@ -362,6 +364,9 @@ namespace itk{
                 }
                 double reductionFactor=pow(mantisse,exponent);
                 double scaling=1.0/reductionFactor;
+
+                scaling=m_config->resamplingFactors[max(0,m_config->imageLevels-l-1)];
+
                 //unaryRegistrationPot->SetScale(7.0*level/m_targetImage->GetLargestPossibleRegion().GetSize()[0]);
                 LOGV(1)<<"Image downsampling factor for registration unary computation : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
 
@@ -369,10 +374,13 @@ namespace itk{
                 double labelScalingFactor=m_config->displacementScaling;
                 
                 double segmentationScalingFactor=1.0;
-                if (m_config->segmentationScalingFactor>0.0 &&  m_config->segmentationScalingFactor!=1.0){
+
+                if (m_config->segmentationScalingFactor != 0.0 && m_config->nSegmentationLevels>1){
+                //if (m_config->segmentationScalingFactor>0.0 &&  m_config->segmentationScalingFactor!=1.0){
                     //segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent+1);
-                    segmentationScalingFactor=pow(m_config->segmentationScalingFactor,m_config->nLevels-l-1);
+                    //segmentationScalingFactor=pow(m_config->segmentationScalingFactor,m_config->nLevels-l-1);
                     //downsampling target image by a factor of m_config->segmentationScalingFactor for each level.
+                    segmentationScalingFactor=max(m_config->segmentationScalingFactor,m_config->resamplingFactors[max(0,m_config->nSegmentationLevels-l-1)]);
                     LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
                     m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor,true);
                 }else if (m_config->segmentationScalingFactor == 0.0){
@@ -514,7 +522,7 @@ namespace itk{
                 int i=0;
                 std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
                 if (LabelMapperType::nDisplacementSamples == 0 ) i=m_config->iterationsPerLevel-1;
-                LOGV(4)<<VAR(tolerance)<<" "<<VAR(oldtolerance)<<endl;
+                LOGV(4)<<"tolerance :"<<max(2.0,sqrt(tolerance))<<" "<<VAR(oldtolerance)<<endl;
                 //tolerance gets set only at levels to avoid that the energy changes during inner iterations. if tolerance would change within the inner iterations, convergence criteria based on energy would not be well-defined any more
                 m_pairwiseCoherencePot->SetTolerance(max(2.0,sqrt(tolerance)));
 
@@ -538,11 +546,13 @@ namespace itk{
                         //when switching levels of multiresolution, compute normalization factor to equalize the effect of smaller patches in the reg unary.
                         if (! m_config->dontNormalizeRegUnaries) m_unaryRegistrationPot->setNormalize( i==0 && l>0);
                     }
-                    if (coherence){
+                    if (coherence || (regist && m_config->verbose>6)){
                         
                         DeformationFieldPointerType scaledDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation,m_targetImage,false);
                         deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,scaledDeformation,true);
-                        TIME(m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation));
+                        if (coherence){
+                            TIME(m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation));
+                        }
                         if (m_config->verbose>6){
                             ostringstream deformedSegmentationFilename;
                             deformedSegmentationFilename<<m_config->outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
@@ -700,6 +710,8 @@ namespace itk{
 
                         fullDeformation = deformation;
                         composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
+                        //composedDeformation=TransfUtils<ImageType>::composeDeformations(previousFullDeformation,fullDeformation);
+                        //composedDeformation=TransfUtils<ImageType>::add(previousFullDeformation,fullDeformation);
                     }
 
       
@@ -752,11 +764,11 @@ namespace itk{
                         }
                         if (ImageType::ImageDimension==2){
                             if (segment && segmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
-                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+                            if (regist && deformedAtlasSegmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
                         }
                         if (ImageType::ImageDimension==3){
                             if (segment  && segmentation.IsNotNull() ) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
-                            if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
+                            if (regist  && deformedAtlasSegmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
                         }
                         //deformation
                         if (regist){

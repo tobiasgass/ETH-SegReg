@@ -59,6 +59,10 @@ int main(int argc, char ** argv)
     //typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
     // //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
     
+    //typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
+    //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    //typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+
     // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
     // //typedef SegmentationGMMClassifier<ImageType> ClassifierType;
     // //typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
@@ -72,14 +76,16 @@ int main(int argc, char ** argv)
     
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     
     typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
     
     typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+    //typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
+
     // //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
     // //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
     // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
@@ -102,17 +108,22 @@ int main(int argc, char ** argv)
     logSetVerbosity(filterConfig.verbose);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
+#if 0
     if (filterConfig.normalizeImages){
         targetImage=FilterUtils<ImageType>::normalizeImage(targetImage);
     }
+#endif
+
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage;
     if (filterConfig.atlasFilename!="") {
         atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+#if 0
         if (filterConfig.normalizeImages){
             atlasImage=FilterUtils<ImageType>::normalizeImage(atlasImage);
         }
+#endif
     }
     if (!atlasImage) {LOG<<"Warning: no atlas image loaded!"<<endl;
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
@@ -226,7 +237,8 @@ int main(int argc, char ** argv)
     if (filterConfig.affineBulkTransform!=""){
         TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig.affineBulkTransform);
         LOGI(8,ImageUtils<ImageType>::writeImage("def.nii",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage)));
-        DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
+        //DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
+        DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,targetImage);
         LOGI(8,ImageUtils<ImageType>::writeImage("def2.nii",TransfUtils<ImageType>::warpImage((ImageType::ConstPointer)originalAtlasImage,transf)));
         filter->setBulkTransform(transf);
     }
@@ -267,31 +279,30 @@ int main(int argc, char ** argv)
     //upsample?
     if (filterConfig.downScale<1){
         LOG<<"Upsampling Images.."<<endl;
-        if (finalDeformation.IsNotNull() ) {
+       
+        //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
+        if (targetSegmentationEstimate){
+#if 0            
+            targetSegmentationEstimate=FilterUtils<ImageType>::NNResample(targetSegmentationEstimate,originalTargetImage,false);
+#else
+            targetSegmentationEstimate=FilterUtils<ImageType>::upsampleSegmentation(targetSegmentationEstimate,originalTargetImage);
+#endif
+        }
+    }
+
+    if (targetSegmentationEstimate.IsNotNull()){
+
+        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
+    }
+    
+     if (finalDeformation.IsNotNull() ) {
             if (filterConfig.linearDeformationInterpolation){
                 finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
             }else{
                 finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
             }
         }
-        //this is more or less f***** up
-        //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
-        if (targetSegmentationEstimate){
-            targetSegmentationEstimate=FilterUtils<ImageType>::NNResample(targetSegmentationEstimate,originalTargetImage,false);
-#if 0            
-            typedef ImageUtils<ImageType>::FloatImageType FloatImageType;
-            typedef ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
-            LOGI(6,ImageUtils<ImageType>::writeImage("targetSegmentationEstimateLow.nii",targetSegmentationEstimate));
-            FloatImagePointerType distanceMap=FilterUtils<ImageType,FloatImageType>::distanceMapByFastMarcher(FilterUtils<ImageType>::binaryThresholdingLow(targetSegmentationEstimate,1),1);
-            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMapLow.nii",distanceMap));
-            distanceMap=FilterUtils<FloatImageType>::LinearResample(distanceMap,FilterUtils<ImageType,FloatImageType>::cast(originalTargetImage),false);
-            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMaphigh.nii",distanceMap));
-            targetSegmentationEstimate=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(distanceMap,0.5);
-            //targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),scale));
-#endif
-        }
-    }
-
+    
     if (finalDeformation.IsNotNull() ){
         LOG<<"Deforming Images.."<<endl;
         if (filterConfig.defFilename!="")
@@ -303,13 +314,8 @@ int main(int argc, char ** argv)
         }
         ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
         ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
-        LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
+        LOGV(20)<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
 
-    }
-    
-   
-    if (targetSegmentationEstimate.IsNotNull()){
-        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
     }
     
     OUTPUTTIMER;

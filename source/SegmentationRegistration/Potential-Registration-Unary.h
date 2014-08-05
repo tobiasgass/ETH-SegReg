@@ -80,6 +80,7 @@ namespace itk{
         bool m_noOutSidePolicy;
         bool m_useGradient;
         double m_alpha;
+        bool m_normalizeImages;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -100,6 +101,7 @@ namespace itk{
             m_noOutSidePolicy = false;
             m_useGradient=false;
             m_alpha=0.0;
+            m_normalizeImages=0.0;
         }
         ~UnaryPotentialRegistrationNCC(){
             //delete nIt;
@@ -112,6 +114,7 @@ namespace itk{
         virtual void setThreshold(double t){m_threshold=t;}
         virtual void setLogPotential(bool b){LOGPOTENTIAL=b;}
         virtual void setNoOutsidePolicy(bool b){ m_noOutSidePolicy = b;}
+        virtual void setNormalizeImages(bool b){m_normalizeImages=b;}
         virtual void Init(){
             assert(m_targetImage);
             assert(m_atlasImage);
@@ -174,17 +177,22 @@ namespace itk{
         }
 
     	virtual void SetAtlasImage(ConstImagePointerType atlasImage){
-            if (! m_useGradient){
-                m_atlasImage=atlasImage;
+            if (! m_useGradient){ 
+                if (m_normalizeImages){
+                    LOGV(1)<<"Normalizing atlas image to zero mean unit variance"<<endl;
+                    m_atlasImage=FilterUtils<ImageType>::normalizeImage(atlasImage);
+                }
+                else
+                    m_atlasImage=atlasImage;
             }else{
-                m_atlasImage=FilterUtils<ImageType>::gradient(atlasImage);
+                if (m_normalizeImages){
+                    LOGV(1)<<"Normalizing atlas gradient image to zero mean unit variance"<<endl;
+                    m_atlasImage=FilterUtils<ImageType>::gradient(FilterUtils<ImageType>::normalizeImage(atlasImage));
+                }
+                else
+                    m_atlasImage=FilterUtils<ImageType>::gradient(atlasImage);
             }
             m_atlasSize=m_atlasImage->GetLargestPossibleRegion().GetSize();
-#if 0
-            m_scaledAtlasImage=FilterUtils<ImageType>::LinearResample(FilterUtils<ImageType>::gaussian(m_atlasImage,1),m_scale);
-            m_atlasInterpolator=InterpolatorType::New();
-            m_atlasInterpolator->SetInputImage(m_scaledAtlasImage);
-#endif
         }
 
         virtual void SetAtlasMaskImage(ConstImagePointerType atlasMaskImage){
@@ -192,10 +200,20 @@ namespace itk{
 
         }
         void SetTargetImage(ConstImagePointerType targetImage){
-            if (!m_useGradient){
-                m_targetImage=targetImage;
+            if (! m_useGradient){ 
+                if (m_normalizeImages){
+                    LOGV(1)<<"Normalizing target image to zero mean unit variance"<<endl;
+                    m_targetImage=FilterUtils<ImageType>::normalizeImage(targetImage);
+                }
+                else
+                    m_targetImage=targetImage;
             }else{
-                m_targetImage=  FilterUtils<ImageType>::gradient(targetImage);
+                if (m_normalizeImages){
+                    LOGV(1)<<"Normalizing target gradient image to zero mean unit variance"<<endl;
+                    m_targetImage=FilterUtils<ImageType>::gradient(FilterUtils<ImageType>::normalizeImage(targetImage));
+                }
+                else
+                    m_targetImage=FilterUtils<ImageType>::gradient(targetImage);
             }
             m_targetSize=m_targetImage->GetLargestPossibleRegion().GetSize();
 
@@ -511,10 +529,14 @@ namespace itk{
             m_averageFixedPotential=computeAverage?0.0:m_averageFixedPotential;
 
             FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(m_coarseImage);
+#if 1
             LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
             translation->FillBuffer( displacement);
             LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
-            //LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(this->m_baseLabelMap,translation);
+#else
+            LabelImagePointerType composedDeformation=ImageUtils<LabelImageType>::addOutOfPlace(this->m_baseLabelMap,displacement);
+                //TransfUtils<ImageType>::composeDeformations(this->m_baseLabelMap,translation);
+#endif
             ImagePointerType deformedAtlas,deformedMask;
 
             typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
@@ -647,12 +669,16 @@ namespace itk{
             //compute average potential for zero displacement.
             bool computeAverage=(displacement == zeroDisp);
             m_averageFixedPotential=computeAverage?0.0:m_averageFixedPotential;
-
+#if 0
             LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
             translation->FillBuffer( displacement);
             LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
+#else
+            LabelImagePointerType composedDeformation=ImageUtils<LabelImageType>::addOutOfPlace(this->m_baseLabelMap,displacement);
+            //TransfUtils<ImageType>::composeDeformations(this->m_baseLabelMap,translation);
+#endif
             ImagePointerType deformedAtlas,deformedMask;
-            if (m_scaledAtlasMaskImage.IsNotNull()){
+            if (this->m_scaledAtlasMaskImage.IsNotNull()){
                 deformedAtlas=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,composedDeformation);
                 deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,composedDeformation,true);
             }else{
@@ -664,7 +690,7 @@ namespace itk{
             FloatImagePointerType pot=localPotentials(this->m_scaledAtlasImage,this->m_scaledTargetImage);
             pot = FilterUtils<FloatImageType>::LinearResample(pot, FilterUtils<ImageType,FloatImageType>::cast(m_coarseImage),true);
 
-            deformedMask = FilterUtils<ImageType>::NNResample(deformedMask, m_coarseImage);
+            deformedMask = FilterUtils<ImageType>::NNResample(deformedMask, m_coarseImage,false);
             ImageIteratorType maskIterator=ImageIteratorType(deformedMask,deformedMask->GetLargestPossibleRegion());
             FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
            
@@ -900,7 +926,8 @@ namespace itk{
         /** Standard part of every itk Object. */
         itkTypeMacro(FastRegistrationUnaryPotentialSSD, Object);
         virtual FloatImagePointerType localPotentials(ImagePointerType i1, ImagePointerType i2){
-            return Metrics<ImageType,FloatImageType,float>::LSSD(i1,i2,i1->GetSpacing()[0]);
+            //return Metrics<ImageType,FloatImageType,float>::LSSD(i1,i2,i1->GetSpacing()[0]);
+            return Metrics<ImageType,FloatImageType,float>::integralSSD(i1,i2);
         }
      
     

@@ -113,6 +113,7 @@ namespace itk{
 
         std::vector<int> m_mapIdx1,m_mapIdx1Rev;
         bool m_reducedSegNodes;
+        double m_coherenceThresh;
 
     public:
         int getMaxRegSegNeighbors(){return m_maxRegSegNeighbors;}
@@ -298,6 +299,7 @@ namespace itk{
         }
 
         void ReduceSegmentationNodesByCoherencePotential(double thresh){
+            m_coherenceThresh=thresh;
             int maxLabel=this->m_nSegmentationLabels-1;
             LOGV(1)<<"Removing all segmentation nodes with coherence potential larger "<<thresh<<" for all non-aux labels."<<endl;
             FloatImagePointerType dist=m_pairwiseSegRegFunction->GetDistanceTransform(0);
@@ -448,7 +450,8 @@ namespace itk{
             }
             if ( m_reducedSegNodes ){
                 //if trying to label a pixel at the border of the segmentation ROI; penalize deviations from deformed atlas segmentation
-                if (m_borderOfSegmentationROI->GetPixel(imageIndex) && labelIndex!=m_pairwiseSegRegFunction->getAtlasSegmentation()->GetPixel(imageIndex))
+                //if (m_borderOfSegmentationROI->GetPixel(imageIndex) && labelIndex!=m_pairwiseSegRegFunction->getAtlasSegmentation()->GetPixel(imageIndex))
+                if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),LabelMapperType::getLabel(0),labelIndex))>m_coherenceThresh)
                     return 1000;
             }
                     

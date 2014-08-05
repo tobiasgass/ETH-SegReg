@@ -147,11 +147,20 @@ public:
     //#define  ISOTROPIC_RESAMPLING
     //resample with an uniform scaling factor
     static OutputImagePointer normalizeImage(InputImagePointer input){
+     
+        return normalizeImage((ConstInputImagePointer)input);
+    }
+    static OutputImagePointer normalizeImage(ConstInputImagePointer input){
+        typename OutputImage::PixelType px;
+        px=1.0;
+        if (px/3 == 0)
+            LOG<<"WARNING: normalizing integer image type to zero mean/unit variance will probably not work well!"<<endl;
         NormalizeImageFilterPointerType filter=NormalizeImageFilterType::New();
         filter->SetInput(input);
         filter->Update();
         return filter->GetOutput();
     }
+
     static OutputImagePointer gradient(ConstInputImagePointer input){
         
         typename GradientFilterType::Pointer gradientFilter = GradientFilterType::New();
