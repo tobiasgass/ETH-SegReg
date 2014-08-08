@@ -8,6 +8,8 @@
 #include <itkMeanImageFilter.h>
 #include "itkMeanSquaresImageToImageMetric.h"
 #include <itkBoxMeanImageFilter.h>
+#include "itkSubtractAbsImageFilter.h"
+#include <itkAbsoluteValueDifferenceImageFilter.h>
 
 using namespace std;
 
@@ -260,20 +262,43 @@ public:
         return result;
     }
 
+    static inline OutputImagePointer integralSAD(InputImagePointer i1,InputImagePointer i2){
+        InternalImagePointer result=FilterUtils<InputImage,InternalImage>::cast(i1);
+
+      
+
+        //InternalImagePointer diff = FilterUtils<InternalImage>::substract(i1Cast,i2Cast);
+        //InternalImagePointer diffSquare = ImageUtils<InternalImage>::localSquare(diff);
+        typename ImageUtils<InternalImage>::ImageIteratorType i1It(result,result->GetLargestPossibleRegion());
+        typename ImageUtils<InputImage>::ImageIteratorType i2It(i2,result->GetLargestPossibleRegion());
+        InternalPrecision sum=0.0;
+        for (i2It.GoToBegin(),i1It.GoToBegin(); i1It.IsAtEnd(); ++i1It, ++i2It){
+            InternalPrecision d=(i1It.Get()-i2It.Get());
+            sum+=fabs(d);
+            i1It.Set(sum);
+        }
+        return result;
+    }
+
+  
+
+    
     static inline InternalImagePointer LSAD(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0){
         if (sigmaWidth==0.0) sigmaWidth=0.001;
         return LSAD( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigmaWidth);
     }
   static inline InternalImagePointer LSAD(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0){
         if (sigmaWidth==0.0) sigmaWidth=0.001;
-        InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
-        InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
         //typedef itk::DiscreteGaussianImageFilter<InternalImage,InternalImage>  FilterType;
         typename FilterType::Pointer filter=FilterType::New();
         filter->SetSigma(sigmaWidth);
         //filter->SetVariance(sigmaWidth*sigmaWidth);
 
+#if 0
+        InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
+        InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
+        
         InternalImagePointer diff =  ImageUtils<InternalImage>::createEmpty(i1Cast);
         typename ImageUtils<InternalImage>::ImageIteratorType diffIt(diff,i1Cast->GetLargestPossibleRegion());
         typename ImageUtils<InternalImage>::ImageIteratorType i1It(i1Cast,i1Cast->GetLargestPossibleRegion());
@@ -289,9 +314,25 @@ public:
         }
         LOGV(6)<<VAR(mean/c)<<endl;
 
+#else
+        //typedef typename itk::SubtractAbsImageFilter<InputImage,InputImage,InternalImage> SubFilterType;
+
+        
+        typedef typename itk::AbsoluteValueDifferenceImageFilter<InputImage,InputImage,InternalImage> SubFilterType;
+        typename SubFilterType::Pointer subFilter=SubFilterType::New();
+        subFilter->SetNumberOfThreads( 8 );
+        subFilter->SetInput1(i1);
+        subFilter->SetInput2(i2);
+        subFilter->Update();
+        InternalImagePointer diff=subFilter->GetOutput();
+        return FilterUtils<InternalImage,OutputImage>::cast(diff);
+#endif
+
         //compute local means by concolving with gaussian
         filter->SetInput(diff);
         filter->Update();
+        InternalImagePointer result=filter->GetOutput();
+#if 0
         InternalImagePointer i1Bar=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
        
         InternalImagePointer result = ImageUtils<InternalImage>::createEmpty(i1Bar);
@@ -302,7 +343,7 @@ public:
             InternalPrecision d = diffIt.Get();
             resultIt.Set(fabs(d));
         }
-        
+#endif   
         
         return FilterUtils<InternalImage,OutputImage>::cast(result);
   }
@@ -361,7 +402,7 @@ public:
         return efficientLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp);
     }
     static inline OutputImagePointer efficientLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
-        if (exp == 0.0 ) exp == 1.0;
+        if (exp == 0.0 ) exp = 1.0;
         if (sigma==0.0) sigma=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
@@ -535,7 +576,7 @@ public:
         return coarseLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, coarseImg,sigma,exp);
     }
     static inline OutputImagePointer coarseLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2, InputImagePointer coarseImg,double sigma=1.0, double exp = 1.0){
-        if (exp == 0.0 ) exp == 1.0;
+        if (exp == 0.0 ) exp = 1.0;
         if (sigma==0.0) sigma=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);

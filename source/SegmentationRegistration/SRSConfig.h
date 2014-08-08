@@ -149,6 +149,7 @@ public:
 	}
     ~SRSConfig(){
 		//delete as;
+        //delete levels;
 	}
 	void parseParams(int argc, char** argv){
 		as= new argstream(argc, argv);
@@ -350,7 +351,7 @@ public:
 				levels[i]=tmp_levels[i];
 			}
 		}
-        nRegSamples=std::vector<int>(nLevels,maxDisplacement);
+        nRegSamples=std::vector<int>(max(nLevels,1),maxDisplacement);
         if (regSampleString!=""){
             std::stringstream ss(regSampleString);
             int i;

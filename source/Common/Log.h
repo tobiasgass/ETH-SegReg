@@ -57,12 +57,10 @@ public:
         setStage(stage);
     }
     void resetStage(){
-        //std::cout<<"old stage : "<<VAR(m_stage)<<endl;
         if (!m_stages.empty()){
             m_stage=m_stages.top();
             m_stages.pop();
         }
-        //std::cout<<"new stage : "<<VAR(m_stage)<<endl;
     }
     void setVerbosity(int v){
         m_verb=v;
@@ -147,6 +145,11 @@ MyTimer timeLOG;
     timeLOG.start(#instruction);                  \
     instruction;                                \
     timeLOG.end(#instruction);
+#define TIMEI(level,instruction)                  \
+    if (mylog.getVerbosity()>=level){             \
+        timeLOG.start(#instruction);              \
+    instruction;                                  \
+    timeLOG.end(#instruction); }
 
 #define OUTPUTTIMER   timeLOG.print()
 

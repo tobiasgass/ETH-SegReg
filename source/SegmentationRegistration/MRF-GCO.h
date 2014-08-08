@@ -539,6 +539,8 @@ public:
     
 
     virtual double optimize(int maxIter=20){
+        logSetStage("GC-Optimizer");
+
         clock_t opt_start=clock();
         double energy;//=m_optimizer->compute_energy();
         //LOGV(2)<<VAR(energy)<<endl;

@@ -14,6 +14,7 @@ ADD_LIBRARY(Utils
   SegmentationMapper.hxx
   Metrics.h
   TemporalMedianImageFilter.h
+  itkSubtractAbsImageFilter.h
 )
 TARGET_LINK_LIBRARIES(Utils ${ITK_LIBRARIES}  )
 

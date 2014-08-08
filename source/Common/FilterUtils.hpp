@@ -152,9 +152,12 @@ public:
     }
     static OutputImagePointer normalizeImage(ConstInputImagePointer input){
         typename OutputImage::PixelType px;
-        px=1.0;
-        if (px/3 == 0)
+        px=1.3;
+        double test=1.3;
+        if ( (test-px) > std::numeric_limits<float>::epsilon ()){
+            LOG<<VAR(px)<<" "<<VAR(test)<<" "<<VAR(test-px)<<endl;
             LOG<<"WARNING: normalizing integer image type to zero mean/unit variance will probably not work well!"<<endl;
+        }
         NormalizeImageFilterPointerType filter=NormalizeImageFilterType::New();
         filter->SetInput(input);
         filter->Update();

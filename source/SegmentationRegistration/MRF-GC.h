@@ -141,7 +141,7 @@ public:
 
 	{
         m_graphModel= graphModel;
-		verbose=verbose;
+		verbose=verb;
 		m_unaryWeight=unaryWeight;
         m_multiplier=1000;
 		m_pairwiseWeight=pairwiseWeight;

@@ -39,6 +39,8 @@
 #include <itkDisplacementFieldJacobianDeterminantFilter.h>
 #include <itkDisplacementFieldToBSplineImageFilter.h>
 #include "itkConstantPadImageFilter.h"
+#include "itkTranslationTransform.h"
+
 using namespace std;
 
 template<class ImageType, class CDisplacementPrecision=float, class COutputPrecision=double,class CFloatPrecision=float>
@@ -272,6 +274,7 @@ public:
             LOG<<"Expected affine transform, got "<<(*it)->GetNameOfClass()<<", aborting"<<std::endl;
             exit(0);
         }
+        LOGV(3)<<VAR(affine)<<endl;
         return affine;
     }
 
@@ -1807,5 +1810,37 @@ public:
         return TRE/count;
     }
 
+    static ImagePointerType translateImage(ImagePointerType img, DisplacementType disp, bool NN=false,ImagePointerType target=NULL){
+
+        typedef typename itk::TranslationTransform<double,D> TranslationTransformType;
+        typename TranslationTransformType::Pointer transform =
+            TranslationTransformType::New();
+        typename TranslationTransformType::OutputVectorType translation;
+        for (int d=0;d<D;++d){
+            translation[d]=disp[d];
+        }
+        transform->Translate(translation);
+        
+        typedef typename itk::ResampleImageFilter<ImageType, ImageType> ResampleImageFilterType;
+        typename ResampleImageFilterType::Pointer resampleFilter = ResampleImageFilterType::New();
+        resampleFilter->SetTransform(transform);
+        if (target.IsNull()) target=img;
+        resampleFilter->SetInput(target);
+        resampleFilter->SetOutputOrigin(target->GetOrigin());
+		resampleFilter->SetOutputSpacing ( target->GetSpacing() );
+		resampleFilter->SetOutputDirection ( target->GetDirection() );
+		resampleFilter->SetSize ( target->GetLargestPossibleRegion().GetSize() );
+        NNInterpolatorPointerType interpol2=NNInterpolatorType::New();
+        LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
+        if (NN){
+            resampleFilter->SetInterpolator(interpol2);
+        }else{
+            resampleFilter->SetInterpolator(interpol);
+        }
+        
+        resampleFilter->Update();
+        return resampleFilter->GetOutput();
+
+    }
 
 };

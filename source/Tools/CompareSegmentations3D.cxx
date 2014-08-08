@@ -55,7 +55,7 @@ int main(int argc, char * argv [])
 	string groundTruth,segmentationFilename,outputFilename="",maskFilename="";
     bool hausdorff=false;
     double threshold=1;
-    int evalLabel=1;
+    int evalLabel=-1;
     bool connectedComponent=false;
     int labelsToEvaluate=-1;
     int verbose=0;
@@ -128,6 +128,11 @@ int main(int argc, char * argv [])
     if (labelList==""){
         groundTruthImg=segmentationMapper.FindMapAndApplyMap(groundTruthImg);
         segmentedImg=segmentationMapper.ApplyMap(segmentedImg);
+        if (evalLabel>0){
+            labelsToEvaluate=1;
+        }else{
+            evalLabel=1;
+        }
     }else{
         ifstream ifs(labelList.c_str());
         labelsToEvaluate=0;

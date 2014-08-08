@@ -284,6 +284,10 @@ namespace itk{
             
         }
         virtual void Update(){
+            //THIS DOES ALL THE GOOD STUFF!
+
+
+            //suffixes for temporary images
             std::string suff;
             if (ImageType::ImageDimension==2){
                 suff=".png";
@@ -352,7 +356,14 @@ namespace itk{
             int l=0;
             if (LabelMapperType::nDisplacementSamples == 0 ) l=m_config->nLevels-1;
             bool pixelGrid = false;
+
+            double tolerance=1000;
+
+            
+            //START OF MULTI-RES Hierarchy
+            //------------------------------------------------------------------------------------------------------------------------------------------------------------
             for (;l<m_config->nLevels  ;++l){
+                
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l));
                 //compute scaling factor for downsampling the images in the registration potential
                 labelmapper->setDisplacementSamples(m_config->nRegSamples[l]);
@@ -367,7 +378,6 @@ namespace itk{
 
                 scaling=m_config->resamplingFactors[max(0,m_config->imageLevels-l-1)];
 
-                //unaryRegistrationPot->SetScale(7.0*level/m_targetImage->GetLargestPossibleRegion().GetSize()[0]);
                 LOGV(1)<<"Image downsampling factor for registration unary computation : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
 
                 level=m_config->levels[l];
@@ -376,10 +386,6 @@ namespace itk{
                 double segmentationScalingFactor=1.0;
 
                 if (m_config->segmentationScalingFactor != 0.0 && m_config->nSegmentationLevels>1){
-                //if (m_config->segmentationScalingFactor>0.0 &&  m_config->segmentationScalingFactor!=1.0){
-                    //segmentationScalingFactor=1.0/pow( 1.0/m_config->segmentationScalingFactor,exponent+1);
-                    //segmentationScalingFactor=pow(m_config->segmentationScalingFactor,m_config->nLevels-l-1);
-                    //downsampling target image by a factor of m_config->segmentationScalingFactor for each level.
                     segmentationScalingFactor=max(m_config->segmentationScalingFactor,m_config->resamplingFactors[max(0,m_config->nSegmentationLevels-l-1)]);
                     LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
                     m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor,true);
@@ -422,6 +428,7 @@ namespace itk{
                     //do not continue after this iteration if the grid resolution is equal to the input resolution
                     pixelGrid=true;
                     LOG<<"Last iteration, since control grid resolution equals target image resolution" << endl;
+                    LOG<<VAR(graph->getCoarseGraphImage()->GetLargestPossibleRegion().GetSize())<<" "<<VAR( m_inputTargetImage->GetLargestPossibleRegion().GetSize())<<endl;
                 }
 
                 if (regist||coherence){
@@ -487,13 +494,9 @@ namespace itk{
                 LOGV(1)<<"Current grid size :"<<graph->getGridSize()<<std::endl;
                 LOGV(1)<<"Current grid spacing :"<<graph->getSpacing()<<std::endl;
 
-                double tolerance;
-                //#ifdef OLD_TOL              
-                //m_pairwiseCoherencePot->SetThreshold(max(1.0,graph->getMaxDisplacementFactor()));//*(m_config->iterationsPerLevel-i)));
     
                 //tolerance=max(1.0,0.5*(graph->getSpacing()[0]));
                 double oldtolerance=pow(m_config->toleranceBase,exponent+1);
-                //#else
                 if (l==0){ //calculate acumulated maximum displacement 'capture range'
                     double maxDispAtFirstLevel=graph->getMaxDisplacementFactor()*m_config->nRegSamples[0];
                     for (int l2=0;l2<m_config->nLevels;++l2){
@@ -506,16 +509,10 @@ namespace itk{
                         }
                         maxDispAtFirstLevel/=2;
                     }
-                    //tolerance+=maxDispAtFirstLevel;
                 }
-                //#endif
                 if (m_config->ARSTolerance>0.0){
                     tolerance=m_config->ARSTolerance;
-
                 }                
-               
-            
-                //m_pairwiseCoherencePot->SetThreshold(max(1.0,(graph->getSpacing()[0])/2));//*(m_config->iterationsPerLevel-i)));
 
                 bool converged=false;
                 double oldEnergy=1,newEnergy=01,oldWorseEnergy=-1.0;
@@ -526,6 +523,8 @@ namespace itk{
                 //tolerance gets set only at levels to avoid that the energy changes during inner iterations. if tolerance would change within the inner iterations, convergence criteria based on energy would not be well-defined any more
                 m_pairwiseCoherencePot->SetTolerance(max(2.0,sqrt(tolerance)));
 
+                //INNER ITERATIONS AT EACH LEVEL OF HIERARCHY
+                //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 for (;!converged && i<m_config->iterationsPerLevel;++i,++iterationCount){
                     logSetStage(":iter"+boost::lexical_cast<std::string>(i));
                     logSetStage(":InitIter");
@@ -564,17 +563,13 @@ namespace itk{
                             }
                         }
                     }
-                    //  unaryRegistrationPot->SetAtlasImage(deformedAtlasImage);
-                    //if (segment && (l>0 || i>0)) graph->SetTargetSegmentation((ConstImagePointerType)segmentation);
+                 
 
                     if (segment && coherence && m_config->segDistThresh!= -1){
                         graph->ReduceSegmentationNodesByCoherencePotential(m_config->segDistThresh);
                     }
                     //	ok what now: create graph! solve graph! save result!Z
-                    //double linearIncreasingWeight=1.0/(m_config->nLevels-l);
-                    //double expIncreasingWeight=exp(-(m_config->nLevels-l-1));
-                    //double linearDecreasingWeight=1-linearIncreasingWeight;
-                    //double expDecreasingWeight=exp(-l);
+                 
                     //#define TRUNC
                     LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
                     logUpdateStage(":Optimization");
@@ -589,10 +584,7 @@ namespace itk{
                         delete mrfSolverGC;
 
                     }else{
-                        //typedef TRWS_SRSMRFSolverTruncQuadrat2D<GraphModelType> MRFSolverType;
-                        //typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
-                        //typedef Incremental_TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
-                        //typedef NewFastPDMRFSolver<GraphModelType> MRFSolverType;
+                       
                         
                         BaseMRFSolver<GraphModelType>  *mrfSolver;
 
@@ -616,7 +608,6 @@ namespace itk{
                                                           m_config->verbose);
                         }
 
-                        //typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                         mrfSolver->setPotentialCaching(m_config->cachePotentials);
                         TIME(mrfSolver->createGraph());
                         if (!m_config->evalContinuously){
@@ -663,7 +654,7 @@ namespace itk{
                         }
 
                     }
-
+                    
                     //convergence check after second iteration
 #if 1
                     //if energy difference is large, and greater than the threshold, skip this iteration and start over
@@ -711,20 +702,14 @@ namespace itk{
                         fullDeformation = deformation;
                         composedDeformation=TransfUtils<ImageType>::composeDeformations(fullDeformation,previousFullDeformation);
                         //composedDeformation=TransfUtils<ImageType>::composeDeformations(previousFullDeformation,fullDeformation);
-                        //composedDeformation=TransfUtils<ImageType>::add(previousFullDeformation,fullDeformation);
+                     
                     }
 
-      
-                    //m_pairwiseCoherencePot->SetThreshold(13);
-                    //m_pairwiseCoherencePot->SetThreshold(max(10.0,10*graph->getMaxDisplacementFactor()));
-
-                    //m_pairwiseCoherencePot->SetThreshold(1000000);
                     
 
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config->displacementRescalingFactor;
                     if (segmentation.IsNotNull()&& segmentationScalingFactor<1.0){
-                        //segmentation = FilterUtils<ImageType>::BSplineResample(segmentation,m_inputTargetImage,false);
                         LOGV(6)<<VAR(segmentation->GetLargestPossibleRegion().GetSize())<<endl;
                         segmentation = FilterUtils<ImageType>::BSplineResampleSegmentation(segmentation,m_targetImage);
                     }
@@ -775,29 +760,27 @@ namespace itk{
                             if (m_config->defFilename!=""){
                                 ostringstream tmpDeformationFilename;
                                 tmpDeformationFilename<<m_config->defFilename<<"-l"<<l<<"-i"<<i<<".mha";
-                                //		ImageUtils<DeformationFieldType>::writeImage(defFilename,deformation);
                                 ImageUtils<DeformationFieldType>::writeImage(tmpDeformationFilename.str().c_str(),previousFullDeformation);
-                                //					ImageUtils<DeformationFieldType>::writeImage(tmpDeformationFilename.str().c_str(),deformation);
 
-                                //
                             }
                         }
                     }
-#ifndef OLD_TOL
+                    //update tolerance by subtracting the maximal displacement of the current iteration
                     tolerance-=graph->getMaxDisplacementFactor()*m_config->nRegSamples[l];
-#endif                    
-                    
-                    logResetStage;
+                    logResetStage;//inner
+                    logResetStage;//iter
                 }//iter
-                logResetStage;
+                logResetStage;//levels
                 if (pixelGrid){
                     m_config->displacementScaling*=0.5;
                 }
             }//level
-            if (segment || coherence){
+            if (segmentation.IsNotNull()){
                 segmentation=FilterUtils<ImageType>::fillHoles(segmentation);
             }
             m_finalSegmentation=(segmentation);
+            m_finalDeformation=previousFullDeformation;
+
             delete labelmapper;
         }//run
       

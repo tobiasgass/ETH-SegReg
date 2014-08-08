@@ -250,7 +250,7 @@ namespace itk{
             minSpacing=minSpacing>=1?minSpacing:1.0;
             LOGV(8)<<"spacing for resampling this edge to "<<shortestN<<" pixels :"<<minSpacing<<endl;
 
-            //calculate spacing and size for all image dimensions using
+            //calculate spacingq and size for all image dimensions using
             for (int d=0;d<ImageType::ImageDimension;++d){
 
                 int div= (1.0*m_imageSpacing[d]/minSpacing*(m_imageSize[d]-1))+1 ;
@@ -860,6 +860,8 @@ namespace itk{
         virtual void Init(){
             //#define moarcaching
             this->m_unaryRegFunction->setCoarseImage(this->m_coarseGraphImage);
+            TIME(this->m_unaryRegFunction->initCaching());
+            
 #ifdef moarcaching
             std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
             for (int n=0;n<this->m_nDisplacementLabels;++n){

@@ -295,27 +295,27 @@ int main(int argc, char ** argv)
         ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
     }
     
-     if (finalDeformation.IsNotNull() ) {
-            if (filterConfig.linearDeformationInterpolation){
-                finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
-            }else{
-                finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
-            }
-        }
-    
-    if (finalDeformation.IsNotNull() ){
-        LOG<<"Deforming Images.."<<endl;
+    if (finalDeformation.IsNotNull() ) {
+        
         if (filterConfig.defFilename!="")
             ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
-
+        if (filterConfig.linearDeformationInterpolation){
+            finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
+         }else{
+            finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
+        }
+        
+        LOG<<"Deforming Images.."<<endl;
+        ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
+        LOGV(20)<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
+        
         if (originalAtlasSegmentation.IsNotNull()){
             ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
             ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
         }
-        ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
-        LOGV(20)<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
-
+        
+        
     }
     
     OUTPUTTIMER;
