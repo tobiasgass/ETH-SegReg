@@ -16,7 +16,7 @@
 #include "itkNearestNeighborInterpolateImageFunction.h"
 #include "itkStatisticsImageFilter.h"
 #include "itkThresholdImageFilter.h"
-
+#include "itkSignedMaurerDistanceMapImageFilter.h"
 namespace itk{
 
 

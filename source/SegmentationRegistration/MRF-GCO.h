@@ -7,6 +7,7 @@
 #include "ordering.cpp"
 #include <limits.h>
 #include <time.h>
+#include <omp.h>
 
 //#include "malloc.c"
 using namespace std;
@@ -335,6 +336,10 @@ public:
             
             //now compute&set all potentials
             if (m_unaryRegistrationWeight>0){
+
+                //#pragma omp parallel for 
+                //theoretically, this computation could be parallelized
+                //however, the computation/caching of the registration potentials is not thread safe at the moment
                 for (int l1=0;l1<nRegLabels;++l1)
                     {
                         int regLabel=m_labelOrder[l1];

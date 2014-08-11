@@ -16,7 +16,7 @@
 
 namespace itk{
 
-    template<class TLabelMapper,class TImage>
+    template<class TImage>
     class PairwisePotentialRegistration : public itk::Object{
     public:
         //itk declarations
@@ -29,20 +29,20 @@ namespace itk{
         typedef typename ImageType::PointType PointType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         static const unsigned int D=ImageType::ImageDimension;
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename itk::Vector<double,ImageType::ImageDimension> SpacingType;
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
+
     protected:
         SizeType m_targetSize,m_atlasSize;
         ConstImagePointerType m_targetImage, m_atlasImage;
-        LabelImagePointerType m_baseLabelMap;
-        bool m_haveLabelMap;
+        DisplacementImagePointerType m_baseDisplacementMap;
+        bool m_haveDisplacementMap;
         SpacingType m_gridSpacing;
         double m_maxDist;
         double m_threshold;
@@ -54,15 +54,15 @@ namespace itk{
         itkTypeMacro(RegistrationPairwisePotential, Object);
 
         PairwisePotentialRegistration(){
-            m_haveLabelMap=false;
+            m_haveDisplacementMap=false;
             m_threshold=std::numeric_limits<double>::max();
             m_fullRegPairwise=false;
         }
         virtual void freeMemory(){
         }
         virtual void setThreshold(double t){m_threshold=t;}
-        void SetBaseLabelMap(LabelImagePointerType blm){m_baseLabelMap=blm;m_haveLabelMap=true;}
-        LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
+        void SetBaseDisplacementMap(DisplacementImagePointerType blm){m_baseDisplacementMap=blm;m_haveDisplacementMap=true;}
+        DisplacementImagePointerType GetBaseDisplacementMap(DisplacementImagePointerType blm){return m_baseDisplacementMap;}
         void SetTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
             m_targetSize=m_targetImage->GetLargestPossibleRegion().GetSize();
@@ -76,17 +76,17 @@ namespace itk{
             //m_maxDist=sqrt(m_maxDist);
         }
         virtual void setFullRegularization(bool b){ m_fullRegPairwise = b; }
-        virtual inline double getPotential(PointType pt1, PointType pt2,LabelType displacement1, LabelType displacement2){
-            assert(m_haveLabelMap);
+        virtual inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
+            assert(m_haveDisplacementMap);
             double result=0;
             IndexType targetIndex1, targetIndex2;
             //LOGV(50)<<VAR(targetIndex1)<<endl;            
-            m_baseLabelMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
+            m_baseDisplacementMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
             //LOGV(50)<<VAR(targetIndex1)<<endl;            
-            m_baseLabelMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
-            //LOG<<VAR(targetIndex1)<<" "<<m_baseLabelMap->GetLargestPossibleRegion().GetSize()<<endl;
-			LabelType oldl1=m_baseLabelMap->GetPixel((targetIndex1));
-			LabelType oldl2=m_baseLabelMap->GetPixel((targetIndex2));
+            m_baseDisplacementMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
+            //LOG<<VAR(targetIndex1)<<" "<<m_baseDisplacementMap->GetLargestPossibleRegion().GetSize()<<endl;
+			DisplacementType oldl1=m_baseDisplacementMap->GetPixel((targetIndex1));
+			DisplacementType oldl2=m_baseDisplacementMap->GetPixel((targetIndex2));
 			double d1,d2;
 			//double delta;
             //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
@@ -97,7 +97,7 @@ namespace itk{
             }
 #if 1
             
-            LabelType diff=displacement1-displacement2;
+            DisplacementType diff=displacement1-displacement2;
             //result=diff.GetSquaredNorm();
             result=diff.GetNorm();
           
@@ -128,21 +128,21 @@ namespace itk{
             return (result);
         }
             
-        virtual inline double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
+        virtual inline double getPotential(IndexType targetIndex1, IndexType targetIndex2,DisplacementType displacement1, DisplacementType displacement2){
             LOG<<"DEPRECATED, do not call!"<<endl;
             exit(0);
-            assert(m_haveLabelMap);
+            assert(m_haveDisplacementMap);
             double result=0;
             PointType pt1,pt2;
             LOGV(50)<<VAR(targetIndex1)<<endl;            
             //m_coarseGraphImage->TransformIndexToPhysicalPoint(targetIndex1,pt1);
-            m_baseLabelMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
+            m_baseDisplacementMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
             LOGV(50)<<VAR(targetIndex1)<<endl;            
             //m_coarseGraphImage->TransformIndexToPhysicalPoint(targetIndex2,pt2);
-            m_baseLabelMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
-            //LOG<<VAR(targetIndex1)<<" "<<m_baseLabelMap->GetLargestPossibleRegion().GetSize()<<endl;
-			LabelType oldl1=m_baseLabelMap->GetPixel((targetIndex1));
-			LabelType oldl2=m_baseLabelMap->GetPixel((targetIndex2));
+            m_baseDisplacementMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
+            //LOG<<VAR(targetIndex1)<<" "<<m_baseDisplacementMap->GetLargestPossibleRegion().GetSize()<<endl;
+			DisplacementType oldl1=m_baseDisplacementMap->GetPixel((targetIndex1));
+			DisplacementType oldl2=m_baseDisplacementMap->GetPixel((targetIndex2));
 			double d1,d2;
 			double delta;
             LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
@@ -171,8 +171,8 @@ namespace itk{
             return result;
         }
     };//class
-    template<class TLabelMapper,class TImage>
-    class PairwisePotentialRegistrationSigmoid : public PairwisePotentialRegistration<TLabelMapper,TImage>{
+    template<class TImage>
+    class PairwisePotentialRegistrationSigmoid : public PairwisePotentialRegistration<TImage>{
     public:
         //itk declarations
         typedef PairwisePotentialRegistrationSigmoid            Self;
@@ -183,15 +183,14 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         static const unsigned int D=ImageType::ImageDimension;
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
   
         
     public:
@@ -202,13 +201,13 @@ namespace itk{
 
    
         
-        virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement1, LabelType displacement2){
-            assert(this->m_haveLabelMap);
+        virtual double getPotential(IndexType targetIndex1, IndexType targetIndex2,DisplacementType displacement1, DisplacementType displacement2){
+            assert(this->m_haveDisplacementMap);
             double result=0;
             
 
-			LabelType oldl1=this->m_baseLabelMap->GetPixel((targetIndex1));
-			LabelType oldl2=this->m_baseLabelMap->GetPixel((targetIndex2));
+			DisplacementType oldl1=this->m_baseDisplacementMap->GetPixel((targetIndex1));
+			DisplacementType oldl2=this->m_baseDisplacementMap->GetPixel((targetIndex2));
 			double d1,d2;
 			double delta;
 			displacement1+=oldl1;
@@ -229,8 +228,8 @@ namespace itk{
             return 1.0/(1+exp(-result));
         }
     };//class
- template<class TLabelMapper,class TImage>
-    class PairwisePotentialRegistrationL1 : public PairwisePotentialRegistration<TLabelMapper,TImage>{
+ template<class TImage>
+    class PairwisePotentialRegistrationL1 : public PairwisePotentialRegistration<TImage>{
     public:
         //itk declarations
         typedef PairwisePotentialRegistrationL1            Self;
@@ -241,8 +240,7 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         static const unsigned int D=ImageType::ImageDimension;
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::PointType PointType;
         typedef typename ImageType::SizeType SizeType;
@@ -250,7 +248,7 @@ namespace itk{
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
   
         
     public:
@@ -261,17 +259,17 @@ namespace itk{
 
    
         
-     virtual inline double getPotential(PointType pt1, PointType pt2,LabelType displacement1, LabelType displacement2){
+     virtual inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
 
             double result=0;
             IndexType targetIndex1, targetIndex2;
             //LOGV(50)<<VAR(targetIndex1)<<endl;            
-            this->m_baseLabelMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
+            this->m_baseDisplacementMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
             //LOGV(50)<<VAR(targetIndex1)<<endl;            
-            this->m_baseLabelMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
-            //LOG<<VAR(targetIndex1)<<" "<<this->m_baseLabelMap->GetLargestPossibleRegion().GetSize()<<endl;
-			LabelType oldl1=this->m_baseLabelMap->GetPixel((targetIndex1));
-			LabelType oldl2=this->m_baseLabelMap->GetPixel((targetIndex2));
+            this->m_baseDisplacementMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
+            //LOG<<VAR(targetIndex1)<<" "<<this->m_baseDisplacementMap->GetLargestPossibleRegion().GetSize()<<endl;
+			DisplacementType oldl1=this->m_baseDisplacementMap->GetPixel((targetIndex1));
+			DisplacementType oldl2=this->m_baseDisplacementMap->GetPixel((targetIndex2));
 			double d1,d2;
 			//double delta;
             //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
@@ -281,7 +279,7 @@ namespace itk{
                 displacement2+=oldl2;
             }
             
-            LabelType diff=displacement1-displacement2;
+            DisplacementType diff=displacement1-displacement2;
 
             result=0.0;
             for (unsigned int d=0;d<D;++d){
@@ -295,8 +293,8 @@ namespace itk{
         }
     };//class
 
-    template<class TLabelMapper,class TImage>
-    class PairwisePotentialRegistrationACP : public PairwisePotentialRegistration<TLabelMapper,TImage>{
+    template<class TImage>
+    class PairwisePotentialRegistrationACP : public PairwisePotentialRegistration<TImage>{
     public:
         //itk declarations
         typedef PairwisePotentialRegistrationACP            Self;
@@ -307,8 +305,8 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         static const unsigned int D=ImageType::ImageDimension;
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::PointType PointType;
         typedef typename ImageType::SizeType SizeType;
@@ -316,7 +314,7 @@ namespace itk{
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
   
         
     public:
@@ -327,14 +325,14 @@ namespace itk{
 
    
         
-        virtual inline double getPotential(PointType pt1, PointType pt2,LabelType displacement1, LabelType displacement2){
-            assert(this->m_haveLabelMap);
+        virtual inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
+            assert(this->m_haveDisplacementMap);
             double leftCost=0, rightCost=0;
             double controlPointDistance=0.0;
             double delta;
             IndexType targetIndex1, targetIndex2;
-            this->m_baseLabelMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
-            this->m_baseLabelMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
+            this->m_baseDisplacementMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
+            this->m_baseDisplacementMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
             
             //get neighboring axis, and make sure Index1<index2
             IndexType rightNeighbor=targetIndex2, leftNeighbor=targetIndex1;
@@ -374,16 +372,16 @@ namespace itk{
                 LOG<<targetIndex1<<" "<<targetIndex2<<" "<<this->m_gridSpacing<<" "<<this->m_targetSize<<endl;
             }
 
-            LabelType oldl1=this->m_baseLabelMap->GetPixel((targetIndex1));
-			LabelType oldl2=this->m_baseLabelMap->GetPixel((targetIndex2));
-            LabelType leftDisp, rightDisp;
+            DisplacementType oldl1=this->m_baseDisplacementMap->GetPixel((targetIndex1));
+			DisplacementType oldl2=this->m_baseDisplacementMap->GetPixel((targetIndex2));
+            DisplacementType leftDisp, rightDisp;
             if (rightNeighb){
-                rightDisp=this->m_baseLabelMap->GetPixel(rightNeighbor);
+                rightDisp=this->m_baseDisplacementMap->GetPixel(rightNeighbor);
             }
             if (rightNeighb){
-                leftDisp=this->m_baseLabelMap->GetPixel(leftNeighbor);
+                leftDisp=this->m_baseDisplacementMap->GetPixel(leftNeighbor);
             }
-            itk::Vector<LabelType,D> neighborLabels;
+            itk::Vector<DisplacementType,D> neighborDisplacements;
 			double d1,d2,d0,d3;
 			displacement1+=oldl1;
 			displacement2+=oldl2;

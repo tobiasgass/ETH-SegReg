@@ -77,11 +77,11 @@ int main(int argc, char ** argv)
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationSSD< ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     
-    typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
+    typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
     typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
@@ -91,20 +91,33 @@ int main(int argc, char ** argv)
     // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
     // //typedef FastRegistrationGraphModel<
     // //    typedef SortedSubsamplingGraphModel<
+    
     typedef FastGraphModel<
         ImageType,
-        RegistrationUnaryPotentialType,
-        RegistrationPairwisePotentialType,
-        SegmentationUnaryPotentialType,
-        SegmentationPairwisePotentialType,
-        CoherencePairwisePotentialType,
         LabelMapperType>        GraphType;
     
     typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
     //create filter
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(&filterConfig);
-    logSetStage("IO");
+    
+    logSetStage("Instantiate Potentials");
+    
+
+    RegistrationUnaryPotentialType::Pointer unaryRegistrationPot=RegistrationUnaryPotentialType::New();
+    SegmentationUnaryPotentialType::Pointer unarySegmentationPot=SegmentationUnaryPotentialType::New();
+    RegistrationPairwisePotentialType::Pointer pairwiseRegistrationPot=RegistrationPairwisePotentialType::New();
+    SegmentationPairwisePotentialType::Pointer pairwiseSegmentationPot=SegmentationPairwisePotentialType::New();
+    CoherencePairwisePotentialType::Pointer pairwiseCoherencePot=CoherencePairwisePotentialType::New();
+
+    filter->setUnaryRegistrationPotentialFunction(static_cast<typename FastUnaryPotentialRegistrationNCC<ImageType>::Pointer>(unaryRegistrationPot));
+    filter->setPairwiseRegistrationPotentialFunction(static_cast<typename PairwisePotentialRegistration<ImageType>::Pointer>(pairwiseRegistrationPot));
+    filter->setUnarySegmentationPotentialFunction(static_cast<typename UnaryPotentialSegmentation<ImageType>::Pointer>(unarySegmentationPot));
+    filter->setPairwiseCoherencePotentialFunction(static_cast<typename PairwisePotentialCoherence<ImageType>::Pointer>(pairwiseCoherencePot));
+    filter->setPairwiseSegmentationPotentialFunction(static_cast<typename PairwisePotentialSegmentation<ImageType>::Pointer>(pairwiseSegmentationPot));
+    
+
+    logUpdateStage("IO");
     logSetVerbosity(filterConfig.verbose);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);

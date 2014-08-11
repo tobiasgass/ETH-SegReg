@@ -34,11 +34,6 @@ template<class TImage,
          class TPairwiseSegmentationRegistrationFunction,
          class TLabelMapper>
 class ITKGraphModel: public  GraphModel<TImage,
-                                        TUnaryRegistrationFunction,
-                                        TPairwiseRegistrationFunction,
-                                        TUnarySegmentationFunction, 
-                                        TPairwiseSegmentationFunction,
-                                        TPairwiseSegmentationRegistrationFunction,
                                         TLabelMapper>
 {
 public:
@@ -48,11 +43,6 @@ public:
 	typedef typename TImage::OffsetType OffsetType;
 	typedef typename TImage::PointType PointType;
    typedef GraphModel<TImage,
-                           TUnaryRegistrationFunction,
-                           TPairwiseRegistrationFunction,
-                           TUnarySegmentationFunction, 
-                           TPairwiseSegmentationFunction,
-                           TPairwiseSegmentationRegistrationFunction,
                            TLabelMapper> Superclass;
 	typedef typename TImage::SizeType SizeType;
 	typedef  TImage ImageType;

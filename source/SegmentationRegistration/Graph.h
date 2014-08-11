@@ -16,6 +16,12 @@
 #include "SRSConfig.h"
 #include "Log.h"
 #include "TransformationUtils.h"
+#include "Potential-Registration-Unary.h"
+#include "Potential-Registration-Pairwise.h"
+#include "Potential-Segmentation-Unary.h"
+#include "Potential-Segmentation-Pairwise.h"
+#include "Potential-Coherence-Pairwise.h"
+
 using namespace std;
 /*
  * Isotropic Graph
@@ -23,11 +29,6 @@ using namespace std;
  */
 namespace itk{
     template<class TImage, 
-             class TUnaryRegistrationFunction, 
-             class TPairwiseRegistrationFunction, 
-             class TUnarySegmentationFunction, 
-             class TPairwiseSegmentationFunction,
-             class TPairwiseCoherenceFunction,
              class TLabelMapper>
     class GraphModel: public itk::Object{
     public:
@@ -49,15 +50,17 @@ namespace itk{
 
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ConstImageNeighborhoodIteratorType;
 
-        typedef TUnaryRegistrationFunction UnaryRegistrationFunctionType;
+        //typedef TUnaryRegistrationFunction UnaryRegistrationFunctionType;
+        typedef FastUnaryPotentialRegistrationNCC<TImage> UnaryRegistrationFunctionType;
         typedef typename UnaryRegistrationFunctionType::Pointer UnaryRegistrationFunctionPointerType;
-        typedef TPairwiseRegistrationFunction PairwiseRegistrationFunctionType;
+        
+        typedef PairwisePotentialRegistration<TImage> PairwiseRegistrationFunctionType;
         typedef typename PairwiseRegistrationFunctionType::Pointer PairwiseRegistrationFunctionPointerType;
-        typedef TUnarySegmentationFunction UnarySegmentationFunctionType;
+        typedef UnaryPotentialSegmentation<TImage> UnarySegmentationFunctionType;
         typedef typename UnarySegmentationFunctionType::Pointer UnarySegmentationFunctionPointerType;
-        typedef TPairwiseSegmentationFunction PairwiseSegmentationFunctionType;
+        typedef PairwisePotentialSegmentation<TImage> PairwiseSegmentationFunctionType;
         typedef typename PairwiseSegmentationFunctionType::Pointer PairwiseSegmentationFunctionPointerType;
-        typedef TPairwiseCoherenceFunction PairwiseCoherenceFunctionType;
+        typedef PairwisePotentialCoherence<TImage> PairwiseCoherenceFunctionType;
         typedef typename PairwiseCoherenceFunctionType::Pointer PairwiseCoherenceFunctionPointerType;
     
         typedef TLabelMapper LabelMapperType;
@@ -828,13 +831,8 @@ namespace itk{
     }; //GraphModel
 
     template<class TImage, 
-             class TUnaryRegistrationFunction, 
-             class TPairwiseRegistrationFunction, 
-             class TUnarySegmentationFunction, 
-             class TPairwiseSegmentationFunction,
-             class TPairwiseCoherenceFunction,
              class TLabelMapper>
-    class FastGraphModel: public GraphModel<TImage,TUnaryRegistrationFunction,TPairwiseRegistrationFunction,TUnarySegmentationFunction,TPairwiseSegmentationFunction,TPairwiseCoherenceFunction,TLabelMapper>
+    class FastGraphModel: public GraphModel<TImage,TLabelMapper>
     {
     public:
         typedef FastGraphModel Self;
@@ -852,8 +850,6 @@ namespace itk{
         typedef typename TImage::SpacingType SpacingType;
         typedef typename TImage::Pointer ImagePointerType;
         typedef typename TImage::ConstPointer ConstImagePointerType;
-        typedef TUnaryRegistrationFunction UnaryRegistrationFunctionType;
-        typedef typename UnaryRegistrationFunctionType::Pointer UnaryRegistrationFunctionPointerType;
         typedef TLabelMapper LabelMapperType;
         typedef typename LabelMapperType::LabelType RegistrationLabelType;
     public:

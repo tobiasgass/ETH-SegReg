@@ -37,11 +37,6 @@ namespace itk{
              class TLabelMapper>
     class FastRegistrationGraphModel: 
         public GraphModel<TImage,
-                          TUnaryRegistrationFunction,
-                          TPairwiseRegistrationFunction,
-                          TUnarySegmentationFunction, 
-                          TPairwiseSegmentationFunction,
-                          TPairwiseSegmentationRegistrationFunction,
                           TLabelMapper>
     {
     public:
@@ -49,11 +44,7 @@ namespace itk{
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef GraphModel<TImage,
-                           TUnaryRegistrationFunction,
-                           TPairwiseRegistrationFunction,
-                           TUnarySegmentationFunction, 
-                           TPairwiseSegmentationFunction,
-                           TPairwiseSegmentationRegistrationFunction,
+      
                            TLabelMapper> Superclass;
         itkNewMacro(Self);
 

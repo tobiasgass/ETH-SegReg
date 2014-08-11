@@ -32,10 +32,10 @@
 #include <iostream>
 #include <fstream>
 #include "itkPointsLocator.h"
-
+#include "itkSignedMaurerDistanceMapImageFilter.h"
 namespace itk{
 
-    template<class TLabelMapper,class TImage>
+    template<class TImage>
     class UnaryPotentialRegistrationNCC : public itk::Object{
     public:
         //itk declarations
@@ -48,8 +48,8 @@ namespace itk{
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         typedef typename ImageType::PointType PointType;
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
@@ -57,8 +57,8 @@ namespace itk{
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
-        typedef typename LabelMapperType::LabelImageType LabelImageType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
 
@@ -67,8 +67,8 @@ namespace itk{
         ConstImagePointerType m_targetImage, m_atlasImage;
         ConstImagePointerType m_scaledTargetImage, m_scaledAtlasImage,m_atlasMaskImage,m_scaledAtlasMaskImage;
         InterpolatorPointerType m_atlasInterpolator;
-        LabelImagePointerType m_baseLabelMap;
-        bool m_haveLabelMap;
+        DisplacementImagePointerType m_baseDisplacementMap;
+        bool m_haveDisplacementMap;
         bool radiusSet;
         RadiusType m_radius, m_scaledRadius;
         SpacingType m_coarseImageSpacing;
@@ -88,7 +88,7 @@ namespace itk{
         itkTypeMacro(RegistrationUnaryPotentialNCC, Object);
 
         UnaryPotentialRegistrationNCC(){
-            m_haveLabelMap=false;
+            m_haveDisplacementMap=false;
             radiusSet=false;
             m_targetImage=NULL;
             m_atlasImage=NULL;
@@ -109,7 +109,7 @@ namespace itk{
         void SetAlpha(double alpha){m_alpha=alpha;}
 
         virtual void Compute(){}
-        virtual void setDisplacements(std::vector<LabelType> displacements){}
+        virtual void setDisplacements(std::vector<DisplacementType> displacements){}
         virtual void setCoarseImage(ImagePointerType img){}
         virtual void setThreshold(double t){m_threshold=t;}
         virtual void setLogPotential(bool b){LOGPOTENTIAL=b;}
@@ -159,13 +159,13 @@ namespace itk{
             radiusSet=true;
         }
         
-        void SetBaseLabelMap(LabelImagePointerType blm, double scale=1.0){
-            m_baseLabelMap=blm;m_haveLabelMap=true;
+        void SetBaseDisplacementMap(DisplacementImagePointerType blm, double scale=1.0){
+            m_baseDisplacementMap=blm;m_haveDisplacementMap=true;
             if (blm->GetLargestPossibleRegion().GetSize()!=m_scaledTargetImage->GetLargestPossibleRegion().GetSize()){
-                m_baseLabelMap=TransfUtils<ImageType>::bSplineInterpolateDeformationField(blm,m_scaledTargetImage);
+                m_baseDisplacementMap=TransfUtils<ImageType>::bSplineInterpolateDeformationField(blm,m_scaledTargetImage);
             }
         }
-        LabelImagePointerType GetBaseLabelMap(LabelImagePointerType blm){return m_baseLabelMap;}
+        DisplacementImagePointerType GetBaseDisplacementMap(DisplacementImagePointerType blm){return m_baseDisplacementMap;}
         virtual void SetAtlasImage(ImagePointerType atlasImage){
             SetAtlasImage(ConstImagePointerType(atlasImage));
         }
@@ -218,7 +218,7 @@ namespace itk{
         ConstImagePointerType GetAtlasImage(){
             return m_scaledAtlasImage;
         }
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
+        virtual double getPotential(IndexType targetIndex, DisplacementType disp){
             double result=0;
             IndexType idx1=targetIndex;
             PointType pos;
@@ -243,12 +243,12 @@ namespace itk{
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*m_scale;
+                    idx2+=disp+this->m_baseDisplacementMap->GetPixel(neighborIndex)*m_scale;
 #else
                           
                     PointType p;
                     m_scaledTargetImage->TransformIndexToPhysicalPoint(neighborIndex,p);
-                    p +=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
+                    p +=disp+this->m_baseDisplacementMap->GetPixel(neighborIndex);
                     ContinuousIndexType idx2;
                     m_scaledAtlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
                     
@@ -335,7 +335,7 @@ namespace itk{
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-                    idx2+=this->m_baseLabelMap->GetPixel(neighborIndex)*m_scale;
+                    idx2+=this->m_baseDisplacementMap->GetPixel(neighborIndex)*m_scale;
                     if (this->m_atlasInterpolator->IsInsideBuffer(idx2)){
                         count+=1;
                     }
@@ -359,21 +359,21 @@ namespace itk{
  
  
 
-    template<class TLabelMapper,class TImage>
-    class FastUnaryPotentialRegistrationNCC: public UnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
+    template<class TImage>
+    class FastUnaryPotentialRegistrationNCC: public UnaryPotentialRegistrationNCC<TImage> {
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationNCC            Self;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
-        typedef UnaryPotentialRegistrationNCC<TLabelMapper,TImage> Superclass;
+        typedef UnaryPotentialRegistrationNCC<TImage> Superclass;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         static const int D=ImageType::ImageDimension;
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::PointType PointType;
         typedef typename ImageType::PixelType PixelType;
@@ -384,8 +384,9 @@ namespace itk{
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
-        typedef typename LabelMapperType::LabelImageType LabelImageType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+
+        typedef typename TransfUtils<ImageType>::DeformationFieldType DisplacementImageType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         //typedef typename itk::ConstNeighborhoodIterator<ImageType,itk::ConstantBoundaryCondition<TImage,TImage> > ImageNeighborhoodIteratorType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
@@ -409,9 +410,9 @@ namespace itk{
 
     protected:
         ImageNeighborhoodIteratorType m_atlasNeighborhoodIterator,m_maskNeighborhoodIterator;
-        std::vector<LabelType> m_displacements;
+        std::vector<DisplacementType> m_displacements;
         std::vector<FloatImagePointerType> m_potentials;
-        LabelType m_currentActiveDisplacement;
+        DisplacementType m_currentActiveDisplacement;
         FloatImagePointerType m_currentCachedPotentials;
         ImagePointerType m_coarseImage,m_deformedAtlasImage,m_deformedMask;
         double m_averageFixedPotential,m_oldAveragePotential;
@@ -475,9 +476,9 @@ namespace itk{
             for (unsigned int n=0;n<m_displacements.size();++n){
                 LOGV(9)<<"cachhing unary registrationpotentials for label " <<n<<endl;
                 FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(m_coarseImage);
-                LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
+                DisplacementImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseDisplacementMap);
                 translation->FillBuffer( m_displacements[n]);
-                LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
+                DisplacementImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseDisplacementMap);
                 ImagePointerType deformedAtlas,deformedMask;
                 pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
                 deformedAtlas=result.first;
@@ -513,25 +514,25 @@ namespace itk{
         //#define LOCALSIMS
         virtual void initCaching(){
 #ifdef PREDEF
-            m_deformedAtlasImage=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,this->m_baseLabelMap);
+            m_deformedAtlasImage=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,this->m_baseDisplacementMap);
             if (this->m_scaledAtlasMaskImage.IsNotNull()){
-                m_deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseLabelMap);
+                m_deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseDisplacementMap);
             }else{
                 ImagePointerType mask=ImageUtils<ImageType>::createEmpty(this->m_scaledAtlasImage);
                 mask->FillBuffer(1);
-                m_deformedMask=TransfUtils<ImageType>::warpImage(mask,this->m_baseLabelMap);
+                m_deformedMask=TransfUtils<ImageType>::warpImage(mask,this->m_baseDisplacementMap);
             }
 #endif
         }
 
-        void cachePotentials(LabelType displacement){
+        void cachePotentials(DisplacementType displacement){
             LOGV(15)<<"Caching registration unary potential for displacement "<<displacement<<endl;
             PointsLocatorPointerType pointsLocator = PointsLocatorType::New();
             if (m_targetLandmarks.IsNotNull()){
                 pointsLocator->SetPoints( m_targetLandmarks );
                 pointsLocator->Initialize();
             }
-            LabelType zeroDisp;
+            DisplacementType zeroDisp;
             zeroDisp.Fill(0.0);
             //compute average potential for zero displacement.
             bool computeAverage=(displacement == zeroDisp);
@@ -542,19 +543,19 @@ namespace itk{
             ImagePointerType deformedAtlas,deformedMask;
 
 #ifndef PREDEF
-            LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
+            DisplacementImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseDisplacementMap);
             translation->FillBuffer( displacement);
-            TIME(LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap));
+            TIME(DisplacementImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseDisplacementMap));
 
 
-            typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
-            typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
-            LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();
+            typedef typename itk::VectorLinearInterpolateImageFunction<DisplacementImageType, double> DisplacementInterpolatorType;
+            typedef typename DisplacementInterpolatorType::Pointer DisplacementInterpolatorPointerType;
+            DisplacementInterpolatorPointerType labelInterpolator=DisplacementInterpolatorType::New();
             labelInterpolator->SetInputImage(composedDeformation);
 
             if (this->m_scaledAtlasMaskImage.IsNotNull()){
                 deformedAtlas=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,composedDeformation);
-                deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseLabelMap,true);
+                deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseDisplacementMap,true);
                 //deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,composedDeformation,true);
             }else{
                 pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
@@ -564,10 +565,10 @@ namespace itk{
             ImageUtils<ImageType>::writeImage("mask.nii",deformedMask);
             ImageUtils<ImageType>::writeImage("deformed.nii",deformedAtlas);
 #else
-            typedef typename itk::VectorLinearInterpolateImageFunction<LabelImageType, double> LabelInterpolatorType;
-            typedef typename LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
-            LabelInterpolatorPointerType labelInterpolator=LabelInterpolatorType::New();
-            labelInterpolator->SetInputImage(this->m_baseLabelMap);
+            typedef typename itk::VectorLinearInterpolateImageFunction<DisplacementImageType, double> DisplacementInterpolatorType;
+            typedef typename DisplacementInterpolatorType::Pointer DisplacementInterpolatorPointerType;
+            DisplacementInterpolatorPointerType labelInterpolator=DisplacementInterpolatorType::New();
+            labelInterpolator->SetInputImage(this->m_baseDisplacementMap);
             TIME(deformedAtlas=TransfUtils<ImageType>::translateImage(this->m_deformedAtlasImage,displacement));
             TIME(deformedMask=TransfUtils<ImageType>::translateImage(this->m_deformedMask,displacement,true));
             ImageUtils<ImageType>::writeImage("mask.nii",deformedMask);
@@ -656,7 +657,7 @@ namespace itk{
                                 w=exp(- (targetPoint-point).GetNorm()/radius);
 #endif
                                 //get displacement at targetPoint
-                                LabelType displacement=labelInterpolator->Evaluate(targetPoint);
+                                DisplacementType displacement=labelInterpolator->Evaluate(targetPoint);
                                 //get error
                                 double error=(targetPoint+displacement-atlasPoint).GetNorm();
                                 localPot+=(this->m_alpha)*w*5.0*(error);
@@ -698,21 +699,21 @@ namespace itk{
            
         }
 
-        void setDisplacements(std::vector<LabelType> displacements){
+        void setDisplacements(std::vector<DisplacementType> displacements){
             m_displacements=displacements;
         }
         void setCoarseImage(ImagePointerType img){m_coarseImage=img;}
 
-        virtual double getPotential(IndexType coarseIndex, unsigned int displacementLabel){
+        virtual double getPotential(IndexType coarseIndex, unsigned int displacementDisplacement){
             //LOG<<"DEPRECATED BEHAVIOUR!"<<endl;
-            return m_potentials[displacementLabel]->GetPixel(coarseIndex);
+            return m_potentials[displacementDisplacement]->GetPixel(coarseIndex);
         }
         virtual double getPotential(IndexType coarseIndex){
             //LOG<<"NEW BEHAVIOUR!"<<endl;
             LOGV(90)<<" "<<VAR(m_currentCachedPotentials->GetLargestPossibleRegion().GetSize())<<endl;
             return  m_normalizationFactor*m_currentCachedPotentials->GetPixel(coarseIndex);
         }
-        virtual double getPotential(IndexType coarseIndex, LabelType l){
+        virtual double getPotential(IndexType coarseIndex, DisplacementType l){
             LOG<<"ERROR NEVER CALL THIS"<<endl;
             exit(0);
         }
@@ -781,8 +782,8 @@ namespace itk{
         }
     };//FastUnaryPotentialRegistrationNCC
   
-    template<class TLabelMapper,class TImage>
-    class FastUnaryPotentialRegistrationSAD: public FastUnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
+    template<class TImage>
+    class FastUnaryPotentialRegistrationSAD: public FastUnaryPotentialRegistrationNCC<TImage> {
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationSAD            Self;
@@ -793,8 +794,7 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::PointType PointType;
 
@@ -804,8 +804,7 @@ namespace itk{
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
-        typedef typename LabelMapperType::LabelImageType LabelImageType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
         
@@ -872,8 +871,8 @@ namespace itk{
             return result*insideCount/this->nIt.Size();
         }
     };//FastUnaryPotentialRegistrationSAD
-    template<class TLabelMapper,class TImage>
-    class FastUnaryPotentialRegistrationSSD: public FastUnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
+    template<class TImage>
+    class FastUnaryPotentialRegistrationSSD: public FastUnaryPotentialRegistrationNCC<TImage> {
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationSSD            Self;
@@ -884,8 +883,8 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::PointType PointType;
 
@@ -895,8 +894,8 @@ namespace itk{
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
-        typedef typename LabelMapperType::LabelImageType LabelImageType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
         
@@ -961,20 +960,20 @@ namespace itk{
 
 
 #define NMI
-    template<class TLabelMapper,class TImage>
-    class FastUnaryPotentialRegistrationNMI: public UnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
+    template<class TImage>
+    class FastUnaryPotentialRegistrationNMI: public UnaryPotentialRegistrationNCC<TImage> {
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationNMI            Self;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
-        typedef UnaryPotentialRegistrationNCC<TLabelMapper,TImage> Superclass;
+        typedef UnaryPotentialRegistrationNCC<TImage> Superclass;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::PointType PointType;
         typedef typename ImageType::PixelType PixelType;
@@ -987,8 +986,8 @@ namespace itk{
         typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
 
         
-        typedef typename LabelMapperType::LabelImageType LabelImageType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
         
@@ -1019,7 +1018,7 @@ namespace itk{
 #endif
     protected:
         ImageNeighborhoodIteratorType m_atlasNeighborhoodIterator,m_maskNeighborhoodIterator;
-        std::vector<LabelType> m_displacements;
+        std::vector<DisplacementType> m_displacements;
         std::vector<FloatImagePointerType> m_potentials;
         ImagePointerType m_coarseImage;
         typename NMIMetricType::Pointer m_metric;
@@ -1046,9 +1045,9 @@ namespace itk{
             for (unsigned int n=0;n<m_displacements.size();++n){
                 LOGV(9)<<"cachhing unary registrationpotentials for label " <<n<<endl;
                 FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(m_coarseImage);
-                LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
+                DisplacementImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseDisplacementMap);
                 translation->FillBuffer( m_displacements[n]);
-                LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
+                DisplacementImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseDisplacementMap);
                 ImagePointerType deformedAtlas,deformedMask;
                 pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation);
                 deformedAtlas=result.first;
@@ -1112,15 +1111,15 @@ namespace itk{
             return entropyX;
         }
 #endif
-        void setDisplacements(std::vector<LabelType> displacements){
+        void setDisplacements(std::vector<DisplacementType> displacements){
             m_displacements=displacements;
         }
         void setCoarseImage(ImagePointerType img){m_coarseImage=img;}
 
-        virtual double getPotential(IndexType coarseIndex, unsigned int displacementLabel){
-            return m_potentials[displacementLabel]->GetPixel(coarseIndex);
+        virtual double getPotential(IndexType coarseIndex, unsigned int displacementDisplacement){
+            return m_potentials[displacementDisplacement]->GetPixel(coarseIndex);
         }
-        virtual double getPotential(IndexType coarseIndex, LabelType l){
+        virtual double getPotential(IndexType coarseIndex, DisplacementType l){
             LOG<<"ERROR NEVER CALL THIS"<<endl;
             exit(0);
         }
@@ -1430,21 +1429,21 @@ namespace itk{
 
 
     
-    template<class TLabelMapper,class TImage>
-    class FastUnaryPotentialRegistrationCategorical: public FastUnaryPotentialRegistrationNCC<TLabelMapper,TImage> {
+    template<class TImage>
+    class FastUnaryPotentialRegistrationCategorical: public FastUnaryPotentialRegistrationNCC<TImage> {
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationCategorical            Self;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
-        typedef FastUnaryPotentialRegistrationNCC<TLabelMapper,TImage> Superclass;
+        typedef FastUnaryPotentialRegistrationNCC<TImage> Superclass;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
         static const int D=ImageType::ImageDimension;
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::PointType PointType;
 
@@ -1454,8 +1453,8 @@ namespace itk{
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
-        typedef typename LabelMapperType::LabelImageType LabelImageType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         //typedef typename itk::ConstNeighborhoodIterator<ImageType,itk::ConstantBoundaryCondition<TImage,TImage> > ImageNeighborhoodIteratorType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType > ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
@@ -1483,9 +1482,9 @@ namespace itk{
             for (unsigned int n=0;n<this->m_displacements.size();++n){
                 LOGV(9)<<"cachhing unary registrationpotentials for label " <<n<<endl;
                 FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(this->m_coarseImage);
-                LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
+                DisplacementImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseDisplacementMap);
                 translation->FillBuffer( this->m_displacements[n]);
-                LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
+                DisplacementImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseDisplacementMap);
                 ImagePointerType deformedAtlas,deformedMask;
                 //todo: NNinterpolation
                 pair<ImagePointerType,ImagePointerType> result=TransfUtils<ImageType>::warpImageWithMask(this->m_scaledAtlasImage,composedDeformation,true);
@@ -1518,25 +1517,25 @@ namespace itk{
             this->m_normalizationFactor=1.0;
         }
 
-        void cachePotentials(LabelType displacement){
+        void cachePotentials(DisplacementType displacement){
             LOGV(15)<<"Caching registration unary potential for displacement "<<displacement<<endl;
 
-            LabelType zeroDisp;
+            DisplacementType zeroDisp;
             zeroDisp.Fill(0.0);
             //compute average potential for zero displacement.
             bool computeAverage=(displacement == zeroDisp);
             this->m_averageFixedPotential=computeAverage?0.0:this->m_averageFixedPotential;
 
             FloatImagePointerType pot=FilterUtils<ImageType,FloatImageType>::createEmpty(this->m_coarseImage);
-            LabelImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseLabelMap);
+            DisplacementImagePointerType translation=TransfUtils<ImageType>::createEmpty(this->m_baseDisplacementMap);
             translation->FillBuffer( displacement);
-            LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseLabelMap);
-            //LabelImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(this->m_baseLabelMap,translation);
+            DisplacementImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(translation,this->m_baseDisplacementMap);
+            //DisplacementImagePointerType composedDeformation=TransfUtils<ImageType>::composeDeformations(this->m_baseDisplacementMap,translation);
             ImagePointerType deformedAtlas,deformedMask;
 
             if (this->m_scaledAtlasMaskImage.IsNotNull()){
                 deformedAtlas=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,composedDeformation,true);
-                deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseLabelMap,true);
+                deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseDisplacementMap,true);
                 //deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,composedDeformation,true);
             }else{
                 //todo NN interpolation
@@ -1683,8 +1682,8 @@ namespace itk{
     };//FastUnaryPotentialRegistrationCategorical
   
 
-    template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationSAD : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    template<class TImage>
+    class UnaryPotentialRegistrationSAD : public UnaryPotentialRegistrationNCC< TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationSAD           Self;
@@ -1694,15 +1693,15 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
         typedef typename ImageType::PointType PointType;
@@ -1715,7 +1714,7 @@ namespace itk{
 
         UnaryPotentialRegistrationSAD(){}
         
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
+        virtual double getPotential(IndexType targetIndex, DisplacementType disp){
             double result=0;
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 targetIndex[d]*=this->m_scale;
@@ -1737,7 +1736,7 @@ namespace itk{
                     //double weight=1.0;
                     PointType p;
                     this->m_scaledTargetImage->TransformIndexToPhysicalPoint(neighborIndex,p);
-                    p +=disp+this->m_baseLabelMap->GetPixel(neighborIndex);
+                    p +=disp+this->m_baseDisplacementMap->GetPixel(neighborIndex);
                     ContinuousIndexType idx2;
                     this->m_scaledAtlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
                     double m;
@@ -1760,8 +1759,8 @@ namespace itk{
         }
     };//class
     
-    template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationNCCWithSegmentationPrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    template<class TImage>
+    class UnaryPotentialRegistrationNCCWithSegmentationPrior : public UnaryPotentialRegistrationNCC< TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationNCCWithSegmentationPrior           Self;
@@ -1771,8 +1770,8 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
@@ -1783,7 +1782,7 @@ namespace itk{
         typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
 
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
         typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
@@ -1818,14 +1817,14 @@ namespace itk{
         void SetAlpha(double alpha){m_alpha=alpha;}
         void SetBeta(double beta){m_beta=beta;}
         
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
+        virtual double getPotential(IndexType targetIndex, DisplacementType disp){
             double result=0;
           
-            LabelType trueDisplacement=disp;
+            DisplacementType trueDisplacement=disp;
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 targetIndex[d]*=this->m_scale;
             }
-            LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
+            DisplacementType baseDisp=this->m_baseDisplacementMap->GetPixel(targetIndex);
             //disp+=baseDisp;
             //LOG<<baseDisp<<" "<<disp<<std::endl;
             baseDisp*=this->m_scale;
@@ -1844,8 +1843,8 @@ namespace itk{
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-                    LabelType baseDisplacement=this->m_baseLabelMap->GetPixel(neighborIndex);
-                    LabelType finalDisplacement=disp+baseDisplacement*this->m_scale;
+                    DisplacementType baseDisplacement=this->m_baseDisplacementMap->GetPixel(neighborIndex);
+                    DisplacementType finalDisplacement=disp+baseDisplacement*this->m_scale;
                     
                     idx2+=finalDisplacement;
 
@@ -1882,11 +1881,11 @@ namespace itk{
                             weight*=1.0-fabs((1.0*targetIndex[d]-neighborIndex[d])/(this->m_radius[d]));
                             trueIndex[d]/=this->m_scale;
                         }
-                        int segmentationPriorLabel=(this->m_segmentationPrior->GetPixel(neighborIndex));
-                        //double penalty=weight*this->m_srsPotential->getPotential(neighborIndex,neighborIndex,disp,segmentationPriorLabel);
-                        double penalty=weight*this->m_srsPotential->getPotential(trueIndex,trueIndex,trueDisplacement+baseDisplacement,segmentationPriorLabel);
+                        int segmentationPriorDisplacement=(this->m_segmentationPrior->GetPixel(neighborIndex));
+                        //double penalty=weight*this->m_srsPotential->getPotential(neighborIndex,neighborIndex,disp,segmentationPriorDisplacement);
+                        double penalty=weight*this->m_srsPotential->getPotential(trueIndex,trueIndex,trueDisplacement+baseDisplacement,segmentationPriorDisplacement);
                         segmentationPenalty+=penalty;
-                        //LOG<<targetIndex<<" "<<neighborIndex<<" "<<weight<<" "<<segmentationPriorLabel<<" "<<penalty<<endl;
+                        //LOG<<targetIndex<<" "<<neighborIndex<<" "<<weight<<" "<<segmentationPriorDisplacement<<" "<<penalty<<endl;
                         distanceSum+=1;//weight;
                     }
                 }
@@ -1920,8 +1919,8 @@ namespace itk{
         }
 
     };//class
-    template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationNCCWithBonePrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    template<class TImage>
+    class UnaryPotentialRegistrationNCCWithBonePrior : public UnaryPotentialRegistrationNCC< TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationNCCWithBonePrior           Self;
@@ -1931,8 +1930,8 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
@@ -1943,7 +1942,7 @@ namespace itk{
         typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
 
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
     private:
@@ -1974,11 +1973,11 @@ namespace itk{
         }
         void SetAlpha(double alpha){m_alpha=alpha;}
         
-        double getSegmentationCost(int deformedSegmentationLabel, double imageIntensity, int s){
+        double getSegmentationCost(int deformedSegmentationDisplacement, double imageIntensity, int s){
             
             int segmentationProb;
             int tissue=(-500+1000)*255.0/2000;
-            if (deformedSegmentationLabel>0) {
+            if (deformedSegmentationDisplacement>0) {
                 segmentationProb = (imageIntensity < tissue) ? 1:0;
             }else{
                 segmentationProb = ( imageIntensity > (300+1000)*255.0/2000  &&s>0 ) ? 1 : 0;
@@ -2020,7 +2019,7 @@ namespace itk{
             this->m_atlasSegmentationInterpolator->SetInputImage(this->m_scaledAtlasSegmentation);
             logResetStage;
         }
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
+        virtual double getPotential(IndexType targetIndex, DisplacementType disp){
             double result=0;
             int bone=(300+1000)*255.0/2000;
             int tissue=(-500+1000)*255.0/2000;
@@ -2028,7 +2027,7 @@ namespace itk{
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 targetIndex[d]*=this->m_scale;
             }
-            //LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
+            //DisplacementType baseDisp=this->m_baseDisplacementMap->GetPixel(targetIndex);
             //LOG<<baseDisp<<" "<<disp<<std::endl;
             //baseDisp*=this->m_scale;
             disp*=this->m_scale;
@@ -2047,7 +2046,7 @@ namespace itk{
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
 
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+                    idx2+=disp+this->m_baseDisplacementMap->GetPixel(neighborIndex)*this->m_scale;
 
                     //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;
@@ -2139,8 +2138,8 @@ namespace itk{
             return result;
         }
     };//class
-    template<class TLabelMapper,class TImage>
-    class UnaryPotentialRegistrationNCCWithDistanceBonePrior : public UnaryPotentialRegistrationNCC<TLabelMapper, TImage>{
+    template<class TImage>
+    class UnaryPotentialRegistrationNCCWithDistanceBonePrior : public UnaryPotentialRegistrationNCC< TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior           Self;
@@ -2150,8 +2149,8 @@ namespace itk{
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
 
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
@@ -2162,7 +2161,7 @@ namespace itk{
         typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
 
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef typename LabelMapperType::LabelImagePointerType LabelImagePointerType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
         typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
         typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
@@ -2235,11 +2234,11 @@ namespace itk{
         }
         void SetAlpha(double alpha){m_alpha=alpha;}
         
-        double getSegmentationCost(int deformedSegmentationLabel, double imageIntensity, int s){
+        double getSegmentationCost(int deformedSegmentationDisplacement, double imageIntensity, int s){
             
             int segmentationProb;
             int tissue=(-500+1000)*255.0/2000;
-            if (deformedSegmentationLabel>0) {
+            if (deformedSegmentationDisplacement>0) {
                 segmentationProb = (imageIntensity < tissue) ? 1:0;
             }else{
                 segmentationProb = ( imageIntensity > (300+1000)*255.0/2000  &&s>0 ) ? 1 : 0;
@@ -2281,7 +2280,7 @@ namespace itk{
             this->m_atlasSegmentationInterpolator->SetInputImage(this->m_scaledAtlasSegmentation);
             logResetStage;
         }
-        virtual double getPotential(IndexType targetIndex, LabelType disp){
+        virtual double getPotential(IndexType targetIndex, DisplacementType disp){
             double result=0;
             int bone=(300+1000)*255.0/2000;
             int tissue=(-500+1000)*255.0/2000;
@@ -2289,7 +2288,7 @@ namespace itk{
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 targetIndex[d]*=this->m_scale;
             }
-            //LabelType baseDisp=this->m_baseLabelMap->GetPixel(targetIndex);
+            //DisplacementType baseDisp=this->m_baseDisplacementMap->GetPixel(targetIndex);
             //LOG<<baseDisp<<" "<<disp<<std::endl;
             //baseDisp*=this->m_scale;
             disp*=this->m_scale;
@@ -2308,7 +2307,7 @@ namespace itk{
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
 
-                    idx2+=disp+this->m_baseLabelMap->GetPixel(neighborIndex)*this->m_scale;
+                    idx2+=disp+this->m_baseDisplacementMap->GetPixel(neighborIndex)*this->m_scale;
 
                     //LOG<<targetIndex<<" "<<disp<<" "<<idx2<<" "<<endl;
                     double m;

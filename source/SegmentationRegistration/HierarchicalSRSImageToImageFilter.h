@@ -142,6 +142,12 @@ namespace itk{
             this->SetNumberOfRequiredInputs(5);
             m_useBulkTransform=false;
             m_targetSegmentationImage=NULL;
+            //instantiate potentials
+            m_unaryRegistrationPot=UnaryRegistrationPotentialType::New();
+            m_unarySegmentationPot=UnarySegmentationPotentialType::New();
+            m_pairwiseSegmentationPot=PairwiseSegmentationPotentialType::New();
+            m_pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
+            m_pairwiseCoherencePot=PairwiseCoherencePotentialType::New();
         }
         virtual double getEnergy(){return lastEnergy;}
         void setConfig(SRSConfig * c){
@@ -185,6 +191,13 @@ namespace itk{
         ImagePointerType getTargetSegmentationEstimate(){
             return m_finalSegmentation;
         }
+
+        void setUnaryRegistrationPotentialFunction(UnaryRegistrationPotentialPointerType func){m_unaryRegistrationPot=func;}
+        void setUnarySegmentationPotentialFunction(UnarySegmentationPotentialPointerType func){m_unarySegmentationPot=func;}
+        void setPairwiseRegistrationPotentialFunction(PairwiseRegistrationPotentialPointerType func){m_pairwiseRegistrationPot=func;}
+        void setPairwiseSegmentationPotentialFunction(PairwiseSegmentationPotentialPointerType func){m_pairwiseSegmentationPot=func;}
+        void setPairwiseCoherencePotentialFunction(PairwiseCoherencePotentialPointerType func){m_pairwiseCoherencePot=func;}
+
         virtual void Init(){
             logSetStage("SRS initialisation");
             bool coherence= (m_config->coherence);
@@ -215,12 +228,7 @@ namespace itk{
             m_targetGradientImage = this->GetInput(3);
             m_atlasGradientImage=this->GetInput(4);
 
-            //instantiate potentials
-            m_unaryRegistrationPot=UnaryRegistrationPotentialType::New();
-            m_unarySegmentationPot=UnarySegmentationPotentialType::New();
-            m_pairwiseSegmentationPot=PairwiseSegmentationPotentialType::New();
-            m_pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
-            m_pairwiseCoherencePot=PairwiseCoherencePotentialType::New();
+          
 
             if (regist || coherence){
                 m_unaryRegistrationPot->setThreshold(m_config->thresh_UnaryReg);
@@ -353,6 +361,14 @@ namespace itk{
             bool computeLowResolutionBsplineIfPossible=m_config->useLowResBSpline;
             LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
+            graph->setConfig(*m_config);
+             //register images and potentials
+            graph->setUnaryRegistrationFunction(m_unaryRegistrationPot);
+            graph->setPairwiseRegistrationFunction(m_pairwiseRegistrationPot);
+            graph->setUnarySegmentationFunction(m_unarySegmentationPot);
+            graph->setPairwiseCoherenceFunction(m_pairwiseCoherencePot);
+            graph->setPairwiseSegmentationFunction(m_pairwiseSegmentationPot);
+            
             int l=0;
             if (LabelMapperType::nDisplacementSamples == 0 ) l=m_config->nLevels-1;
             bool pixelGrid = false;
@@ -416,7 +432,6 @@ namespace itk{
                                                                      
                 //init graph
                 LOG<<"Initializing graph structure."<<std::endl;
-                graph->setConfig(*m_config);
                 graph->setTargetImage(m_targetImage);
                 graph->setDisplacementFactor(labelScalingFactor);
                 graph->initGraph(level);
@@ -471,19 +486,14 @@ namespace itk{
                     m_pairwiseCoherencePot->SetAsymmetryWeight(m_config->asymmetry);
                 }
 
-                //register images and potentials
-                graph->setUnaryRegistrationFunction(m_unaryRegistrationPot);
-                graph->setPairwiseRegistrationFunction(m_pairwiseRegistrationPot);
-                graph->setUnarySegmentationFunction(m_unarySegmentationPot);
-                graph->setPairwiseCoherenceFunction(m_pairwiseCoherencePot);
-                graph->setPairwiseSegmentationFunction(m_pairwiseSegmentationPot);
+               
 
 
                 if (regist && ! pixelGrid){
                     previousFullDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(previousFullDeformation, (ConstImagePointerType)graph->getCoarseGraphImage(),false);
                 }
                 if (regist){
-                    m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                    m_unaryRegistrationPot->SetBaseDisplacementMap(previousFullDeformation);
                     //
                 }
 
@@ -538,9 +548,9 @@ namespace itk{
                     //register deformation from previous iteration
                     if (regist){
 
-                        m_unaryRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        m_unaryRegistrationPot->SetBaseDisplacementMap(previousFullDeformation);
 
-                        m_pairwiseRegistrationPot->SetBaseLabelMap(previousFullDeformation);
+                        m_pairwiseRegistrationPot->SetBaseDisplacementMap(previousFullDeformation);
 
                         //when switching levels of multiresolution, compute normalization factor to equalize the effect of smaller patches in the reg unary.
                         if (! m_config->dontNormalizeRegUnaries) m_unaryRegistrationPot->setNormalize( i==0 && l>0);

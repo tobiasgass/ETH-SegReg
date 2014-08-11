@@ -38,22 +38,12 @@ namespace itk{
              class TLabelMapper>
     class SubsamplingGraphModel: 
         public GraphModel<TImage,
-                          TUnaryRegistrationFunction,
-                          TPairwiseRegistrationFunction,
-                          TUnarySegmentationFunction, 
-                          TPairwiseSegmentationFunction,
-                          TPairwiseSegmentationRegistrationFunction,
                           TLabelMapper>    {
     public:
         typedef SubsamplingGraphModel Self;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef GraphModel<TImage,
-                           TUnaryRegistrationFunction,
-                           TPairwiseRegistrationFunction,
-                           TUnarySegmentationFunction, 
-                           TPairwiseSegmentationFunction,
-                           TPairwiseSegmentationRegistrationFunction,
                            TLabelMapper> Superclass;
         itkNewMacro(Self);
 
