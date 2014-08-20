@@ -92,10 +92,16 @@ namespace itk{
         typedef typename  ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
 
 
-        typedef typename GraphModelType::LabelMapperType LabelMapperType;
-        typedef typename LabelMapperType::LabelType LabelType;
-        typedef typename LabelMapperType::LabelImageType DeformationFieldType;
+        //typedef typename GraphModelType::LabelMapperType LabelMapperType;
+        //typedef typename LabelMapperType::LabelType LabelType;
+        //typedef typename LabelMapperType::LabelImageType DeformationFieldType;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType LabelType;
+        typedef typename TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
         typedef typename DeformationFieldType::Pointer DeformationFieldPointerType;
+        typedef SparseRegistrationLabelMapper<ImageType,LabelType> SparseLabelMapperType;
+        typedef BaseLabelMapper<ImageType,LabelType> BaseLabelMapperType;
+
         typedef itk::ImageRegionIterator< DeformationFieldType>       LabelIteratorType;
         typedef VectorLinearInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
         typedef typename  LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
@@ -338,8 +344,8 @@ namespace itk{
 
             ConstImagePointerType m_inputTargetImage=m_targetImage;
             
-            LabelMapperType * labelmapper=new LabelMapperType(m_config->nSegmentations,m_config->nRegSamples[0]);
-            LOGV(5)<<VAR(m_config->nSegmentations)<<" "<<VAR(LabelMapperType::nSegmentations)<<endl;
+            SparseLabelMapperType * labelmapper=new SparseLabelMapperType(m_config->nSegmentations,m_config->nRegSamples[0]);
+            LOGV(5)<<VAR(m_config->nSegmentations)<<" "<<VAR(labelmapper->getNumberOfSegmentationLabels())<<endl;
             int iterationCount=0; 
             int level;
 
@@ -368,9 +374,11 @@ namespace itk{
             graph->setUnarySegmentationFunction(m_unarySegmentationPot);
             graph->setPairwiseCoherenceFunction(m_pairwiseCoherencePot);
             graph->setPairwiseSegmentationFunction(m_pairwiseSegmentationPot);
-            
+            //graph->setLabelMapper(static_cast<BaseLabelMapperType *>(labelmapper));
+            graph->setLabelMapper((labelmapper));
             int l=0;
-            if (LabelMapperType::nDisplacementSamples == 0 ) l=m_config->nLevels-1;
+            //check if any registration labels exist, if not, don't to multi-resolution stuff
+            if (labelmapper->getNumberOfDisplacementSamplesPerAxis() == 0 ) l=m_config->nLevels-1;
             bool pixelGrid = false;
 
             double tolerance=1000;
@@ -382,7 +390,7 @@ namespace itk{
                 
                 logSetStage("Multiresolution level "+boost::lexical_cast<std::string>(l));
                 //compute scaling factor for downsampling the images in the registration potential
-                labelmapper->setDisplacementSamples(m_config->nRegSamples[l]);
+                labelmapper->setNumberOfDisplacementSamplesPerAxis(m_config->nRegSamples[l]);
                 double mantisse=(1/m_config->scale);
                 int exponent=max(0,m_config->nLevels-l-1);
                
@@ -528,7 +536,7 @@ namespace itk{
                 double oldEnergy=1,newEnergy=01,oldWorseEnergy=-1.0;
                 int i=0;
                 std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
-                if (LabelMapperType::nDisplacementSamples == 0 ) i=m_config->iterationsPerLevel-1;
+                if (labelmapper->getNumberOfDisplacementSamplesPerAxis() == 0 ) i=m_config->iterationsPerLevel-1;
                 LOGV(4)<<"tolerance :"<<max(2.0,sqrt(tolerance))<<" "<<VAR(oldtolerance)<<endl;
                 //tolerance gets set only at levels to avoid that the energy changes during inner iterations. if tolerance would change within the inner iterations, convergence criteria based on energy would not be well-defined any more
                 m_pairwiseCoherencePot->SetTolerance(max(2.0,sqrt(tolerance)));
@@ -566,7 +574,7 @@ namespace itk{
                             ostringstream deformedSegmentationFilename;
                             deformedSegmentationFilename<<m_config->outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
                             if (ImageType::ImageDimension==2){
-                                if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+                                if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation, labelmapper->getNumberOfSegmentationLabels()));
                             }
                             if (ImageType::ImageDimension==3){
                                 if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
@@ -666,7 +674,6 @@ namespace itk{
                     }
                     
                     //convergence check after second iteration
-#if 1
                     //if energy difference is large, and greater than the threshold, skip this iteration and start over
                     if (false && i>0 && newEnergy>oldEnergy &&  fabs(oldEnergy-newEnergy)/fabs(oldEnergy+DBL_EPSILON) > 1e-3  ){
                         logResetStage;
@@ -678,29 +685,7 @@ namespace itk{
                     //else converge if energy difference is lower than the threshold
                     converged=(i>0) && (fabs(oldEnergy-newEnergy)/(oldEnergy+DBL_EPSILON) < 1e-4 ); 
                     LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<endl;
-#else
-                    if (i>0){
-                        //check convergence
-                        //count unchanged registration labels
-                        double count=0.0;
-                        for (int s=0;s<defLabels.size();++s){
-                            count+=(defLabels[s]==LabelMapperType::nDisplacements/2);
-                        }
-                        bool registrationConverged = !regist || count/defLabels.size() > 0.99;                    
-                        //LOGV(1)<<VAR(registrationConverged)<<" " <<VAR(count/defLabels.size())<<endl;
-                        
-                        count=0.0; int targetStructureCount=0;
-                        for (int s=0;s<segLabels.size();++s){
-                            count+=(segLabels[s]== (m_config->nSegmentations-1))&&(segLabels[s]==oldSegLabels[s]);
-                            targetStructureCount+=oldSegLabels[s]==m_config->nSegmentations-1;
-                        }
-                        bool segmentationConverged= !segment || count/targetStructureCount>0.99;
-                        //LOGV(1)<<VAR(segmentationConverged)<<" "<<VAR(count/targetStructureCount)<<std::endl;
-                        converged = regist * registrationConverged || segment * segmentationConverged;
-                    }
-                    oldSegLabels=segLabels;
-                    oldDefLabels=defLabels;
-#endif
+
                     oldEnergy=newEnergy;
                     //initialise interpolator
                     //deformation
@@ -758,8 +743,8 @@ namespace itk{
                             segmentation=FilterUtils<ImageType>::fillHoles(segmentation);
                         }
                         if (ImageType::ImageDimension==2){
-                            if (segment && segmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,LabelMapperType::nSegmentations));
-                            if (regist && deformedAtlasSegmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,LabelMapperType::nSegmentations));
+                            if (segment && segmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,labelmapper->getNumberOfSegmentationLabels()));
+                            if (regist && deformedAtlasSegmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,labelmapper->getNumberOfSegmentationLabels()));
                         }
                         if (ImageType::ImageDimension==3){
                             if (segment  && segmentation.IsNotNull() ) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);

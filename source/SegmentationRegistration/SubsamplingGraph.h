@@ -37,8 +37,7 @@ namespace itk{
              class TPairwiseSegmentationRegistrationFunction,
              class TLabelMapper>
     class SubsamplingGraphModel: 
-        public GraphModel<TImage,
-                          TLabelMapper>    {
+        public GraphModel<TImage>    {
     public:
         typedef SubsamplingGraphModel Self;
         typedef SmartPointer<Self>        Pointer;

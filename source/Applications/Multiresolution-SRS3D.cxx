@@ -6,8 +6,6 @@
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
 #include "Graph.h"
-#include "SubsamplingGraph.h"
-#include "FastRegistrationGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
@@ -92,9 +90,7 @@ int main(int argc, char ** argv)
     // //typedef FastRegistrationGraphModel<
     // //    typedef SortedSubsamplingGraphModel<
     
-    typedef FastGraphModel<
-        ImageType,
-        LabelMapperType>        GraphType;
+    typedef FastGraphModel<ImageType>        GraphType;
     
     typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
     //create filter

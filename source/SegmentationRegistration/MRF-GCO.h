@@ -171,8 +171,7 @@ public:
         srsPairwise=NULL;
         m_labelOrder=vector<int>(this->m_GraphModel->nRegLabels());
         //order registration labels such that they start with zero displacement
-        typedef typename GraphModelType::LabelMapperType LMType;
-        m_zeroDisplacementLabel=LMType::getZeroDisplacementIndex();
+        m_zeroDisplacementLabel=this->m_GraphModel->getLabelMapper()->getZeroDisplacementIndex();
         m_labelOrder[0]=m_zeroDisplacementLabel;
         for (int l=0;l<(this->m_GraphModel->nRegLabels());++l){
             if (l < m_labelOrder[0])

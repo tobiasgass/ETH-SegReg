@@ -21,6 +21,7 @@
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-Segmentation-Pairwise.h"
 #include "Potential-Coherence-Pairwise.h"
+#include "BaseLabel.h"
 
 using namespace std;
 /*
@@ -28,8 +29,7 @@ using namespace std;
  * Returns current/next position in a grid based on size and resolution
  */
 namespace itk{
-    template<class TImage, 
-             class TLabelMapper>
+    template<class TImage>
     class GraphModel: public itk::Object{
     public:
         typedef GraphModel Self;
@@ -63,11 +63,12 @@ namespace itk{
         typedef PairwisePotentialCoherence<TImage> PairwiseCoherenceFunctionType;
         typedef typename PairwiseCoherenceFunctionType::Pointer PairwiseCoherenceFunctionPointerType;
     
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType RegistrationLabelType;
+        typedef typename TransfUtils<ImageType>::DisplacementType RegistrationLabelType;
+        typedef BaseLabelMapper<ImageType,RegistrationLabelType> LabelMapperType;
+
         typedef typename itk::Image<RegistrationLabelType,ImageType::ImageDimension> RegistrationLabelImageType;
         typedef typename RegistrationLabelImageType::Pointer RegistrationLabelImagePointerType;
-
+        
         typedef int SegmentationLabelType;
         typedef typename itk::Image<SegmentationLabelType,ImageType::ImageDimension> SegmentationLabelImageType;
         typedef typename SegmentationLabelImageType::Pointer SegmentationLabelImagePointerType;
@@ -77,6 +78,7 @@ namespace itk{
         typedef typename ImageUtils<FloatImageType>::ImageIteratorType FloatImageIteratorType;
     
     protected:
+        LabelMapperType * m_labelMapper;
     
         SizeType m_totalSize,m_imageLevelDivisors,m_graphLevelDivisors,m_gridSize, m_imageSize;
         ImagePointerType m_coarseGraphImage,m_borderOfSegmentationROI;
@@ -93,7 +95,7 @@ namespace itk{
         static const unsigned int m_dim=TImage::ImageDimension;
         int m_nNodes,m_nVertices, m_nRegistrationNodes, m_nSegmentationNodes;
         int m_nRegEdges,m_nSegEdges,m_nSegRegEdges, m_nEdges;
-        int m_nSegmentationLabels,m_nDisplacementLabels;
+        int m_nSegmentationLabels,m_nDisplacementLabels,m_nDisplacementSamplesPerAxis;
 
         double m_segmentationUnaryNormalizer;
 
@@ -125,11 +127,12 @@ namespace itk{
             assert(m_dim<4);
             m_haveLabelMap=false;
             verbose=false;
-            m_nSegmentationLabels=LabelMapperType::nSegmentations;
-            m_nDisplacementLabels=LabelMapperType::nDisplacements;
+            //m_nSegmentationLabels=LabelMapperType::nSegmentations;
+            //m_nDisplacementLabels=LabelMapperType::nDisplacements;
             m_DisplacementScalingFactor=1.0;
             m_normalizePotentials=false;
             m_reducedSegNodes=false;
+            m_labelMapper=NULL;
         };
         ~GraphModel(){
             //delete m_targetNeighborhoodIterator;
@@ -142,8 +145,18 @@ namespace itk{
         void setTargetImage(ConstImagePointerType targetImage){
             m_targetImage=targetImage;
         }
+        LabelMapperType * getLabelMapper(){return m_labelMapper;}
+        void setLabelMapper( LabelMapperType * lm){m_labelMapper=lm;}
+        
         ImagePointerType getCoarseGraphImage(){ return this->m_coarseGraphImage;}
         void initGraph(int nGraphNodesPerEdge){
+            if (!m_labelMapper){
+                LOG<<"ERROR: Labelmapper not set"<<endl;
+                exit(0);
+            }
+            m_nSegmentationLabels=m_labelMapper->getNumberOfSegmentationLabels();
+            m_nDisplacementLabels=m_labelMapper->getNumberOfDisplacementLabels();
+            m_nDisplacementSamplesPerAxis=m_labelMapper->getNumberOfDisplacementSamplesPerAxis();
             assert(m_targetImage);
             logSetStage("Graph initialization");
             //image size
@@ -156,16 +169,16 @@ namespace itk{
                         
             //calculate graph spacing
             setSpacing(nGraphNodesPerEdge);
-            if (LabelMapperType::nDisplacementSamples){
+            if (this->m_nDisplacementSamplesPerAxis){
 #ifdef PIXELTRANSFORM
-                m_labelSpacing=0.4*m_gridPixelSpacing/(LabelMapperType::nDisplacementSamples);
+                m_labelSpacing=0.4*m_gridPixelSpacing/(this->m_nDisplacementSamplesPerAxis);
                 LOGV(1)<<"Graph pixel spacing :"<<m_gridPixelSpacing<<std::endl; 
 
 #else
-                m_labelSpacing=0.4*m_gridSpacing/(LabelMapperType::nDisplacementSamples);
+                m_labelSpacing=0.4*m_gridSpacing/(this->m_nDisplacementSamplesPerAxis);
 #endif
-                LOGV(1)<<LabelMapperType::nDisplacementSamples<<" displacment samples per direction; "<<"with "<<m_labelSpacing<<" pixels spacing"<<std::endl;
-                LOGV(1)<<"Max displacement per axis: " <<m_labelSpacing * LabelMapperType::nDisplacementSamples * m_DisplacementScalingFactor <<"mm" << endl;
+                LOGV(1)<<this->m_nDisplacementSamplesPerAxis<<" displacment samples per direction; "<<"with "<<m_labelSpacing<<" pixels spacing"<<std::endl;
+                LOGV(1)<<"Max displacement per axis: " <<m_labelSpacing * this->m_nDisplacementSamplesPerAxis * m_DisplacementScalingFactor <<"mm" << endl;
             }
             for (int d=0;d<(int)m_dim;++d){
 
@@ -223,7 +236,7 @@ namespace itk{
             m_nSegRegEdges=m_nSegmentationNodes/pow(reductionFactor,m_dim);
             m_nEdges=m_nRegEdges+m_nSegEdges+m_nSegRegEdges;
             LOGV(2)<<"Theoretical numbers of nodes/edges:"<<std::endl;
-            LOGV(2)<<" totalNodes:"<<m_nNodes<<" totalEdges:"<<m_nRegEdges+m_nSegEdges+m_nSegRegEdges<<" labels:"<<LabelMapperType::nLabels<<std::endl;
+            LOGV(2)<<" totalNodes:"<<m_nNodes<<" totalEdges:"<<m_nRegEdges+m_nSegEdges+m_nSegRegEdges<<" labels:"<<this->m_labelMapper->getTotalNumberOfLabels()<<std::endl;
             LOGV(2)<<" Segnodes:"<<m_nSegmentationNodes<<"\t SegEdges :"<<m_nSegEdges<<std::endl ;
             LOGV(2) <<" Regnodes:"<<m_nRegistrationNodes<<"\t\t RegEdges :"<<m_nRegEdges<<std::endl;
             LOGV(2)                <<" SegRegEdges:"<<m_nSegRegEdges<<std::endl;
@@ -439,8 +452,8 @@ namespace itk{
         }
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndexFromCoarseGraphIndex(nodeIndex);
-            RegistrationLabelType l=LabelMapperType::getLabel(labelIndex);
-            l=LabelMapperType::scaleDisplacement(l,getDisplacementFactor());
+            RegistrationLabelType l=this->m_labelMapper->getLabel(labelIndex);
+            l=this->m_labelMapper->scaleDisplacement(l,getDisplacementFactor());
             double result=m_unaryRegFunction->getPotential(imageIndex,l);
             if (m_normalizePotentials) result/=m_nRegistrationNodes;
             return result;//m_nRegistrationNodes;
@@ -454,7 +467,7 @@ namespace itk{
             if ( m_reducedSegNodes ){
                 //if trying to label a pixel at the border of the segmentation ROI; penalize deviations from deformed atlas segmentation
                 //if (m_borderOfSegmentationROI->GetPixel(imageIndex) && labelIndex!=m_pairwiseSegRegFunction->getAtlasSegmentation()->GetPixel(imageIndex))
-                if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),LabelMapperType::getLabel(0),labelIndex))>m_coherenceThresh)
+                if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),this->m_labelMapper->getLabel(0),labelIndex))>m_coherenceThresh)
                     return 1000;
             }
                     
@@ -479,10 +492,10 @@ namespace itk{
             PointType pt1,pt2;
             this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex1,pt1);
             this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex2,pt2);
-            RegistrationLabelType l2=LabelMapperType::getLabel(labelIndex2);
-            l2=LabelMapperType::scaleDisplacement(l2,getDisplacementFactor());
-            RegistrationLabelType l1=LabelMapperType::getLabel(labelIndex1);
-            l1=LabelMapperType::scaleDisplacement(l1,getDisplacementFactor());
+            RegistrationLabelType l2=this->m_labelMapper->getLabel(labelIndex2);
+            l2=this->m_labelMapper->scaleDisplacement(l2,getDisplacementFactor());
+            RegistrationLabelType l1=this->m_labelMapper->getLabel(labelIndex1);
+            l1=this->m_labelMapper->scaleDisplacement(l1,getDisplacementFactor());
             //return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2);//m_nRegEdges;
             double result=m_pairwiseRegFunction->getPotential(pt1, pt2, l1,l2);//m_nRegEdges;
             if (m_normalizePotentials) result/=m_nRegEdges;
@@ -499,8 +512,8 @@ namespace itk{
             }
             double weight=1;//exp(-dist/2);
             if (weight<0){ LOG<<"weight smaller zero!! :"<<weight<<std::endl; weight=0;}
-            RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
-            registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
+            RegistrationLabelType registrationLabel=this->m_labelMapper->getLabel(labelIndex1);
+            registrationLabel=this->m_labelMapper->scaleDisplacement(registrationLabel,getDisplacementFactor());
             double result=m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
             if (m_normalizePotentials) result/=m_nSegRegEdges;
             return result;
@@ -532,8 +545,8 @@ namespace itk{
             weight=dist;
 #endif
             //        if (true){ LOG<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
-            RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
-            registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
+            RegistrationLabelType registrationLabel=this->m_labelMapper->getLabel(labelIndex1);
+            registrationLabel=this->m_labelMapper->scaleDisplacement(registrationLabel,getDisplacementFactor());
             double result = weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
             if (m_normalizePotentials) result/=m_nSegRegEdges;
@@ -563,8 +576,8 @@ namespace itk{
             weight=dist;
 #endif
             //        if (true){ LOG<<graphIndex<<" "<<imageIndex<<" "<<m_gridPixelSpacing<<" "<<weight<<std::endl;}
-            RegistrationLabelType registrationLabel=LabelMapperType::getLabel(labelIndex1);
-            registrationLabel=LabelMapperType::scaleDisplacement(registrationLabel,getDisplacementFactor());
+            RegistrationLabelType registrationLabel=this->m_labelMapper->getLabel(labelIndex1);
+            registrationLabel=this->m_labelMapper->scaleDisplacement(registrationLabel,getDisplacementFactor());
             double result =  weight*m_pairwiseSegRegFunction->getPotential(imageIndex,imageIndex,registrationLabel,segmentationLabel);//m_nSegRegEdges;
             //        return m_pairwiseSegRegFunction->getPotential(graphIndex,imageIndex,registrationLabel,segmentationLabel)/m_nSegRegEdges;
             if (m_normalizePotentials) result/=m_nSegRegEdges;
@@ -699,8 +712,8 @@ namespace itk{
             unsigned int i=0;
             for (it.GoToBegin();!it.IsAtEnd();++it,++i){
                 assert(i<labels.size());
-                RegistrationLabelType l=LabelMapperType::getLabel(labels[i]);
-                l=LabelMapperType::scaleDisplacement(l,getDisplacementFactor());
+                RegistrationLabelType l=this->m_labelMapper->getLabel(labels[i]);
+                l=this->m_labelMapper->scaleDisplacement(l,getDisplacementFactor());
                 it.Set(l);
             }
             assert(i==(labels.size()));
@@ -721,7 +734,8 @@ namespace itk{
             typename itk::ImageRegionIterator<RegistrationLabelImageType> it(result,region);
             unsigned int i=0;
             for (it.GoToBegin();!it.IsAtEnd();++it,++i){
-                RegistrationLabelType l=LabelMapperType::getLabel(LabelMapperType::nDisplacements/2);
+                RegistrationLabelType l;
+                l.Fill(0);
                 it.Set(l);
             }
             return result;
@@ -803,7 +817,7 @@ namespace itk{
 
         void setDisplacementFactor(double fac){
             m_DisplacementScalingFactor=fac;
-            LOGV(1)<<"Max displacement per axis: " <<m_labelSpacing * LabelMapperType::nDisplacementSamples * m_DisplacementScalingFactor <<"mm" << endl;
+            LOGV(1)<<"Max displacement per axis: " <<m_labelSpacing * this->m_nDisplacementSamplesPerAxis * m_DisplacementScalingFactor <<"mm" << endl;
         }
         double getMaxDisplacementFactor(){
             double maxSpacing=-1;
@@ -823,16 +837,15 @@ namespace itk{
             return m_nSegmentationNodes;
         }
         virtual int nRegLabels(){
-            return LabelMapperType::nDisplacements;
+            return this->m_nDisplacementLabels;
         }
         int nSegLabels(){
-            return LabelMapperType::nSegmentations;
+            return this->m_nSegmentationLabels;
         }
     }; //GraphModel
 
-    template<class TImage, 
-             class TLabelMapper>
-    class FastGraphModel: public GraphModel<TImage,TLabelMapper>
+    template<class TImage            >
+    class FastGraphModel: public GraphModel<TImage>
     {
     public:
         typedef FastGraphModel Self;
@@ -850,8 +863,7 @@ namespace itk{
         typedef typename TImage::SpacingType SpacingType;
         typedef typename TImage::Pointer ImagePointerType;
         typedef typename TImage::ConstPointer ConstImagePointerType;
-        typedef TLabelMapper LabelMapperType;
-        typedef typename LabelMapperType::LabelType RegistrationLabelType;
+        typedef typename TransfUtils<ImageType>::DisplacementType RegistrationLabelType;
     public:
         virtual void Init(){
             //#define moarcaching
@@ -862,7 +874,7 @@ namespace itk{
             std::vector<RegistrationLabelType> displacementList(this->m_nDisplacementLabels);
             for (int n=0;n<this->m_nDisplacementLabels;++n){
                 LOGV(25)<<"Caching unary registration potentials for label "<<n<<endl;
-                displacementList[n]=LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(n),this->getDisplacementFactor());
+                displacementList[n]=this->m_labelMapper->scaleDisplacement(this->m_labelMapper->getLabel(n),this->getDisplacementFactor());
             }
             this->m_unaryRegFunction->setDisplacements(displacementList);
             this->m_unaryRegFunction->compute();
@@ -873,7 +885,7 @@ namespace itk{
 #ifndef moarcaching
             LOGV(25)<<"Caching unary registration function for label " << labelIndex<<endl;
             
-            this->m_unaryRegFunction->cachePotentials(LabelMapperType::scaleDisplacement(LabelMapperType::getLabel(labelIndex),this->getDisplacementFactor()));
+            this->m_unaryRegFunction->cachePotentials(this->m_labelMapper->scaleDisplacement(this->m_labelMapper->getLabel(labelIndex),this->getDisplacementFactor()));
 #endif
         }
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){

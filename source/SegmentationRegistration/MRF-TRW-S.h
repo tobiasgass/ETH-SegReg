@@ -569,7 +569,7 @@ public:
 
 
     typedef TGraphModel GraphModelType;
-	typedef typename GraphModelType::LabelMapperType LabelMapperType;
+
     
 	typedef TypeTruncatedQuadratic2D TRWType;
 	typedef MRFEnergy<TRWType> MRFType;
@@ -599,8 +599,10 @@ public:
                                     double pairwiseSegWeight=1.0, 
                                     double pairwiseSegRegWeight=1.0,
                                     int vverbose=false)
-        :m_optimizer(TRWType::GlobalSize(2*LabelMapperType::nDisplacementSamples+1,2*LabelMapperType::nDisplacementSamples+1)),m_GraphModel(graphModel)
     {
+        m_GraphModel=graphModel;
+        int nDisplacementSamplesPerAxis=m_GraphModel->getLabelMapper()->getNumberOfDisplacementSamplesPerAxis();
+        m_optimizer=GraphModelType(TRWType::GlobalSize(2*nDisplacementSamplesPerAxis+1,2*nDisplacementSamplesPerAxis+1));
         verbose=vverbose;
         m_unarySegmentationWeight=unarySegWeight;
         m_pairwiseSegmentationWeight=pairwiseSegWeight;
@@ -721,10 +723,11 @@ public:
 
     virtual std::vector<int> getDeformationLabels(){
         std::vector<int> labels(nRegNodes,0);
+        int nSamples=this->m_GraphModel->getLabelMapper()->getNumberOfDisplacementSamplesPerAxis();
         if (m_register){
             for (int i=0;i<nRegNodes;++i){
                 TRWType::Label l=m_optimizer.GetSolution(regNodes[i]);
-                labels[i]=l.m_kx+l.m_ky*(2*LabelMapperType::nDisplacementSamples+1);
+                labels[i]=l.m_kx+l.m_ky*(2*nSamples+1);
             }
         }
         return labels;
@@ -784,7 +787,7 @@ public:
 
 
     typedef TGraphModel GraphModelType;
-	typedef typename GraphModelType::LabelMapperType LabelMapperType;
+
     
 	typedef TypeTruncatedQuadratic3D TRWType;
 	typedef MRFEnergy<TRWType> MRFType;
@@ -814,8 +817,10 @@ public:
                                     double pairwiseSegWeight=1.0, 
                                     double pairwiseSegRegWeight=1.0,
                                     int vverbose=false)
-        :m_optimizer(TRWType::GlobalSize(2*LabelMapperType::nDisplacementSamples+1,2*LabelMapperType::nDisplacementSamples+1,2*LabelMapperType::nDisplacementSamples+1)),m_GraphModel(graphModel)
     {
+        m_GraphModel=graphModel;
+        int nDisplacementSamplesPerAxis=m_GraphModel->getLabelMapper()->getNumberOfDisplacementSamplesPerAxis();
+        m_optimizer=GraphModelType(TRWType::GlobalSize(2*nDisplacementSamplesPerAxis+1,2*nDisplacementSamplesPerAxis+1,2*nDisplacementSamplesPerAxis+1));
         verbose=vverbose;
         m_unarySegmentationWeight=unarySegWeight;
         m_pairwiseSegmentationWeight=pairwiseSegWeight;
@@ -825,9 +830,8 @@ public:
         //createGraph();
         //init();
     }
-    TRWS_SRSMRFSolverTruncQuadrat3D()  :m_optimizer(TRWType::GlobalSize(2*LabelMapperType::nDisplacementSamples+1,2*LabelMapperType::nDisplacementSamples+1,2*LabelMapperType::nDisplacementSamples+1)){
-        
-    }
+    TRWS_SRSMRFSolverTruncQuadrat3D()=0;
+
     ~TRWS_SRSMRFSolverTruncQuadrat3D()
     {
     }
@@ -991,7 +995,8 @@ public:
 
     virtual std::vector<int> getDeformationLabels(){
         std::vector<int> labels(nRegNodes,0);
-        int fac=2*LabelMapperType::nDisplacementSamples+1;
+        int nSamples=this->m_GraphModel->getLabelMapper()->getNumberOfDisplacementSamplesPerAxis();
+        int fac=2*nSamples+1;
         if (m_register){
             for (int i=0;i<nRegNodes;++i){
                 TRWType::Label l=m_optimizer.GetSolution(regNodes[i]);

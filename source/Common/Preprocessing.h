@@ -123,8 +123,8 @@ public:
                                          );
         LOGI(15,ImageUtils<FloatImage>::writeImage("unsharpMasked.nii",imgUnsharpMasked););
         LOG<<"Computing multiscale sheetness measure at "<< sigmasLargeScale.size()<<" scales."<<std::endl;
-        if (numeric_limits<typename InputImage::PixelType>::min() >=0){
-            LOG<<"ERROR : PixelType does not support negative values! Sheetness image will be truncated" << endl;
+        if ((float)((typename InputImage::PixelType(-1.0))) >=0){
+            LOG<<"ERROR : PixelType does not support negative values! Sheetness image will be truncated . Min value is:" << numeric_limits<typename InputImage::PixelType>::min() << endl;
         }
         InputImagePointer sheetness = FilterUtils<FloatImage,InputImage>::linearTransform(multiscaleSheetness(imgUnsharpMasked, sigmasLargeScale),100,0);
         //sheetness = FilterUtils<InputImage,InputImage>::linearTransform(sheetness,255.0/200,100);
