@@ -347,6 +347,10 @@ public:
         
         return FilterUtils<InternalImage,OutputImage>::cast(result);
   }
+
+    
+ 
+
     static inline OutputImagePointer LSADNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
         if (sigmaWidth==0.0) sigmaWidth=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
@@ -406,7 +410,7 @@ public:
         if (sigma==0.0) sigma=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
-        #define RECURSIVE
+        //#define RECURSIVE
 
 #ifdef RECURSIVE
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
@@ -990,4 +994,94 @@ public:
       return result/c;
 
     }
+
+
+       static inline InternalImagePointer CategoricalDiff(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
+        return CategoricalDiff( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigmaWidth);
+    }
+    static inline InternalImagePointer CategoricalDiff(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
+        //typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
+        typedef itk::DiscreteGaussianImageFilter<InternalImage,InternalImage>  FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        //filter->SetSigma(sigmaWidth);
+        filter->SetVariance(sigmaWidth*sigmaWidth);
+
+        InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
+        InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
+        
+        InternalImagePointer diff =  ImageUtils<InternalImage>::createEmpty(i1Cast);
+        typename ImageUtils<InternalImage>::ImageIteratorType diffIt(diff,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<InternalImage>::ImageIteratorType i1It(i1Cast,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<InternalImage>::ImageIteratorType i2It(i2Cast,i1Cast->GetLargestPossibleRegion());
+
+        InternalPrecision mean=0.0;
+        int c=0;
+        //subtract and take absolute value
+        for (i2It.GoToBegin(),i1It.GoToBegin(), diffIt.GoToBegin(); !diffIt.IsAtEnd(); ++i1It, ++i2It, ++diffIt,++c){
+            InternalPrecision d=fabs(i1It.Get()-i2It.Get());
+            diffIt.Set(d<std::numeric_limits<InternalPrecision>::epsilon());
+            mean+=d;
+        }
+        LOGV(6)<<VAR(mean/c)<<endl;
+
+
+
+        //compute local means by concolving with gaussian
+        filter->SetInput(diff);
+        filter->Update();
+        InternalImagePointer result=filter->GetOutput();
+
+        
+        return FilterUtils<InternalImage,OutputImage>::cast(result);
+  }
+    static inline InternalImagePointer CategoricalDiffNorm(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0, double sigmaNorm=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
+        return CategoricalDiffNorm( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigmaWidth,sigmaNorm);
+    }
+    static inline InternalImagePointer CategoricalDiffNorm(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigmaWidth=1.0,double sigmaNorm=1.0){
+        if (sigmaWidth==0.0) sigmaWidth=0.001;
+        //typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
+        typedef itk::DiscreteGaussianImageFilter<InternalImage,InternalImage>  FilterType;
+        typename FilterType::Pointer filter=FilterType::New();
+        //filter->SetSigma(sigmaWidth);
+        filter->SetVariance(sigmaWidth*sigmaWidth);
+
+        InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
+        InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
+        
+        InternalImagePointer diff =  ImageUtils<InternalImage>::createEmpty(i1Cast);
+        typename ImageUtils<InternalImage>::ImageIteratorType diffIt(diff,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<InternalImage>::ImageIteratorType i1It(i1Cast,i1Cast->GetLargestPossibleRegion());
+        typename ImageUtils<InternalImage>::ImageIteratorType i2It(i2Cast,i1Cast->GetLargestPossibleRegion());
+
+        InternalPrecision mean=0.0;
+        int c=0;
+        //subtract and take absolute value
+        for (i2It.GoToBegin(),i1It.GoToBegin(), diffIt.GoToBegin(); !diffIt.IsAtEnd(); ++i1It, ++i2It, ++diffIt,++c){
+            InternalPrecision d=fabs(i1It.Get()-i2It.Get());
+            diffIt.Set(d<std::numeric_limits<InternalPrecision>::epsilon());
+            mean+=d;
+        }
+        LOGV(6)<<VAR(mean/c)<<endl;
+
+
+
+        //compute local means by concolving with gaussian
+        filter->SetInput(diff);
+        filter->Update();
+        InternalImagePointer result=filter->GetOutput();
+        typename ImageUtils<InternalImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+
+        for (resultIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt){
+            InternalPrecision d = resultIt.Get();
+            //resultIt.Set(max(0.5,exp(-0.5 * fabs(d)  / sigmaNorm) ));
+            resultIt.Set(exp(-0.5 * fabs(d)  / sigmaNorm) );
+            LOGV(7)<<VAR(d)<<" "<<resultIt.Get()<<endl;
+            //resultIt.Set(pow(exp(-0.5 * fabs(d)  / mean ),sigmaNorm ));
+        }
+        
+        return FilterUtils<InternalImage,OutputImage>::cast(result);
+  }
 };

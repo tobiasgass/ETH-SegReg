@@ -1681,6 +1681,114 @@ namespace itk{
         }
     };//FastUnaryPotentialRegistrationCategorical
   
+ template<class TImage>
+    class FastUnaryPotentialRegistrationCategoricalDistanceBased: public FastUnaryPotentialRegistrationCategorical<TImage> {
+    public:
+        //itk declarations
+        typedef FastUnaryPotentialRegistrationCategoricalDistanceBased            Self;
+        typedef SmartPointer<Self>        Pointer;
+        typedef SmartPointer<const Self>  ConstPointer;
+        typedef FastUnaryPotentialRegistrationNCC<TImage> Superclass;
+
+        typedef	TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointerType;
+        typedef typename ImageType::ConstPointer ConstImagePointerType;
+        static const int D=ImageType::ImageDimension;
+
+        typedef typename TransfUtils<ImageType>::DisplacementType DisplacementType;
+        typedef typename ImageType::IndexType IndexType;
+        typedef typename ImageType::PointType PointType;
+
+        typedef typename ImageType::SizeType SizeType;
+        typedef typename ImageType::SpacingType SpacingType;
+        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef typename InterpolatorType::Pointer InterpolatorPointerType;
+        typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
+
+
+        typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
+        //typedef typename itk::ConstNeighborhoodIterator<ImageType,itk::ConstantBoundaryCondition<TImage,TImage> > ImageNeighborhoodIteratorType;
+        typedef typename itk::ConstNeighborhoodIterator<ImageType > ImageNeighborhoodIteratorType;
+        typedef typename ImageNeighborhoodIteratorType::RadiusType RadiusType;
+        
+        typedef itk::TranslationTransform<double,ImageType::ImageDimension> TranslationTransformType;
+        typedef typename TranslationTransformType::Pointer TranslationTransformPointerType;
+        typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleImageFilterType;
+        
+        typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
+        typedef typename FloatImageType::Pointer FloatImagePointerType;
+        typedef typename itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
+        typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
+ 
+    public:
+        /** Method for creation through the object factory. */
+        itkNewMacro(Self);
+        /** Standard part of every itk Object. */
+        itkTypeMacro(FastRegistrationUnaryPotentialCategoricalDistanceBased, Object);
+        
+     
+
+        virtual double getLocalPotential(IndexType targetIndex){
+
+            double result;
+            this->nIt.SetLocation(targetIndex);
+            this->m_atlasNeighborhoodIterator.SetLocation(targetIndex);
+            this->m_maskNeighborhoodIterator.SetLocation(targetIndex);
+            double insideCount=0.0;
+            double count=0;
+            int penalty=0;
+            for (unsigned int i=0;i<this->nIt.Size();++i){
+                bool inBounds;
+                int m=this->m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
+                   
+                insideCount+=inBounds;
+                bool inside=this->m_maskNeighborhoodIterator.GetPixel(i);
+                if (!inside)
+                    m=0.0;
+                if ( inBounds && (inside|| this->m_noOutSidePolicy)  ){
+                    int f=this->nIt.GetPixel(i);
+                    penalty+=f!=m;
+                    count+=1;
+
+                }
+            }
+          
+            result=penalty;
+            
+            result=min(this->m_threshold,result);
+            LOGV(15)<<VAR(result*insideCount/this->nIt.Size())<<" "<< VAR(this->nIt.Size()) << std::endl;
+            return result*insideCount/this->nIt.Size();
+        }
+
+        virtual void Init(){
+            assert(this->m_targetImage);
+            assert(this->m_atlasImage);
+            if ( this->m_scale!=1.0){
+                this->m_scaledTargetImage=FilterUtils<ImageType>::NNResample(this->m_targetImage,this->m_scale,false);
+                this->m_scaledAtlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_scale,false);
+              
+                if (this->m_atlasMaskImage.IsNotNull()){
+                    this->m_scaledAtlasMaskImage=FilterUtils<ImageType>::NNResample(this->m_atlasMaskImage,this->m_scale,false);                }
+            }else{
+                this->m_scaledTargetImage=this->m_targetImage;
+                this->m_scaledAtlasImage=this->m_atlasImage;
+                this->m_scaledAtlasMaskImage=this->m_atlasMaskImage;
+            }
+            if (!this->radiusSet){
+                LOG<<"Radius must be set before calling registrationUnaryPotential.Init()"<<endl;
+                exit(0);
+            }
+                
+            for (int d=0;d<ImageType::ImageDimension;++d){
+                this->m_scaledRadius[d]=this->m_scale*this->m_radius[d];
+            }
+            //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
+            LOGV(2)<<"Registration unary patch radius " << this->m_radius << " scale "<< this->m_scale << " scaledRadius "<< this->m_scaledRadius << endl;
+            this->nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
+            this->m_atlasInterpolator=InterpolatorType::New();
+            this->m_atlasInterpolator->SetInputImage(this->m_scaledAtlasImage);
+        }
+    };//FastUnaryPotentialRegistrationCategoricalDistanceBased
 
     template<class TImage>
     class UnaryPotentialRegistrationSAD : public UnaryPotentialRegistrationNCC< TImage>{

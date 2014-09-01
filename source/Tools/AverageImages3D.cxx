@@ -16,7 +16,7 @@ int main(int argc, char ** argv)
 {
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    typedef  short PixelType;
+    typedef  float PixelType;
     const unsigned int D=3;
     typedef Image<PixelType,D> ImageType;
     typedef  ImageType::IndexType IndexType;
@@ -46,9 +46,10 @@ int main(int argc, char ** argv)
     }
     accumulator.finalize();
     FloatImagePointerType floatMean=accumulator.getFloatMean();
+    ImageUtils<FloatImageType>::writeImage(argv[1],floatMean);
     ImagePointerType intMean=FilterUtils<FloatImageType,ImageType>::round(floatMean);
     //    ImageUtils<ImageType>::writeImage(argv[1],intMean);
-    ImageUtils<ImageType>::writeImage(argv[1],intMean);
+    //ImageUtils<ImageType>::writeImage(argv[1],intMean);
     ImageUtils<FloatImageType>::writeImage(argv[2],accumulator.getFloatVariance());
 
 	return 1;

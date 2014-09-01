@@ -209,6 +209,9 @@ TARGET_LINK_LIBRARIES(CastShortToUchar2D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(AntialiasImage3D AntialiasImage3D.cxx )
 TARGET_LINK_LIBRARIES(AntialiasImage3D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(GetBoundingBox3D GetBoundingBox3D.cxx )
+TARGET_LINK_LIBRARIES(GetBoundingBox3D  Utils   ${ITK_LIBRARIES}  )
+
 #tests
 #tests
 

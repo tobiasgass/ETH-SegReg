@@ -259,6 +259,7 @@ int main(int argc, char ** argv){
                     LOGV(3)<<sourceID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                     //exit(0);
                 }else{
+                    LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
                     trueDeformationFilenames[sourceID][targetID]=defFileName;
                 }  
             }

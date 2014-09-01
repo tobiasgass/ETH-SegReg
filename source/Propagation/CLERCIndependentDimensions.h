@@ -234,7 +234,10 @@ public:
                     if (findDeformation(m_deformationFileList,sourceID,targetID)){
                         estSourceTarget=true;
                     }else{
-                        if (findDeformation(m_trueDeformationFileList,sourceID,targetID)){}
+                        if (findDeformation(m_trueDeformationFileList,sourceID,targetID)){
+                            (m_trueDeformations)[sourceID][targetID] = ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
+                            (m_trueDeformations)[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( (m_trueDeformations)[sourceID][targetID],this->m_ROI,m_smoothDeformationDownsampling);
+                        }
                         else
                             skip=true;
                     }
@@ -251,7 +254,11 @@ public:
                                 estSourceIntermediate=true;
                             }else{
                                 if (findDeformation(m_trueDeformationFileList,sourceID,intermediateID))
-                                    {}
+                                    {
+                                        (m_trueDeformations)[sourceID][intermediateID] = ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][intermediateID]);
+                                        (m_trueDeformations)[sourceID][intermediateID]=TransfUtils<ImageType>::linearInterpolateDeformationField( (m_trueDeformations)[sourceID][intermediateID],this->m_ROI,m_smoothDeformationDownsampling);
+                 
+                                    }
                                 else
                                     skip=true;
                             }
@@ -261,7 +268,10 @@ public:
                                 estIntermediateTarget=true;
                             }else{
                                 if (findDeformation(m_trueDeformationFileList,intermediateID,targetID))
-                                    {}
+                                    {
+                                        (m_trueDeformations)[intermediateID][targetID] = ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[intermediateID][targetID]);
+                                        (m_trueDeformations)[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( (m_trueDeformations)[intermediateID][targetID],this->m_ROI,m_smoothDeformationDownsampling);
+                                    }
                                 else
                                     skip = true;
                             }
@@ -1037,9 +1047,12 @@ protected:
                                 else
                                     skip = true;
                             }
+                            
 
-                            //check if any of the deformations of the loop should be estimated
-                            if (! skip && (estIntermediateTarget || estSourceTarget || estSourceIntermediate)){
+                            //skip also if none of the registrations in the circle are to be re-estimated
+                            skip= skip || (!(estIntermediateTarget || estSourceTarget || estSourceIntermediate));
+                            LOGV(3)<<VAR(skip)<<" "<<VAR(estIntermediateTarget)<<" "<<VAR(estSourceTarget)<<" "<<VAR(estSourceIntermediate)<<" "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
+                            if ( ! skip ){
 
                                 //use updated deform for constructing circle
                                 if (m_ORACLE){
@@ -1084,7 +1097,7 @@ protected:
                          
 
                                 //compute norm
-                                DeformationFieldIterator it(difference,m_regionOfInterest);
+                                DeformationFieldIterator it(difference,difference->GetLargestPossibleRegion());
                                 it.GoToBegin();
                             
                                 DeformationFieldIterator trueIt;
@@ -1371,9 +1384,7 @@ protected:
                             }
                             globalMeanInconsistency*=globalMeanInconsistency;
                             LOGV(1)<<sourceID<<" "<<targetID<<" "<<VAR(globalMeanInconsistency)<<endl;
-                            (m_trueDeformations)[sourceID][targetID] = ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
-                            (m_trueDeformations)[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( (m_trueDeformations)[sourceID][targetID],this->m_ROI,m_smoothDeformationDownsampling);
-                        }
+                            }
 
                         FloatImagePointerType newLocalWeights;
                         if (m_locallyUpdateDeformationEstimate && ! m_updateDeformations && m_haveDeformationEstimate && (m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
@@ -1937,13 +1948,19 @@ public:
                         
 
                         //compute LNCC
-                        ImagePointerType warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , updatedDeform);
+                        ImagePointerType warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , updatedDeform,m_metric == "categorical");
                         double samplingFactor=1.0*warpedImage->GetLargestPossibleRegion().GetSize()[0]/this->m_ROI->GetLargestPossibleRegion().GetSize()[0];
                         double imageResamplingFactor=min(1.0,8.0/(samplingFactor));
                         nCC= Metrics<ImageType>::nCC(targetImage,warpedImage);
                         m_averageNCC+=nCC;
-                        warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
-                        targetImage=FilterUtils<ImageType>::LinearResample(targetImage,imageResamplingFactor,true);
+                        if (m_metric != "categorical"){
+                            warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
+                            targetImage=FilterUtils<ImageType>::LinearResample(targetImage,imageResamplingFactor,true);
+                        }else{
+                            warpedImage=FilterUtils<ImageType>::NNResample(warpedImage,imageResamplingFactor,false);
+                            targetImage=FilterUtils<ImageType>::NNResample(targetImage,imageResamplingFactor,false);
+
+                        }
                         LOGV(3)<<"Computing metric "<<m_metric<<" on images downsampled by "<<samplingFactor<<" to size "<<warpedImage->GetLargestPossibleRegion().GetSize()<<endl;
                         FloatImagePointerType lncc;
                         if (m_metric == "lncc"){
@@ -1956,15 +1973,14 @@ public:
                           
                         }else if (m_metric == "lssd"){
                             lncc= Metrics<ImageType,FloatImageType>::LSSDNorm(warpedImage,targetImage,m_sigma,m_exponent);
-                          
-
-
                         }else if (m_metric == "localautocorrelation"){
                             //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(m_imageList)[targetID],m_sigma);
                             lncc= Metrics<ImageType,FloatImageType>::localMetricAutocorrelation(warpedImage,targetImage,m_sigma,2,"lssd",m_exponent);
                         }else if (m_metric == "gradient"){
                             //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(m_imageList)[targetID],m_sigma);
                             lncc=  Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+                        }else if (m_metric == "categorical"){
+                            lncc=  Metrics<ImageType,FloatImageType>::CategoricalDiffNorm(warpedImage,targetImage,m_sigma,m_exponent);
                         }else{
                             LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                             exit(-1);
@@ -2037,8 +2053,12 @@ public:
                             //upsample if necessary.. note that here, quite some accuracy of the lncc is lost :( in fact, lncc should be recomputed
                             if (m_pairwiseLocalWeightMaps[sourceID][targetID]->GetLargestPossibleRegion().GetSize()!=this->m_ROI->GetLargestPossibleRegion().GetSize()){
                                 //update the pairwise similarity of the original deformation to the correct resolution
-                                warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , deformation);
-                                warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
+                                warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , deformation,m_metric == "categorical");
+                                 if (m_metric != "categorical"){
+                                     warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
+                                 }else{
+                                     warpedImage=FilterUtils<ImageType>::NNResample(warpedImage,imageResamplingFactor,false);
+                                 }
                                 if (m_metric == "lncc"){
                                     //lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                                     lncc= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
@@ -2054,6 +2074,8 @@ public:
                                 }else if (m_metric == "gradient"){
                                     //lncc= Metrics<ImageType,FloatImageType>::LSSD(warpedImage,(m_imageList)[targetID],m_sigma);
                                     lncc=  Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+                                }else if (m_metric == "categorical"){
+                                    lncc=  Metrics<ImageType,FloatImageType>::CategoricalDiffNorm(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else{
                                     LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                                     exit(-1);

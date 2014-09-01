@@ -45,7 +45,8 @@ int main(int argc, char ** argv)
 
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 
-    OutImagePointerType outImage=FilterUtils<ImageType,OutImageType>::binaryThresholdingHigh(img,thresh);
+    //OutImagePointerType outImage=FilterUtils<ImageType,OutImageType>::binaryThresholdingHigh(img,thresh);
+    OutImagePointerType outImage=FilterUtils<ImageType,OutImageType>::binaryThresholdingLow(img,thresh);
     OutPixelType maxPx=FilterUtils<OutImageType>::getMax(outImage);
     if (maxPx != 1){
         LOG<<"no pixel greater thresh found, aborting"<<endl;
