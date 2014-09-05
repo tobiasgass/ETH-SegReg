@@ -22,7 +22,7 @@
 #include <itkGradientMagnitudeImageFilter.h>
 #include <itkGradientMagnitudeRecursiveGaussianImageFilter.h>
 #include <itkDisplacementFieldJacobianDeterminantFilter.h>
-
+#include "SegmentationTools.hxx"
 template<class ImageType >
 //template<class ImageType, class MetricType=itk::NormalizedCorrelationImageToImageMetric<ImageType,ImageType> >
 //template<class ImageType, class MetricType=itk::MeanSquaresImageToImageMetric<ImageType,ImageType> >
@@ -66,7 +66,7 @@ protected:
     FileListCacheType m_deformationFileList, m_trueDeformationFileList;
     map<string,string> m_landmarkFileList;
     std::vector<string>  m_imageIDList;
-    bool m_additive, m_updateDeformations;
+    bool m_additive, m_updateDeformations, m_updateDeformationsGlobalSim;
     RegionType m_regionOfInterest;
     
     ImageCacheType  m_imageList;
@@ -75,6 +75,7 @@ protected:
 
     map< int, map <int, GaussEstimatorType > > m_pairwiseInconsistencyStatistics;
     map< string , map <string, FloatImagePointerType > >  m_pairwiseLocalWeightMaps,  m_updatedPairwiseLocalWeightMaps;
+    map< string, map <string, double> > m_pairwiseGlobalSimilarity;
     string m_metric;
 private:
     bool m_smoothDeformationDownsampling;
@@ -182,6 +183,7 @@ public:
         m_lowResolutionEval=false;
         m_bSplineInterpol=false;
         m_lineSearch=false;
+        m_updateDeformationsGlobalSim=false;
     }
 
     double getADE(){return m_ADE;}
@@ -203,6 +205,7 @@ public:
     void setBSplineInterpol(bool b){m_bSplineInterpol=b;}
     void setLineSearch(bool b){m_lineSearch=b;}
     void setUseConstraints(bool b){m_useConstraints=b;}
+    void setUpdateDeformationsGlobalSim(bool b){ m_updateDeformationsGlobalSim=b;}
     void setROI(ImagePointerType ROI){ 
         this->m_ROI=ROI;
         m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
@@ -1850,6 +1853,7 @@ public:
                     string sourceID=(m_imageIDList)[source];
                     DeformationFieldPointerType deformation,updatedDeform, knownDeformation;
                     bool estDef=false;
+                    bool updateThisDeformation=false;
                     ImagePointerType targetImage=(m_imageList)[targetID];
                     double nCC;
                     if (findDeformation(m_deformationFileList,sourceID,targetID)){
@@ -1935,6 +1939,18 @@ public:
                             filter->Update();
                             double dice=filter->GetDiceCoefficient();
                             LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(dice)<<endl;
+                            typedef typename SegmentationTools<ImageType>::OverlapScores OverlapScores;
+                            std::vector<OverlapScores> scores=SegmentationTools<ImageType>::computeOverlapMultilabel((m_groundTruthSegmentations)[targetID],deformedSeg);
+                            LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" ";
+                             dice=0.0;
+                            for (int s=0;s<scores.size();++s){
+                                if (mylog.getVerbosity()>1){std::cout<<" "<<VAR(scores[s].labelID)<<" "<<scores[s].dice;}
+                                dice+=scores[s].dice;
+                            }
+                            if (mylog.getVerbosity()>1){                                std::cout<<endl;}
+                            dice=dice/(scores.size());
+                            LOGV(1)<<"AverageDice : "<<dice<<endl;
+                            
                             m_dice+=dice;
                         }
                         
@@ -1946,7 +1962,7 @@ public:
                         }
                         
                         
-
+                        
                         //compute LNCC
                         ImagePointerType warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , updatedDeform,m_metric == "categorical");
                         double samplingFactor=1.0*warpedImage->GetLargestPossibleRegion().GetSize()[0]/this->m_ROI->GetLargestPossibleRegion().GetSize()[0];
@@ -2047,7 +2063,23 @@ public:
                          
                         //store...
                         if (m_updateDeformations || !m_pairwiseLocalWeightMaps[sourceID][targetID].IsNotNull()){
-                            m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
+
+                            if (m_pairwiseLocalWeightMaps[sourceID][targetID].IsNull()){
+                                //certainly update local weights maps when it was not set before ;)
+                                m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
+                                m_pairwiseGlobalSimilarity[sourceID][targetID]=nCC;
+                                updateThisDeformation=true;
+                            }else{
+                                if (! m_updateDeformationsGlobalSim || 
+                                    (nCC <   m_pairwiseGlobalSimilarity[sourceID][targetID] ))
+                                    {
+                                        //update if global Sim improved or if it shouldn't be considered anyway
+                                        m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
+                                        m_pairwiseGlobalSimilarity[sourceID][targetID]=nCC;
+                                        updateThisDeformation=true;
+
+                                    }
+                            }
                         }else{
                             m_updatedPairwiseLocalWeightMaps[sourceID][targetID]=lncc;
                             //upsample if necessary.. note that here, quite some accuracy of the lncc is lost :( in fact, lncc should be recomputed
@@ -2153,9 +2185,11 @@ public:
                             computeMetricAndDerivative(targetImage, m_imageList[sourceID] ,updatedDeform ,   (m_pairwiseGradients)[sourceID][targetID] ,  value);
                         }
 
-                        if (m_updateDeformations ||  !m_downSampledDeformationCache[sourceID][targetID].IsNotNull()){
+                        if (updateThisDeformation){//m_updateDeformations ||  !m_downSampledDeformationCache[sourceID][targetID].IsNotNull()){
+                            
+                            firstRun=true;// !m_downSampledDeformationCache[sourceID][targetID].IsNotNull();
                             m_downSampledDeformationCache[sourceID][targetID] = updatedDeform;
-                            firstRun=true;
+
                         }else{
 
                             (m_updatedDeformationCache)[sourceID][targetID] = updatedDeform;

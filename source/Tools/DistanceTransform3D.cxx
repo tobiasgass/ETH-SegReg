@@ -30,17 +30,17 @@ int main(int argc, char ** argv)
  
     argstream * as=new argstream(argc,argv);
     string inFile, outFile;
-    double thresh=0.0;
+    int label=0;
     (*as) >> parameter ("in", inFile, " filename...", true);
     (*as) >> parameter ("out", outFile, " filename...", true);
-    (*as) >> parameter ("t", thresh, "threshold", true);
+    (*as) >> parameter ("l", label, "label", true);
 
     (*as) >> help();
     as->defaultErrorHandling();
 
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 
-    ImagePointerType outImage=FilterUtils<ImageType>::binaryThresholdingLow(img,thresh);
+    ImagePointerType outImage=FilterUtils<ImageType>::select(img,label);
     
     typedef  itk::SignedMaurerDistanceMapImageFilter< ImageType,FloatImageType > DistanceTransformType;
     DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();

@@ -27,7 +27,7 @@
 #include "CLERCIndependentDimensions.h"
 
 //using namespace std;
-typedef unsigned char PixelType;
+typedef unsigned char PixelType; 
 static const unsigned int D=2 ;
 typedef itk::Image<PixelType,D> ImageType;
 typedef   ImageType::Pointer ImagePointerType;
@@ -105,7 +105,7 @@ int main(int argc, char ** argv){
     double resamplingFactor=8.0;
     m_sigma=10;
     string solverName="localnorm";
-    double wwd=0.0,wwt=1.0,wws=0.0,wwcirc=1.0,wwdelta=0.0,wwsum=0,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
+    double wwd=0.0,winput=1.0,wsmooth=0.0,wcons=1.0,wwdelta=0.0,wsmoothum=0,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
     bool nearestneighb=false;
     double shearing = 1.0;
     double circWeightScaling = 1.0;
@@ -119,30 +119,33 @@ int main(int argc, char ** argv){
     bool filterMetricWithGradient=false;
     bool lineSearch=false;
     bool useConstraints=false;
-    double annealing=1.0;
+    double convergenceTolerance=1e-2;
+    bool updateDeformationsGlobalWeight=false;
+    (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
+    (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    (*as) >> parameter ("winp", winput,"weight for adherence to input registration",false);
+    (*as) >> parameter ("wcons", wcons,"weight consistency penalty",false);
+    (*as) >> parameter ("wsmooth", wsmooth,"weight for smoothness of deformation (first-order derivative)",false);
 
-    (*as) >> parameter ("i", imageFileList, " list of  images", true);
+    (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
+    (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file> for immediate DICE evaluation", false);
+    (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file> for immediate TRE evaluation", false);
+
+
     (*as) >> parameter ("masks", maskFileList, " list of  binary masks used to compute inconsistency", false);
     (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
     (*as) >> parameter ("s", m_sigma," kernel width for lncc",false);
+    (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
+
+    (*as) >> parameter ("cTol",convergenceTolerance ,"stopping criterion for absolute change in inconsistency",false);
+
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops per level",false);
     (*as) >> parameter ("maxLevels", maxLevels,"maximum number of multi-resolution levels",false);
 
-    (*as) >> parameter ("wwd", wwd,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwt", wwt,"weight for def1 in circle",false);
-    (*as) >> parameter ("wws", wws,"weight for def1 in circle",false);
-    (*as) >> parameter ("wsdelta", wsdelta,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwsym", wSymmetry,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
-    (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"weight for error variable being forced to be similar to the inconsitency statistics",false);
-    (*as) >> option ("roiShift", roiShift,"Shift ROI by half spacing after each iteration, to sample from different points.");
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
     (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
@@ -153,23 +156,26 @@ int main(int argc, char ** argv){
     (*as) >> option ("filterMetricWithGradient", filterMetricWithGradient,"Multiply local metric with target and warped source image gradients to filter out smooth regions.");
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
-    (*as) >> parameter ("annealing",annealing ,"increase regularization by annealing factor in each iteration.",false);
-
+    (*as) >> option ("updateDeformationsGlobalWeight", updateDeformationsGlobalWeight," use estimate of previous iteration in next one IF global similarity improved.");
     (*as) >> option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
     (*as) >> option ("evalLowResolutionDeformations", evalLowResolutionDeformationss," Use only the (upsampled) low resolution deformation for further processing. This is faster (ofc), but less accurate.");
 
-    (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
     (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
     (*as) >> parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
     (*as) >> option ("nearestneighb", nearestneighb," use nearestneighb interpolation (instead of NN) when building equations for circles.");
     (*as) >> parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
-    (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
-    (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file>", false);
-    (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);
 
+    (*as) >> parameter ("wsmoothum", wsmoothum,"EXPERIMENTAL: weight for def1 in circle",false);
+    (*as) >> parameter ("wsmoothym", wSymmetry,"EXPERIMENTAL: weight for def1 in circle",false);
+    (*as) >> parameter ("wwincerr",wwInconsistencyError ,"EXPERIMENTAL: weight for def1 in circle",false);
+    (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"EXPERIMENTAL: weight for error variable being forced to be similar to the inconsitency statistics",false);
+    (*as) >> option ("roiShift", roiShift,"EXPERIMENTAL: Shift ROI by half spacing after each iteration, to sample from different points.");
+
+    (*as) >> parameter ("wwd", wwd,"EXPERIMENTAL: weight for def1 in circle",false);
+    (*as) >> parameter ("wsdelta", wsdelta,"EXPERIMENTAL: weight for def1 in circle",false);
+    (*as) >> parameter ("wwdelta", wwdelta,"EXPERIMENTAL: weight for def1 in circle",false);
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-    (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
     (*as) >> option ("ORACLE", oracle," use true deformation for indexing variables in loops.CHEATING!!.");
 
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
@@ -184,7 +190,8 @@ int main(int argc, char ** argv){
 
     for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
 
- 
+     if (updateDeformationsGlobalWeight) updateDeformations=true;
+
     logSetStage("IO");
     logSetVerbosity(verbose);
         
@@ -259,7 +266,6 @@ int main(int argc, char ** argv){
                     LOGV(3)<<sourceID<<" or "<<targetID<<" not in image database, skipping"<<endl;
                     //exit(0);
                 }else{
-                    LOGV(3)<<"Reading TRUE deformation "<<defFileName<<" for deforming "<<sourceID<<" to "<<targetID<<endl;
                     trueDeformationFilenames[sourceID][targetID]=defFileName;
                 }  
             }
@@ -293,7 +299,6 @@ int main(int argc, char ** argv){
         std::vector<string> buff;
         atlasSegmentations=ImageUtils<ImageType>::readImageList(atlasSegmentationFileList,buff);
     }
-    LOGV(1)<<VAR(atlasSegmentations.size())<<endl;
     ImageCacheType groundTruthSegmentations;
     if (groundTruthSegmentationFileList!=""){
         std::vector<string> buff;
@@ -312,13 +317,13 @@ int main(int argc, char ** argv){
     
     solver->setOracle(oracle);
     solver->setWeightFullCircleEnergy(wwd);
-    solver->setWeightDeformationSmootheness(wws);
-    solver->setWeightTransformationSimilarity(wwt);
+    solver->setWeightDeformationSmootheness(wsmooth);
+    solver->setWeightTransformationSimilarity(winput);
     solver->setWeightTransformationSymmetry(wSymmetry);
     solver->setWeightErrorNorm(wwdelta);
     solver->setWeightErrorSmootheness(wsdelta);
-    solver->setWeightCircleNorm(wwcirc); 
-    solver->setWeightSum(wwsum); 
+    solver->setWeightCircleNorm(wcons); 
+    solver->setWeightSum(wsmoothum); 
     solver->setWeightInconsistencyError(wwInconsistencyError); 
     solver->setWeightErrorStatistics(wErrorStatistics); 
     solver->setUpdateDeformations(updateDeformations); 
@@ -379,9 +384,10 @@ int main(int argc, char ** argv){
             minJac=solver->getMinJac();
             averageNCC=solver->getAverageNCC();
             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
-            solver->setWeightTransformationSimilarity(wwt*pow(annealing,1.0*iter),true);
-            ++c;
-                
+            if (updateDeformations){
+                solver->setWeightTransformationSimilarity(winput*pow(1.2,1.0*iter),true);
+                ++c;
+            }
             if (iter == maxHops){
                 //double resolution
             }

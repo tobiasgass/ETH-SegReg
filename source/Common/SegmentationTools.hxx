@@ -3,16 +3,21 @@
 #include "itkImage.h"
 #include "itkLabelShapeKeepNObjectsImageFilter.h"
 #include "itkLabelOverlapMeasuresImageFilter.h"
-
-
+#include "itkHausdorffDistanceImageFilter.h"
+#include "SegmentationMapper.hxx"
 template <class ImageType>
 class SegmentationTools{
+public:
 	typedef typename ImageType::Pointer  ImagePointerType;
 	typedef typename ImageType::ConstPointer  ConstImagePointerType;
 	typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::SizeType SizeType;
     static const unsigned int D=ImageType::ImageDimension;
-
+    
+    struct OverlapScores{
+        double dice, MSD, HD,jaccard;
+        int labelID;
+    };
 private:
     
     static ImagePointerType selectLabel(ImagePointerType img, int l){
@@ -26,7 +31,7 @@ private:
         return result;
     }
 public:
-    static void computeOverlap(ImagePointerType groundTruthImg, ImagePointerType segmentedImg, double & dice, double &mean, double & hd, int evalLabel=-1, bool evalDistance=true,bool connectedComponent=false){
+    static void computeOverlap(ImagePointerType groundTruthImg, ImagePointerType segmentedImg, double & dice, double &mean, double & hd, int evalLabel=-1, bool evalDistance=false,bool connectedComponent=false){
         
         groundTruthImg=FilterUtils<ImageType>::NNResample(groundTruthImg,segmentedImg,false);
 
@@ -87,5 +92,24 @@ public:
         dice=filter->GetDiceCoefficient();
     }
 
+    static OverlapScores computeOverlap(ImagePointerType groundTruthImg, ImagePointerType segmentedImg,  int evalLabel=-1, bool evalDistance=false,bool connectedComponent=false){
+        
+        OverlapScores result;
+        result.labelID=evalLabel>-1?evalLabel:1;
+        computeOverlap(groundTruthImg,segmentedImg,result.dice,result.MSD,result.HD,evalLabel,evalDistance,connectedComponent);
+        return result;
+    }
+    
+    static std::vector<OverlapScores> computeOverlapMultilabel(ImagePointerType groundTruthImg, ImagePointerType segmentedImg,  bool evalDistance=false,bool connectedComponent=false){
+        SegmentationMapper<ImageType> segmentationMapper;
+        segmentationMapper.FindMap(groundTruthImg);
+        int  labelsToEvaluate=segmentationMapper.getNumberOfLabels();
+        std::vector<OverlapScores> result(labelsToEvaluate-1);
+        for (int l=1;l<labelsToEvaluate;++l){
+            int  label=segmentationMapper.GetInverseMappedLabel(l) ;
+            result[l-1]=computeOverlap(groundTruthImg,segmentedImg,label,evalDistance,connectedComponent);
+        }
+        return result;
+    }
 
 };

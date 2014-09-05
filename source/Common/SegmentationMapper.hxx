@@ -41,7 +41,7 @@ public:
         m_map=MapType();
         for (int n=0;n<m_nLabels;++n){
             m_map.insert(MapValueType(labelList[n],n));
-            LOGV(1)<<"Mapping label "<<labelList[n]<<" to "<<n<<endl;
+            LOGV(5)<<"Mapping label "<<labelList[n]<<" to "<<n<<endl;
 
 
         }
@@ -58,7 +58,37 @@ public:
         LOG<<"Found "<<m_nLabels<<" segmentation labels."<<std::endl;
         return result;
     }
+    void FindMap(ImagePointerType input){
+ 
+        ImagePointerType result=ImageUtils<ImageType>::duplicate(input);
 
+        ImageIteratorType inputIt(input,input->GetLargestPossibleRegion());
+
+        m_map=MapType();
+        m_nLabels=0;
+        std::vector<int> labelList(0);
+        LOG<<"Mapping segmentation labels to a continuous discrete range... "<<std::endl;
+        //build mmap
+        for (inputIt.GoToBegin();!inputIt.IsAtEnd();++ inputIt){
+            int l=inputIt.Get();
+            if (m_map.left.find(l)==m_map.left.end()){
+                m_map.insert(MapValueType(l,m_nLabels));
+                labelList.push_back(l);
+                ++m_nLabels;
+            }
+        }
+        //order preserving mapping!
+        std::sort(labelList.begin(),labelList.end());
+        m_map=MapType();
+        for (int n=0;n<m_nLabels;++n){
+            m_map.insert(MapValueType(labelList[n],n));
+            LOGV(5)<<"Mapping label "<<labelList[n]<<" to "<<n<<endl;
+
+
+        }
+
+        LOG<<"Found "<<m_nLabels<<" segmentation labels."<<std::endl;
+    }
     ImagePointerType ApplyMap(ImagePointerType input){
         if (m_map.size() ==0){
             return FindMapAndApplyMap(input);
@@ -68,7 +98,7 @@ public:
         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++ resultIt){
             int l=resultIt.Get();
              if (m_map.left.find(l)==m_map.left.end()){
-                LOGV(4)<<"could not find map for label "<<l<<endl;
+                LOG<<"could not find map for label "<<l<<endl;
                 resultIt.Set(0);
             }else{
                 resultIt.Set(m_map.left.find(l)->second);

@@ -120,6 +120,7 @@ int main(int argc, char ** argv){
     bool lineSearch=false;
     bool useConstraints=false;
     double convergenceTolerance=1e-2;
+    bool updateDeformationsGlobalWeight=false;
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -155,6 +156,7 @@ int main(int argc, char ** argv){
     (*as) >> option ("filterMetricWithGradient", filterMetricWithGradient,"Multiply local metric with target and warped source image gradients to filter out smooth regions.");
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
+    (*as) >> option ("updateDeformationsGlobalWeight", updateDeformationsGlobalWeight," use estimate of previous iteration in next one IF global similarity improved.");
     (*as) >> option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
     (*as) >> option ("evalLowResolutionDeformations", evalLowResolutionDeformationss," Use only the (upsampled) low resolution deformation for further processing. This is faster (ofc), but less accurate.");
 
@@ -194,13 +196,13 @@ int main(int argc, char ** argv){
         
     MetricType metric;
   
-    //only one solver
+    //only one solver 
     SolverType solverType=LOCALDEFORMATIONANDERROR;
     if (solverName=="localdeformationanderror"){
         solverType=LOCALDEFORMATIONANDERROR;
     } 
 
-    
+    if (updateDeformationsGlobalWeight) updateDeformations=true;
     //read images and image IDs
     ImageCacheType inputImages;
     std::vector<string> imageIDs;

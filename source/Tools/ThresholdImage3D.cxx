@@ -16,7 +16,7 @@ int main(int argc, char ** argv)
 {
 
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    typedef  short PixelType;
+    typedef  float PixelType;
     const unsigned int D=3;
     typedef Image<PixelType,D> ImageType;
     typedef  ImageType::IndexType IndexType;
@@ -28,17 +28,24 @@ int main(int argc, char ** argv)
  
     argstream * as=new argstream(argc,argv);
     string inFile, outFile;
-    double thresh=0.0;
+    double lThresh=std::numeric_limits<PixelType>::min();
+    if (!std::numeric_limits<PixelType>::is_integer){
+        lThresh=-std::numeric_limits<PixelType>::max();
+    }
+    double uThresh=std::numeric_limits<PixelType>::max();
+    bool negLow=false;
     (*as) >> parameter ("in", inFile, " filename...", true);
     (*as) >> parameter ("out", outFile, " filename...", true);
-    (*as) >> parameter ("t", thresh, "threshold", true);
-
+    (*as) >> parameter ("lt", lThresh, "lower threshold", false);
+    (*as) >> option ("negL", negLow, "negatibe lower threshold");
+    (*as) >> parameter ("ut", uThresh, "upper threshold", false);
     (*as) >> help();
     as->defaultErrorHandling();
-
+    if (negLow) lThresh=-lThresh;
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 
-    ImagePointerType outImage=FilterUtils<ImageType>::lowerThresholding(img,thresh);
+    ImagePointerType outImage=FilterUtils<ImageType>::thresholding(img,lThresh,uThresh);
+    //FilterUtils<ImageType>::lowerThresholding(img,thresh);
     
     ImageUtils<ImageType>::writeImage(outFile,outImage);
 
