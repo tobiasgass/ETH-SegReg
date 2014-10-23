@@ -237,7 +237,7 @@ public:
                     if (findDeformation(m_deformationFileList,sourceID,targetID)){
                         estSourceTarget=true;
                     }else{
-                        if (findDeformation(m_trueDeformationFileList,sourceID,targetID)){
+                        if (findDeformation(m_trueDeformationFileList,sourceID,targetID) &&  (m_trueDeformations)[sourceID][targetID].IsNull() ){
                             (m_trueDeformations)[sourceID][targetID] = ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
                             (m_trueDeformations)[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( (m_trueDeformations)[sourceID][targetID],this->m_ROI,m_smoothDeformationDownsampling);
                         }
@@ -256,7 +256,7 @@ public:
                             if (findDeformation(m_deformationFileList,sourceID,intermediateID)){
                                 estSourceIntermediate=true;
                             }else{
-                                if (findDeformation(m_trueDeformationFileList,sourceID,intermediateID))
+                                if (findDeformation(m_trueDeformationFileList,sourceID,intermediateID) &&  (m_trueDeformations)[sourceID][targetID].IsNull())
                                     {
                                         (m_trueDeformations)[sourceID][intermediateID] = ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][intermediateID]);
                                         (m_trueDeformations)[sourceID][intermediateID]=TransfUtils<ImageType>::linearInterpolateDeformationField( (m_trueDeformations)[sourceID][intermediateID],this->m_ROI,m_smoothDeformationDownsampling);
@@ -270,7 +270,7 @@ public:
                             if (findDeformation(m_deformationFileList,intermediateID,targetID)){
                                 estIntermediateTarget=true;
                             }else{
-                                if (findDeformation(m_trueDeformationFileList,intermediateID,targetID))
+                                if (findDeformation(m_trueDeformationFileList,intermediateID,targetID) &&  (m_trueDeformations)[sourceID][targetID].IsNull())
                                     {
                                         (m_trueDeformations)[intermediateID][targetID] = ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[intermediateID][targetID]);
                                         (m_trueDeformations)[intermediateID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField( (m_trueDeformations)[intermediateID][targetID],this->m_ROI,m_smoothDeformationDownsampling);
@@ -289,10 +289,10 @@ public:
             }
         }
         LOGV(1)<<VAR(m_nCircles)<<" "<<VAR(m_numDeformationsToEstimate)<<endl;
-       
-     
-
-      
+        if (m_nCircles == 0 || m_numDeformationsToEstimate == 0){
+            LOG<<"No deformations to estimate, or not able to form any circles from input registrations, aborting!"<<endl;
+            exit(-1);
+        }
         
         //normalize weights according to number of deformation pairs/circles
         m_wFullCircleEnergy /=m_nCircles;
@@ -477,7 +477,6 @@ public:
                 mxDestroyArray(mxV2);
                 engPutVariable(this->m_ep,"b2",mxB2);
                 mxDestroyArray(mxB2);
-
                 engEvalString(this->m_ep,"nEq=sum(b2>0)");
                 engEvalString(this->m_ep,"nNz=sum(xCord2>0)");
                 engEvalString(this->m_ep,"xCord2=xCord2(1:nNz)");
@@ -1074,10 +1073,11 @@ protected:
                                 //DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dSourceIntermediate,dIntermediateTarget);
                                 //compute difference of direct and indirect deform
                             
-                                FloatImagePointerType directionalDifference = TransfUtils<ImageType,float,double,double>::getComponent(difference,d);
-                                FloatImagePointerType directionalDeform = TransfUtils<ImageType,float,double,double>::getComponent(indirectDeform,d);
-                                FloatImagePointerType diffNorm = TransfUtils<ImageType,float,double,double>::computeLocalDeformationNorm(difference);
+                               
                                 if (m_wErrorStatistics>0.0){
+                                    FloatImagePointerType directionalDifference = TransfUtils<ImageType,float,double,double>::getComponent(difference,d);
+                                    FloatImagePointerType directionalDeform = TransfUtils<ImageType,float,double,double>::getComponent(indirectDeform,d);
+                                    FloatImagePointerType diffNorm = TransfUtils<ImageType,float,double,double>::computeLocalDeformationNorm(difference);
                                     //check if all accumulators exist
                                     if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
                                         m_pairwiseInconsistencyStatistics[i]=map <int,  GaussEstimatorType >();
@@ -2135,7 +2135,9 @@ public:
                             region.SetSize(size);
                             region.SetIndex(offset);
                             ImageUtils<ImageType>::setRegion(mask,region,1);
-                            DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(updatedDeform,knownDeformation);
+                            DeformationFieldPointerType defo =TransfUtils<ImageType>::linearInterpolateDeformationField(updatedDeform,knownDeformation,m_smoothDeformationDownsampling);
+
+                            DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(defo,knownDeformation);
                             //m_ADE+=TransfUtils<ImageType>::computeDeformationNorm(diff);
                             m_ADE+=TransfUtils<ImageType>::computeDeformationNormMask(diff,mask);
                         }

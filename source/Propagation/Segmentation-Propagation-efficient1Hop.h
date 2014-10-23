@@ -88,6 +88,7 @@ public:
         int useNTargets=1000000;
         double globalOneHopWeight=1.0;
         bool AREG= false;
+        string singleTarget="";
         m_sigma=30;
         (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
         (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
@@ -105,6 +106,7 @@ public:
         (*as) >> parameter ("useNAtlases", useNAtlases,"use the first N atlases from the list",false);
         (*as) >> parameter ("useNTargets", useNTargets,"use the first N targets as intermediate images",false);
         (*as) >> parameter ("globalOneHopWeight", globalOneHopWeight,"global weight for one hop segmentations (vs. zero hop)",false);
+        (*as) >> parameter ("singleTarget", singleTarget,"only compute propagated segmentations for a specific target (maxhops = 1)",false);
         (*as) >> option ("AREG", AREG,"use AREG to select intermediate targets");
         (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
         (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
@@ -119,13 +121,16 @@ public:
         else
             suffix=".nii.gz";
 
-     
+        
 
         //late fusion is only well defined for maximal 1 hop.
         //it requires to explicitly compute all n!/(n-nHops) deformation paths to each image and is therefore infeasible for nHops>1
         //also strange to implement
         if (lateFusion)
-            maxHops==min(maxHops,1);
+            maxHops=min(maxHops,1);
+        
+        if (singleTarget!="")
+            maxHops=1;
 
         for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
 
@@ -377,6 +382,8 @@ public:
         //generate one-hop target segmentations
         for (ImageListIteratorType targetImageIterator=targetImages->begin();targetImageIterator!=targetImages->end();++targetImageIterator){                //iterate over targets
             string targetID= targetImageIterator->first;
+            if (singleTarget=="" || targetID==singleTarget){
+
             if (atlasSegmentationIDMap->find(targetID)==atlasSegmentationIDMap->end()){ //do not calculate segmentation for atlas images
                 ProbabilisticVectorImagePointerType probabilisticTargetSegmentation=createEmptyProbImageFromImage( targetImageIterator->second);
                 int atlasN=0;
@@ -468,6 +475,7 @@ public:
                 LOGI(4,ImageUtils<ProbabilisticVectorImageType>::writeImage(tmpSegmentationFilename2.str().c_str(),probabilisticTargetSegmentation));
                 
             
+            }
             }
            
         }//finished one-hop segmentation

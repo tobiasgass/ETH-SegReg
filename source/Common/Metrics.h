@@ -708,6 +708,106 @@ public:
     }
 
 
+    static inline OutputImagePointer ITKLMI(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0, InputImagePointer coarseImg=NULL){
+        return ITKLMI( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp,coarseImg);
+    }
+    static inline OutputImagePointer ITKLMI(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0, InputImagePointer coarseImg=NULL){
+        
+        InternalImagePointer result;
+        if (coarseImg.IsNotNull()){
+            result=FilterUtils<InputImage,InternalImage>::createEmpty(coarseImg);
+            //LOGV(6)<<VAR(result->GetSpacing()[0])<<" "<<VAR(i1->GetSpacing()[0])<<endl;
+            //sigma=sigma*result->GetSpacing()[0]/i1->GetSpacing()[0];
+        }
+        else{
+            result=FilterUtils<InputImage,InternalImage>::createEmpty(i1);
+        }
+        result->FillBuffer(0.0);
+        typedef typename InputImage::RegionType RegionType;
+        RegionType region;
+        //LOGV(4)<<VAR(sigma)<<endl;
+        typename InputImage::SizeType regionSize;
+        regionSize.Fill(2*(2*sigma+1)); //needs some spacing information!?
+        region.SetSize(regionSize);
+        itk::ImageRegionIteratorWithIndex<InternalImage> resultIt(result,result->GetLargestPossibleRegion());
+
+
+        typedef typename itk::MattesMutualInformationImageToImageMetric<InputImage,InputImage> MIType;
+        typename MIType::Pointer nccMetric = MIType::New();
+        typedef typename itk::LinearInterpolateImageFunction<InputImage> InterpolatorType;
+        typename InterpolatorType::Pointer interpolator=InterpolatorType::New();
+        interpolator->SetInputImage(i2);
+        nccMetric->SetFixedImage(i1);
+        nccMetric->SetMovingImage(i2);
+        nccMetric->SetInterpolator(interpolator);
+        typename itk::IdentityTransform< double, D >::Pointer iTrans= itk::IdentityTransform< double, D >::New();
+        nccMetric->SetTransform(iTrans);
+        nccMetric->SetSubtractMean(true);
+
+
+        for (resultIt.Begin();!resultIt.IsAtEnd();++resultIt){
+            
+            typename InputImage::IndexType idx = resultIt.GetIndex(), newIndex;
+            bool fullInside=true;
+            typename InputImage::PointType pt;
+            //get coordinate in fine image in case we're simultaneously downsampling
+            if (coarseImg.IsNotNull()){
+                result->TransformIndexToPhysicalPoint(idx,pt);
+                i1->TransformPhysicalPointToIndex(pt,newIndex);
+            }else{
+                newIndex=idx;
+            }
+            LOGV(7)<<VAR(idx)<<" "<<VAR(newIndex)<<" "<<VAR(sigma)<<endl;
+
+#if 0            
+            //convert newIndex to corner of patch, assumind newIndex is the central pixel
+            for (int d=0;d<D;++d){
+                if (newIndex[d]>=i1->GetLargestPossibleRegion().GetSize()[d]-sigma){
+                    fullInside=false;
+                    break;
+                }
+                newIndex[d]-=sigma;
+                if (newIndex[d]<0){
+                    fullInside=false;
+                    break;
+                }
+            }
+#else
+
+            typename InputImage::SizeType localRegionSize;
+             //convert newIndex to corner of patch, assumind newIndex is the central pixel
+            for (int d=0;d<D;++d){
+                //make region smaller
+                int maxSize=2*sigma+1;
+                
+                //size gets smaller when center pixel is outside maxRange-sigma
+                int idxDifference=newIndex[d] - (i1->GetLargestPossibleRegion().GetSize()[d]-sigma -1);
+                maxSize-=max(0, idxDifference);
+                
+                //size gets smaller when newIndex-sigma is smaller than zero
+                idxDifference=sigma-newIndex[d];
+                maxSize-=max(0, idxDifference);
+
+                localRegionSize[d]=maxSize;
+                newIndex[d]=max(0.0,newIndex[d]-sigma);
+
+            }
+            region.SetSize(localRegionSize);
+#endif
+
+            if (fullInside){
+                region.SetIndex(newIndex);
+                nccMetric->SetFixedImageRegion(region);
+                InternalPrecision val=(1.0-nccMetric->GetValue(iTrans->GetParameters()))/2;
+                LOGV(7)<<VAR(newIndex)<<" "<<VAR(pt)<<" " <<VAR(val)<<" "<<endl;
+                resultIt.Set(pow(val,exp));
+            }
+            
+        }
+        return FilterUtils<InternalImage,OutputImage>::cast(result);
+
+    }
+
     static inline OutputImagePointer ITKLNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0, InputImagePointer coarseImg=NULL){
         return ITKLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp,coarseImg);
     }

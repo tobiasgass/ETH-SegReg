@@ -113,6 +113,10 @@ ADD_EXECUTABLE(CompareSegmentations2D CompareSegmentations2D.cxx )
 TARGET_LINK_LIBRARIES(CompareSegmentations2D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(SelectLabels3D SelectLabels3D.cxx )
 TARGET_LINK_LIBRARIES(SelectLabels3D Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(RelabelSegmentation3D RelabelSegmentation3D.cxx )
+TARGET_LINK_LIBRARIES(RelabelSegmentation3D Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(ExtractSegmentationOutline2D ExtractSegmentationOutline2D.cxx )
+TARGET_LINK_LIBRARIES(ExtractSegmentationOutline2D Utils   ${ITK_LIBRARIES}  )
 #segment 
 ADD_EXECUTABLE(SegmentProbImage3D SegmentProbImage3D.cxx )
 TARGET_LINK_LIBRARIES(SegmentProbImage3D Utils SRSMRFModels    ${ITK_LIBRARIES}  )
@@ -197,6 +201,9 @@ TARGET_LINK_LIBRARIES(ConvertRGBImageToITK3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(CreateHumerusSegmentationMask CreateHumerusSegmentationMask.cxx )
 TARGET_LINK_LIBRARIES(CreateHumerusSegmentationMask  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(NormalizeImage3D NormalizeImage3D.cxx )
+TARGET_LINK_LIBRARIES(NormalizeImage3D  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(ResampleImage3D ResampleImage3D.cxx )
 TARGET_LINK_LIBRARIES(ResampleImage3D  Utils   ${ITK_LIBRARIES}  )
 
@@ -218,3 +225,9 @@ TARGET_LINK_LIBRARIES(GetBoundingBox3D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(DeformationToBSplineTest2D DeformationToBSplineTest2D.cxx )
 TARGET_LINK_LIBRARIES(DeformationToBSplineTest2D  Utils   ${ITK_LIBRARIES}  )
+
+
+
+
+ADD_EXECUTABLE(CropImageToBoundingBox3D CropImageToBoundingBox3D.cxx )
+TARGET_LINK_LIBRARIES(CropImageToBoundingBox3D   Utils   ${ITK_LIBRARIES}  )

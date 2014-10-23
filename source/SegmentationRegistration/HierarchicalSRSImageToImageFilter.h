@@ -243,6 +243,10 @@ namespace itk{
                 m_unaryRegistrationPot->SetAtlasLandmarksFile(m_config->atlasLandmarkFilename);
                 m_unaryRegistrationPot->SetTargetLandmarksFile(m_config->targetLandmarkFilename);
                 m_unaryRegistrationPot->setNormalizeImages(m_config->normalizeImages);
+                //MOVED HERE, HOPE THIS DOES NOT BREAK ANYTHING
+                m_unaryRegistrationPot->SetTargetImage(m_targetImage);
+                m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
+                // /MOVED
                 m_pairwiseRegistrationPot->setThreshold(m_config->thresh_PairwiseReg);
                 m_pairwiseRegistrationPot->setFullRegularization(m_config->fullRegPairwise);
                 
@@ -457,8 +461,7 @@ namespace itk{
                 if (regist||coherence){
                     //setup registration potentials
                     m_unaryRegistrationPot->SetScale(scaling);
-                    m_unaryRegistrationPot->SetTargetImage(m_inputTargetImage);
-                    m_unaryRegistrationPot->SetAtlasImage(m_atlasImage);
+                  
                     m_unaryRegistrationPot->SetAtlasMaskImage(m_atlasMaskImage);
                     if (m_config->alpha > 0 && segment){
                         LOG<<"WARNING, alpha used for both seg and reg potentials, this will likely break stuff"<<endl;

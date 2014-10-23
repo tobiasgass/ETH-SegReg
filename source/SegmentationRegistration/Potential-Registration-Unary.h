@@ -33,6 +33,8 @@
 #include <fstream>
 #include "itkPointsLocator.h"
 #include "itkSignedMaurerDistanceMapImageFilter.h"
+#include "SegmentationMapper.hxx"
+
 namespace itk{
 
     template<class TImage>
@@ -193,7 +195,7 @@ namespace itk{
             m_atlasMaskImage=atlasMaskImage;
 
         }
-        void SetTargetImage(ConstImagePointerType targetImage){
+        virtual void SetTargetImage(ConstImagePointerType targetImage){
             if (! m_useGradient){ 
                 if (m_normalizeImages){
                     LOGV(1)<<"Normalizing target image to zero mean unit variance"<<endl;
@@ -626,9 +628,9 @@ namespace itk{
                         double localPot=0;
                         double weight=1.0;
                         if (m_unaryPotentialWeights.IsNotNull()){
-                             IndexType weightIndex;
-                             m_unaryPotentialWeights->TransformPhysicalPointToIndex(point,weightIndex);
-                             weight=m_unaryPotentialWeights->GetPixel(weightIndex);
+                            IndexType weightIndex;
+                            m_unaryPotentialWeights->TransformPhysicalPointToIndex(point,weightIndex);
+                            weight=m_unaryPotentialWeights->GetPixel(weightIndex);
 
                         }
                         if (this->m_alpha<1.0) localPot=(1.0-this->m_alpha)*weight*getLocalPotential(targetIndex);
@@ -1681,14 +1683,14 @@ namespace itk{
         }
     };//FastUnaryPotentialRegistrationCategorical
   
- template<class TImage>
+    template<class TImage>
     class FastUnaryPotentialRegistrationCategoricalDistanceBased: public FastUnaryPotentialRegistrationCategorical<TImage> {
     public:
         //itk declarations
-        typedef FastUnaryPotentialRegistrationCategoricalDistanceBased            Self;
+        typedef FastUnaryPotentialRegistrationCategoricalDistanceBased<TImage>            Self;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
-        typedef FastUnaryPotentialRegistrationNCC<TImage> Superclass;
+        typedef FastUnaryPotentialRegistrationCategorical<TImage> Superclass;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -1719,14 +1721,28 @@ namespace itk{
         typedef typename FloatImageType::Pointer FloatImagePointerType;
         typedef typename itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
         typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
- 
+        typedef SegmentationMapper<ImageType> SegmentationMapperType;
+    private:
+        std::vector<FloatImagePointerType> *m_distanceTransforms,* m_scaledDistanceTransforms;
+        SegmentationMapperType * m_segmentationMapper;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(FastRegistrationUnaryPotentialCategoricalDistanceBased, Object);
-        
-     
+      //    Self(){
+      //        SuperClass();
+      //        m_distanceTransforms=NULL;
+      //        m_scaledDistanceTransforms=NULL;
+      //        m_segmentationMapper=NULL;
+      //    }
+      //    ~Self(){
+      //        if (m_distanceTransforms)delete m_distanceTransforms;
+      //     
+      //        if (m_scaledDistanceTransforms)delete m_scaledDistanceTransforms;
+      //        if (m_segmentationMapper)delete  m_segmentationMapper;
+      //        ~SuperClass();
+      //    }
 
         virtual double getLocalPotential(IndexType targetIndex){
 
@@ -1747,7 +1763,11 @@ namespace itk{
                     m=0.0;
                 if ( inBounds && (inside|| this->m_noOutSidePolicy)  ){
                     int f=this->nIt.GetPixel(i);
-                    penalty+=f!=m;
+                    if (f!=m){
+                        IndexType idx=this->nIt.GetIndex(i);
+                        LOGV(9)<<VAR(f)<<" "<<VAR(m)<<" "<<VAR((*m_scaledDistanceTransforms)[f]->GetPixel(idx))<<endl;
+                        penalty+=(*m_scaledDistanceTransforms)[f]->GetPixel(idx);
+                    }
                     count+=1;
 
                 }
@@ -1765,20 +1785,32 @@ namespace itk{
             assert(this->m_atlasImage);
             if ( this->m_scale!=1.0){
                 this->m_scaledTargetImage=FilterUtils<ImageType>::NNResample(this->m_targetImage,this->m_scale,false);
+                
                 this->m_scaledAtlasImage=FilterUtils<ImageType>::NNResample(this->m_atlasImage,this->m_scale,false);
-              
                 if (this->m_atlasMaskImage.IsNotNull()){
-                    this->m_scaledAtlasMaskImage=FilterUtils<ImageType>::NNResample(this->m_atlasMaskImage,this->m_scale,false);                }
+                    this->m_scaledAtlasMaskImage=FilterUtils<ImageType>::NNResample(this->m_atlasMaskImage,this->m_scale,false);                
+                }
+               
+                          
             }else{
                 this->m_scaledTargetImage=this->m_targetImage;
                 this->m_scaledAtlasImage=this->m_atlasImage;
                 this->m_scaledAtlasMaskImage=this->m_atlasMaskImage;
             }
+            int nSegs=FilterUtils<ImageType>::getMax(this->m_targetImage)+1;
+            if (m_scaledDistanceTransforms==NULL){
+                m_scaledDistanceTransforms=new std::vector<FloatImagePointerType>(nSegs);
+            }
+            LOGV(3)<<"downsampling distance transforms for "<<nSegs<<" labels; scale:"<<this->m_scale<<endl;
+            for (unsigned int s=0;s<nSegs;++s){
+                LOGV(3)<<"downsampling distance transforms for label:"<<s<<endl;
+                (*m_scaledDistanceTransforms)[s]=FilterUtils<FloatImageType>::LinearResample((*m_distanceTransforms)[s],this->m_scale,true);
+            }
             if (!this->radiusSet){
                 LOG<<"Radius must be set before calling registrationUnaryPotential.Init()"<<endl;
                 exit(0);
             }
-                
+           
             for (int d=0;d<ImageType::ImageDimension;++d){
                 this->m_scaledRadius[d]=this->m_scale*this->m_radius[d];
             }
@@ -1788,6 +1820,34 @@ namespace itk{
             this->m_atlasInterpolator=InterpolatorType::New();
             this->m_atlasInterpolator->SetInputImage(this->m_scaledAtlasImage);
         }
+
+     	virtual void SetAtlasImage(ConstImagePointerType atlasImage){
+            if (m_segmentationMapper!=NULL){
+                this->m_atlasImage=m_segmentationMapper->ApplyMap(atlasImage);
+            }else{
+                this->m_atlasImage=(atlasImage);
+            }
+            this->m_atlasSize=this->m_atlasImage->GetLargestPossibleRegion().GetSize();
+        }
+
+      
+        void SetTargetImage(ConstImagePointerType targetImage){
+            m_segmentationMapper=new SegmentationMapperType;
+            this->m_targetImage=m_segmentationMapper->FindMapAndApplyMap(targetImage);
+            int nSegs=FilterUtils<ImageType>::getMax(this->m_targetImage)+1;
+            m_distanceTransforms=new std::vector<FloatImagePointerType>(nSegs);
+            LOGV(3)<<"Computing distance transforms for "<<nSegs<<" labels"<<endl;
+            for (unsigned int s=0;s<nSegs;++s){
+                LOGV(3)<<"Computing distance transforms for label:"<<s<<endl;
+                (*m_distanceTransforms)[s]=FilterUtils<ImageType,FloatImageType>::distanceMapByFastMarcher(this->m_targetImage,s);
+            }
+            this->m_targetSize=this->m_targetImage->GetLargestPossibleRegion().GetSize();
+            if (this->m_atlasImage.IsNotNull()){
+                this->m_atlasImage=m_segmentationMapper->ApplyMap(this->m_atlasImage);
+            }
+
+        }
+     
     };//FastUnaryPotentialRegistrationCategoricalDistanceBased
 
     template<class TImage>

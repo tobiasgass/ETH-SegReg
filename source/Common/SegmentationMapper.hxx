@@ -9,18 +9,23 @@ class SegmentationMapper{
 public:
     
     typedef typename ImageType::Pointer ImagePointerType;
+    typedef typename ImageType::ConstPointer ConstImagePointerType;
     typedef boost::bimap<int,int> MapType;
     typedef MapType::value_type MapValueType;
     typedef typename ImageUtils<ImageType>::ImageIteratorType ImageIteratorType;
+    typedef typename ImageUtils<ImageType>::ConstImageIteratorType ConstImageIteratorType;
 private:
     MapType m_map;
     int m_nLabels;
 public:
     ImagePointerType FindMapAndApplyMap(ImagePointerType input){
+        return FindMapAndApplyMap((ConstImagePointerType)input);
+    }
+    ImagePointerType FindMapAndApplyMap(ConstImagePointerType input){
  
-        ImagePointerType result=ImageUtils<ImageType>::duplicate(input);
+        ImagePointerType result=ImageUtils<ImageType>::duplicateConst(input);
 
-        ImageIteratorType inputIt(input,input->GetLargestPossibleRegion());
+        ConstImageIteratorType inputIt(input,input->GetLargestPossibleRegion());
         ImageIteratorType resultIt(result,input->GetLargestPossibleRegion());
 
         m_map=MapType();
@@ -62,7 +67,7 @@ public:
  
         ImagePointerType result=ImageUtils<ImageType>::duplicate(input);
 
-        ImageIteratorType inputIt(input,input->GetLargestPossibleRegion());
+        ConstImageIteratorType inputIt(input,input->GetLargestPossibleRegion());
 
         m_map=MapType();
         m_nLabels=0;
@@ -90,10 +95,13 @@ public:
         LOG<<"Found "<<m_nLabels<<" segmentation labels."<<std::endl;
     }
     ImagePointerType ApplyMap(ImagePointerType input){
+        return ApplyMap((ConstImagePointerType)input);
+    }
+    ImagePointerType ApplyMap(ConstImagePointerType input){
         if (m_map.size() ==0){
             return FindMapAndApplyMap(input);
         }
-        ImagePointerType result=ImageUtils<ImageType>::duplicate(input);
+        ImagePointerType result=ImageUtils<ImageType>::duplicateConst(input);
         ImageIteratorType resultIt(result,input->GetLargestPossibleRegion());
         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++ resultIt){
             int l=resultIt.Get();

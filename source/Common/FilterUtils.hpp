@@ -1075,6 +1075,13 @@ public:
                                                        InputImagePixelType objectLabel,
                                                        float stoppingValue = 0
                                                        ) {
+        return distanceMapByFastMarcher((ConstInputImagePointer)image,objectLabel, stoppingValue);
+    }
+    static OutputImagePointer distanceMapByFastMarcher(
+                                                       ConstInputImagePointer image,
+                                                       InputImagePixelType objectLabel,
+                                                       float stoppingValue = 0
+                                                       ) {
 
         // prepare fast marching
         FastMarchingImageFilterPointer fastMarcher =
@@ -1091,7 +1098,7 @@ public:
         FastMarchingNodeContainerPointer seeds = FastMarchingNodeContainer::New();
         seeds->Initialize();
 
-        itk::ImageRegionIteratorWithIndex<InputImage> it(
+        itk::ImageRegionConstIteratorWithIndex<InputImage> it(
                                                          image, image->GetLargestPossibleRegion());
         for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
             if (it.Get() == objectLabel) {
@@ -1223,4 +1230,6 @@ public:
         return filter->GetOutput();
 
     }
+
+    
 };

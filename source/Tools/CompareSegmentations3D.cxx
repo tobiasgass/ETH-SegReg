@@ -25,13 +25,15 @@ typedef itk::Image< Label, D >  LabelImage;
 typedef itk::Image< float, D > TRealImage;
 typedef  LabelImage::Pointer LabelImagePointerType;
 
-LabelImagePointerType selectLabel(LabelImagePointerType img, Label l){
+LabelImagePointerType selectLabel(LabelImagePointerType img, Label l, bool &present){
     LabelImagePointerType result=ImageUtils<LabelImage>::createEmpty(img);
     typedef itk::ImageRegionIterator<LabelImage> IteratorType;
     IteratorType it1(img,img->GetLargestPossibleRegion());
     IteratorType it2(result,img->GetLargestPossibleRegion());
     for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2){
-        it2.Set(it1.Get()==l);
+        bool check=it1.Get()==l;
+        it2.Set(check);
+        if (check) {present=true;}
     }
     return result;
 }
@@ -62,6 +64,7 @@ int main(int argc, char * argv [])
     string labelList="";
     bool evalAll=false;
     bool resampleIfNeeded=false;
+    bool excludeMissing=false;
 	as >> parameter ("g", groundTruth, "groundtruth image (file name)", true);
 	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
 	as >> parameter ("m", maskFilename, "Binary mask in which measures are to be computed (file name)", false);
@@ -72,6 +75,7 @@ int main(int argc, char * argv [])
 	as >> parameter ("labelsToEvaluate", labelsToEvaluate, "labels to evaluate", false);
 	as >> parameter ("labelList", labelList, "list of labels to evaluate", false);
     as >> option ("all", evalAll, "compute mean overlap [disables hausdorff]");
+    as >> option ("excludeMissing", excludeMissing, "exclude labels missing from segmentation estimate");
     as >> option ("h", hausdorff, "compute hausdorff distance(0,1)");
 	as >> option ("l", connectedComponent, "use largest connected component in segmentation");
 	as >> option ("r", resampleIfNeeded, "resample input seg to GT seg if necessary");
@@ -173,8 +177,12 @@ int main(int argc, char * argv [])
                 continue;
             }
         }
-        LabelImage::Pointer evalGroundTruthImage=            selectLabel(groundTruthImg,evalLabel);   
-        LabelImage::Pointer evalSegmentedImage=            selectLabel(segmentedImg,evalLabel);   
+        bool present;
+        LabelImage::Pointer evalGroundTruthImage=            selectLabel(groundTruthImg,evalLabel,present);   
+        present=false;
+        LabelImage::Pointer evalSegmentedImage=            selectLabel(segmentedImg,evalLabel,present);   
+        
+        if (present || !excludeMissing ){
        
         typedef LabelImage::ConstPointer ConstType;
         if (connectedComponent){  
@@ -194,6 +202,9 @@ int main(int argc, char * argv [])
             labelShapeKeepNObjectsImageFilter->SetAttribute( LabelShapeKeepNObjectsImageFilterType::LabelObjectType::NUMBER_OF_PIXELS);
             labelShapeKeepNObjectsImageFilter->Update();
             evalSegmentedImage =  FilterUtils<LabelImage>::binaryThresholdingLow(labelShapeKeepNObjectsImageFilter->GetOutput(), 1);     //;//f->GetOutput();// FilterUtils<LabelImage>::binaryThresholding(labelShapeKeepNObjectsImageFilter->GetOutput(),1,10000);//filter->GetOutput(),1,1);
+            if (outputFilename!=""){
+                ImageUtils<LabelImage>::writeImage(outputFilename,evalSegmentedImage);
+            }
         }
    
    
@@ -230,6 +241,7 @@ int main(int argc, char * argv [])
             std::cout<<" MaxAbs "<< maxAbsDistance<<" ";
         }
         std::cout<<endl;
+        }
         //std::cout<<endl;
         ++evalLabel;
     }

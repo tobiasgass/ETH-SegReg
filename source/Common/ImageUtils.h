@@ -46,6 +46,7 @@ public:
     typedef typename itk::Image<unsigned char,ImageType::ImageDimension> UCharImageType;
     typedef typename UCharImageType::Pointer UCharImagePointerType;
     typedef itk::ImageRegionIterator<ImageType> ImageIteratorType;
+    typedef itk::ImageRegionConstIterator<ImageType> ConstImageIteratorType;
 	typedef itk::Image< PixelType , 2 > ImageType2D;
 
 	typedef itk::ImageFileReader< ImageType >  ReaderType;
@@ -209,7 +210,8 @@ public:
 		duplicator->Update();
 		return duplicator->GetOutput();
 	}
-
+  
+    
 	static ImagePointerType duplicateConst(ConstImagePointerType img) {
 		DuplicatorPointerType duplicator = DuplicatorType::New();
 		duplicator->SetInputImage( img );
