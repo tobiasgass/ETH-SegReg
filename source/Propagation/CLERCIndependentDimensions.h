@@ -477,19 +477,25 @@ public:
                 double * y=( double *)mxGetData(mxY);        std::fill(y,y+m_nNonZeroesTripls,m_nVars);
                 double * v=( double *)mxGetData(mxV);
                 double * b=mxGetPr(mxB);        std::fill(b,b+m_nEQsTripls,-999999);
+
+                ostringstream allocX; allocX<<"xCord=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocX.str().c_str());
+                ostringstream allocY; allocY<<"yCord=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocY.str().c_str());
+                ostringstream allocV; allocV<<"val=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocV.str().c_str());
+                ostringstream allocB; allocB<<"b=zeros("<<m_nEQsTripls<<",1);"; engEvalString(this->m_ep,allocB.str().c_str());
+
                 LOGV(2)<<"Computing triplet topology structure"<<endl;
                 computeTripletEnergies( x,  y, v,  b, c,  eq,d);
                 cForConsistency=c;
                 eqForConsistency=eq;
                 LOGV(2)<<"Passing variables to matlab"<<endl;
                 //put variables into workspace and immediately destroy them
-                engPutVariable(this->m_ep,"xCord",mxX);
+                //engPutVariable(this->m_ep,"xCord",mxX);
                 mxDestroyArray(mxX);
-                engPutVariable(this->m_ep,"yCord",mxY);
+                // engPutVariable(this->m_ep,"yCord",mxY);
                 mxDestroyArray(mxY);
-                engPutVariable(this->m_ep,"val",mxV);
+                // engPutVariable(this->m_ep,"val",mxV);
                 mxDestroyArray(mxV);
-                engPutVariable(this->m_ep,"b",mxB);
+                //engPutVariable(this->m_ep,"b",mxB);
                 mxDestroyArray(mxB);
                 
                 //remove unused entries
@@ -1228,7 +1234,13 @@ protected:
                                                     //indirect
                                                     x[c]=eq;
                                                     y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
-                                                    v[c++]=val* m_wCircleNorm;
+                                                    v[c]=val* m_wCircleNorm;
+                                                    ostringstream cmd;
+                                                    cmd<<"xCord("<<c+1<<")="<<eq<<"; ";
+                                                    cmd<<"yCord("<<c+1<<")="<<edgeNumDeformation(intermediate,target,roiTargetIndex,d)<<"; ";
+                                                    cmd<<"val("<<c+1<<")="<<val* m_wCircleNorm<<"; ";
+                                                    engEvalString(this->m_ep,cmd.str().c_str());
+                                                    ++c;
                                                 }else{
                                                     RHS-=dIntermediateTarget->GetPixel(roiTargetIndex)[d];
                                                 }
@@ -1246,7 +1258,13 @@ protected:
                                                     if (estSourceIntermediate    && insideIntermediate[i]){
                                                         x[c]=eq;
                                                         y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                                        v[c++]=ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
+                                                        v[c]=ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
+                                                        ostringstream cmd;
+                                                        cmd<<"xCord("<<c+1<<")="<<eq<<"; ";
+                                                        cmd<<"yCord("<<c+1<<")="<<edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d)<<"; ";
+                                                        cmd<<"val("<<c+1<<")="<<ptIntermediateNeighbors[i].second*val* m_wCircleNorm<<"; ";
+                                                        engEvalString(this->m_ep,cmd.str().c_str());
+                                                        ++c;
                                                         LOGV(8)<<VAR(roiTargetIndex)<<" "<<VAR(i)<<" "<<VAR(ptIntermediateNeighbors[i].first)<<" "<<VAR(ptIntermediateNeighbors[i].second)<<endl;
                                                     }else{
                                                         RHS-=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
@@ -1258,7 +1276,13 @@ protected:
                                                     //minus direct
                                                     x[c]=eq;
                                                     y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
-                                                    v[c++]= - val* m_wCircleNorm;
+                                                    v[c]= - val* m_wCircleNorm;
+                                                    ostringstream cmd;
+                                                    cmd<<"xCord("<<c+1<<")="<<eq<<"; ";
+                                                    cmd<<"yCord("<<c+1<<")="<<edgeNumDeformation(source,target,roiTargetIndex,d)<<"; ";
+                                                    cmd<<"val("<<c+1<<")="<<-val* m_wCircleNorm<<"; ";
+                                                    engEvalString(this->m_ep,cmd.str().c_str());
+                                                    ++c;
                                                 }else{
                                                     RHS+=dSourceTarget->GetPixel(roiTargetIndex)[d];
                                                 }
@@ -1269,6 +1293,9 @@ protected:
                                                                                     );
                                                 manualResidual+=residual*residual;
                                                 b[eq-1]=m_wCircleNorm*RHS;
+                                                ostringstream cmd;
+                                                cmd<<"b("<<eq<<")="<<m_wCircleNorm*RHS<<";";
+                                                engEvalString(this->m_ep,cmd.str().c_str());
                                                 ++eq;
                                             }
                                     
