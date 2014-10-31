@@ -575,6 +575,9 @@ public:
         return FilterUtils<InternalImage,OutputImage>::cast(result);
 
     }
+       static inline OutputImagePointer efficientLNCCNewNorm(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0){
+           return efficientLNCCNewNorm(ConstInputImagePointer(i1),ConstInputImagePointer(i2), sigma, exp);
+       }
 
        static inline OutputImagePointer efficientLNCCNewNorm(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
         if (exp == 0.0 ) exp = 1.0;
@@ -732,7 +735,7 @@ public:
                 r = 0;
             }
 #endif
-            r = pow((fabs(r),exp));
+            r = pow(fabs(r),exp);
         
 #ifdef SAFE    
             r = max(r,std::numeric_limits<InternalPrecision>::epsilon());

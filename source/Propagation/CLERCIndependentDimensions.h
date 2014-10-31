@@ -407,13 +407,18 @@ public:
             m_wSum/=m_nEqSUM;
         int m_nVarSUM=2;
 
+        long int m_nEQsTripls= m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm + m_nEqErrorNorm;
         m_nEqs= m_nEqTransformationSymmetry+  m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm+ m_nEqDeformationSmootheness + m_nEqErrorNorm+ m_nEqTransformationSimilarity + m_nEqSUM +  m_nEqErrorSmootheness + m_nEqErrorInconsistency; // total number of equations
+        long int m_nEQsPairs=m_nEqs-m_nEQsTripls;
+
         
         m_estError= m_nEqFullCircleEnergy ||  m_nEqErrorNorm || m_nEqSUM||m_nEqErrorInconsistency ;
         m_estDef = m_nEqFullCircleEnergy || m_nEqTransformationSimilarity ||  m_nEqDeformationSmootheness  ||  m_nEqCircleNorm || m_nEqSUM  ||  m_nEqErrorStatistics;
         m_nVars= m_numImages*(m_numImages-1)*m_nPixels*internalD *(m_estError + m_estDef); // total number of free variables (error and deformation)
-        
+
+        long int m_nNonZeroesTripls=m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm; //maximum number of non-zeros        
         m_nNonZeroes=m_nEqTransformationSymmetry*m_nVarTransformationSymmetry+ m_nEqErrorStatistics+ m_nEqErrorSmootheness*m_nVarErrorSmootheness +m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqErrorNorm*m_nVarErrorNorm + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity + m_nEqSUM*m_nVarSUM + m_nVarErrorInconsistency*m_nEqErrorInconsistency; //maximum number of non-zeros
+        long int m_nNonZerosPairs=m_nNonZeroes-m_nNonZeroesTripls;
 
 
         LOGV(1)<<"Creating equation system.."<<endl;
@@ -424,42 +429,24 @@ public:
 
         bool haveLocalWeights=false;
 
-	mxArray *mxX=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
-	mxArray *mxY=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
-	mxArray *mxV=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
-	mxArray *mxB=mxCreateDoubleMatrix((mwSize)m_nEqs,1,mxREAL);
-            
-	mxArray *mxInit=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
-	mxArray *mxUpperBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
-	mxArray *mxLowerBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
-	if ( !mxX || !mxY || !mxV || !mxB || !mxInit){
-                LOG<<"couldn't allocate memory!"<<endl;
-                exit(0);
-	}
-	double * x=( double *)mxGetData(mxX);
-	std::fill(x,x+m_nNonZeroes,-1);
-	double * y=( double *)mxGetData(mxY);
-	std::fill(y,y+m_nNonZeroes,m_nVars);
-	double * v=( double *)mxGetData(mxV);
-	double * b=mxGetPr(mxB);
-	std::fill(b,b+m_nEqs,-999999);
+      
 
-	double * init=mxGetPr(mxInit);
-	double * lb=mxGetPr(mxLowerBound);
-	std::fill(lb,lb+m_nVars,-200);
-	double * ub=mxGetPr(mxUpperBound);
-	std::fill(ub,ub+m_nVars,200);
-	long int cForConsistency, eqForConsistency;
-	for (unsigned int d = 0; d< D; ++d){
-#ifdef SEPENGINE       
-            if (!(this->m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
-                fprintf(stderr, "\nCan't start MATLAB engine\n");
-                exit(EXIT_FAILURE);
-            }
-#endif
+        mxArray *mxInit=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
+        mxArray *mxUpperBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
+        mxArray *mxLowerBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
+     
+      
+
+        double * init=mxGetPr(mxInit);
+        double * lb=mxGetPr(mxLowerBound);
+        std::fill(lb,lb+m_nVars,-200);
+        double * ub=mxGetPr(mxUpperBound);
+        std::fill(ub,ub+m_nVars,200);
+        long int cForConsistency, eqForConsistency;
+        for (unsigned int d = 0; d< D; ++d){
+
           
-          
-	LOGV(1)<<"creating"<<VAR(d)<<endl;
+            LOGV(1)<<"creating"<<VAR(d)<<endl;
 
            
      
@@ -474,60 +461,38 @@ public:
             long int c=0;
         
             if (d==0){
-	      computeTripletEnergies( x,  y, v,  b, c,  eq,d);
-	      cForConsistency=c;
-	      eqForConsistency=eq;
-	    }else{
-	      c=cForConsistency;
-	      eq=eqForConsistency;
-	    }
-            computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, c,  eq,d);
-            LOGV(1)<<VAR(eq)<<" "<<VAR(c)<<endl;
-
-            if (m_useConstraints){
-                int nEqConstraints=3*D*m_numDeformationsToEstimate*m_nPixels;
-                int nNonZeroConstraints=2*nEqConstraints;
-                
-                mxArray *mxX2=mxCreateDoubleMatrix((mwSize)nNonZeroConstraints,1,mxREAL);
-                mxArray *mxY2=mxCreateDoubleMatrix((mwSize)nNonZeroConstraints,1,mxREAL);
-                mxArray *mxV2=mxCreateDoubleMatrix((mwSize)nNonZeroConstraints,1,mxREAL);
-                mxArray *mxB2=mxCreateDoubleMatrix((mwSize)nEqConstraints,1,mxREAL);
-                double * x2=( double *)mxGetData(mxX2);
-                std::fill(x2,x2+nNonZeroConstraints,0);
-                double * y2=( double *)mxGetData(mxY2);
-                std::fill(y2,y2+nNonZeroConstraints,m_nVars);
-                double * v2=( double *)mxGetData(mxV2);
-                double * b2=mxGetPr(mxB2);
-                std::fill(b2,b2+nEqConstraints,-999999);
-
-
-                computeConstraints( x2,y2,v2,b2,d);
+                //only need to create inconsistency matrix once!
+                LOGV(1)<<"Creating sparse matrix for triplets"<<endl;
+                LOGV(2)<<"Allocating memory"<<endl;
+                mxArray *mxX=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
+                mxArray *mxY=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
+                mxArray *mxV=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
+                mxArray *mxB=mxCreateDoubleMatrix((mwSize)m_nEQsTripls,1,mxREAL);
+                if ( !mxX || !mxY || !mxV || !mxB || !mxInit){
+                    LOG<<"couldn't allocate memory vor triplet matrix!"<<endl;
+                    exit(0);
+                }
+                LOGV(2)<<"initialising memory"<<endl;
+                double * x=( double *)mxGetData(mxX);        std::fill(x,x+m_nNonZeroesTripls,-1);
+                double * y=( double *)mxGetData(mxY);        std::fill(y,y+m_nNonZeroesTripls,m_nVars);
+                double * v=( double *)mxGetData(mxV);
+                double * b=mxGetPr(mxB);        std::fill(b,b+m_nEQsTripls,-999999);
+                LOGV(2)<<"Computing triplet topology structure"<<endl;
+                computeTripletEnergies( x,  y, v,  b, c,  eq,d);
+                cForConsistency=c;
+                eqForConsistency=eq;
+                LOGV(2)<<"Passing variables to matlab"<<endl;
                 //put variables into workspace and immediately destroy them
-                engPutVariable(this->m_ep,"xCord2",mxX2);
-                mxDestroyArray(mxX2);
-                engPutVariable(this->m_ep,"yCord2",mxY2);
-                mxDestroyArray(mxY2);
-                engPutVariable(this->m_ep,"val2",mxV2);
-                mxDestroyArray(mxV2);
-                engPutVariable(this->m_ep,"b2",mxB2);
-                mxDestroyArray(mxB2);
-                engEvalString(this->m_ep,"nEq=sum(b2>0)");
-                engEvalString(this->m_ep,"nNz=sum(xCord2>0)");
-                engEvalString(this->m_ep,"xCord2=xCord2(1:nNz)");
-                engEvalString(this->m_ep,"yCord2=yCord2(1:nNz)");
-                engEvalString(this->m_ep,"val2=val2(1:nNz)");
-                engEvalString(this->m_ep,"b2=b2(1:nEq)");
-            }
-
-            
-
-            //put variables into workspace and immediately destroy them
-            engPutVariable(this->m_ep,"xCord",mxX);
-            engPutVariable(this->m_ep,"yCord",mxY);
-            engPutVariable(this->m_ep,"val",mxV);
-            engPutVariable(this->m_ep,"b",mxB);
-
-            if (1){
+                engPutVariable(this->m_ep,"xCord",mxX);
+                mxDestroyArray(mxX);
+                engPutVariable(this->m_ep,"yCord",mxY);
+                mxDestroyArray(mxY);
+                engPutVariable(this->m_ep,"val",mxV);
+                mxDestroyArray(mxV);
+                engPutVariable(this->m_ep,"b",mxB);
+                mxDestroyArray(mxB);
+                
+                //remove unused entries
                 ostringstream nEqs;
                 nEqs<<"nEq="<<eq<<";";
                 engEvalString(this->m_ep,nEqs.str().c_str());
@@ -538,31 +503,100 @@ public:
                 engEvalString(this->m_ep,"yCord=yCord(1:nNz)");
                 engEvalString(this->m_ep,"val=val(1:nNz)");
                 engEvalString(this->m_ep,"b=b(1:nEq-1)");
-            }
+                //transform indexing of variables to be 1..nVariables
+                //LOGV(2)<<"re-indexing variables.."<<endl;
+                //engEvalString(this->m_ep,"oldCode=unique(sort(yCord));newCode=1:size(oldCode,1);newCode=newCode'; [a1 b1]=ismember(yCord,oldCode);yCord=newCode(b1(a1));");
+                LOGV(2)<<"converting in matrix format.."<<endl;
+                engEvalString(this->m_ep,"A=sparse(xCord,yCord,val);" );
+                //clear unnneeded variables from matlab workspace
+                //engEvalString(this->m_ep,"clear xCord yCord val b1 a1;t=toc;" );
+                LOGV(1)<<"done, cleaning up"<<endl;
 
-            LOGV(1)<<"Creating sparse matrix"<<endl;
+            }else{
+                c=cForConsistency;
+                eq=eqForConsistency;
+            }
+            //need to create pairwise entries for every dimension
+            //TODO: it would be sufficient to only change the RHS!
+            mxArray *mxPairsX=mxCreateDoubleMatrix((mwSize)m_nNonZerosPairs,1,mxREAL);
+            mxArray *mxPairsY=mxCreateDoubleMatrix((mwSize)m_nNonZerosPairs,1,mxREAL);
+            mxArray *mxPairsV=mxCreateDoubleMatrix((mwSize)m_nNonZerosPairs,1,mxREAL);
+            mxArray *mxPairsB=mxCreateDoubleMatrix((mwSize)m_nEQsPairs,1,mxREAL);
+            if ( !mxPairsX || !mxPairsY || !mxPairsV || !mxPairsB || !mxInit){
+                LOG<<"couldn't allocate memory vor pairwise matrix!"<<endl;
+                exit(0);
+            }
+            double * x=( double *)mxGetData(mxPairsX);        std::fill(x,x+m_nNonZerosPairs,-1);
+            double * y=( double *)mxGetData(mxPairsY);        std::fill(y,y+m_nNonZerosPairs,m_nVars);
+            double * v=( double *)mxGetData(mxPairsV);
+            double * b=mxGetPr(mxPairsB);        std::fill(b,b+m_nEQsPairs,-999999);
+            long int cPair=0,eqPair=1;
+            computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, cPair,  eqPair,d);
+            LOGV(1)<<VAR(eq)<<" "<<VAR(c)<<endl;
+            //put variables into workspace and immediately destroy them
+            engPutVariable(this->m_ep,"xCordPairs",mxPairsX);
+            mxDestroyArray(mxPairsX);
+            engPutVariable(this->m_ep,"yCordPairs",mxPairsY);
+            mxDestroyArray(mxPairsY);
+            engPutVariable(this->m_ep,"valPairs",mxPairsV);
+            mxDestroyArray(mxPairsV);
+            engPutVariable(this->m_ep,"bPairs",mxPairsB);
+            mxDestroyArray(mxPairsB);
+            //remove unused entries
+            ostringstream nEqs;
+            nEqs<<"nEq="<<eqPair<<";";
+            engEvalString(this->m_ep,nEqs.str().c_str());
+            ostringstream nNz;
+            nNz<<"nNz="<<cPair<<";";
+            engEvalString(this->m_ep,nNz.str().c_str());
+            engEvalString(this->m_ep,"xCordPairs=xCordPairs(1:nNz)");
+            engEvalString(this->m_ep,"yCordPairs=yCordPairs(1:nNz)");
+            engEvalString(this->m_ep,"valPairs=valPairs(1:nNz)");
+            engEvalString(this->m_ep,"bPairs=bPairs(1:nEq-1);");
+            LOGI(6,engEvalString(this->m_ep,"save('early.mat');" ));
+
+            LOGV(1)<<"Creating sparse matrix for pairs"<<endl;
 
             //transform indexing of variables to be 1..nVariables
-            engEvalString(this->m_ep,"tic;oldCode=unique(sort(yCord));newCode=1:size(oldCode,1);newCode=newCode'; [a1 b1]=ismember(yCord,oldCode);yCord=newCode(b1(a1));");
-            engEvalString(this->m_ep,"A=sparse(xCord,yCord,val);" );
-            //clear unnneeded variables from matlab workspace
-            engEvalString(this->m_ep,"clear xCord yCord val b1 a1;t=toc;" );
-            mxArray * time=engGetVariable(this->m_ep,"t");
-            double * t = ( double *) mxGetData(time);
-            LOGADDTIME((int)(t[0]));
-            mxDestroyArray(time);
-            LOGV(3)<<VAR(t[0])<<endl;
+            //LOGV(2)<<"re-indexing variables.."<<endl;
+            //engEvalString(this->m_ep,"oldCode=unique(sort(yCord));newCode=1:size(oldCode,1);newCode=newCode'; [a1 b1]=ismember(yCord,oldCode);yCord=newCode(b1(a1));");
+            LOGV(2)<<"converting in matrix format.."<<endl;
+            engEvalString(this->m_ep,"APairs=sparse(xCordPairs,yCordPairs,valPairs);" );
             LOGV(1)<<"done, cleaning up"<<endl;
-
-            if (m_useConstraints){
-                engEvalString(this->m_ep,"[a1 b1]=ismember(yCord2,oldCode);yCord2=newCode(b1(a1));");
-                engEvalString(this->m_ep,"C=sparse(xCord2,yCord2,val2);" );
-                engEvalString(this->m_ep,"clear xCord2 yCord2 val2 b1 a1;" );
-                engEvalString(this->m_ep, "size(C)");
-                LOGI(2,printf("size(C) %s", buffer+2));
-                engEvalString(this->m_ep, "size(b2)");
-                LOGI(2,printf("size(b2) %s", buffer+2));
+            engEvalString(this->m_ep,"clear xCordPairs yCordPairs valPairs;" );
+            //clear unnneeded variables from matlab workspace
+            //engEvalString(this->m_ep,"clear xCord yCord val b1 a1;t=toc;" );
+            if (d==0){
+                LOGV(2)<<"concatenating matrices.."<<endl;
+                engEvalString(this->m_ep,"A=vertcat(A,APairs);");
+                engEvalString(this->m_ep,"b=vertcat(b,bPairs);");
+                
             }
+            else{
+                LOGV(2)<<"updating pairwise matrix.."<<endl;
+                engEvalString(this->m_ep,"A((size(A,1)-size(APairs,1)+1):end,:)=APairs;");
+                engEvalString(this->m_ep,"b((size(A,1)-size(APairs,1)+1):end,:)=bPairs;");
+
+            }
+            
+            engEvalString(this->m_ep,"clear bPairs APairs;" );
+            LOGV(2)<<"done."<<endl;
+
+            
+            
+            
+
+            //concatenate 
+            //engEvalString(this->m_ep,"xCord=vertcat(xCord,xCordPairs);");
+            //            engEvalString(this->m_ep,"yCord=vertcat(yCord,yCordPairs);");
+            //            engEvalString(this->m_ep,"val=vertcat(val,valPairs);");
+            //            engEvalString(this->m_ep,"b=vertcat(b,bPairs);");
+            //clear
+
+
+           
+
+         
 
             engPutVariable(this->m_ep,"init",mxInit);
             this->haveInit=true;
@@ -581,63 +615,53 @@ public:
             LOGI(2,printf("initialisation residual %s", buffer+2));
 
             
-                engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
-                //solve using trust region method
+            engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
  
 #define VALERIYSOLVER
 #ifdef VALERIYSOLVER
-                    TIME(engEvalString(this->m_ep, "tic;[x fval] =grad_solve(A,b,0,100,'cd',init);t=toc;"));
-                    LOGV(1)<<"Done with grad_solve()"<<endl;
-#else                    
-                    TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
-                    mxArray * flag=engGetVariable(this->m_ep,"flag");
-                    if (flag !=NULL){
-                        mxDestroyArray(flag);
-                    }else{
-                        LOG<<"LSQLIN large scale failed, trying medium scale algorithm"<<endl;
-                        TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);t=toc"));
-                    }
+            TIME(engEvalString(this->m_ep, "tic;[x fval] =grad_solve(A,b,0,100,'cd',init);t=toc;"));
+            LOGV(1)<<"Done with grad_solve()"<<endl;
+#else                  
+            //solve using trust region method
+            TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
+            mxArray * flag=engGetVariable(this->m_ep,"flag");
+            if (flag !=NULL){
+                mxDestroyArray(flag);
+            }else{
+                LOG<<"LSQLIN large scale failed, trying medium scale algorithm"<<endl;
+                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);t=toc"));
+            }
                        
-                    LOGI(1,printf("%s", buffer+2));
-                    engEvalString(this->m_ep, " resnorm");
-                    LOGI(1,printf("%s", buffer+2));
-                    engEvalString(this->m_ep, "output");
-                    LOGI(2,printf("%s", buffer+2));
+            LOGI(1,printf("%s", buffer+2));
+            engEvalString(this->m_ep, " resnorm");
+            LOGI(1,printf("%s", buffer+2));
+            engEvalString(this->m_ep, "output");
+            LOGI(2,printf("%s", buffer+2));
 #endif
  
 
 
 
-                time=engGetVariable(this->m_ep,"t");
-                t = ( double *) mxGetData(time);
-                LOGV(3)<<VAR(t[0])<<endl;
-                LOGADDTIME((int)(t[0]));
-                mxDestroyArray(time);
-                //solve using active set method (backslash)
+            //solve using active set method (backslash)
              
           
 
             //backtransform indexing
-            engEvalString(this->m_ep, "newX=zeros(max(oldCode),1);newX(oldCode)=x;x=newX;");
+            //engEvalString(this->m_ep, "newX=zeros(max(oldCode),1);newX(oldCode)=x;x=newX;");
 
 
             LOGI(6,engEvalString(this->m_ep,"save('test.mat');" ));
             if ((m_results[d] = engGetVariable(this->m_ep,"x")) == NULL)
                 printf("something went wrong when getting the variable.\n Result is probably wrong. \n");
-            engEvalString(this->m_ep,"clearvars" );
+            //engEvalString(this->m_ep,"clearvars" );
 
             
-#ifdef SEPENGINE
-            engClose(this->m_ep);
-#endif
+
         }//dimensions
-	mxDestroyArray(mxX);
-	mxDestroyArray(mxY);
-	mxDestroyArray(mxV);
-	mxDestroyArray(mxB);
-	mxDestroyArray(mxInit);
-	mxDestroyArray(mxLowerBound);
-	mxDestroyArray(mxUpperBound);
+        engEvalString(this->m_ep,"clearvars" );
+        mxDestroyArray(mxInit);
+        mxDestroyArray(mxLowerBound);
+        mxDestroyArray(mxUpperBound);
     }
     virtual void solve(){}
 
@@ -842,7 +866,7 @@ protected:
         long int edgeNumber=(edgeNum(n1,n2));
         long int offset;
         if (m_maskList==NULL){
-             offset= this->m_ROI->ComputeOffset(idx);
+            offset= this->m_ROI->ComputeOffset(idx);
         }else{
             map<string,int> & omap=m_offsets[edgeNumber];
             stringstream ss;
@@ -1936,6 +1960,8 @@ public:
                             lncc= Metrics<ImageType,FloatImageType,long double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                         }else if (m_metric == "itklncc"){
                             lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
+                        }else if (m_metric == "lnccAbs"){
+                            lncc= Metrics<ImageType,FloatImageType>::efficientLNCCNewNorm(warpedImage,targetImage,m_sigma,m_exponent);
                         }else if (m_metric == "lsad"){
                             lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,targetImage,m_sigma,m_exponent);
                           
@@ -2046,6 +2072,8 @@ public:
                                 if (m_metric == "lncc"){
                                     //lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                                     lncc= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+                                }else if (m_metric == "lnccAbs"){
+                                    lncc= Metrics<ImageType,FloatImageType>::efficientLNCCNewNorm(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else if (m_metric == "itklncc"){
                                     lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                                 }else if (m_metric == "lsad"){
