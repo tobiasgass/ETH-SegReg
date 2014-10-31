@@ -548,7 +548,7 @@ public:
     }
 
 
-    static std::map<std::string,ImagePointerType>  readImageList(std::string filename,std::vector<std::string> & imageIDs,ImagePointerType ROI=NULL){
+    static std::map<std::string,ImagePointerType>  readImageList(std::string filename,std::vector<std::string> & imageIDs,ImagePointerType ROI=NULL,bool nnInterpol=false){
         std::map<std::string,ImagePointerType>  result;//=new  std::map<std::string,ImagePointerType>;
 
         std::ifstream ifs(filename.c_str());
@@ -570,6 +570,12 @@ public:
                     if (ROI.IsNotNull()){
                         typedef typename itk::ResampleImageFilter< ImageType,ImageType>	ResampleFilterType;
                         typename ResampleFilterType::Pointer resampler=ResampleFilterType::New();
+                        typedef typename itk::NearestNeighborInterpolateImageFunction<ImageType, double> NNInterpolatorType;
+                        typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
+                        NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
+                        if (nnInterpol){
+                            resampler->SetInterpolator(interpolNN);
+                        }
                         resampler->SetInput(img);
                         resampler->SetOutputOrigin(ROI->GetOrigin());
                         resampler->SetOutputSpacing ( ROI->GetSpacing() );

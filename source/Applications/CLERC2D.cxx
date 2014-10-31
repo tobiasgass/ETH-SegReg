@@ -103,6 +103,7 @@ int main(int argc, char ** argv){
     double smoothness=0.0;
     double lambda=0.0;
     double resamplingFactor=8.0;
+    double imageResamplingFactor=-1.0;
     m_sigma=10;
     string solverName="localnorm";
     double wwd=0.0,winput=1.0,wsmooth=0.0,wcons=1.0,wwdelta=0.0,wsmoothum=0,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
@@ -126,6 +127,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
     (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    (*as) >> parameter ("imageResamplingFactor", imageResamplingFactor,"lower image resolution by a different factor. This will lead to having more equations for the regularization than there are variables, with the chosen interpolation affecting the interpolation.",false);
     (*as) >> parameter ("winp", winput,"weight for adherence to input registration",false);
     (*as) >> parameter ("wcons", wcons,"weight consistency penalty",false);
     (*as) >> parameter ("wsmooth", wsmooth,"weight for smoothness of deformation (first-order derivative)",false);
@@ -181,7 +183,10 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
     (*as) >> help();
     as->defaultErrorHandling();
-       
+    
+    if (imageResamplingFactor<0){
+        imageResamplingFactor=resamplingFactor;
+    }
     //late fusion is only well defined for maximal 1 hop.
     //it requires to explicitly compute all n!/(n-nHops) deformation paths to each image and is therefore infeasible for nHops>1
     //also strange to implement

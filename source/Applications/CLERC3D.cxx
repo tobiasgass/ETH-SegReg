@@ -27,7 +27,7 @@
 #include "CLERCIndependentDimensions.h"
 
 //using namespace std;
-typedef short PixelType;
+typedef short PixelType; 
 static const unsigned int D=3 ;
 typedef itk::Image<PixelType,D> ImageType;
 typedef   ImageType::Pointer ImagePointerType;
@@ -103,6 +103,7 @@ int main(int argc, char ** argv){
     double smoothness=0.0;
     double lambda=0.0;
     double resamplingFactor=8.0;
+    double imageResamplingFactor=-1.0;
     m_sigma=10;
     string solverName="localnorm";
     double wwd=0.0,winput=1.0,wsmooth=0.0,wcons=1.0,wwdelta=0.0,wsmoothum=0,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
@@ -126,6 +127,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
     (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    (*as) >> parameter ("imageResamplingFactor", imageResamplingFactor,"lower image resolution by a different factor. This will lead to having more equations for the regularization than there are variables, with the chosen interpolation affecting the interpolation.",false);
     (*as) >> parameter ("winp", winput,"weight for adherence to input registration",false);
     (*as) >> parameter ("wcons", wcons,"weight consistency penalty",false);
     (*as) >> parameter ("wsmooth", wsmooth,"weight for smoothness of deformation (first-order derivative)",false);
@@ -181,7 +183,10 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
     (*as) >> help();
     as->defaultErrorHandling();
-       
+    
+    if (imageResamplingFactor<0){
+        imageResamplingFactor=resamplingFactor;
+    }
     //late fusion is only well defined for maximal 1 hop.
     //it requires to explicitly compute all n!/(n-nHops) deformation paths to each image and is therefore infeasible for nHops>1
     //also strange to implement
@@ -190,29 +195,25 @@ int main(int argc, char ** argv){
 
     for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
 
- 
+     if (updateDeformationsGlobalWeight) updateDeformations=true;
+
     logSetStage("IO");
     logSetVerbosity(verbose);
         
     MetricType metric;
   
-    //only one solver 
+    //only one solver
     SolverType solverType=LOCALDEFORMATIONANDERROR;
     if (solverName=="localdeformationanderror"){
         solverType=LOCALDEFORMATIONANDERROR;
     } 
 
-    if (updateDeformationsGlobalWeight) updateDeformations=true;
+    
     //read images and image IDs
     ImageCacheType inputImages;
     std::vector<string> imageIDs;
     LOG<<"Reading input images."<<endl;
-    ImagePointerType ROI=NULL;
-    if (ROIFilename!="") {
-        ROI=ImageUtils<ImageType>::readImage(ROIFilename);
-    }
-
-    inputImages = ImageUtils<ImageType>::readImageList( imageFileList, imageIDs,ROI );
+    inputImages = ImageUtils<ImageType>::readImageList( imageFileList, imageIDs );
     int nImages = inputImages.size();
 
     ImageCacheType * inputMasks=NULL;
@@ -220,7 +221,7 @@ int main(int argc, char ** argv){
         inputMasks=new ImageCacheType;
         std::vector<string> buff;
         LOG<<"Reading input masks."<<endl;
-        (*inputMasks) = ImageUtils<ImageType>::readImageList( maskFileList, buff,ROI );
+        (*inputMasks) = ImageUtils<ImageType>::readImageList( maskFileList, buff );
     }
         
     //read landmark filenames
@@ -281,9 +282,11 @@ int main(int argc, char ** argv){
 
    
     //create ROI, either from first image or from a file
-   
-    if (ROIFilename=="") {
-        ImagePointerType origReference=ImageUtils<ImageType>::duplicate( (inputImages)[imageIDs[0]]);
+    ImagePointerType origReference=ImageUtils<ImageType>::duplicate( (inputImages)[imageIDs[0]]);
+    ImagePointerType ROI;
+    if (ROIFilename!="") {
+        ROI=ImageUtils<ImageType>::readImage(ROIFilename);
+    }else{
         ROI=origReference;
     }
     //resample ROI ? should/could be done within CLERC?

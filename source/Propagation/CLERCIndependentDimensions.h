@@ -464,6 +464,7 @@ public:
                 //only need to create inconsistency matrix once!
                 LOGV(1)<<"Creating sparse matrix for triplets"<<endl;
                 LOGV(2)<<"Allocating memory"<<endl;
+#if 1
                 mxArray *mxX=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
                 mxArray *mxY=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
                 mxArray *mxV=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
@@ -472,12 +473,28 @@ public:
                     LOG<<"couldn't allocate memory vor triplet matrix!"<<endl;
                     exit(0);
                 }
-                LOGV(2)<<"initialising memory"<<endl;
-                double * x=( double *)mxGetData(mxX);        std::fill(x,x+m_nNonZeroesTripls,-1);
-                double * y=( double *)mxGetData(mxY);        std::fill(y,y+m_nNonZeroesTripls,m_nVars);
-                double * v=( double *)mxGetData(mxV);
-                double * b=mxGetPr(mxB);        std::fill(b,b+m_nEQsTripls,-999999);
 
+#else
+
+                ostringstream allocX; allocX<<"xCord=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocX.str().c_str());
+                ostringstream allocY; allocY<<"yCord=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocY.str().c_str());
+                ostringstream allocV; allocV<<"val=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocV.str().c_str());
+                ostringstream allocB; allocB<<"b=zeros("<<m_nEQsTripls<<",1);"; engEvalString(this->m_ep,allocB.str().c_str());
+
+                mxArray * mxX=engGetVariable(this->m_ep,"xCord");
+                mxArray * mxY=engGetVariable(this->m_ep,"yCord");
+                mxArray * mxV=engGetVariable(this->m_ep,"val");
+                mxArray * mxB=engGetVariable(this->m_ep,"b");
+#endif
+
+
+                LOGV(2)<<"initialising memory"<<endl;
+                double * x=( double *)mxGetData(mxX);    //    std::fill(x,x+m_nNonZeroesTripls,-1);
+                double * y=( double *)mxGetData(mxY);    //    std::fill(y,y+m_nNonZeroesTripls,m_nVars);
+                double * v=( double *)mxGetData(mxV);
+                double * b=mxGetPr(mxB);        //std::fill(b,b+m_nEQsTripls,-999999);
+
+                
             
 
                 LOGV(2)<<"Computing triplet topology structure"<<endl;
@@ -485,6 +502,7 @@ public:
                 cForConsistency=c;
                 eqForConsistency=eq;
                 LOGV(2)<<"Passing variables to matlab"<<endl;
+#if 1
                 //put variables into workspace and immediately destroy them
                 engPutVariable(this->m_ep,"xCord",mxX);
                 mxDestroyArray(mxX);
@@ -494,7 +512,8 @@ public:
                 mxDestroyArray(mxV);
                 engPutVariable(this->m_ep,"b",mxB);
                 mxDestroyArray(mxB);
-                
+#endif
+                LOGV(2)<<"resizing arrays"<<endl;
                 //remove unused entries
                 ostringstream nEqs;
                 nEqs<<"nEq="<<eq<<";";
@@ -502,14 +521,21 @@ public:
                 ostringstream nNz;
                 nNz<<"nNz="<<c<<";";
                 engEvalString(this->m_ep,nNz.str().c_str());
-                engEvalString(this->m_ep,"xCord=xCord(1:nNz)");
-                engEvalString(this->m_ep,"yCord=yCord(1:nNz)");
-                engEvalString(this->m_ep,"val=val(1:nNz)");
-                engEvalString(this->m_ep,"b=b(1:nEq-1)");
+#if 0
+                engEvalString(this->m_ep,"xCord=xCord(1:nNz);");
+                engEvalString(this->m_ep,"yCord=yCord(1:nNz);");
+                engEvalString(this->m_ep,"val=val(1:nNz);");
+                engEvalString(this->m_ep,"b=b(1:nEq-1);");
+#else
+                engEvalString(this->m_ep,"xCord(nNz+1:end)=[];");
+                engEvalString(this->m_ep,"yCord(nNz+1:end)=[];");
+                engEvalString(this->m_ep,"val(nNz+1:end)=[];");
+                engEvalString(this->m_ep,"b(nEq:end)=[];");
+#endif
                 //transform indexing of variables to be 1..nVariables
                 //LOGV(2)<<"re-indexing variables.."<<endl;
                 //engEvalString(this->m_ep,"oldCode=unique(sort(yCord));newCode=1:size(oldCode,1);newCode=newCode'; [a1 b1]=ismember(yCord,oldCode);yCord=newCode(b1(a1));");
-                LOGV(2)<<"converting in matrix format.."<<endl;
+                LOGV(2)<<"Creating actual sparse matrix.."<<endl;
                 engEvalString(this->m_ep,"A=sparse(xCord,yCord,val);" );
                 //clear unnneeded variables from matlab workspace
                 //engEvalString(this->m_ep,"clear xCord yCord val b1 a1;t=toc;" );
@@ -1128,7 +1154,7 @@ protected:
 
                             //skip also if none of the registrations in the circle are to be re-estimated
                             skip= skip || (!(estIntermediateTarget || estSourceTarget || estSourceIntermediate));
-                            LOGV(3)<<VAR(skip)<<" "<<VAR(estIntermediateTarget)<<" "<<VAR(estSourceTarget)<<" "<<VAR(estSourceIntermediate)<<" "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
+                            LOGV(4)<<VAR(skip)<<" "<<VAR(estIntermediateTarget)<<" "<<VAR(estSourceTarget)<<" "<<VAR(estSourceIntermediate)<<" "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
                             if ( ! skip ){
 
                                 //use updated deform for constructing circle
