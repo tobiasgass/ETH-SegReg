@@ -118,6 +118,7 @@ namespace itk{
         virtual void setNoOutsidePolicy(bool b){ m_noOutSidePolicy = b;}
         virtual void setNormalizeImages(bool b){m_normalizeImages=b;}
         virtual void Init(){
+
             assert(m_targetImage);
             assert(m_atlasImage);
             if ( m_scale!=1.0){
@@ -136,7 +137,7 @@ namespace itk{
             }
                 
             for (int d=0;d<ImageType::ImageDimension;++d){
-                m_scaledRadius[d]=m_scale*m_radius[d]-1;
+                m_scaledRadius[d]=max(m_scale*m_radius[d]-1,1.0);
             }
             LOGV(2)<<"Registration unary patch radius " << m_radius << " scale "<< m_scale << " scaledRadius "<< m_scaledRadius << endl;
             nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
@@ -689,7 +690,8 @@ namespace itk{
             if (computeAverage &&c!=0 ){
                 
                 m_averageFixedPotential/= c;
-                if (m_normalize){
+                m_normalizationFactor=1.0;
+                if (m_normalize && (m_averageFixedPotential<std::numeric_limits<float>::epsilon())){
                     m_normalizationFactor= m_normalizationFactor*m_oldAveragePotential/m_averageFixedPotential;
                 }
                 LOGV(3)<<VAR(m_normalizationFactor)<<endl;
@@ -1469,7 +1471,8 @@ namespace itk{
         typedef typename FloatImageType::Pointer FloatImagePointerType;
         typedef typename itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
         typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
- 
+    protected:
+        DisplacementType m_currentDisplacement;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -1521,7 +1524,7 @@ namespace itk{
 
         void cachePotentials(DisplacementType displacement){
             LOGV(15)<<"Caching registration unary potential for displacement "<<displacement<<endl;
-
+            m_currentDisplacement=displacement;
             DisplacementType zeroDisp;
             zeroDisp.Fill(0.0);
             //compute average potential for zero displacement.
@@ -1654,6 +1657,8 @@ namespace itk{
         }
 
         virtual void Init(){
+
+
             assert(this->m_targetImage);
             assert(this->m_atlasImage);
             if ( this->m_scale!=1.0){
@@ -1673,7 +1678,7 @@ namespace itk{
             }
                 
             for (int d=0;d<ImageType::ImageDimension;++d){
-                this->m_scaledRadius[d]=this->m_scale*this->m_radius[d];
+                this->m_scaledRadius[d]=max(this->m_scale*this->m_radius[d],1.0);
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             LOGV(2)<<"Registration unary patch radius " << this->m_radius << " scale "<< this->m_scale << " scaledRadius "<< this->m_scaledRadius << endl;
@@ -1759,14 +1764,21 @@ namespace itk{
                    
                 insideCount+=inBounds;
                 bool inside=this->m_maskNeighborhoodIterator.GetPixel(i);
-                if (!inside)
-                    m=0.0;
                 if ( inBounds && (inside|| this->m_noOutSidePolicy)  ){
                     int f=this->nIt.GetPixel(i);
-                    if (f!=m){
+                    if (inside){ //(f!=m) || !inside){
                         IndexType idx=this->nIt.GetIndex(i);
                         LOGV(9)<<VAR(f)<<" "<<VAR(m)<<" "<<VAR((*m_scaledDistanceTransforms)[f]->GetPixel(idx))<<endl;
-                        penalty+=(*m_scaledDistanceTransforms)[f]->GetPixel(idx);
+                        double dist=(*m_scaledDistanceTransforms)[m]->GetPixel(idx);
+                        penalty+=1.0*(dist);
+//                          IndexType idx2=idx;
+//                          for (int d=0;d<D;++d){
+//                              idx2[d]=idx[d]-this->m_currentDisplacement[d]/this->m_scaledTargetImage->GetSpacing()[d];
+//                          }
+//                          dist=(*m_scaledDistanceTransforms)[f]->GetPixel(idx);
+//                          penalty+=5*dist*dist;
+//  
+
                     }
                     count+=1;
 
@@ -1781,6 +1793,7 @@ namespace itk{
         }
 
         virtual void Init(){
+
             assert(this->m_targetImage);
             assert(this->m_atlasImage);
             if ( this->m_scale!=1.0){
@@ -1804,7 +1817,8 @@ namespace itk{
             LOGV(3)<<"downsampling distance transforms for "<<nSegs<<" labels; scale:"<<this->m_scale<<endl;
             for (unsigned int s=0;s<nSegs;++s){
                 LOGV(3)<<"downsampling distance transforms for label:"<<s<<endl;
-                (*m_scaledDistanceTransforms)[s]=FilterUtils<FloatImageType>::LinearResample((*m_distanceTransforms)[s],this->m_scale,true);
+                (*m_scaledDistanceTransforms)[s]=FilterUtils<FloatImageType>::NNResample((*m_distanceTransforms)[s],this->m_scale,false);
+                //(*m_scaledDistanceTransforms)[s]=FilterUtils<FloatImageType>::LinearResample((*m_distanceTransforms)[s],this->m_scale,true);
             }
             if (!this->radiusSet){
                 LOG<<"Radius must be set before calling registrationUnaryPotential.Init()"<<endl;
@@ -1812,7 +1826,7 @@ namespace itk{
             }
            
             for (int d=0;d<ImageType::ImageDimension;++d){
-                this->m_scaledRadius[d]=this->m_scale*this->m_radius[d];
+                this->m_scaledRadius[d]=max(this->m_scale*this->m_radius[d],1.0);
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             LOGV(2)<<"Registration unary patch radius " << this->m_radius << " scale "<< this->m_scale << " scaledRadius "<< this->m_scaledRadius << endl;
@@ -1839,7 +1853,11 @@ namespace itk{
             LOGV(3)<<"Computing distance transforms for "<<nSegs<<" labels"<<endl;
             for (unsigned int s=0;s<nSegs;++s){
                 LOGV(3)<<"Computing distance transforms for label:"<<s<<endl;
-                (*m_distanceTransforms)[s]=FilterUtils<ImageType,FloatImageType>::distanceMapByFastMarcher(this->m_targetImage,s);
+                //(*m_distanceTransforms)[s]=FilterUtils<ImageType,FloatImageType>::distanceMapByFastMarcher(this->m_targetImage,s);
+                (*m_distanceTransforms)[s]=FilterUtils<ImageType,FloatImageType>::distanceMapBySignedMaurer(this->m_targetImage,s);
+                if (s==0){
+                    ImageUtils<FloatImageType>::writeImage("DT-zero.nii", (*m_distanceTransforms)[s]);
+                }
             }
             this->m_targetSize=this->m_targetImage->GetLargestPossibleRegion().GetSize();
             if (this->m_atlasImage.IsNotNull()){
@@ -2177,7 +2195,7 @@ namespace itk{
             }
             assert(this->radiusSet);
             for (int d=0;d<ImageType::ImageDimension;++d){
-                this->m_scaledRadius[d]=this->m_radius[d]*this->m_scale;
+                this->m_scaledRadius[d]=max(this->m_radius[d]*this->m_scale,1.0);
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             this->nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
@@ -2438,7 +2456,7 @@ namespace itk{
             }
             assert(this->radiusSet);
             for (int d=0;d<ImageType::ImageDimension;++d){
-                this->m_scaledRadius[d]=this->m_radius[d]*this->m_scale;
+                this->m_scaledRadius[d]=max(this->m_radius[d]*this->m_scale,1.0);
             }
             //nIt=new ImageNeighborhoodIteratorType(this->m_radius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());
             this->nIt=ImageNeighborhoodIteratorType(this->m_scaledRadius,this->m_scaledTargetImage, this->m_scaledTargetImage->GetLargestPossibleRegion());

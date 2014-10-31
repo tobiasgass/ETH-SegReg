@@ -36,26 +36,28 @@ int main(int argc, char ** argv)
     argstream * as=new argstream(argc,argv);
     string refLandmarks,targetLandmarks,target="",def,output;
     bool linear=false;
+    bool snap=false;
 
     (*as) >> parameter ("refLandmarks", refLandmarks, " filename...", true);
     (*as) >> parameter ("targetLandmarks", targetLandmarks, " filename...", true);
     (*as) >> parameter ("def", def, " filename of deformation", true);
     (*as) >> parameter ("target", target, " filename of target image", true);
     (*as) >> option ("linear", linear, " use linear upsampling of deformation");
+    (*as) >> option ("snap", snap, " snap deformed landmarks to voxel");
 
     (*as) >> help();
     as->defaultErrorHandling();
     
     LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
-    ImageConstPointerType referenceImage;
+    ImageConstPointerType targetImage;
     if (target!=""){
-        referenceImage=(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
+        targetImage=(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
         
-        if (deformation->GetLargestPossibleRegion().GetSize() != referenceImage->GetLargestPossibleRegion().GetSize()){
+        if (deformation->GetLargestPossibleRegion().GetSize() != targetImage->GetLargestPossibleRegion().GetSize()){
             if (linear){
-                deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,referenceImage);
+                deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,targetImage);
             }else{
-                deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,referenceImage);
+                deformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,targetImage);
             }
         }
     }
@@ -71,10 +73,10 @@ int main(int argc, char ** argv)
 
     PointType p;
     p.Fill(0.0);
-    DirectionType refDir=referenceImage->GetDirection();
+    DirectionType refDir=targetImage->GetDirection();
 
-    //ImagePointerType targetLandmarkImage=ImageUtils<ImageType>::createEmpty(referenceImage);
-    //ImagePointerType deformedReferenceLandmarkImage=ImageUtils<ImageType>::createEmpty(referenceImage);
+    //ImagePointerType targetLandmarkImage=ImageUtils<ImageType>::createEmpty(targetImage);
+    //ImagePointerType deformedReferenceLandmarkImage=ImageUtils<ImageType>::createEmpty(targetImage);
     vector<PointType> landmarksReference, landmarksTarget;
     ifstream ifs(refLandmarks.c_str());
     int i=0;
@@ -105,7 +107,7 @@ int main(int argc, char ** argv)
         //LOG<<VAR(deformation->GetOrigin())<<endl;
         //LOG<<VAR(pointTarget)<<" "<<VAR(indexTarget)<<endl;
         PointType deformedReferencePoint;
-        referenceImage->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
+        targetImage->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
         
         //std::cout<<VAR(targetPoint)<<endl;
         //deformedReferencePoint= pointTarget+deformation->GetPixel(indexTarget);
@@ -114,7 +116,11 @@ int main(int argc, char ** argv)
         //LOG<<VAR(landmarksReference[i])<<" "<<VAR(indexReference)<<" "<<VAR(cindex)<<endl;
         if (deformation->GetLargestPossibleRegion().IsInside(cindex)){
             deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
+            if (snap){
+                targetImage->TransformPhysicalPointToIndex(deformedReferencePoint,indexReference);
+                targetImage->TransformIndexToPhysicalPoint(indexReference,deformedReferencePoint);
 
+            }
             //LOG<< VAR(pointTarget) << endl;
             double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
             for (int d=0;d<D;++d){

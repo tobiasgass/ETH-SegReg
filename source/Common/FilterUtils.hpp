@@ -53,7 +53,7 @@
 #include "itkNormalizedCorrelationImageToImageMetric.h"
 #include "itkNormalizeImageFilter.h"
 #include <itkGrayscaleFillholeImageFilter.h>
-
+#include "itkSignedMaurerDistanceMapImageFilter.h"
 using namespace std;
 
 template<class InputImage, class OutputImage = InputImage>
@@ -131,7 +131,7 @@ class FilterUtils {
 
     typedef typename itk::LaplacianRecursiveGaussianImageFilter<InputImage,OutputImage> LaplacianFilterType;
     typedef typename itk::GradientMagnitudeImageFilter<InputImage,OutputImage> GradientFilterType;
-     typedef itk::NormalizeImageFilter<InputImage,OutputImage> NormalizeImageFilterType;
+    typedef itk::NormalizeImageFilter<InputImage,OutputImage> NormalizeImageFilterType;
     typedef typename NormalizeImageFilterType::Pointer NormalizeImageFilterPointerType;
 
 public:
@@ -351,7 +351,7 @@ public:
         for (uint d=0;d<InputImage::ImageDimension;++d){
             //determine new spacing
             //never increase resolution!
-             if (scale>1.0){
+            if (scale>1.0){
                 spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
             }else{
                 spacing[d]=max(inputSpacing[d],newSpacing);//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
@@ -395,44 +395,44 @@ public:
 
 
     //resamp
-     static OutputImagePointer EmptyResample( InputImagePointer input,  double scale) {
+    static OutputImagePointer EmptyResample( InputImagePointer input,  double scale) {
 
-         typename InputImage::SpacingType spacing,inputSpacing;
-         typename InputImage::SizeType size,inputSize;
-         typename InputImage::PointType origin,inputOrigin;
-         typename InputImage::RegionType region;;
-         inputOrigin=input->GetOrigin();
-         inputSize=input->GetLargestPossibleRegion().GetSize();
-         inputSpacing=input->GetSpacing();
-         double minSpacing=std::numeric_limits<double>::max();
-         for (uint d=0;d<InputImage::ImageDimension;++d){
-             if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
-         }
-         double newSpacing=minSpacing/scale;
-         LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
-         for (uint d=0;d<InputImage::ImageDimension;++d){
-             //determine new spacing
-             //never increase resolution!
-             if (scale>1.0){
-                 spacing[d]=newSpacing;
-             }else{
-                 spacing[d]=max(inputSpacing[d],newSpacing);
-             }
-             //calculate new image size
-             size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
-             //finalize spacing as a function of the new size
-             spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
+        typename InputImage::SpacingType spacing,inputSpacing;
+        typename InputImage::SizeType size,inputSize;
+        typename InputImage::PointType origin,inputOrigin;
+        typename InputImage::RegionType region;;
+        inputOrigin=input->GetOrigin();
+        inputSize=input->GetLargestPossibleRegion().GetSize();
+        inputSpacing=input->GetSpacing();
+        double minSpacing=std::numeric_limits<double>::max();
+        for (uint d=0;d<InputImage::ImageDimension;++d){
+            if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
+        }
+        double newSpacing=minSpacing/scale;
+        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
+        for (uint d=0;d<InputImage::ImageDimension;++d){
+            //determine new spacing
+            //never increase resolution!
+            if (scale>1.0){
+                spacing[d]=newSpacing;
+            }else{
+                spacing[d]=max(inputSpacing[d],newSpacing);
+            }
+            //calculate new image size
+            size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
+            //finalize spacing as a function of the new size
+            spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
              
-             origin[d]=inputOrigin[d];
-         }
+            origin[d]=inputOrigin[d];
+        }
 
-         OutputImagePointer result=OutputImage::New();
-         result->SetOrigin(origin);
-         result->SetSpacing(spacing);
-         result->SetDirection(input->GetDirection());
-         region.SetSize(size);
-         result->SetRegions(region);
-         return result;
+        OutputImagePointer result=OutputImage::New();
+        result->SetOrigin(origin);
+        result->SetSpacing(spacing);
+        result->SetDirection(input->GetDirection());
+        region.SetSize(size);
+        result->SetRegions(region);
+        return result;
          
     }
 
@@ -710,7 +710,7 @@ public:
 
     // cast the image to the output type
     static OutputImagePointer cast(InputImagePointer image) {
-    typedef typename CastImageFilterType::Pointer CastFilterPointer;
+        typedef typename CastImageFilterType::Pointer CastFilterPointer;
 
         CastFilterPointer castFilter = CastImageFilterType::New();
         castFilter->SetInput(image);
@@ -719,7 +719,7 @@ public:
     }
     
     static OutputImagePointer truncateCast(InputImagePointer image) {
-    typedef typename CastImageFilterType::Pointer CastFilterPointer;
+        typedef typename CastImageFilterType::Pointer CastFilterPointer;
 
         InputImagePointer trunc=FilterUtils<InputImage,InputImage>::thresholding(image,std::numeric_limits<OutputImagePixelType>::min(), std::numeric_limits<OutputImagePixelType>::max());
         CastFilterPointer castFilter = CastImageFilterType::New();
@@ -815,6 +815,27 @@ public:
     }
 
 
+ static OutputImagePointer binaryThresholding(
+                                                 ConstInputImagePointer inputImage,
+                                                 InputImagePixelType lowerThreshold,
+                                                 InputImagePixelType upperThreshold,
+                                                 OutputImagePixelType insideValue = 1,
+                                                 OutputImagePixelType outsideValue = 0
+                                                 ) {
+        typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
+  
+        BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
+        thresholder->SetInput(inputImage);
+
+        thresholder->SetLowerThreshold( lowerThreshold );
+        thresholder->SetUpperThreshold( upperThreshold );
+        thresholder->SetInsideValue(insideValue);
+        thresholder->SetOutsideValue(outsideValue);
+
+        thresholder->Update();
+
+        return thresholder->GetOutput();
+    }
 
 
 
@@ -825,7 +846,7 @@ public:
                                                  OutputImagePixelType insideValue = 1,
                                                  OutputImagePixelType outsideValue = 0
                                                  ) {
-  typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
+        typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
   
         BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
         thresholder->SetInput(inputImage);
@@ -846,7 +867,7 @@ public:
                                                     OutputImagePixelType insideValue = 1,
                                                     OutputImagePixelType outsideValue = 0
                                                     ) {
- typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
+        typedef typename BinaryThresholdFilter::Pointer BinaryThresholdFilterPointer;
   
         BinaryThresholdFilterPointer thresholder = BinaryThresholdFilter::New();
         thresholder->SetInput(inputImage);
@@ -906,7 +927,7 @@ public:
         itk::ImageRegionIterator<InputImage> it(
                                                 inputImage, inputImage->GetLargestPossibleRegion());
         itk::ImageRegionIterator<OutputImage> it2(
-                                                 outputImage, outputImage->GetLargestPossibleRegion());
+                                                  outputImage, outputImage->GetLargestPossibleRegion());
         for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
             double val=it.Get();
             it2.Set(floor(val+0.5));
@@ -914,14 +935,14 @@ public:
         return outputImage;
     }
 
-     static OutputImagePointer invert(
-                                    InputImagePointer inputImage
-                                    ) {
+    static OutputImagePointer invert(
+                                     InputImagePointer inputImage
+                                     ) {
         OutputImagePointer outputImage=createEmpty(ConstInputImagePointer(inputImage));
         itk::ImageRegionIterator<InputImage> it(
                                                 inputImage, inputImage->GetLargestPossibleRegion());
         itk::ImageRegionIterator<OutputImage> it2(
-                                                 outputImage, outputImage->GetLargestPossibleRegion());
+                                                  outputImage, outputImage->GetLargestPossibleRegion());
         for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
             double val=it.Get();
             it2.Set(val>0.0?0.0:1.0);
@@ -990,7 +1011,13 @@ public:
 
         return binaryThresholding(inputImage,value,value);
     }
+    static OutputImagePointer select(
+                                     ConstInputImagePointer inputImage,
+                                     InputImagePixelType value
+                                     ) {
 
+        return binaryThresholding(inputImage,value,value);
+    }
 
     // perform erosion (mathematical morphology) with a given label image
     // using a ball with a given radius
@@ -1000,7 +1027,7 @@ public:
                                       ) {
         StructuringElementTypeRadius rad; rad.Fill(radius);
         StructuringElementType K = StructuringElementType::Ball( rad );
-  typedef typename ErodeFilterType::Pointer ErodeFilterPointer;
+        typedef typename ErodeFilterType::Pointer ErodeFilterPointer;
         ErodeFilterPointer erosionFilter = ErodeFilterType::New();
         erosionFilter->SetKernel(K);
         erosionFilter->SetErodeValue(valueToErode);
@@ -1021,7 +1048,7 @@ public:
                                        ) {
         StructuringElementTypeRadius rad; rad.Fill(radius);
         StructuringElementType K = StructuringElementType::Ball( rad );
-    typedef typename DilateFilterType::Pointer DilateFilterPointer;
+        typedef typename DilateFilterType::Pointer DilateFilterPointer;
 
         DilateFilterPointer dilateFilter  = DilateFilterType::New();
         dilateFilter->SetKernel(K);
@@ -1035,9 +1062,9 @@ public:
 
     // perform dilation (distance based) with a given label image
     static OutputImagePointer myDilation(
-                                       InputImagePointer labelImage, unsigned radius,
-                                       InputImagePixelType valueToDilate = 1
-                                       ) {
+                                         InputImagePointer labelImage, unsigned radius,
+                                         InputImagePixelType valueToDilate = 1
+                                         ) {
      
         FloatImagePointerType dist=FilterUtils<InputImage,FloatImageType>::distanceMapByFastMarcher(labelImage,valueToDilate);
         return FilterUtils<FloatImageType,OutputImage>::binaryThresholdingHigh(dist,1.0*radius);
@@ -1099,7 +1126,7 @@ public:
         seeds->Initialize();
 
         itk::ImageRegionConstIteratorWithIndex<InputImage> it(
-                                                         image, image->GetLargestPossibleRegion());
+                                                              image, image->GetLargestPossibleRegion());
         for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
             if (it.Get() == objectLabel) {
                 FastMarchingNodeType & node = seeds->CreateElementAt(seeds->Size());
@@ -1116,6 +1143,29 @@ public:
         return  fastMarcher->GetOutput();
 
     }
+
+    static OutputImagePointer distanceMapBySignedMaurer(
+                                                        InputImagePointer image,
+                                                        InputImagePixelType objectLabel){
+        return distanceMapBySignedMaurer((ConstInputImagePointer)image,objectLabel);
+    }
+    static OutputImagePointer distanceMapBySignedMaurer(
+                                                        ConstInputImagePointer image,
+                                                        InputImagePixelType objectLabel
+                                                        ) {
+
+        typedef typename itk::SignedMaurerDistanceMapImageFilter< InputImage, OutputImage > DistanceTransformType;
+        typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
+        //distanceTransform->InsideIsPositiveOn();
+        distanceTransform->SetInput(select(image,objectLabel));
+        distanceTransform->SquaredDistanceOff ();
+        distanceTransform->UseImageSpacingOn();
+        distanceTransform->Update();
+
+        return distanceTransform->GetOutput();
+
+    }
+
 
 
     static OutputImagePointer computeObjectness(InputImagePointer img){
@@ -1137,7 +1187,7 @@ public:
         return filter->GetMaximumOutput()->Get();
 
     }
- static InputImagePixelType getMin(InputImagePointer img){
+    static InputImagePixelType getMin(InputImagePointer img){
         return getMin(ConstInputImagePointer(img));
     }    
     static InputImagePixelType getMin(ConstInputImagePointer img){
@@ -1166,8 +1216,8 @@ public:
     }
 
     static void localMax(InputImagePointer i1,InputImagePointer i2){
-         itk::ImageRegionIterator<InputImage> i1It(i1,i1->GetLargestPossibleRegion());
-         itk::ImageRegionIterator<InputImage> i2It(i2,i2->GetLargestPossibleRegion());
+        itk::ImageRegionIterator<InputImage> i1It(i1,i1->GetLargestPossibleRegion());
+        itk::ImageRegionIterator<InputImage> i2It(i2,i2->GetLargestPossibleRegion());
         for (i1It.GoToBegin(),i2It.GoToBegin();!i1It.IsAtEnd();++i1It,++i2It){
             float v1=i1It.Get();
             float v2=i2It.Get();
@@ -1175,9 +1225,9 @@ public:
         }
     }
     static void localMin(InputImagePointer i1,InputImagePointer i2){
-         itk::ImageRegionIterator<InputImage> i1It(i1,i1->GetLargestPossibleRegion());
-         itk::ImageRegionIterator<InputImage> i2It(i2,i2->GetLargestPossibleRegion());
-         for (i1It.GoToBegin(),i2It.GoToBegin();!i1It.IsAtEnd();++i1It,++i2It){
+        itk::ImageRegionIterator<InputImage> i1It(i1,i1->GetLargestPossibleRegion());
+        itk::ImageRegionIterator<InputImage> i2It(i2,i2->GetLargestPossibleRegion());
+        for (i1It.GoToBegin(),i2It.GoToBegin();!i1It.IsAtEnd();++i1It,++i2It){
             float v1=i1It.Get();
             float v2=i2It.Get();
             i1It.Set(v1<v2?v1:v2);
@@ -1214,11 +1264,11 @@ public:
     static void combineSegmentations(InputImagePointer i1, InputImagePointer i2, int label=1){
         itk::ImageRegionIterator<InputImage> i1It(i1,i1->GetLargestPossibleRegion());
         itk::ImageRegionIterator<InputImage> i2It(i2,i2->GetLargestPossibleRegion());
-         for (i1It.GoToBegin(),i2It.GoToBegin();!i1It.IsAtEnd();++i1It,++i2It){
-             int val=i2It.Get();
-             if (val)
-                 i1It.Set(val*label);
-         }
+        for (i1It.GoToBegin(),i2It.GoToBegin();!i1It.IsAtEnd();++i1It,++i2It){
+            int val=i2It.Get();
+            if (val)
+                i1It.Set(val*label);
+        }
     }
 
     static OutputImagePointer fillHoles(InputImagePointer img){

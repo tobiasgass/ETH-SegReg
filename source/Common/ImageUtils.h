@@ -24,7 +24,8 @@
 #include "itkContinuousIndex.h"
 #include <ctime>
 #include <sys/time.h>
-
+#include <itkResampleImageFilter.h>
+//#include "FilterUtils.hpp"
 template<class ImageType, class FloatPrecision=float>
 class ImageUtils {
 
@@ -547,7 +548,7 @@ public:
     }
 
 
-    static std::map<std::string,ImagePointerType>  readImageList(std::string filename,std::vector<std::string> & imageIDs){
+    static std::map<std::string,ImagePointerType>  readImageList(std::string filename,std::vector<std::string> & imageIDs,ImagePointerType ROI=NULL){
         std::map<std::string,ImagePointerType>  result;//=new  std::map<std::string,ImagePointerType>;
 
         std::ifstream ifs(filename.c_str());
@@ -566,6 +567,18 @@ public:
                     ifs >> imageFileName;
                     //LOGV(3)<<"Reading image with id "<<imageID<<" from file "<<imageFileName<<endl;
                     img=ImageUtils<ImageType>::readImage(imageFileName);
+                    if (ROI.IsNotNull()){
+                        typedef typename itk::ResampleImageFilter< ImageType,ImageType>	ResampleFilterType;
+                        typename ResampleFilterType::Pointer resampler=ResampleFilterType::New();
+                        resampler->SetInput(img);
+                        resampler->SetOutputOrigin(ROI->GetOrigin());
+                        resampler->SetOutputSpacing ( ROI->GetSpacing() );
+                        resampler->SetOutputDirection ( ROI->GetDirection() );
+                        resampler->SetSize ( ROI->GetLargestPossibleRegion().GetSize() );
+                        resampler->Update();
+                        img=resampler->GetOutput();
+                        //img=FilterUtils<ImageType>::linearResample(img,ROI,false);
+                    }
                     if (result.find(imageID)==result.end())
                         result[imageID]=img;
                     else{

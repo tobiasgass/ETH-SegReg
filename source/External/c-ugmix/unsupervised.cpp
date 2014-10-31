@@ -65,7 +65,7 @@ double unsupervised::gaussian(int k, const ColumnVector& ob){
 	ColumnVector tmp(Dim);
 	tmp = ob-mu[k];
 	double x = (tmp.t() * sigma[k].i() * tmp).AsScalar();
-	if( x<0.0 || isnan(x) ) x = 0.0; //for avoiding the failure from calculation error of newmat library.
+	if( x<0.0 || std::isnan(x) ) x = 0.0; //for avoiding the failure from calculation error of newmat library.
     
 	tmp.CleanUp();
 	return (exp(x*(-0.5)) / (pow(2.0*M_PI,ob.Nrows()*0.5)*pow(sigma[k].Determinant(),0.5)));

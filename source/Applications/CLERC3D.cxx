@@ -207,7 +207,12 @@ int main(int argc, char ** argv){
     ImageCacheType inputImages;
     std::vector<string> imageIDs;
     LOG<<"Reading input images."<<endl;
-    inputImages = ImageUtils<ImageType>::readImageList( imageFileList, imageIDs );
+    ImagePointerType ROI=NULL;
+    if (ROIFilename!="") {
+        ROI=ImageUtils<ImageType>::readImage(ROIFilename);
+    }
+
+    inputImages = ImageUtils<ImageType>::readImageList( imageFileList, imageIDs,ROI );
     int nImages = inputImages.size();
 
     ImageCacheType * inputMasks=NULL;
@@ -215,7 +220,7 @@ int main(int argc, char ** argv){
         inputMasks=new ImageCacheType;
         std::vector<string> buff;
         LOG<<"Reading input masks."<<endl;
-        (*inputMasks) = ImageUtils<ImageType>::readImageList( maskFileList, buff );
+        (*inputMasks) = ImageUtils<ImageType>::readImageList( maskFileList, buff,ROI );
     }
         
     //read landmark filenames
@@ -276,11 +281,9 @@ int main(int argc, char ** argv){
 
    
     //create ROI, either from first image or from a file
-    ImagePointerType origReference=ImageUtils<ImageType>::duplicate( (inputImages)[imageIDs[0]]);
-    ImagePointerType ROI;
-    if (ROIFilename!="") {
-        ROI=ImageUtils<ImageType>::readImage(ROIFilename);
-    }else{
+   
+    if (ROIFilename=="") {
+        ImagePointerType origReference=ImageUtils<ImageType>::duplicate( (inputImages)[imageIDs[0]]);
         ROI=origReference;
     }
     //resample ROI ? should/could be done within CLERC?

@@ -74,8 +74,8 @@ int main(int argc, char ** argv)
     
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationSSD< ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
+    //typedef FastUnaryPotentialRegistrationSSD< ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationCategorical< ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;

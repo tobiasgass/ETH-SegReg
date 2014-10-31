@@ -576,6 +576,177 @@ public:
 
     }
 
+       static inline OutputImagePointer efficientLNCCNewNorm(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
+        if (exp == 0.0 ) exp = 1.0;
+        if (sigma==0.0) sigma=0.001;
+        InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
+        InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
+        //#define RECURSIVE
+
+#ifdef RECURSIVE
+        typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
+        //typedef typename itk::RecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
+#else
+        typedef itk::DiscreteGaussianImageFilter<InternalImage,InternalImage>  FilterType;
+        //typedef typename itk::MeanImageFilter< InternalImage, InternalImage > FilterType;
+
+#endif
+        typename FilterType::Pointer filter=FilterType::New();
+#ifdef RECURSIVE
+        filter->SetSigma(sigma);
+
+        LOGV(5)<<VAR(sigma)<<endl;
+#else
+        filter->SetVariance(sigma*sigma);
+        //filter->SetRadius(sigma);
+#endif
+        //        filter->SetMaximumKernelWidth(sigma);
+
+
+        //compute local means by concolving with gaussian
+        filter->SetInput(i1Cast);
+        //filter->InPlaceOff();
+        filter->Update();
+        InternalImagePointer i1Bar=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i1Bar.mha",i1Bar));
+        filter->SetInput(i2Cast);
+        filter->UpdateLargestPossibleRegion();
+        InternalImagePointer i2Bar=ImageUtils<InternalImage>::duplicate(filter->GetOutput());  
+
+        //FilterUtils<InternalImage,InternalImage>::lowerThresholding(i2Bar,std::numeric_limits<InputImagePixelType>::min());
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i2Bar.mha",i2Bar));
+        //HACK!
+        //compute squares of original images
+
+
+        
+        InternalImagePointer i1Square=ImageUtils<InternalImage>::multiplyImageOutOfPlace(i1Cast,i1Cast);
+        InternalImagePointer i2Square=ImageUtils<InternalImage>::multiplyImageOutOfPlace(i2Cast,i2Cast);
+
+
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i2Square.mha",i2Square));
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i1Square.mha",i1Square));
+
+        //compute local means of squared images by convolving with gaussian kernel
+        filter->SetInput(i1Square);
+        filter->UpdateLargestPossibleRegion();
+        InternalImagePointer i1SquareBar=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i1SquareBar.mha",i1SquareBar));
+        i1Square=NULL;
+       
+        filter->SetInput(i2Square);
+        filter->UpdateLargestPossibleRegion();
+        InternalImagePointer i2SquareBar=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
+        //FilterUtils<InternalImage,InternalImage>::lowerThresholding(i2SquareBar,0);
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i2SquareBar.mha",i2SquareBar));
+        i2Square=NULL;
+        //compute squares of local means
+        InternalImagePointer i1BarSquare=ImageUtils<InternalImage>::localSquare(i1Bar);
+        InternalImagePointer i2BarSquare=ImageUtils<InternalImage>::localSquare(i2Bar);
+        //multiply i1 and i2 locally
+        InternalImagePointer i1i2=ImageUtils<InternalImage>::multiplyImageOutOfPlace(i1Cast,i2Cast);
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i1i2.mha",i1i2));
+        i1Cast=NULL;
+        i2Cast=NULL;
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i1BarSquare.mha",i1BarSquare));
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i2BarSquare.mha",i2BarSquare));
+
+      
+        //compute local means by convolving...
+        filter->SetInput(i1i2);
+        filter->UpdateLargestPossibleRegion();
+        InternalImagePointer i1Timesi2Bar=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
+        LOGI(8,ImageUtils<InternalImage>::writeImage("i1Timesi2Bar.mha",i1Timesi2Bar));
+        i1i2=NULL;
+
+        //finish
+        InternalImagePointer result=ImageUtils<InternalImage>::duplicate(filter->GetOutput()); 
+        itk::ImageRegionIterator<InternalImage> resultIt(result,result->GetLargestPossibleRegion());
+        resultIt.GoToBegin();
+        
+        itk::ImageRegionIterator<InternalImage> i1BarIt(i1Bar,i1Bar->GetLargestPossibleRegion());
+        i1BarIt.GoToBegin();
+        itk::ImageRegionIterator<InternalImage> i2BarIt(i2Bar,i2Bar->GetLargestPossibleRegion());
+        i2BarIt.GoToBegin();
+
+        itk::ImageRegionIterator<InternalImage> i1Timesi2BarIt(i1Timesi2Bar,i1Timesi2Bar->GetLargestPossibleRegion());
+        i1Timesi2BarIt.GoToBegin();
+
+        itk::ImageRegionIterator<InternalImage> i1SquareBarIt(i1SquareBar,i1SquareBar->GetLargestPossibleRegion());
+        i1SquareBarIt.GoToBegin();
+
+        itk::ImageRegionIterator<InternalImage> i2SquareBarIt(i2SquareBar,i2SquareBar->GetLargestPossibleRegion());
+        i2SquareBarIt.GoToBegin();
+
+        
+        
+        for (;!resultIt.IsAtEnd();++resultIt){
+
+            
+            InternalPrecision i1BarV=i1BarIt.Get();
+            InternalPrecision i2BarV=i2BarIt.Get();
+            InternalPrecision i1BarTimesi2BarV=i1BarV*i2BarV;
+         
+            
+            InternalPrecision i1Timesi2BarV=i1Timesi2BarIt.Get();
+            InternalPrecision numeratorV=i1Timesi2BarV-i1BarTimesi2BarV;
+#if 1 //def RECURSIVE
+            //the recursive filtering is not very exact.
+            //this is hardly noticeable when only smoothing single images, but during the computation of variances this leads to errors
+            //mostly these errors happen when the variance is very low, eg in smooth regions
+            //we correct this errors by thresholding, which looks fine when compared to discrete gaussian filtering.
+            InternalPrecision tmp=i1SquareBarIt.Get() - i1BarV*i1BarV;
+
+            if (tmp<0){
+                LOGV(10)<<VAR(i1SquareBarIt.Get() - i1BarV*i1BarV)<<endl;
+                tmp=0;
+            }
+            InternalPrecision varianceI1V=sqrt(tmp);
+            tmp=i2SquareBarIt.Get() - i2BarV*i2BarV;
+            if (tmp<0){
+                LOGV(10)<<VAR(i2SquareBarIt.Get() - i2BarV*i2BarV)<<endl;
+                tmp=0;
+            }
+            InternalPrecision varianceI2V=sqrt(tmp);
+            InternalPrecision denominatorV=varianceI1V*varianceI2V;
+            InternalPrecision r = (abs(denominatorV)!=0.0)?numeratorV/(denominatorV):0.0;
+                        
+#else
+            InternalPrecision varianceI1V=sqrt((i1SquareBarIt.Get() - i1BarV*i1BarV));
+            InternalPrecision varianceI2V=sqrt((i2SquareBarIt.Get() - i2BarV*i2BarV));
+            InternalPrecision denominatorV=varianceI1V*varianceI2V;
+            InternalPrecision r = (abs(denominatorV)>0.0)?numeratorV/(denominatorV):0.0;
+
+#endif
+
+            ++i1BarIt;
+            ++i2BarIt;
+            ++i1Timesi2BarIt;
+            ++i1SquareBarIt;
+            ++i2SquareBarIt;
+
+#ifdef RECURSIVE
+            if (r< -(InternalPrecision)1.0 ){
+                r = 0;
+            }else if ( r > (InternalPrecision)1.0){
+                r = 0;
+            }
+#endif
+            r = pow((fabs(r),exp));
+        
+#ifdef SAFE    
+            r = max(r,std::numeric_limits<InternalPrecision>::epsilon());
+#endif
+            resultIt.Set(r);
+
+        }
+        
+        LOGI(8,ImageUtils<InternalImage>::writeImage("result.mha",result));
+
+        return FilterUtils<InternalImage,OutputImage>::cast(result);
+
+    }
+
     static inline OutputImagePointer coarseLNCC(InputImagePointer i1,InputImagePointer i2, InputImagePointer coarseImg,double sigma=1.0, double exp = 1.0){
         return coarseLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, coarseImg,sigma,exp);
     }

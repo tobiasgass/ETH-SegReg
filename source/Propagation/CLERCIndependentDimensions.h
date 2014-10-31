@@ -62,7 +62,7 @@ public:
 protected:
     int m_nVars,m_nEqs,m_nNonZeroes;
     int m_numImages;
-    DeformationCacheType  m_deformationCache, m_trueDeformations, m_updatedDeformationCache, m_downSampledDeformationCache,m_pairwiseGradients,m_estimatedErrors;
+    DeformationCacheType  m_deformationCache, m_trueDeformations, m_updatedDeformationCache, m_downSampledDeformationCache,m_pairwiseGradients,m_estimatedDeformations;
     FileListCacheType m_deformationFileList, m_trueDeformationFileList;
     map<string,string> m_landmarkFileList;
     std::vector<string>  m_imageIDList;
@@ -77,6 +77,7 @@ protected:
     map< string , map <string, FloatImagePointerType > >  m_pairwiseLocalWeightMaps,  m_updatedPairwiseLocalWeightMaps;
     map< string, map <string, double> > m_pairwiseGlobalSimilarity;
     string m_metric;
+    std::vector< map< string, int > >m_offsets;
 private:
     bool m_smoothDeformationDownsampling;
     int m_nPixels;// number of pixels/voxels
@@ -226,6 +227,24 @@ public:
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
             string sourceID=(m_imageIDList)[source];
+            if (m_maskList && m_maskList->find(sourceID)!=m_maskList->end()){
+                (*m_maskList)[sourceID]=FilterUtils<ImageType>::NNResample((*m_maskList)[sourceID],this->m_ROI,false);
+                int dilation=1;
+                if (m_bSplineInterpol)
+                    dilation=2;
+                //dilate mask to avoid interpolation artefacts at mask borders. 
+                //dilation needs to be larger for bspline because of larger support area
+                (*m_maskList)[sourceID]=FilterUtils<ImageType>::dilation((*m_maskList)[sourceID],dilation);
+                if (s==0)
+                    m_nPixels=int(FilterUtils<ImageType>::sum((*m_maskList)[sourceID]));
+                else{
+                    //use largest mask as estimate for calculation of number of free variables
+                    m_nPixels=max(m_nPixels,int(FilterUtils<ImageType>::sum((*m_maskList)[sourceID])));
+                }
+            }
+            
+                            
+
             for (int t=0;t<m_numImages;++t){
                 if (t!=s){
                     int target=t;
@@ -305,7 +324,14 @@ public:
         m_wTransformationSimilarity/=m_numDeformationsToEstimate;
         m_wTransformationSymmetry/=m_numDeformationsToEstimate;
         
+        LOGV(2)<<VAR(m_nPixels)<<endl;
       
+        if (m_maskList){
+            map<string,int> dummy;
+            dummy["000"]=-1;
+            m_offsets=std::vector< map< string, int > >(m_numImages*(m_numImages-1),dummy);
+        }
+
 
         //compute errors, weights, and so on and so forth?
         DoALot();
@@ -576,6 +602,11 @@ public:
                     TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,C,b2,[],[],lb,ub,init,options);t=toc;"));
 #endif
                 }else{
+#define VALERIYSOLVER
+#ifdef VALERIYSOLVER
+                    TIME(engEvalString(this->m_ep, "tic;[x fval] =grad_solve(A,b,0,100,'cd',init);t=toc;"));
+                    LOGV(1)<<"Done with grad_solve()"<<endl;
+#else                    
                     TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
                     mxArray * flag=engGetVariable(this->m_ep,"flag");
                     if (flag !=NULL){
@@ -590,6 +621,7 @@ public:
                     LOGI(1,printf("%s", buffer+2));
                     engEvalString(this->m_ep, "output");
                     LOGI(2,printf("%s", buffer+2));
+#endif
                 }
 
 
@@ -644,22 +676,27 @@ public:
                     DeformationFieldIterator itDef(estimatedDeform,estimatedDeform->GetLargestPossibleRegion());
                     itErr.GoToBegin();
                     itDef.GoToBegin();
-
-                    mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
-                    mask->FillBuffer(0);
-                    typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
-                    IndexType offset;
-                    double fraction=0.9;
-                    for (int d=0;d<D;++d){
-                        offset[d]=(1.0-fraction)/2*size[d];
-                        size[d]=fraction*size[d];
-                    }
+                                                                        
                     
-                    typename ImageType::RegionType region;
-                    region.SetSize(size);
-                    region.SetIndex(offset);
-                    LOGV(6)<<VAR(region)<<endl;
-                    ImageUtils<ImageType>::setRegion(mask,region,1);
+                    if (m_maskList && m_maskList->find(targetID)!=m_maskList->end()){
+                        mask=(*m_maskList)[targetID];
+                    }else{
+                        mask=TransfUtils<ImageType>::createEmptyImage(estimatedDeform);
+                        mask->FillBuffer(0);
+                        typename ImageType::SizeType size=mask->GetLargestPossibleRegion().GetSize();
+                        IndexType offset;
+                        double fraction=0.9;
+                        for (int d=0;d<D;++d){
+                            offset[d]=(1.0-fraction)/2*size[d];
+                            size[d]=fraction*size[d];
+                        }
+                        
+                        typename ImageType::RegionType region;
+                        region.SetSize(size);
+                        region.SetIndex(offset);
+                        LOGV(6)<<VAR(region)<<endl;
+                        ImageUtils<ImageType>::setRegion(mask,region,1);
+                    }
                     
                     
                     DeformationFieldPointerType oldDeformation;
@@ -682,18 +719,23 @@ public:
                             DeformationType estimatedError,estimatedDeformation,originalDeformation;
                             IndexType idx = itErr.GetIndex();
                             originalDeformation=origIt.Get();
-                            for (unsigned int d=0;d<D;++d,++p){
-                                // minus 1 to correct for matlab indexing
-                                if (m_estError){
-                                    estimatedError[d]=rData[d][edgeNumError(s,t,idx,d)-1];
+                            if (mask->GetPixel(idx)){
+                                for (unsigned int d=0;d<D;++d,++p){
+                                    // minus 1 to correct for matlab indexing
+                                    if (m_estError){
+                                        estimatedError[d]=rData[d][edgeNumError(s,t,idx,d)-1];
+                                    }
+                                    if (m_estDef)
+                                        estimatedDeformation[d]=rData[d][edgeNumDeformation(s,t,idx,d)-1];
+                                    
+                                    if (!m_estError && m_estDef){
+                                        estimatedError[d]= originalDeformation[d]-estimatedDeformation[d];
+                                    } else if (!m_estDef && m_estError)
+                                        estimatedDeformation[d]= originalDeformation[d]-estimatedError[d];
                                 }
-                                if (m_estDef)
-                                    estimatedDeformation[d]=rData[d][edgeNumDeformation(s,t,idx,d)-1];
-                            
-                                if (!m_estError && m_estDef){
-                                    estimatedError[d]= originalDeformation[d]-estimatedDeformation[d];
-                                } else if (!m_estDef && m_estError)
-                                    estimatedDeformation[d]= originalDeformation[d]-estimatedError[d];
+                            }else{
+                                estimatedDeformation.Fill(0.0);//=originalDeformation;
+                                estimatedError.Fill(0.0);
                             }
                             itErr.Set(estimatedError);
                             itDef.Set(estimatedDeformation);
@@ -778,7 +820,7 @@ public:
                             }
                         }
                       
-                        m_estimatedErrors[sourceID][targetID]=estimatedDeform;//Error;
+                        m_estimatedDeformations[sourceID][targetID]=estimatedDeform;//Error;
                       
                    
                     }else{
@@ -811,9 +853,29 @@ protected:
  
 
     inline long int edgeNumDeformation(int n1,int n2,IndexType idx, int d){ 
-        long int offset = this->m_ROI->ComputeOffset(idx);
+        long int edgeNumber=(edgeNum(n1,n2));
+        long int offset;
+        if (m_maskList==NULL){
+             offset= this->m_ROI->ComputeOffset(idx);
+        }else{
+            map<string,int> & omap=m_offsets[edgeNumber];
+            stringstream ss;
+            ss<<idx;
+            string idxStream=ss.str();
+            map<string,int>::iterator  it=omap.find(idxStream);
+            if (it == omap.end()){
+                --it;
+                int c=it->second +1;
+                omap[idxStream]=c;
+                offset=c;
+            }else{
+                offset=it->second;
+            }
+            //LOGV(3)<<VAR(edgeNumber)<<" "<<VAR(idx)<<" "<<VAR(offset)<<endl;
+            
+        }
         //return offset*internalD+edgeNum(n1,n2)*m_nPixels*internalD + 1 ;
-        double result= internalD*(edgeNum(n1,n2)*m_nPixels+offset) + 1 ;
+        double result= internalD*edgeNumber*m_nPixels+offset + 1 ;
         if (result > m_nVars){
             LOG<<VAR(result)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(idx)<<endl;
         }
@@ -1123,6 +1185,8 @@ protected:
 
 
                                 }
+
+                                bool haveMasks=(m_maskList && m_maskList->find(targetID)!=m_maskList->end()) && (m_maskList->find(intermediateID)!=m_maskList->end());
                                 
                                 if ( ! haveSeg &&  m_atlasSegmentations.size()>0 ){
                                     LOGV(2)<<VAR(haveSeg)<<" "<<VAR(m_atlasSegmentations.size())<<endl;
@@ -1153,12 +1217,18 @@ protected:
                                 
                                     //get neighbors of that point
                                     std::vector<std::pair<IndexType,double> >ptIntermediateNeighbors,ptIntermediateNeighborsCircle;
-                                    bool inside;
+                                    
+                                    
+                                    bool inside=true;
+
+                                    if (haveMasks){
+                                        inside=m_maskList->find(targetID)->second->GetPixel(targetIndex);
+                                    }
                                     if (m_linearInterpol){
-                                        inside=getLinearNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
+                                        inside=inside && getLinearNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
                                         //inside=getGaussianNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors,(ptIntermediate-ptSourceDirect).GetNorm());
                                     }else{
-                                        inside=getNearestNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
+                                        inside=inside && getNearestNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
                                     }
 
  
@@ -1186,7 +1256,18 @@ protected:
                                             }
                                         }
 
-                              
+                                        std::vector<bool> insideIntermediate(ptIntermediateNeighbors.size(),true);
+                                        if (haveMasks){
+                                            bool insideInterm=false;
+                                            for (int i=0;i<ptIntermediateNeighbors.size();++i){
+                                                insideIntermediate[i]= m_maskList->find(intermediateID)->second->GetPixel(ptIntermediateNeighbors[i].first);
+                                                insideInterm=insideInterm ||insideIntermediate[i];
+                                                if (!insideInterm){
+                                                    val=-1;
+                                                }
+                                            
+                                            }
+                                        }
                                  
                                         if (val>0){
                                             //statisticIt.Set(statisticIt.Get()+(disp));
@@ -1207,15 +1288,17 @@ protected:
                                                 double localInconsistency=0.0;
 
                                                 for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                                    x[c]=eq;
-                                                    y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d);
-                                                    v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
-                                                    x[c]=eq;
-                                                    y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d);
-                                                    v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
-                                                    PointType ptSourceIndirect= ptTarget + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
-                                                    localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
-                                            
+                                                    //at least one of these is true because of the earlier check
+                                                    if (insideIntermediate[i]){
+                                                        x[c]=eq;
+                                                        y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d);
+                                                        v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
+                                                        x[c]=eq;
+                                                        y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d);
+                                                        v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
+                                                        PointType ptSourceIndirect= ptTarget + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
+                                                        localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                                    }
                                                 }
                                                 //minus def and error source->target
                                                 x[c]=eq;
@@ -1252,7 +1335,7 @@ protected:
                                         
                                                 double defSum=0.0;
                                                 for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                                    if (estSourceIntermediate){
+                                                    if (estSourceIntermediate    && insideIntermediate[i]){
                                                         x[c]=eq;
                                                         y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
                                                         v[c++]=ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
@@ -1289,13 +1372,15 @@ protected:
                                                 v[c++]=val* m_wErrorInconsistency;
                                                 double localInconsistency=0.0;
                                                 for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                                    x[c]=eq;
-                                                    y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                                    v[c++]=ptIntermediateNeighbors[i].second*val* m_wErrorInconsistency;
-                                                    PointType ptIntermediate;
-                                                    dSourceIntermediate->TransformIndexToPhysicalPoint(ptIntermediateNeighbors[i].first,ptIntermediate);
-                                                    PointType ptSourceIndirect= ptIntermediate + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
-                                                    localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                                    if (  insideIntermediate[i]){
+                                                        x[c]=eq;
+                                                        y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
+                                                        v[c++]=ptIntermediateNeighbors[i].second*val* m_wErrorInconsistency;
+                                                        PointType ptIntermediate;
+                                                        dSourceIntermediate->TransformIndexToPhysicalPoint(ptIntermediateNeighbors[i].first,ptIntermediate);
+                                                        PointType ptSourceIndirect= ptIntermediate + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
+                                                        localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
+                                                    }
                                             
                                                 }
                                                 //minus direct
@@ -1387,7 +1472,7 @@ protected:
                             }
                             globalMeanInconsistency*=globalMeanInconsistency;
                             LOGV(1)<<sourceID<<" "<<targetID<<" "<<VAR(globalMeanInconsistency)<<endl;
-                            }
+                        }
 
                         FloatImagePointerType newLocalWeights;
                         if (m_locallyUpdateDeformationEstimate && ! m_updateDeformations && m_haveDeformationEstimate && (m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
@@ -1399,7 +1484,12 @@ protected:
                             DeformationType localDef=it.Get();
                             IndexType idx=it.GetIndex();
                             LOGV(8)<<VAR(eq)<<" "<<VAR(localDef)<<endl;
-                        
+                            if (m_maskList && m_maskList->find(targetID)!=m_maskList->end()){
+                                if (!(*m_maskList)[targetID]->GetPixel(idx)){
+                                    //don't add pairwise adherence for any pixel which is not inside the mask, if such mask exists
+                                    continue;
+                                }
+                            }
 
                             int edgeNumDef=edgeNumDeformation(source,target,idx,d);
                             int edgeNumErr;
@@ -1844,7 +1934,7 @@ public:
         double m_averageMinJac=0.0;
         m_averageNCC=0.0;
         m_minMinJacobian=std::numeric_limits<double>::max();
-        int count=0;
+        int count=0, treCount=0;
         bool firstRun=false;
         for (int target=0;target<m_numImages;++target){
             for (int source=0;source<m_numImages;++source){
@@ -1862,9 +1952,9 @@ public:
                         LOGV(5)<<"preparing deformation to be estimated for "<<sourceID<<" to " <<targetID <<endl;
                         estDef=true;
                      
-                        if (m_estimatedErrors[sourceID][targetID].IsNotNull()){
+                        if (m_estimatedDeformations[sourceID][targetID].IsNotNull()){
                             if (m_lowResolutionEval){
-                                DeformationFieldPointerType estimatedDeformation=m_estimatedErrors[sourceID][targetID];
+                                DeformationFieldPointerType estimatedDeformation=m_estimatedDeformations[sourceID][targetID];
                                 if (m_bSplineInterpol){
                                     updatedDeform=TransfUtils<ImageType>::bSplineInterpolateDeformationField(estimatedDeformation,targetImage,false);
                                     //updatedDeform=TransfUtils<ImageType>::computeDeformationFieldFromBSplineTransform(estimatedDeformation,targetImage);
@@ -1878,12 +1968,12 @@ public:
                                 //resample deformation to target image space
                                 deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,targetImage,false);
                                 //update deformation
-                                DeformationFieldPointerType estimatedDeformation=m_estimatedErrors[sourceID][targetID];
+                                DeformationFieldPointerType estimatedDeformation=m_estimatedDeformations[sourceID][targetID];
                                 //downsample original deformation with smoothing
                                 DeformationFieldPointerType downSampledDeformation;
                                 if (m_bSplineInterpol){
                                     //downSampledDeformation=TransfUtils<ImageType>::computeDeformationFieldFromBSplineTransform(deformation,this->m_ROI);
-                                    downSampledDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,m_estimatedErrors[sourceID][targetID],m_smoothDeformationDownsampling);
+                                    downSampledDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(deformation,m_estimatedDeformations[sourceID][targetID],m_smoothDeformationDownsampling);
                                 }else{
                                     downSampledDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,estimatedDeformation,m_smoothDeformationDownsampling);
                                 }
@@ -1942,7 +2032,7 @@ public:
                             typedef typename SegmentationTools<ImageType>::OverlapScores OverlapScores;
                             std::vector<OverlapScores> scores=SegmentationTools<ImageType>::computeOverlapMultilabel((m_groundTruthSegmentations)[targetID],deformedSeg);
                             LOGV(1)<<VAR(sourceID)<<" "<<VAR(targetID)<<" ";
-                             dice=0.0;
+                            dice=0.0;
                             for (int s=0;s<scores.size();++s){
                                 if (mylog.getVerbosity()>1){std::cout<<" "<<VAR(scores[s].labelID)<<" "<<scores[s].dice;}
                                 dice+=scores[s].dice;
@@ -1957,8 +2047,14 @@ public:
 
                         // compare landmarks
                         if (m_landmarkFileList.size()){
-                            //hope that all landmark files are available :D
-                            m_TRE+=TransfUtils<ImageType>::computeTRE(m_landmarkFileList[targetID], m_landmarkFileList[sourceID],updatedDeform,m_imageList[targetID]);
+                            if (m_landmarkFileList.find(targetID)!=m_landmarkFileList.end() && m_landmarkFileList.find(sourceID)!=m_landmarkFileList.end()){
+                                //hope that all landmark files are available :D
+                                if (m_maskList && m_maskList->find(targetID)!=m_maskList->end())
+                                    m_TRE+=TransfUtils<ImageType>::computeTRE(m_landmarkFileList[targetID], m_landmarkFileList[sourceID],updatedDeform,m_imageList[targetID],(*m_maskList)[targetID],(*m_maskList)[sourceID]);
+                                else
+                                    m_TRE+=TransfUtils<ImageType>::computeTRE(m_landmarkFileList[targetID], m_landmarkFileList[sourceID],updatedDeform,m_imageList[targetID]);
+                                treCount+=1;
+                            }
                         }
                         
                         
@@ -2086,11 +2182,11 @@ public:
                             if (m_pairwiseLocalWeightMaps[sourceID][targetID]->GetLargestPossibleRegion().GetSize()!=this->m_ROI->GetLargestPossibleRegion().GetSize()){
                                 //update the pairwise similarity of the original deformation to the correct resolution
                                 warpedImage = TransfUtils<ImageType>::warpImage(  m_imageList[sourceID] , deformation,m_metric == "categorical");
-                                 if (m_metric != "categorical"){
-                                     warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
-                                 }else{
-                                     warpedImage=FilterUtils<ImageType>::NNResample(warpedImage,imageResamplingFactor,false);
-                                 }
+                                if (m_metric != "categorical"){
+                                    warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
+                                }else{
+                                    warpedImage=FilterUtils<ImageType>::NNResample(warpedImage,imageResamplingFactor,false);
+                                }
                                 if (m_metric == "lncc"){
                                     //lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                                     lncc= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
@@ -2217,7 +2313,8 @@ public:
         }
         m_ADE/=count;
         m_dice/=count;
-        m_TRE/=count;
+        if (treCount)
+            m_TRE/=treCount;
         m_averageMinJac/=count;
         m_averageNCC/=count;
         //LOG<<VAR(m_averageMinJac)<<" "<<VAR(minMinJac)<<" "<<VAR(m_averageNCC)<<endl;

@@ -231,3 +231,9 @@ TARGET_LINK_LIBRARIES(DeformationToBSplineTest2D  Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(CropImageToBoundingBox3D CropImageToBoundingBox3D.cxx )
 TARGET_LINK_LIBRARIES(CropImageToBoundingBox3D   Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(GenerateDeformation2D GenerateDeformation2D.cxx )
+TARGET_LINK_LIBRARIES(GenerateDeformation2D   Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(PrintDeformationNorms2D PrintDeformationNorms2D.cxx )
+TARGET_LINK_LIBRARIES(PrintDeformationNorms2D   Utils   ${ITK_LIBRARIES}  )

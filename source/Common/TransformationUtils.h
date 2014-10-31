@@ -1754,7 +1754,9 @@ public:
     }//computeInconsistency
     
 
-    static double computeTRE(string targetLandmarks, string refLandmarks, DeformationFieldPointerType def,ImagePointerType reference){
+    static double computeTRE(string targetLandmarks, string refLandmarks, 
+                             DeformationFieldPointerType def,ImagePointerType reference, 
+                             ImagePointerType targetMask=NULL, ImagePointerType referenceMask=NULL){
         typedef typename  ImageType::DirectionType DirectionType;
         typedef typename itk::VectorLinearInterpolateImageFunction<DeformationFieldType> DefInterpolatorType;
         typedef typename DefInterpolatorType::ContinuousIndexType CIndexType;
@@ -1791,10 +1793,20 @@ public:
             }        
             IndexType indexTarget,indexReference;
             def->TransformPhysicalPointToIndex(pointTarget,indexTarget);
-           
+            if (targetMask.IsNotNull()){
+                if (!targetMask->GetPixel(indexTarget)){
+                    LOGV(3)<<VAR(pointTarget)<<" not in mask at index "<<VAR(indexTarget)<<endl;
+                    continue;
+                }
+            }
             PointType deformedReferencePoint;
             reference->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
-                        
+            if (referenceMask.IsNotNull()){
+                if (!referenceMask->GetPixel(indexReference)){
+                    LOGV(3)<<VAR(landmarksReference[i])<<" not in mask at index "<<VAR(indexReference)<<endl;
+                    continue;
+                }
+            }
           
             CIndexType cindex;
             def->TransformPhysicalPointToContinuousIndex(pointTarget,cindex);
