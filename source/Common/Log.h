@@ -1,7 +1,9 @@
 #pragma once
 
 #include "boost/format.hpp"
-#include "boost/timer.hpp"
+//#include "boost/timer.hpp"
+//#include "boost/timer/timer.hpp"
+#include <sys/time.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -18,13 +20,29 @@ using namespace std;
 #define logSetVerbosity(level) mylog.setVerbosity(level)
 #define VAR(x)  #x " = " << x 
 
-
+class MyCPUTimer{
+private:
+    double m_starTime;
+    struct timeval m_tim;  
+public:
+    MyCPUTimer(){
+       
+        gettimeofday(&m_tim, NULL);  
+        m_starTime=m_tim.tv_sec;//+(m_tim.tv_usec/1000000.0);  
+    }
+    double elapsed(){
+        gettimeofday(&m_tim, NULL);  
+        return (m_tim.tv_sec)-m_starTime;//+(m_tim.tv_usec/1000000.0));  
+    }
+};
 
 class MyLog {
 public:
     ostream * mOut;
 private:
-    boost::timer m_timer;
+    // boost::timer m_timer;
+    //boost::timer::cpu_timer m_timer;
+    MyCPUTimer m_timer;
     std::string m_stage;
     std::stack<std::string> m_stages;
    
@@ -38,9 +56,12 @@ public:
         mOut=&std::cout;
         m_cachedOutput=false;
         m_timerOffset=0;
+        
     }
     boost::format  getStatus(){
+        //boost::timer::cpu_times elapsedT=m_timer.elapsed();
         unsigned int elapsed = m_timer.elapsed()+m_timerOffset;
+        //unsigned int elapsed = elapsedT.wall+m_timerOffset;
         boost::format logLine("%4d:%02d [%-50s] - ");
         logLine % (elapsed / 60);
         logLine % (elapsed % 60);
@@ -82,7 +103,7 @@ public:
             ofs <<oss->str();
         }
     }
-    void addTime(int t){m_timerOffset+=t;}
+    void addTime(int t){}//m_timerOffset+=t;}
 };
 
 
@@ -111,14 +132,16 @@ MyLog mylog;
 
 class MyTimer{
 private:
-    std::map<std::string, boost::timer> m_timers;
+    //std::map<std::string, boost::timer::cpu_timer> m_timers;
+    std::map<std::string, MyCPUTimer> m_timers;
     std::map<std::string, double> m_timings;
     std::map<std::string,int> m_calls;
     
 public:
     void time(){};
     void start(std::string tag){
-        m_timers.insert(std::pair<std::string,boost::timer>(tag,boost::timer()));
+        //m_timers.insert(std::pair<std::string,boost::timer::cpu_timer > (tag,boost::timer::cpu_timer()));
+        m_timers.insert(std::pair<std::string,MyCPUTimer> (tag,MyCPUTimer()));
         std::map<std::string,double>::iterator it = m_timings.find(tag);
         if (it == m_timings.end()){
             m_timings.insert(std::pair<std::string,double>(tag,0.0));

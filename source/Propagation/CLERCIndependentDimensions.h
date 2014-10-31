@@ -424,42 +424,44 @@ public:
 
         bool haveLocalWeights=false;
 
+	mxArray *mxX=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
+	mxArray *mxY=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
+	mxArray *mxV=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
+	mxArray *mxB=mxCreateDoubleMatrix((mwSize)m_nEqs,1,mxREAL);
+            
+	mxArray *mxInit=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
+	mxArray *mxUpperBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
+	mxArray *mxLowerBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
+	if ( !mxX || !mxY || !mxV || !mxB || !mxInit){
+                LOG<<"couldn't allocate memory!"<<endl;
+                exit(0);
+	}
+	double * x=( double *)mxGetData(mxX);
+	std::fill(x,x+m_nNonZeroes,-1);
+	double * y=( double *)mxGetData(mxY);
+	std::fill(y,y+m_nNonZeroes,m_nVars);
+	double * v=( double *)mxGetData(mxV);
+	double * b=mxGetPr(mxB);
+	std::fill(b,b+m_nEqs,-999999);
 
-        for (unsigned int d = 0; d< D; ++d){
+	double * init=mxGetPr(mxInit);
+	double * lb=mxGetPr(mxLowerBound);
+	std::fill(lb,lb+m_nVars,-200);
+	double * ub=mxGetPr(mxUpperBound);
+	std::fill(ub,ub+m_nVars,200);
+	long int cForConsistency, eqForConsistency;
+	for (unsigned int d = 0; d< D; ++d){
 #ifdef SEPENGINE       
             if (!(this->m_ep = engOpen("matlab -nodesktop -nodisplay -nosplash -nojvm"))) {
                 fprintf(stderr, "\nCan't start MATLAB engine\n");
                 exit(EXIT_FAILURE);
             }
 #endif
-            mxArray *mxX=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
-            mxArray *mxY=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
-            mxArray *mxV=mxCreateDoubleMatrix((mwSize)m_nNonZeroes,1,mxREAL);
-            mxArray *mxB=mxCreateDoubleMatrix((mwSize)m_nEqs,1,mxREAL);
-            
-            mxArray *mxInit=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
-            mxArray *mxUpperBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
-            mxArray *mxLowerBound=mxCreateDoubleMatrix((mwSize)m_nVars,1,mxREAL);
           
+          
+	LOGV(1)<<"creating"<<VAR(d)<<endl;
 
-            if ( !mxX || !mxY || !mxV || !mxB || !mxInit){
-                LOG<<"couldn't allocate memory!"<<endl;
-                exit(0);
-            }
-            double * x=( double *)mxGetData(mxX);
-            std::fill(x,x+m_nNonZeroes,-1);
-            double * y=( double *)mxGetData(mxY);
-            std::fill(y,y+m_nNonZeroes,m_nVars);
-            double * v=( double *)mxGetData(mxV);
-            double * b=mxGetPr(mxB);
-            std::fill(b,b+m_nEqs,-999999);
-
-            double * init=mxGetPr(mxInit);
-            double * lb=mxGetPr(mxLowerBound);
-            std::fill(lb,lb+m_nVars,-200);
-            double * ub=mxGetPr(mxUpperBound);
-            std::fill(ub,ub+m_nVars,200);
-            LOGV(1)<<"creating"<<VAR(d)<<endl;
+           
      
 
 
@@ -471,8 +473,14 @@ public:
             long int eq = 1;
             long int c=0;
         
-            
-            computeTripletEnergies( x,  y, v,  b, c,  eq,d);
+            if (d==0){
+	      computeTripletEnergies( x,  y, v,  b, c,  eq,d);
+	      cForConsistency=c;
+	      eqForConsistency=eq;
+	    }else{
+	      c=cForConsistency;
+	      eq=eqForConsistency;
+	    }
             computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, c,  eq,d);
             LOGV(1)<<VAR(eq)<<" "<<VAR(c)<<endl;
 
@@ -515,13 +523,9 @@ public:
 
             //put variables into workspace and immediately destroy them
             engPutVariable(this->m_ep,"xCord",mxX);
-            mxDestroyArray(mxX);
             engPutVariable(this->m_ep,"yCord",mxY);
-            mxDestroyArray(mxY);
             engPutVariable(this->m_ep,"val",mxV);
-            mxDestroyArray(mxV);
             engPutVariable(this->m_ep,"b",mxB);
-            mxDestroyArray(mxB);
 
             if (1){
                 ostringstream nEqs;
@@ -539,12 +543,17 @@ public:
             LOGV(1)<<"Creating sparse matrix"<<endl;
 
             //transform indexing of variables to be 1..nVariables
-            engEvalString(this->m_ep,"oldCode=unique(sort(yCord));newCode=1:size(oldCode,1);newCode=newCode'; [a1 b1]=ismember(yCord,oldCode);yCord=newCode(b1(a1));");
+            engEvalString(this->m_ep,"tic;oldCode=unique(sort(yCord));newCode=1:size(oldCode,1);newCode=newCode'; [a1 b1]=ismember(yCord,oldCode);yCord=newCode(b1(a1));");
             engEvalString(this->m_ep,"A=sparse(xCord,yCord,val);" );
-            LOGV(1)<<"done, cleaning up"<<endl;
             //clear unnneeded variables from matlab workspace
-            engEvalString(this->m_ep,"clear xCord yCord val b1 a1;" );
-            
+            engEvalString(this->m_ep,"clear xCord yCord val b1 a1;t=toc;" );
+            mxArray * time=engGetVariable(this->m_ep,"t");
+            double * t = ( double *) mxGetData(time);
+            LOGADDTIME((int)(t[0]));
+            mxDestroyArray(time);
+            LOGV(3)<<VAR(t[0])<<endl;
+            LOGV(1)<<"done, cleaning up"<<endl;
+
             if (m_useConstraints){
                 engEvalString(this->m_ep,"[a1 b1]=ismember(yCord2,oldCode);yCord2=newCode(b1(a1));");
                 engEvalString(this->m_ep,"C=sparse(xCord2,yCord2,val2);" );
@@ -556,7 +565,6 @@ public:
             }
 
             engPutVariable(this->m_ep,"init",mxInit);
-            mxDestroyArray(mxInit);
             this->haveInit=true;
             LOGV(1)<<"Solving "<<VAR(d)<<endl;
             if (1){
@@ -567,41 +575,15 @@ public:
                 engPutVariable(this->m_ep,"lb",mxLowerBound);
                 engPutVariable(this->m_ep,"ub",mxUpperBound);
             }
-            mxDestroyArray(mxLowerBound);
-            mxDestroyArray(mxUpperBound);
+         
             LOGI(6,engEvalString(this->m_ep,"save('sparse.mat');" ));
             engEvalString(this->m_ep, "norm(A*init-b)^2");
             LOGI(2,printf("initialisation residual %s", buffer+2));
 
             
-            if (1){
                 engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
                 //solve using trust region method
-                if (m_useConstraints){
-#if 1
-
-#if 1
-                    engEvalString(this->m_ep, "tic;addpath('/scratch_net/ouroboros/gasst/progs/cvx/');");
-                    engEvalString(this->m_ep, "cvx_startup");
-                    engEvalString(this->m_ep, "cvx_solver sedumi");
-                    engEvalString(this->m_ep, "n = size(A,2); ");
-                    engEvalString(this->m_ep, "cvx_begin ");
-                    engEvalString(this->m_ep, "   variable x(n) ");
-                    engEvalString(this->m_ep, "   minimize( norm(A*x-b) ) ");
-                    engEvalString(this->m_ep, "   subject to ");
-                    //engEvalString(this->m_ep, "      lb <= x <= ub ");
-                    engEvalString(this->m_ep, "       C*x <= b2 ");
-                    engEvalString(this->m_ep, "cvx_end ");
-                    engEvalString(this->m_ep, "t=toc; ");
-#else
-                    engEvalString(this->m_ep, "options=   optimset('Algorithm','interior-point-convex','Display','iter');" );
-                    TIME(engEvalString(this->m_ep, "tic;   x = quadprog(2*A'*A,-2*A'*b,C,b2,[],[],lb,ub,[],options);t=toc;"));
-                    LOGI(2,printf("%s", buffer+2));
-#endif
-#else
-                    TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,C,b2,[],[],lb,ub,init,options);t=toc;"));
-#endif
-                }else{
+ 
 #define VALERIYSOLVER
 #ifdef VALERIYSOLVER
                     TIME(engEvalString(this->m_ep, "tic;[x fval] =grad_solve(A,b,0,100,'cd',init);t=toc;"));
@@ -622,20 +604,18 @@ public:
                     engEvalString(this->m_ep, "output");
                     LOGI(2,printf("%s", buffer+2));
 #endif
-                }
+ 
 
 
 
-                mxArray * time=engGetVariable(this->m_ep,"t");
-                double * t = ( double *) mxGetData(time);
+                time=engGetVariable(this->m_ep,"t");
+                t = ( double *) mxGetData(time);
+                LOGV(3)<<VAR(t[0])<<endl;
                 LOGADDTIME((int)(t[0]));
                 mxDestroyArray(time);
                 //solve using active set method (backslash)
              
-            }else{
-                //solve using pseudo inverse
-                //TIME(engEvalString(this->m_ep, "tic;x = pinv(full(A))*b;toc"));
-            }
+          
 
             //backtransform indexing
             engEvalString(this->m_ep, "newX=zeros(max(oldCode),1);newX(oldCode)=x;x=newX;");
@@ -651,7 +631,13 @@ public:
             engClose(this->m_ep);
 #endif
         }//dimensions
-
+	mxDestroyArray(mxX);
+	mxDestroyArray(mxY);
+	mxDestroyArray(mxV);
+	mxDestroyArray(mxB);
+	mxDestroyArray(mxInit);
+	mxDestroyArray(mxLowerBound);
+	mxDestroyArray(mxUpperBound);
     }
     virtual void solve(){}
 
@@ -1126,73 +1112,16 @@ protected:
                                 }
                                 
 
-                                DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dIntermediateTarget,dSourceIntermediate);
-
-                              
-                                DeformationFieldPointerType difference = TransfUtils<ImageType>::subtract(indirectDeform,dSourceTarget);
-
-                                //compute indirect deform
-                                //DeformationFieldPointerType indirectDeform = TransfUtils<ImageType>::composeDeformations(dSourceIntermediate,dIntermediateTarget);
-                                //compute difference of direct and indirect deform
                             
-                               
-                                if (m_wErrorStatistics>0.0){
-                                    FloatImagePointerType directionalDifference = TransfUtils<ImageType,float,double,double>::getComponent(difference,d);
-                                    FloatImagePointerType directionalDeform = TransfUtils<ImageType,float,double,double>::getComponent(indirectDeform,d);
-                                    FloatImagePointerType diffNorm = TransfUtils<ImageType,float,double,double>::computeLocalDeformationNorm(difference);
-                                    //check if all accumulators exist
-                                    if (m_pairwiseInconsistencyStatistics.find(i)==m_pairwiseInconsistencyStatistics.end())
-                                        m_pairwiseInconsistencyStatistics[i]=map <int,  GaussEstimatorType >();
-                                    if (m_pairwiseInconsistencyStatistics[i].find(t)==m_pairwiseInconsistencyStatistics[i].end())
-                                        m_pairwiseInconsistencyStatistics[i][t]=GaussEstimatorType();
-                                
-                                    //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDifference);
-                                    //m_pairwiseInconsistencyStatistics[s][t].addImage(directionalDeform);
-                                    m_pairwiseInconsistencyStatistics[s][t].addImage(diffNorm);
-                                    //m_pairwiseInconsistencyStatistics[i][t].addImage(diffNorm);
-                                    //m_pairwiseInconsistencyStatistics[i][t].addImage(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(directionalDifference,-1));
-                                }
-
-                              
-                            
-
-                            
-
-                            
-                         
 
                                 //compute norm
-                                DeformationFieldIterator it(difference,difference->GetLargestPossibleRegion());
+                                DeformationFieldIterator it(dSourceTarget,dSourceTarget->GetLargestPossibleRegion());
                                 it.GoToBegin();
                             
-                                DeformationFieldIterator trueIt;
-                                if ((m_trueDeformations)[intermediateID][targetID].IsNotNull()){
-                                    trueIt=DeformationFieldIterator((m_trueDeformations)[intermediateID][targetID],(m_trueDeformations)[intermediateID][targetID]->GetLargestPossibleRegion());
-                                    trueIt.GoToBegin();
-                                }
-                                
-                                ImageIterator * segmentationIt;
-                                ImagePointerType atlasSegmentation;
-                                bool haveSeg=m_atlasSegmentations.find(targetID) != m_atlasSegmentations.end();
-                                if (haveSeg){
-                                    atlasSegmentation=FilterUtils<ImageType>::NNResample(m_atlasSegmentations[targetID],this->m_ROI,false);
-                                    LOGI(3,ImageUtils<ImageType>::writeImage("downsampledAtlasSegmentation.png",atlasSegmentation));
-                                    segmentationIt = new ImageIterator(atlasSegmentation,this->m_ROI->GetLargestPossibleRegion());
-                                    segmentationIt->GoToBegin();
-                                    LOGV(3)<<"Executing loop with segmentation: "<<VAR(sourceID)<<" " <<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
-                                    LOGV(3)<<VAR(atlasSegmentation->GetLargestPossibleRegion().GetSize())<<endl;
-                                    LOGV(3)<<"not chrashed yet: "<<VAR(segmentationIt->GetIndex())<<" " <<endl;
-
-
-                                }
-
+                              
                                 bool haveMasks=(m_maskList && m_maskList->find(targetID)!=m_maskList->end()) && (m_maskList->find(intermediateID)!=m_maskList->end());
                                 
-                                if ( ! haveSeg &&  m_atlasSegmentations.size()>0 ){
-                                    LOGV(2)<<VAR(haveSeg)<<" "<<VAR(m_atlasSegmentations.size())<<endl;
-                                    LOGV(2)<<"skipping loop "<<VAR(sourceID)<<" " <<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
-                                    continue; //if we're using atlas segmentation as start point for closed loops, skip all loops which do not start at an atlas :o
-                                }
+                             
                                 SizeType roiSize=m_regionOfInterest.GetSize();
                             
                                 // LOGV(1)<<VAR(dir)<<" "<<VAR(start)<<endl;
@@ -1246,15 +1175,7 @@ protected:
 
                                         //val*=getIndexBasedWeight(roiTargetIndex,roiSize);
 
-                                        //multiply val by segConsistencyWeight if deformation starts from atlas segmentation
-                                        if (haveSeg){
-                                            segVal=segmentationIt->Get()>0;
-                                            LOGV(3)<<VAR(segVal)<<" "<<VAR(segmentationIt->GetIndex())<<" " <<endl;
-                                            LOGV(3)<<VAR(this->m_ROI->GetLargestPossibleRegion().GetSize())<<" "<<VAR(segmentationIt->GetImage()->GetLargestPossibleRegion().GetSize())<<endl;
-                                            if (segVal){
-                                                val=m_segConsisntencyWeight;
-                                            }
-                                        }
+                                      
 
                                         std::vector<bool> insideIntermediate(ptIntermediateNeighbors.size(),true);
                                         if (haveMasks){
@@ -1275,44 +1196,7 @@ protected:
 
                                             LOGV(9)<<VAR(source)<<" "<<VAR(intermediate)<<" "<<VAR(target)<<" "<<VAR(roiTargetIndex)<<" "<<VAR(d)<<endl;
                                             LOGV(9)<<VAR(edgeNumError(intermediate,target,roiTargetIndex,d))<<" "<<VAR(edgeNumDeformation(intermediate,target,roiTargetIndex,d))<<endl;
-                                            //set w_d ~ 
-                                            if (m_wFullCircleEnergy>0){
-                                                //def and error intermediate->target
-                                                x[c]=eq;
-                                                y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                                v[c++]=val*m_wFullCircleEnergy;
-                                                x[c]=eq;
-                                                y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
-                                                v[c++]=val*m_wFullCircleEnergy;
-                                                //interpolated def and error source->intermediate
-                                                double localInconsistency=0.0;
-
-                                                for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                                    //at least one of these is true because of the earlier check
-                                                    if (insideIntermediate[i]){
-                                                        x[c]=eq;
-                                                        y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d);
-                                                        v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
-                                                        x[c]=eq;
-                                                        y[c]=edgeNumDeformation(source,intermediate,ptIntermediateNeighbors[i].first,d);
-                                                        v[c++]=ptIntermediateNeighbors[i].second*val*m_wFullCircleEnergy;
-                                                        PointType ptSourceIndirect= ptTarget + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
-                                                        localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
-                                                    }
-                                                }
-                                                //minus def and error source->target
-                                                x[c]=eq;
-                                                y[c]=edgeNumError(source,target,roiTargetIndex,d);
-                                                v[c++]= - val*m_wFullCircleEnergy;
-                                                x[c]=eq;
-                                                y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
-                                                v[c++]= - val*m_wFullCircleEnergy;
-                                                b[eq-1]= localInconsistency*m_wFullCircleEnergy;
-                                                ++eq;
-
-                                            
-                                            }
-                                    
+                                       
                                             //set w_circ
                                             if (m_wCircleNorm>0.0){
                                                 double RHS=0.0;
@@ -1364,39 +1248,11 @@ protected:
                                                 ++eq;
                                             }
                                     
-                                            if (m_wErrorInconsistency>0.0){
-                                                val=1.0;
-                                                //indirect
-                                                x[c]=eq;
-                                                y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                                v[c++]=val* m_wErrorInconsistency;
-                                                double localInconsistency=0.0;
-                                                for (int i=0;i<ptIntermediateNeighbors.size();++i){
-                                                    if (  insideIntermediate[i]){
-                                                        x[c]=eq;
-                                                        y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                                        v[c++]=ptIntermediateNeighbors[i].second*val* m_wErrorInconsistency;
-                                                        PointType ptIntermediate;
-                                                        dSourceIntermediate->TransformIndexToPhysicalPoint(ptIntermediateNeighbors[i].first,ptIntermediate);
-                                                        PointType ptSourceIndirect= ptIntermediate + dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first);
-                                                        localInconsistency+=ptIntermediateNeighbors[i].second*(ptSourceIndirect[d]-ptSourceDirect[d]);
-                                                    }
-                                            
-                                                }
-                                                //minus direct
-                                                x[c]=eq;
-                                                y[c]=edgeNumError(source,target,roiTargetIndex,d);
-                                                v[c++]= - val* m_wErrorInconsistency;
-                                                b[eq-1]=localInconsistency* m_wErrorInconsistency;
-                                                ++eq;
-                                        
-                                            }
+                                       
                                         }//val >0
                                     }//inside
-                                    if (haveSeg)                                             ++(*segmentationIt);
 
                                 }//image iterator
-                                if (haveSeg)         delete segmentationIt;
 
                             }//if anything is to estimate :)
                         }//if
