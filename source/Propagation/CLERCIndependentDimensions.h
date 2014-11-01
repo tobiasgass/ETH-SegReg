@@ -120,7 +120,7 @@ private:
     enum StatisticType {MIN,MAX,MEAN,MEDIAN};
     StatisticType m_TypeErrorStatistics;
         
-
+    string m_optimizer;
 
     
     double m_wSum;
@@ -185,6 +185,8 @@ public:
         m_bSplineInterpol=false;
         m_lineSearch=false;
         m_updateDeformationsGlobalSim=false;
+	m_optimizer="csdx100";
+	
     }
 
     double getADE(){return m_ADE;}
@@ -194,6 +196,7 @@ public:
     double getMinJac(){return m_minMinJacobian;}
     double getAverageNCC(){ return m_averageNCC;}
 
+    void setOptimizer(string s){m_optimizer=s;}
     void setDeformationFilenames(FileListCacheType deformationFilenames) {m_deformationFileList = deformationFilenames;}
     void setTrueDeformationFilenames(FileListCacheType trueDeformationFilenames){m_trueDeformationFileList=trueDeformationFilenames;}
     void setLandmarkFilenames(map<string,string> landmarkFilenames){m_landmarkFileList=landmarkFilenames;}
@@ -464,7 +467,7 @@ public:
                 //only need to create inconsistency matrix once!
                 LOGV(1)<<"Creating sparse matrix for triplets"<<endl;
                 LOGV(2)<<"Allocating memory"<<endl;
-#if 1
+
                 mxArray *mxX=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
                 mxArray *mxY=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
                 mxArray *mxV=mxCreateDoubleMatrix((mwSize)m_nNonZeroesTripls,1,mxREAL);
@@ -473,20 +476,6 @@ public:
                     LOG<<"couldn't allocate memory vor triplet matrix!"<<endl;
                     exit(0);
                 }
-
-#else
-
-                ostringstream allocX; allocX<<"xCord=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocX.str().c_str());
-                ostringstream allocY; allocY<<"yCord=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocY.str().c_str());
-                ostringstream allocV; allocV<<"val=zeros("<<m_nNonZeroesTripls<<",1);"; engEvalString(this->m_ep,allocV.str().c_str());
-                ostringstream allocB; allocB<<"b=zeros("<<m_nEQsTripls<<",1);"; engEvalString(this->m_ep,allocB.str().c_str());
-
-                mxArray * mxX=engGetVariable(this->m_ep,"xCord");
-                mxArray * mxY=engGetVariable(this->m_ep,"yCord");
-                mxArray * mxV=engGetVariable(this->m_ep,"val");
-                mxArray * mxB=engGetVariable(this->m_ep,"b");
-#endif
-
 
                 LOGV(2)<<"initialising memory"<<endl;
                 double * x=( double *)mxGetData(mxX);    //    std::fill(x,x+m_nNonZeroesTripls,-1);
@@ -640,40 +629,52 @@ public:
             }
          
             LOGI(6,engEvalString(this->m_ep,"save('sparse.mat');" ));
-            engEvalString(this->m_ep, "norm(A*init-b)^2");
+            engEvalString(this->m_ep, "norm(A*init-b)");
             LOGI(2,printf("initialisation residual %s", buffer+2));
 
-            
-            engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
- 
-#define VALERIYSOLVER
-#ifdef VALERIYSOLVER
-            TIME(engEvalString(this->m_ep, "tic;[x fval] =grad_solve(A,b,0,100,'cd',init);t=toc;"));
-            LOGV(1)<<"Done with grad_solve()"<<endl;
-#else                  
-            //solve using trust region method
-            TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
-            mxArray * flag=engGetVariable(this->m_ep,"flag");
-            if (flag !=NULL){
+            string opt, params="";
+	  
+	    char delim='x';
+	    std::vector<string> p=split(m_optimizer,delim);
+	    opt=p[0];
+	    if (p.size()>1){
+	      params=p[1];
+	    }
+	    if ( opt!="lsqlin" ){
+	      ostringstream minFunc; 		    
+	      string iters=params!=""?params:"100";
+	      minFunc<<"tic;[x fval] =grad_solve(A,b,0,"<<iters<<",'"<<opt<<"',init);t=toc;";
+	      TIME(engEvalString(this->m_ep, minFunc.str().c_str()));
+	      TIME(engEvalString(this->m_ep, "res=norm(A*x-b);"));
+
+	      LOGV(1)<<"Done with grad_solve()"<<endl;
+	    }else{
+	      //solve using trust region method
+	      
+	      engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
+	      TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
+	      TIME(engEvalString(this->m_ep, "res=norm(A*x-b);"));
+
+	      mxArray * flag=engGetVariable(this->m_ep,"flag");
+	      if (flag !=NULL){
                 mxDestroyArray(flag);
-            }else{
+	      }else{
                 LOG<<"LSQLIN large scale failed, trying medium scale algorithm"<<endl;
                 TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);t=toc"));
-            }
+	      }
                        
-            LOGI(1,printf("%s", buffer+2));
-            engEvalString(this->m_ep, " resnorm");
-            LOGI(1,printf("%s", buffer+2));
-            engEvalString(this->m_ep, "output");
-            LOGI(2,printf("%s", buffer+2));
-#endif
- 
+	    }
+	    mxArray * mxtime=engGetVariable(this->m_ep,"t");
+	    double* t = ( double *) mxGetData(mxtime);
+	   
+	    mxArray * mxRes=engGetVariable(this->m_ep,"res");
+	    double* res = ( double *) mxGetData(mxRes);
+	   
+	    LOGV(1)<<"Finished optimizer "<<opt<<" for dimension "<<d<<" in "<<t[0]<<" seconds, result: "<<res[0]<<std::endl;
+	    mxDestroyArray(mxtime);
+	    mxDestroyArray(mxRes);
 
-
-
-            //solve using active set method (backslash)
-             
-          
+       
 
             //backtransform indexing
             //engEvalString(this->m_ep, "newX=zeros(max(oldCode),1);newX(oldCode)=x;x=newX;");
@@ -2203,15 +2204,20 @@ public:
 
                         if (updateThisDeformation){//m_updateDeformations ||  !m_downSampledDeformationCache[sourceID][targetID].IsNotNull()){
                             
-                            firstRun=true;// !m_downSampledDeformationCache[sourceID][targetID].IsNotNull();
-                            m_downSampledDeformationCache[sourceID][targetID] = updatedDeform;
+                            firstRun=true;// 
+			   
+			   
+				 m_downSampledDeformationCache[sourceID][targetID] = updatedDeform;
 
                         }else{
 
                             (m_updatedDeformationCache)[sourceID][targetID] = updatedDeform;
                             
-#if 0
-                            locallyUpdateDeformation( m_downSampledDeformationCache[sourceID][targetID],(m_updatedDeformationCache)[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID]);
+#if 1
+			     locallyUpdateDeformation( m_downSampledDeformationCache[sourceID][targetID],(m_updatedDeformationCache)[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID]);
+			    //locallyUpdateDeformation((m_updatedDeformationCache)[sourceID][targetID],m_downSampledDeformationCache[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID]);
+			    //updatedDeform=(m_updatedDeformationCache)[sourceID][targetID];(m_updatedDeformationCache)[sourceID][targetID]=(m_updatedDeformationCache)[sourceID][targetID];(m_updatedDeformationCache)[sourceID][targetID]=updatedDeform;
+			    //jac=m_updatedPairwiseLocalWeightMaps[sourceID][targetID];m_updatedPairwiseLocalWeightMaps[sourceID][targetID]=m_pairwiseLocalWeightMaps[sourceID][targetID];m_pairwiseLocalWeightMaps[sourceID][targetID]=jac;
 #endif
 
                             m_haveDeformationEstimate = true;
