@@ -111,7 +111,7 @@ int main(int argc, char ** argv){
     double shearing = 1.0;
     double circWeightScaling = 1.0;
     double scalingFactorForConsistentSegmentation = 1.0;
-    bool oracle = false;
+    int oracle = 0;
     string localSimMetric="lncc";
     bool evalLowResolutionDeformationss=false;
     bool roiShift=false;
@@ -180,7 +180,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwdelta", wwdelta,"EXPERIMENTAL: weight for def1 in circle",false);
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-    (*as) >> option ("ORACLE", oracle," use true deformation for indexing variables in loops.CHEATING!!.");
+    (*as) >> parameter ("ORACLE", oracle," oracle=1:use true deformation for indexing variables in loops.CHEATING!!. oracle=2: additianlly use true def as initial values. oracle = 3: use true def adherence  ",false);
 
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
     (*as) >> help();

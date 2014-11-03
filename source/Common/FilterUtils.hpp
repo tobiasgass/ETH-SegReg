@@ -58,6 +58,7 @@ using namespace std;
 
 template<class InputImage, class OutputImage = InputImage>
 class FilterUtils {
+public:
 
     typedef typename InputImage::Pointer  InputImagePointer;
     typedef typename InputImage::ConstPointer  ConstInputImagePointer;

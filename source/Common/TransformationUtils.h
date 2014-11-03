@@ -1854,5 +1854,27 @@ public:
         return resampleFilter->GetOutput();
 
     }
-
+    static FloatImagePointerType computeDirectedGradient(DeformationFieldPointerType def, int d){
+        typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
+        LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
+        FloatImagePointerType result=createEmptyFloat(def);
+        typedef itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
+        FloatImageIteratorType resIt(result,result->GetLargestPossibleRegion());
+        resIt.GoToBegin();
+        typename DeformationFieldType::SizeType size=result->GetLargestPossibleRegion().GetSize();
+        for (deformationIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++resIt){
+            IndexType idx=deformationIt.GetIndex();
+            double gradient=0;
+            if (idx[d]>0 && idx[d]<size[d]-1){
+                IndexType rIdx=idx,lIdx=idx;
+                rIdx[d]+=1;
+                lIdx[d]-=1;
+                gradient=def->GetPixel(rIdx)[d]-def->GetPixel(lIdx)[d];
+            }
+            resIt.Set(gradient);
+            
+        }
+        //return sqrt(norm)/count;
+        return result;
+    }
 };
