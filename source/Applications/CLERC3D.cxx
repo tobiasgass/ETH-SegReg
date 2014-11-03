@@ -122,11 +122,13 @@ int main(int argc, char ** argv){
     bool useConstraints=false;
     double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
+    string optimizer="csdx100";
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
     (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
     (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    (*as) >> parameter ("optimizer", optimizer,"optimizer for lsq problem. optional number of iterations, eg lbfgsx100.opt in {lsqlin,cg,csd,,lbfgs,cgd}",false);
     (*as) >> parameter ("imageResamplingFactor", imageResamplingFactor,"lower image resolution by a different factor. This will lead to having more equations for the regularization than there are variables, with the chosen interpolation affecting the interpolation.",false);
     (*as) >> parameter ("winp", winput,"weight for adherence to input registration",false);
     (*as) >> parameter ("wcons", wcons,"weight consistency penalty",false);
@@ -283,20 +285,21 @@ int main(int argc, char ** argv){
    
     //create ROI, either from first image or from a file
     ImagePointerType origReference=ImageUtils<ImageType>::duplicate( (inputImages)[imageIDs[0]]);
-    ImagePointerType ROI;
+    ImagePointerType ROI,grid;
     if (ROIFilename!="") {
         ROI=ImageUtils<ImageType>::readImage(ROIFilename);
     }else{
         ROI=origReference;
     }
     //resample ROI ? should/could be done within CLERC?
-    if (resamplingFactor>1.0)
-        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor,false);
-    
+    if (resamplingFactor>1.0){
+        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/imageResamplingFactor,false);
+	
+    }
     if (outputDir!=""){
         mkdir(outputDir.c_str(),0755);
     }
-
+    grid=FilterUtils<ImageType>::LinearResample(origReference,1.0/resamplingFactor,false);
     
     //load atlas and/or groundtruth segmentations (or none)
     ImageCacheType atlasSegmentations ;
@@ -354,6 +357,10 @@ int main(int argc, char ** argv){
     solver->setImages(inputImages);
     solver->setMasks(inputMasks);
     solver->setROI(ROI);
+
+
+    solver->setGrid(grid);
+    solver->setOptimizer(optimizer);
     solver->Initialize();
     int c=1;
 

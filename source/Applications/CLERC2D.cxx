@@ -285,20 +285,21 @@ int main(int argc, char ** argv){
    
     //create ROI, either from first image or from a file
     ImagePointerType origReference=ImageUtils<ImageType>::duplicate( (inputImages)[imageIDs[0]]);
-    ImagePointerType ROI;
+    ImagePointerType ROI,grid;
     if (ROIFilename!="") {
         ROI=ImageUtils<ImageType>::readImage(ROIFilename);
     }else{
         ROI=origReference;
     }
     //resample ROI ? should/could be done within CLERC?
-    if (resamplingFactor>1.0)
-        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor,false);
-    
+    if (resamplingFactor>1.0){
+        ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/imageResamplingFactor,false);
+	
+    }
     if (outputDir!=""){
         mkdir(outputDir.c_str(),0755);
     }
-
+    grid=FilterUtils<ImageType>::LinearResample(origReference,1.0/resamplingFactor,false);
     
     //load atlas and/or groundtruth segmentations (or none)
     ImageCacheType atlasSegmentations ;
@@ -356,6 +357,9 @@ int main(int argc, char ** argv){
     solver->setImages(inputImages);
     solver->setMasks(inputMasks);
     solver->setROI(ROI);
+
+
+    solver->setGrid(grid);
     solver->setOptimizer(optimizer);
     solver->Initialize();
     int c=1;

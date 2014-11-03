@@ -68,7 +68,8 @@ protected:
     std::vector<string>  m_imageIDList;
     bool m_additive, m_updateDeformations, m_updateDeformationsGlobalSim;
     RegionType m_regionOfInterest;
-    
+    ImagePointerType m_grid;
+    int m_nGridPoints;
     ImageCacheType  m_imageList;
     ImageCacheType  *m_maskList;
     ImageCacheType  m_atlasSegmentations,m_groundTruthSegmentations;
@@ -186,6 +187,7 @@ public:
         m_lineSearch=false;
         m_updateDeformationsGlobalSim=false;
 	m_optimizer="csdx100";
+	m_maskList=NULL;
 	
     }
 
@@ -220,6 +222,11 @@ public:
         (m_imageList)[(m_imageIDList)[0]]->TransformPhysicalPointToIndex(startPoint,startIndex);
         m_regionOfInterest.SetIndex(startIndex);
         m_regionOfInterest.SetSize(this->m_ROI->GetLargestPossibleRegion().GetSize());
+    }
+    void setGrid(ImagePointerType grid){
+      this->m_grid=grid;
+      m_nGridPoints=grid->GetLargestPossibleRegion().GetNumberOfPixels();
+
     }
 
     virtual void Initialize(){
@@ -325,6 +332,9 @@ public:
         m_wErrorNorm/=m_numDeformationsToEstimate;
         m_wErrorStatistics/=m_numDeformationsToEstimate;
         m_wTransformationSimilarity/=m_numDeformationsToEstimate;
+	if (m_nPixels!=m_nGridPoints){
+	  m_wTransformationSimilarity*=1.0*m_nGridPoints/(m_nPixels);
+	}
         m_wTransformationSymmetry/=m_numDeformationsToEstimate;
         
         LOGV(2)<<VAR(m_nPixels)<<endl;
@@ -386,46 +396,35 @@ public:
             interpolationFactor = 1 ; //NNinterpolation;
         
 
-        //compute number of variables
-        m_nEqFullCircleEnergy  = (m_wFullCircleEnergy>0.0)* internalD * m_nPixels *  m_numImages*(m_numImages-1)*(m_numImages-2); //there is one equation for each component of every pixel of every triple of images
-        m_nVarFullCircleEnergy = 2*(interpolationFactor+2); //two variables per uniqe pair in the triple (2*2), plus linear interpolation for the third pair (2*2^D)
-        m_nEqCircleNorm =  (m_wCircleNorm>0.0)* m_nPixels * internalD * m_nCircles;//m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
-        m_nVarCircleNorm = interpolationFactor+2 ; // only one/2^D variables per pair
-        m_nEqErrorInconsistency =  (m_wErrorInconsistency>0.0)* m_nPixels * internalD * m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
-        m_nVarErrorInconsistency = interpolationFactor+2; // only one/2^D variables per pair
-        m_nEqDeformationSmootheness =  (m_wDeformationSmootheness>0.0)* D* m_nPixels * internalD * m_numImages*(m_numImages-1); //every pixel in each registration has D neighbors (in one direction), and each component separately
-        m_nVarDeformationSmootheness = 3; //for piecewise linear regularization, 2 for piecewise constant
-        m_nEqErrorSmootheness =  (m_wErrorSmootheness>0.0)* D* m_nPixels * internalD * m_numImages*(m_numImages-1); //every pixel in each registration has D neighbors (in one direction), and each component separately
-        m_nVarErrorSmootheness = 3; //for piecewise linear regularization, 2 for piecewise constant
-        m_nEqErrorNorm = (m_wErrorNorm>0.0)*  m_nPixels * internalD * m_numImages*(m_numImages-1); //every error at every location in each image pair
-        m_nVarErrorNorm = 1;
-        m_nEqErrorStatistics = (m_wErrorStatistics>0.0)*  m_nPixels * internalD * m_numImages*(m_numImages-1); //every error at every location in each image pair
-        m_nVarErrorStatistics = 1;
-        m_nEqTransformationSimilarity =  (m_wTransformationSimilarity>0.0)*m_nPixels * internalD * m_numDeformationsToEstimate;//m_numImages*(m_numImages-1); //same as ErrorNorm
-        m_nVarTransformationSimilarity= 1;
-        m_nEqTransformationSymmetry =  (m_wTransformationSymmetry>0.0)*m_nPixels * internalD * m_numImages*(m_numImages-1); //same as ErrorNorm
-        m_nVarTransformationSymmetry= interpolationFactor;
-        int m_nEqSUM=(m_wSum>0.0)*m_nPixels * internalD * m_numImages*(m_numImages-1);
-        if (m_nEqSUM)
-            m_wSum/=m_nEqSUM;
-        int m_nVarSUM=2;
 
-        long int m_nEQsTripls= m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm + m_nEqErrorNorm;
-        m_nEqs= m_nEqTransformationSymmetry+  m_nEqErrorStatistics+  m_nEqFullCircleEnergy + m_nEqCircleNorm+ m_nEqDeformationSmootheness + m_nEqErrorNorm+ m_nEqTransformationSimilarity + m_nEqSUM +  m_nEqErrorSmootheness + m_nEqErrorInconsistency; // total number of equations
+        //compute number of variables
+        m_nEqCircleNorm =  (m_wCircleNorm>0.0)* m_nGridPoints * internalD * m_nCircles;//m_numImages*(m_numImages-1)*(m_numImages-2); //again all components of all triples
+        m_nVarCircleNorm = interpolationFactor+2 ; // only one/2^D variables per pair
+       
+	m_nEqDeformationSmootheness =  (m_wDeformationSmootheness>0.0)* D* m_nGridPoints * internalD * m_numImages*(m_numImages-1); //every pixel in each registration has D neighbors (in one direction), and each component separately
+        m_nVarDeformationSmootheness = 3; //for piecewise linear regularization, 2 for piecewise constant
+        
+	m_nEqTransformationSimilarity =  (m_wTransformationSimilarity>0.0)*m_nPixels * internalD * m_numDeformationsToEstimate;//m_numImages*(m_numImages-1); //same as ErrorNorm
+        m_nVarTransformationSimilarity=m_nPixels!=m_nGridPoints?interpolationFactor:1;
+      
+
+
+        long int m_nEQsTripls= m_nEqCircleNorm;
+        m_nEqs= m_nEqCircleNorm+ m_nEqDeformationSmootheness + m_nEqTransformationSimilarity ; // total number of equations
         long int m_nEQsPairs=m_nEqs-m_nEQsTripls;
 
         
-        m_estError= m_nEqFullCircleEnergy ||  m_nEqErrorNorm || m_nEqSUM||m_nEqErrorInconsistency ;
-        m_estDef = m_nEqFullCircleEnergy || m_nEqTransformationSimilarity ||  m_nEqDeformationSmootheness  ||  m_nEqCircleNorm || m_nEqSUM  ||  m_nEqErrorStatistics;
-        m_nVars= m_numImages*(m_numImages-1)*m_nPixels*internalD *(m_estError + m_estDef); // total number of free variables (error and deformation)
+        m_estError= false ;
+        m_estDef =  m_nEqTransformationSimilarity ||  m_nEqDeformationSmootheness ;
+        m_nVars= m_numImages*(m_numImages-1)*m_nGridPoints*internalD *(m_estError + m_estDef); // total number of free variables (error and deformation)
 
-        long int m_nNonZeroesTripls=m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm; //maximum number of non-zeros        
-        m_nNonZeroes=m_nEqTransformationSymmetry*m_nVarTransformationSymmetry+ m_nEqErrorStatistics+ m_nEqErrorSmootheness*m_nVarErrorSmootheness +m_nEqFullCircleEnergy *m_nVarFullCircleEnergy + m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqErrorNorm*m_nVarErrorNorm + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity + m_nEqSUM*m_nVarSUM + m_nVarErrorInconsistency*m_nEqErrorInconsistency; //maximum number of non-zeros
+        long int m_nNonZeroesTripls=m_nEqCircleNorm * m_nVarCircleNorm; //maximum number of non-zeros        
+        m_nNonZeroes=m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity; //maximum number of non-zeros
         long int m_nNonZerosPairs=m_nNonZeroes-m_nNonZeroesTripls;
 
 
         LOGV(1)<<"Creating equation system.."<<endl;
-        LOGV(1)<<VAR(m_numImages)<<" "<<VAR(m_nPixels)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
+        LOGV(1)<<VAR(m_numImages)<<" "<<VAR(m_nGridPoints)<<" "<<VAR(m_nEqs)<<" "<<VAR(m_nVars)<<" "<<VAR(m_nNonZeroes)<<endl;
         LOGV(1)<<VAR(  m_wTransformationSimilarity)<<" "<<VAR(        m_wDeformationSmootheness)<<" "<<VAR(m_wCircleNorm)<<" "<<VAR(m_wErrorNorm)<<" "<<VAR(m_wErrorStatistics)<<" "<<VAR(m_wFullCircleEnergy)<<" "<<VAR(m_wSum)<<" "<<VAR(m_wErrorSmootheness)<<" "<<VAR(m_sigma)<<" "<<VAR(m_locallyUpdateDeformationEstimate)<<" "<<VAR(m_exponent)<<endl;
         double totalInconsistency = 0.0;
         int totalCount = 0;
@@ -572,7 +571,7 @@ public:
             engEvalString(this->m_ep,"valPairs=valPairs(1:nNz)");
             engEvalString(this->m_ep,"bPairs=bPairs(1:nEq-1);");
             LOGI(6,engEvalString(this->m_ep,"save('early.mat');" ));
-
+	    LOGV(3)<<VAR(eqPair)<<" "<<VAR(cPair)<<endl;
             LOGV(1)<<"Creating sparse matrix for pairs"<<endl;
 
             //transform indexing of variables to be 1..nVariables
@@ -710,9 +709,9 @@ public:
                     string sourceID=(this->m_imageIDList)[s];
                     string targetID = (this->m_imageIDList)[t];
                     //slightly(!!!) stupid creation of empty image
-                    DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::createEmpty(this->m_ROI);
+                    DeformationFieldPointerType estimatedError=TransfUtils<ImageType>::createEmpty(this->m_grid);
                     DeformationFieldIterator itErr(estimatedError,estimatedError->GetLargestPossibleRegion());
-                    DeformationFieldPointerType estimatedDeform=TransfUtils<ImageType>::createEmpty(this->m_ROI);
+                    DeformationFieldPointerType estimatedDeform=TransfUtils<ImageType>::createEmpty(this->m_grid);
                     DeformationFieldIterator itDef(estimatedDeform,estimatedDeform->GetLargestPossibleRegion());
                     itErr.GoToBegin();
                     itDef.GoToBegin();
@@ -896,7 +895,7 @@ protected:
         long int edgeNumber=(edgeNum(n1,n2));
         long int offset;
         if (m_maskList==NULL){
-            offset= this->m_ROI->ComputeOffset(idx);
+            offset= this->m_grid->ComputeOffset(idx);
         }else{
             map<string,int> & omap=m_offsets[edgeNumber];
             stringstream ss;
@@ -914,8 +913,8 @@ protected:
             //LOGV(3)<<VAR(edgeNumber)<<" "<<VAR(idx)<<" "<<VAR(offset)<<endl;
             
         }
-        //return offset*internalD+edgeNum(n1,n2)*m_nPixels*internalD + 1 ;
-        double result= internalD*edgeNumber*m_nPixels+offset + 1 ;
+        //return offset*internalD+edgeNum(n1,n2)*m_nGridPoints*internalD + 1 ;
+        double result= internalD*edgeNumber*m_nGridPoints+offset + 1 ;
         if (result > m_nVars){
             LOG<<VAR(result)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(idx)<<endl;
         }
@@ -923,7 +922,7 @@ protected:
     }
 
     inline long int edgeNumError(int n1,int n2,IndexType idx, int d){ 
-        double result = m_estDef*m_nPixels*internalD*(m_numImages-1)*(m_numImages) + edgeNumDeformation(n1,n2,idx,d);
+        double result = m_estDef*m_nGridPoints*internalD*(m_numImages-1)*(m_numImages) + edgeNumDeformation(n1,n2,idx,d);
         if (result>m_nVars){
             LOG<<m_nVars<<" "<<VAR(result)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(idx)<<endl;
             sqrt(-1);
@@ -945,19 +944,7 @@ protected:
         int nNeighbors=0;
         IndexType idx1;
         inside = def->TransformPhysicalPointToIndex(point,idx1);
-#if 0
-        if ( !def->GetLargestPossibleRegion().IsInside(idx1))
-            return false;
-        for (int d=0;d<D;++d){
-            double orig= def->GetOrigin()[d] ;
-            double size= def->GetLargestPossibleRegion().GetSize()[d]*def->GetSpacing()[d];
-            LOGV(8)<<d<<" "<<point[d]<<" "<<orig<<" "<<size<<endl;
-            if (point[d] < def->GetOrigin()[d] || point[d] >= orig+size-0.0001 ){
-                inside = false;
-                break;
-            }
-        }
-#endif   
+  
         LOGV(8)<<VAR(point)<<" "<<VAR(idx1)<<" "<<VAR(inside)<<" "<<VAR(def->GetOrigin())<<endl;
         
         if (!inside) return false;
@@ -991,6 +978,53 @@ protected:
                 sum+=w;
                 neighbors[nNeighbors++]=std::make_pair(idx,w);
                 inside=true;
+            }
+        }
+        neighbors.resize(nNeighbors);
+        return inside;
+    } 
+    inline bool getLinearNeighbors(const ImagePointerType img, const PointType & point, std::vector<std::pair<IndexType,double> > & neighbors){
+        bool inside=true;
+        neighbors= std::vector<std::pair<IndexType,double> >(pow(2,D));
+        int nNeighbors=0;
+        IndexType idx1;
+        inside = img->TransformPhysicalPointToIndex(point,idx1);
+  
+        LOGV(8)<<VAR(point)<<" "<<VAR(idx1)<<" "<<VAR(inside)<<" "<<VAR(img->GetOrigin())<<endl;
+        
+        if (!inside) return false;
+        PointType pt1;
+        img->TransformIndexToPhysicalPoint(idx1,pt1);
+        DeformationType dist=point-pt1;
+        if (inside){
+            neighbors[nNeighbors++]=std::make_pair(idx1,getWeight(dist,img->GetSpacing()));
+        }
+        OffsetType off;
+        off.Fill(0);
+        double sum=0.0;
+        for (int i=1;i<pow(2,D);++i){
+            int spill=1;
+            for (int d=0;d<D;++d){
+                off[d]+=spill*sign(dist[d]);
+                if (fabs(off[d])>1){
+                    spill=1;off[d]=0;
+                }else{
+                    break;
+                }
+
+            }
+            IndexType idx=idx1+off;
+            PointType pt;
+            img->TransformIndexToPhysicalPoint(idx,pt);
+            DeformationType delta=point-pt;
+            if (img->GetLargestPossibleRegion().IsInside(idx)){
+                //LOGV(1)<<VAR(def->GetLargestPossibleRegion().GetSize())<<" "<<VAR(idx)<<endl;
+                double w=getWeight(delta,img->GetSpacing());
+		if (w>0.001){
+		  sum+=w;
+		  neighbors[nNeighbors++]=std::make_pair(idx,w);
+		  inside=true;
+		}
             }
         }
         neighbors.resize(nNeighbors);
@@ -1085,16 +1119,13 @@ protected:
 
     void computeTripletEnergies(double * x, double * y, double * v, double * b, long int &c,long int & eq, unsigned int d){
         double maxAbsDisplacement=0.0;
-        m_pairwiseInconsistencyStatistics=map<int, map <int,  GaussEstimatorType > >();
         //0=min,1=mean,2=max,3=median,-1=off,4=gauss;
         int accumulate=4;
         double manualResidual=0.0;
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
             string sourceID=(m_imageIDList)[source];
-            if (m_wErrorStatistics>0 && m_pairwiseInconsistencyStatistics.find(s)==m_pairwiseInconsistencyStatistics.end())
-                m_pairwiseInconsistencyStatistics[s]=map <int,  GaussEstimatorType >();
-
+        
             for (int t=0;t<m_numImages;++t){
                 if (t!=s){
                     int target=t;
@@ -1112,13 +1143,7 @@ protected:
                             skip=true;
                     }
                     
-                    if (m_wErrorStatistics>0.0){
-                        if (m_pairwiseInconsistencyStatistics[s].find(t)==m_pairwiseInconsistencyStatistics[s].end())
-                            m_pairwiseInconsistencyStatistics[s][t]=GaussEstimatorType();
-                        
-                        //m_pairwiseInconsistencyStatistics[s][t].addImage(TransfUtils<ImageType>::getComponent(dSourceTarget,d));
-                    }
-
+                   
                     
                     //triplet energies
                     for (int i=0;i<m_numImages;++i){ 
@@ -1169,7 +1194,8 @@ protected:
                             
 
                                 //compute norm
-                                DeformationFieldIterator it(dSourceTarget,dSourceTarget->GetLargestPossibleRegion());
+                                //DeformationFieldIterator it(dSourceTarget,dSourceTarget->GetLargestPossibleRegion());
+				ImageIterator it(m_grid,m_grid->GetLargestPossibleRegion());
                                 it.GoToBegin();
                             
                               
@@ -1184,13 +1210,14 @@ protected:
                                     bool valid=true;
 
                                     //get index in target domain
-                                    IndexType targetIndex=it.GetIndex(),intermediateIndex,idx1;
-                                    LOGV(9)<<VAR(targetIndex)<<endl;
+                                    IndexType gridIndex=it.GetIndex(),intermediateIndex,idx1,targetIndex;
+                                    LOGV(9)<<VAR(gridIndex)<<endl;
                                     PointType ptIntermediate,ptTarget,ptSourceDirect;
                                     IndexType roiIntermediateIndex,roiTargetIndex;
                                 
                                     //get physical point in target domain
-                                    dSourceTarget->TransformIndexToPhysicalPoint(targetIndex,ptTarget);
+                                    m_grid->TransformIndexToPhysicalPoint(gridIndex,ptTarget);
+				    dSourceTarget->TransformPhysicalPointToIndex(ptTarget,targetIndex);
                                     //get corresponding point in intermediate deform
                                     DeformationType dIntermediate=dIntermediateTarget->GetPixel(targetIndex);
                                     ptIntermediate= ptTarget + dIntermediate;
@@ -1208,7 +1235,8 @@ protected:
                                         inside=m_maskList->find(targetID)->second->GetPixel(targetIndex);
                                     }
                                     if (m_linearInterpol){
-                                        inside=inside && getLinearNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
+				      //inside=inside && getLinearNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
+				      inside=inside && getLinearNeighbors(m_grid,ptIntermediate,ptIntermediateNeighbors);
                                         //inside=getGaussianNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors,(ptIntermediate-ptSourceDirect).GetNorm());
                                     }else{
                                         inside=inside && getNearestNeighbors(dIntermediateTarget,ptIntermediate,ptIntermediateNeighbors);
@@ -1225,8 +1253,6 @@ protected:
                                         //and at all points otherwise
                                         double val= m_atlasSegmentations.size()==0;
                                         
-                                        bool segVal=1.0;
-
                                         //val*=getIndexBasedWeight(roiTargetIndex,roiSize);
 
                                       
@@ -1257,22 +1283,15 @@ protected:
                                                 if (estIntermediateTarget){
                                                     //indirect
                                                     x[c]=eq;
-                                                    y[c]=edgeNumDeformation(intermediate,target,roiTargetIndex,d);
+                                                    y[c]=edgeNumDeformation(intermediate,target,gridIndex,d);
                                                     v[c]=val* m_wCircleNorm;
                                                     ostringstream cmd;
                                             
                                                     ++c;
                                                 }else{
-                                                    RHS-=dIntermediateTarget->GetPixel(roiTargetIndex)[d];
+                                                    RHS-=dIntermediateTarget->GetPixel(gridIndex)[d];
                                                 }
-                                                
-#if 0
-                                                //EXPERIMENTAL*****************************************
-                                                x[c]=eq;
-                                                y[c]=edgeNumError(intermediate,target,roiTargetIndex,d);
-                                                v[c++]=-val*m_wCircleNorm;
-                                                // *****************************************************
-#endif
+                                               
                                         
                                                 double defSum=0.0;
                                                 for (int i=0;i<ptIntermediateNeighbors.size();++i){
@@ -1283,26 +1302,23 @@ protected:
                                                         ++c;
                                                         LOGV(8)<<VAR(roiTargetIndex)<<" "<<VAR(i)<<" "<<VAR(ptIntermediateNeighbors[i].first)<<" "<<VAR(ptIntermediateNeighbors[i].second)<<endl;
                                                     }else{
-                                                        RHS-=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
+						      //RHS-=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
+						      LOG<<"NYI"<<endl;
+						      exit(0);
                                                     }
-                                                    defSum+=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
                                                 }
 
                                                 if (estSourceTarget){
                                                     //minus direct
                                                     x[c]=eq;
-                                                    y[c]=edgeNumDeformation(source,target,roiTargetIndex,d);
+                                                    y[c]=edgeNumDeformation(source,target,gridIndex,d);
                                                     v[c]= - val* m_wCircleNorm;
                                                     ++c;
                                                 }else{
-                                                    RHS+=dSourceTarget->GetPixel(roiTargetIndex)[d];
+                                                    RHS+=dSourceTarget->GetPixel(gridIndex)[d];
                                                 }
                                         
-                                                double residual= val*m_wCircleNorm*(dIntermediateTarget->GetPixel(roiTargetIndex)[d]
-                                                                                    + defSum
-                                                                                    - dSourceTarget->GetPixel(roiTargetIndex)[d]
-                                                                                    );
-                                                manualResidual+=residual*residual;
+                                            
                                                 b[eq-1]=m_wCircleNorm*RHS;
                                                 ++eq;
                                             }
@@ -1355,46 +1371,18 @@ protected:
                             lnccIt.GoToBegin();
                         }
 
-                        DeformationFieldIterator previousIt;
-                        double priorWeight=1.0;
-                        if (true && ! m_updateDeformations && m_haveDeformationEstimate && (m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
-                            DeformationFieldPointerType estDef=(m_updatedDeformationCache)[sourceID][targetID];
-                            DeformationFieldPointerType diff=TransfUtils<ImageType>::subtract(estDef,(m_downSampledDeformationCache)[sourceID][targetID]);
-                            double defNorm=TransfUtils<ImageType>::computeDeformationNorm(diff);
-                            if (defNorm!=0.0){
-                                priorWeight=1.0/defNorm;
-                            }else
-                                priorWeight= 10;
-                        
-                            previousIt=DeformationFieldIterator(diff,m_regionOfInterest);
-                            previousIt.GoToBegin();
-                        }
+                     
                         
                         DeformationFieldPointerType dSourceTarget=(this->m_downSampledDeformationCache)[sourceID][targetID];
                         DeformationFieldIterator it(dSourceTarget,m_regionOfInterest);
                         it.GoToBegin();
-                    
-                    
-                        GaussEstimatorType * statisticsEstimatorSourceTarget;
-                        double globalMeanInconsistency=1.0;
-                        double trueError  ;
-                        if (m_wErrorStatistics>0.0){
-                            statisticsEstimatorSourceTarget = &m_pairwiseInconsistencyStatistics[s][t];
-                            statisticsEstimatorSourceTarget->finalize();
-                            globalMeanInconsistency=FilterUtils<FloatImageType>::getMean(statisticsEstimatorSourceTarget->getMean());
-                            if (globalMeanInconsistency==0.0){
-                                globalMeanInconsistency=0.01;
-                            }
-                            globalMeanInconsistency*=globalMeanInconsistency;
-                            LOGV(1)<<sourceID<<" "<<targetID<<" "<<VAR(globalMeanInconsistency)<<endl;
-                        }
-
+                  
                         FloatImagePointerType newLocalWeights;
                         if (m_locallyUpdateDeformationEstimate && ! m_updateDeformations && m_haveDeformationEstimate && (m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
                             newLocalWeights=(m_updatedPairwiseLocalWeightMaps)[sourceID][targetID];
                         }
 
-
+			//iterate over ROI to create similarity based penalties
                         for (;!it.IsAtEnd();++it){
                             DeformationType localDef=it.Get();
                             IndexType idx=it.GetIndex();
@@ -1406,10 +1394,7 @@ protected:
                                 }
                             }
 
-                            int edgeNumDef=edgeNumDeformation(source,target,idx,d);
-                            int edgeNumErr;
-                            if (m_estError)
-                                edgeNumErr=edgeNumError(source,target,idx,d);
+                          
 
                             //intensity based weight
                             double weight=1.0;
@@ -1418,68 +1403,7 @@ protected:
                                 LOGV(6)<<VAR(weight)<<endl;
                                 ++lnccIt;
                             }
-                          
-                        
-                                
-                            //weight based on previous estimate
-                            double weight2=1.0;
-                            double expectedError=0.0;
-                            if (m_haveDeformationEstimate){
-                                priorWeight=1.0;
-                                if (false ){
-                                    expectedError = previousIt.Get()[d];
-                                    ++previousIt;
-
-                                    //double diffNorm=fabs(previousIt.Get()[d]);
-                                    double diffNorm=previousIt.Get().GetNorm();
-                                    if (diffNorm!=0.0){
-                                        priorWeight=1.0/diffNorm;
-                                    }else
-                                        priorWeight=100;
-                                
-                                    //LOGV(4)<<VAR(diffNorm)<<" "<<VAR(priorWeight)<<endl;
-                                    priorWeight=min(max(priorWeight,0.001),10.0);
-                                
-                                }
-                            }
-                                
-                            //set w_delta
-                            //set eqn for soft constraining the error to be small
-                            if (m_wErrorNorm>0.0){
-                                x[c]    = eq;
-                                y[c]    = edgeNumErr;
-                                v[c++]  = 1.0*m_wErrorNorm*weight;
-                                b[eq-1] = 0.0;//weight*m_wErrorNorm;
-                                ++eq;
-                                LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(weight)<<endl;
-                            }
-
-
-                            //set w_delta
-                            //set eqn for soft constraining the error to be small
-                            double meanInconsistency=1.0;
-                            double varInconsistency;
-                            if ( m_wErrorStatistics>0.0){
-                                LOGV(7)<<VAR(statisticsEstimatorSourceTarget->getMean()->GetLargestPossibleRegion().GetSize())<<" "<<VAR(idx)<<endl;
-                                meanInconsistency=statisticsEstimatorSourceTarget->getMean()->GetPixel(idx);
-                                meanInconsistency=meanInconsistency!=0.0?meanInconsistency:0.0001;
-#if 0
-                                //varInconsistency=sqrt((fabs(statisticsEstimatorSourceTarget->getVariance()->GetPixel(idx))));
-                                if (varInconsistency == 0.0){
-                                    varInconsistency = 1e-5;
-                                }
-                                weight2 = 1.0/(varInconsistency);
-                                x[c]    = eq;
-                                y[c]    = edgeNumDef;
-                                v[c++]  = 1.0*m_wErrorStatistics*weight2;
-                                //b[eq-1] = m_wErrorStatistics*weight2*trueError;
-                                b[eq-1] = m_wErrorStatistics*weight2*meanInconsistency;
-                                ++eq;
-#endif     
-                              
-                                LOGV(7)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(meanInconsistency)<<" "<<VAR(weight)<<" "<<VAR(trueError)<<endl;
-     
-                            }
+                    
                         
                             double localWeight=-1;
                             double localUpdatedDef;
@@ -1494,78 +1418,47 @@ protected:
                             if (m_wTransformationSimilarity>0.0){
                                 //weight=1.0/sqrt(fabs(meanInconsistency));
                                 double localDisp  =localDef[d];
-                                if (m_metric !="gradient"){
-                                    if (localWeight>=weight){
-                                        localDisp=localUpdatedDef;
-                                        weight=localWeight;
-                                    }
-                                    //double localIncStatistics=min(float(100.0),max(statisticsEstimatorSourceTarget->getMean()->GetPixel(idx),(float)0.01));
-                                    //double trueError=fabs(localDef[d]-                                                                          (m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d]);
-                                    //LOGV(3)<< VAR(sourceID)<< " "<<VAR(targetID)<<" "<<VAR(localIncStatistics) << "  " <<VAR(weight)<<" "<<VAR(trueError)<<endl;
-                                    //weight/= min(float(100.0),max(statisticsEstimatorSourceTarget->getMean()->GetPixel(idx),(float)0.01));
-                                    
-                                    weight/=globalMeanInconsistency;
-                                }
-                                else{
-                                    //weight=1.0;
-                                    priorWeight=1.0;
-                                    localDisp-=(m_pairwiseGradients)[sourceID][targetID]->GetPixel(idx)[d];
-                                }
-                                //trueError= (this->m_downSampledDeformationCache)[sourceID][targetID]->GetPixel(idx)[d]-(m_trueDeformations)[sourceID][targetID]->GetPixel(idx)[d];
-                                //weight=trueError!=0.0?1.0/abs(trueError):100;//pow(weight,meanInconsistency);
-                                //weight=pow((1.0-weight),4.0)*25;
-                                //weight=weight!=0.0?1.0/weight:100;
-                                weight=weight/meanInconsistency;
-                                if (weight>0.0){
+				if (localWeight>=weight){
+				  localDisp=localUpdatedDef;
+				  weight=localWeight;
+				}
+				
+				PointType targetPoint;
+				dSourceTarget->TransformIndexToPhysicalPoint(idx,targetPoint);
+				std::vector<std::pair<IndexType,double> >ptNeighbors;
+				getLinearNeighbors(m_grid,targetPoint,ptNeighbors);
+			
+				//if (weight>0.0){
+				  for (int i=0;i<ptNeighbors.size();++i){
+				    
+				    int edgeNumDef=edgeNumDeformation(source,target,ptNeighbors[i].first,d);
+				    //int edgeNumDef=edgeNumDeformation(source,target,idx,d);
+				    // LOGV(3)<<VAR(eq)<<" "<<VAR(c)<<" "<<VAR(idx)<<" "<<VAR(i)<<" "<<VAR(ptNeighbors[i].first)<<" "<<VAR(ptNeighbors[i].second)<<endl;
                                     x[c]    = eq;
                                     y[c]    = edgeNumDef;
-                                    v[c++]  = 1.0*m_wTransformationSimilarity *weight*priorWeight;
-                                    //b[eq-1] = (localDef[d]-trueError)*m_wTransformationSimilarity;// * weight;
-                                    b[eq-1] = localDisp*m_wTransformationSimilarity * weight*priorWeight;
-                                    ++eq;
-                                    LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(priorWeight)<<endl;
-                                }
+                                    v[c++]  = 1.0*m_wTransformationSimilarity *weight*ptNeighbors[i].second;
+				  }
+				  b[eq-1] = localDisp*m_wTransformationSimilarity * weight;
+				  ++eq;
+                                    LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<endl;
+				    //}
                             }
-                            
-                            if (m_wTransformationSymmetry>0.0){
-                                std::vector<std::pair<IndexType,double> > ptNeighbors;
-                                DeformationType def=localDef;
-                                if ((m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
-                                    def=(m_updatedDeformationCache)[sourceID][targetID]->GetPixel(idx);
-                                }
-                                
-                                PointType deformedPoint;
-                                dSourceTarget->TransformIndexToPhysicalPoint(idx,deformedPoint);
-                                deformedPoint = deformedPoint+def;
-                                bool inside=getLinearNeighbors(dSourceTarget,deformedPoint,ptNeighbors);
-                                if (inside){
-                                    x[c]    = eq;
-                                    y[c]    = edgeNumDef;
-                                    v[c++]  = 1.0*m_wTransformationSymmetry;
-                                    for (int i=0;i<ptNeighbors.size();++i){
-                                        x[c]=eq;
-                                        y[c]=edgeNumDeformation(source,target,ptNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                        v[c++]=-1.0*ptNeighbors[i].second* m_wTransformationSymmetry;
-                                    }
-                                    b[eq-1] = 0.0;
-                                    ++eq;
-                                }
-
-                            }
-                            
-                            
-                            //constraint that estimated def + estimated error = original def
-                            if (m_wSum>0.0){
-                                x[c]   = eq;
-                                y[c]   = edgeNumDef;
-                                v[c++] = m_wSum;
-                                x[c]   = eq;
-                                y[c]   = edgeNumErr;
-                                v[c++] = m_wSum;
-                                b[eq-1]=m_wSum*localDef[d];
-                                ++eq;
-                            }
-
+			}//iter ROI
+                          
+			ImageIterator it2(m_grid,m_grid->GetLargestPossibleRegion());
+			it2.GoToBegin();
+						
+			//iterate over grid to generate coarse constraints.
+			for (;!it2.IsAtEnd();++it2){
+			  IndexType idx=it2.GetIndex();
+			  int edgeNumDef=edgeNumDeformation(source,target,idx,d);
+			  IndexType targetIndex;
+			  PointType targetPoint;
+			  m_grid->TransformIndexToPhysicalPoint(idx,targetPoint);
+			  dSourceTarget->TransformPhysicalPointToIndex(targetPoint,targetIndex);
+			  //TODO: should be interpolated?
+			  DeformationType localDef=dSourceTarget->GetPixel(targetIndex);
+			  
 #define CURVATURE
 #ifdef CURVATURE
                             //spatial smootheness of estimated deformations
@@ -1629,70 +1522,11 @@ protected:
                             }
 
 #endif
-                            //spatial un-smootheness of estimated errors
-                            if (m_wErrorSmootheness>0.0){
-                                for (unsigned int n=0;n<D;++n){
-                                    OffsetType off,off2;
-                                    off.Fill(0);
-                                    off2=off;
-                                    off[n]=1;
-                                    off2[n]=-1;
-                                    IndexType neighborIndexRight=idx+off;
-                                    IndexType neighborIndexLeft=idx+off2;
-                                    if (dSourceTarget->GetLargestPossibleRegion().IsInside(neighborIndexRight) &&dSourceTarget->GetLargestPossibleRegion().IsInside(neighborIndexLeft) ){
-                                        x[c]   = eq;
-                                        y[c]   = edgeNumErr;
-                                        v[c++] = -2.0;
-                                        x[c]   = eq;
-                                        y[c]   = edgeNumError(source,target,neighborIndexRight,d);
-                                        v[c++] = 1.0;
-                                        x[c]   = eq;
-                                        y[c]   = edgeNumError(source,target,neighborIndexLeft,d);
-                                        v[c++] = 1.0;
-                                        b[eq-1]= this->m_wErrorSmootheness;
-                                        ++eq;
-                                    }
-                                }//inside
-                            }//wwsDelta
-                            //set initialisation values
-
-                            
-                            //set bounds on variables
-                            //error
-                            double extent     = (dSourceTarget->GetLargestPossibleRegion().GetSize()[d]-1)*dSourceTarget->GetSpacing()[d];
-                            double upperBound = extent;
-                            double lowerBound = -upperBound;
-                            //LOGV(4)<<VAR(upperBound)<<endl;
-                            if (m_wErrorStatistics>0.){
-                                lowerBound        = meanInconsistency-3*sqrt(varInconsistency);
-                                upperBound        = meanInconsistency+3*sqrt(varInconsistency);
-                                //LOGV(6)<<VAR(weight)<<" "<<VAR(lowerBound)<<VAR(upperBound)<<" "<<VAR(meanInconsistency)<<" "<<VAR(varInconsistency)<<" "<<VAR(trueError)<<endl;
-                            }
-
-                        
-                            if (m_estError){
-                                //LOGV(6)<<VAR(edgeNumErr)<<" "<<VAR(m_nVars)<<endl;
-                                init[edgeNumErr-1] = 0;//meanInconsistency;
-                                lb[edgeNumErr-1]   = lowerBound;
-                                ub[edgeNumErr-1]   = upperBound;
-                            }
-                            //deformation
-                            //deformation should not fall outside image bounds
-                            PointType pt;
-                            dSourceTarget->TransformIndexToPhysicalPoint(idx,pt);
-                            //warning: assumes 1 1 1 direction!
-                            //deformation can maximally go back to origin
+                          
+                           
+                          
                             if (m_estDef){
-                                //LOGV(6)<<VAR(edgeNumDef)<<" "<<VAR(m_nVars)<<endl;
-                                lb[edgeNumDef-1]   =  dSourceTarget->GetOrigin()[d]-pt[d] -0.0001;
-                                //deformation can maximally transform pt to extent of image
-                                ub[edgeNumDef-1]   =  dSourceTarget->GetOrigin()[d]+extent-pt[d] +0.0001;
-                                //LOGV(4)<<VAR(pt)<<" "<<VAR(dSourceTarget->GetOrigin()[d]-pt[d])<<" "<<VAR( dSourceTarget->GetOrigin()[d]+extent-pt[d]  )<<endl;
-                                //init[edgeNumDef-1] =  0;
-                                //init[edgeNumDef-1] =  localDef[d] -expectedError;
                                 init[edgeNumDef-1] =  localDef[d];
-                                //init[edgeNumDef-1] =  (localDef[d]-trueError) ;
-                            
                             }
                            
                         }//for
@@ -1841,7 +1675,7 @@ public:
 
     void DoALot(string directory=""){
         typedef typename itk::LabelOverlapMeasuresImageFilter<ImageType> OverlapMeasureFilterType;
-        m_spacingBasedSmoothnessReduction=1.0/this->m_ROI->GetSpacing()[0];
+        m_spacingBasedSmoothnessReduction=1.0/this->m_grid->GetSpacing()[0];
         //initialize ADE with zero if it is going to be computed.
         m_ADE=(m_trueDeformationFileList.size()>0)?0:-1;
         m_dice=0;
