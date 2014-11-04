@@ -736,7 +736,13 @@ public:
                 r = 0;
             }
 #endif
-            r = pow(fabs(r),exp);
+            //r = pow(fabs(r),exp);
+            //r = max((1.0/(min(1.0-pow(fabs(r),exp),0.00001))),0.0);
+            r = (1.0/
+                 (1.0
+                  -pow(min(0.9999,fabs(r)),exp)
+                  )
+                 );
         
 #ifdef SAFE    
             r = max(r,std::numeric_limits<InternalPrecision>::epsilon());
@@ -1401,5 +1407,24 @@ public:
         return FilterUtils<InternalImage,OutputImage>::cast(result);
     }
 
-    
+    static inline OutputImagePointer multiScaleLNCCAbs(InputImagePointer i1,InputImagePointer i2,double sigmaMax=1.0, double exp = 1.0){
+        double sigma=1.0;
+        int count=0;
+        InternalImagePointer result;
+        for (;sigma<=sigmaMax;sigma*=2){
+            if (!count)
+                result=efficientLNCCNewNorm(i1,i2,sigma,1.0);
+            else
+                result=FilterUtils<InternalImage>::add(result,efficientLNCCNewNorm(i1,i2,sigma,1.0));
+            ++count;
+
+        }
+        typename ImageUtils<InternalImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+        for (resultIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt){
+            InternalPrecision d = resultIt.Get();
+            resultIt.Set(pow(d/count,InternalPrecision(exp)));
+        }
+        return FilterUtils<InternalImage,OutputImage>::cast(result);
+        
+    }
 };
