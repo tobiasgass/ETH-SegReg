@@ -111,7 +111,7 @@ int main(int argc, char ** argv){
     double shearing = 1.0;
     double circWeightScaling = 1.0;
     double scalingFactorForConsistentSegmentation = 1.0;
-    bool oracle = false;
+    int oracle = 0;
     string localSimMetric="lncc";
     bool evalLowResolutionDeformationss=false;
     bool roiShift=false;
@@ -123,6 +123,7 @@ int main(int argc, char ** argv){
     double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
     string optimizer="csdx100";
+    bool useTaylor=false;
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -149,7 +150,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops per level",false);
     (*as) >> parameter ("maxLevels", maxLevels,"maximum number of multi-resolution levels",false);
-
+(*as) >> option ("useTaylor", useTaylor,"use something similar to first order taylor approximation for inconsistency terms.");
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
     (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
@@ -180,7 +181,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("wwdelta", wwdelta,"EXPERIMENTAL: weight for def1 in circle",false);
     //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
     //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-    (*as) >> option ("ORACLE", oracle," use true deformation for indexing variables in loops.CHEATING!!.");
+    (*as) >> parameter ("ORACLE", oracle," oracle=1:use true deformation for indexing variables in loops.CHEATING!!. oracle=2: additianlly use true def as initial values. oracle = 3: use true def adherence  ",false);
 
     (*as) >> parameter ("verbose", verbose,"get verbose output",false);
     (*as) >> help();
@@ -357,6 +358,7 @@ int main(int argc, char ** argv){
     solver->setImages(inputImages);
     solver->setMasks(inputMasks);
     solver->setROI(ROI);
+    solver->setUseTaylor(useTaylor);
 
 
     solver->setGrid(grid);

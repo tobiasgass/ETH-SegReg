@@ -216,6 +216,7 @@ public:
     void setLineSearch(bool b){m_lineSearch=b;}
     void setUseConstraints(bool b){m_useConstraints=b;}
     void setUpdateDeformationsGlobalSim(bool b){ m_updateDeformationsGlobalSim=b;}
+    void setUseTaylor(bool b){m_useTaylor=b;}
     void setROI(ImagePointerType ROI){ 
         this->m_ROI=ROI;
         m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
@@ -1313,15 +1314,16 @@ protected:
                                                 double RHS=0.0;
                                                 if (estIntermediateTarget){
                                                     double taylorWeight=0.0;
-                                                    if (false && m_useTaylor){
+                                                    if (m_useTaylor){
                                                         taylorWeight=gradientInterpol->Evaluate(ptIntermediate);
                                                         RHS+=taylorWeight*dIntermediateTarget->GetPixel(gridIndex)[d];
+							//val*=1.0/(1.0+100*taylorWeight*taylorWeight);
+							//LOGV(3)<<VAR(taylorWeight)<<" "<<VAR(val)<<endl;
                                                     }
                                                     //indirect
                                                     x[c]=eq;
                                                     y[c]=edgeNumDeformation(intermediate,target,gridIndex,d);
                                                     v[c]=val* m_wCircleNorm*(1.0+taylorWeight);
-                                                    ostringstream cmd;
                                             
                                                     ++c;
                                                 }else{
@@ -1355,7 +1357,7 @@ protected:
                                                 }
                                         
                                             
-                                                b[eq-1]=m_wCircleNorm*RHS;
+                                                b[eq-1]=val*m_wCircleNorm*RHS;
                                                 ++eq;
                                             }
                                     
@@ -1442,7 +1444,8 @@ protected:
                             //intensity based weight
                             double weight=1.0;
                             if (lncc.IsNotNull()){
-                                weight = lnccIt.Get();
+                                weight = max(0.00001,lnccIt.Get());
+                                //weight= weight>0.95?1000:weight;
                                 double err=0;
                                 if (trueDef.IsNotNull()){
                                     err=trueDef->GetPixel(idx).GetNorm();
@@ -1451,7 +1454,7 @@ protected:
                                 ++lnccIt;
                             }
                             //weight*=pow(abs( (m_pairwiseGlobalSimilarity[sourceID][targetID]-m_minSim)/(m_maxSim-m_minSim)),1.0);
-                            weight*=pow(abs( (m_pairwiseGlobalSimilarity[sourceID][targetID])),m_sigma);
+                            //weight*=pow(abs( (m_pairwiseGlobalSimilarity[sourceID][targetID])),m_sigma);
                             
                     
                         

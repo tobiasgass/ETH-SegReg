@@ -123,6 +123,7 @@ int main(int argc, char ** argv){
     double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
     string optimizer="csdx100";
+    bool useTaylor=false;
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -149,7 +150,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops per level",false);
     (*as) >> parameter ("maxLevels", maxLevels,"maximum number of multi-resolution levels",false);
-
+(*as) >> option ("useTaylor", useTaylor,"use something similar to first order taylor approximation for inconsistency terms.");
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
     (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
@@ -357,6 +358,7 @@ int main(int argc, char ** argv){
     solver->setImages(inputImages);
     solver->setMasks(inputMasks);
     solver->setROI(ROI);
+    solver->setUseTaylor(useTaylor);
 
 
     solver->setGrid(grid);
