@@ -1311,6 +1311,7 @@ protected:
                                        
                                             //set w_circ
                                             if (m_wCircleNorm>0.0){
+                                                //val/=m_Inconsistency;
                                                 double RHS=0.0;
                                                 if (estIntermediateTarget){
                                                     double taylorWeight=0.0;
@@ -1475,7 +1476,7 @@ protected:
                                     localDisp=localUpdatedDef;
                                     weight=localWeight;
                                 }
-				
+                                //weight/=(1.0+m_averageNCC);
                                 PointType targetPoint;
                                 dSourceTarget->TransformIndexToPhysicalPoint(idx,targetPoint);
                                 std::vector<std::pair<IndexType,double> >ptNeighbors;
@@ -1903,7 +1904,7 @@ public:
                                 //lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                                 lncc= Metrics<ImageType,FloatImageType,long double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                             }else if (m_metric == "itklncc"){
-                                lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
+                                lncc= Metrics<ImageType,FloatImageType,float>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                             }else if (m_metric == "lnccAbs"){
                                 lncc= Metrics<ImageType,FloatImageType>::efficientLNCCNewNorm(warpedImage,targetImage,m_sigma,m_exponent);
                             }else if (m_metric == "lsad"){
@@ -1919,6 +1920,11 @@ public:
                                 lncc=  Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                             }else if (m_metric == "categorical"){
                                 lncc=  Metrics<ImageType,FloatImageType>::CategoricalDiffNorm(warpedImage,targetImage,m_sigma,m_exponent);
+                            }else if (m_metric == "deedsSSC"){
+                                lncc=  Metrics<ImageType,FloatImageType,float>::deedsMIND(warpedImage,targetImage,m_sigma,m_exponent);
+                            }
+                            else if (m_metric == "deedsLCC"){
+                                lncc=  Metrics<ImageType,FloatImageType,float>::deedsLCC(warpedImage,targetImage,m_sigma,m_exponent);
                             }else{
                                 LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                                 exit(-1);
@@ -1997,6 +2003,10 @@ public:
                                     lncc= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else if (m_metric == "lnccAbs"){
                                     lncc= Metrics<ImageType,FloatImageType>::efficientLNCCNewNorm(warpedImage,targetImage,m_sigma,m_exponent);
+                                }else if (m_metric == "deedsSSC"){
+                                    lncc=  Metrics<ImageType,FloatImageType,float>::deedsMIND(warpedImage,targetImage,m_sigma,m_exponent);
+                                }else if (m_metric == "deedsLCC"){
+                                    lncc=  Metrics<ImageType,FloatImageType,float>::deedsLCC(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else if (m_metric == "itklncc"){
                                     lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                                 }else if (m_metric == "lsad"){
@@ -2090,6 +2100,7 @@ public:
                             (m_pairwiseGradients)[sourceID][targetID]=TransfUtils<ImageType>::createEmpty(updatedDeform);
                             double value;
                             computeMetricAndDerivative(targetImage, m_imageList[sourceID] ,updatedDeform ,   (m_pairwiseGradients)[sourceID][targetID] ,  value);
+                            updatedDeform= (m_pairwiseGradients)[sourceID][targetID];
                         }
 
                         if (updateThisDeformation){//m_updateDeformations ||  !m_downSampledDeformationCache[sourceID][targetID].IsNotNull()){
@@ -2103,7 +2114,7 @@ public:
 
                             (m_updatedDeformationCache)[sourceID][targetID] = updatedDeform;
                             
-#if 1
+#if 0
                             locallyUpdateDeformation( m_downSampledDeformationCache[sourceID][targetID],(m_updatedDeformationCache)[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID]);
                             //locallyUpdateDeformation((m_updatedDeformationCache)[sourceID][targetID],m_downSampledDeformationCache[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID]);
                             //updatedDeform=(m_updatedDeformationCache)[sourceID][targetID];(m_updatedDeformationCache)[sourceID][targetID]=(m_updatedDeformationCache)[sourceID][targetID];(m_updatedDeformationCache)[sourceID][targetID]=updatedDeform;
@@ -2289,7 +2300,8 @@ public:
 
     void computeMetricAndDerivative(ImagePointerType img1, ImagePointerType img2, DeformationFieldPointerType def, DeformationFieldPointerType deriv, double & value){
 
-        typedef typename itk::CorrelationImageToImageMetricv4<FloatImageType,FloatImageType> MetricType;
+      typedef typename itk::CorrelationImageToImageMetricv4<FloatImageType,FloatImageType> MetricType;
+    
         //typedef typename itk::MeanSquaresImageToImageMetricv4<FloatImageType,FloatImageType> MetricType;
         typedef typename MetricType::Pointer MetricPointer;
         typedef typename MetricType::DerivativeType MetricDerivativeType;
@@ -2332,6 +2344,7 @@ public:
        
         metric->Initialize();
         MetricDerivativeType derivative;
+      
         metric->GetValueAndDerivative(value, derivative);
 
         ScalesEstimatorPointer scalesEstimator=ScalesEstimatorType::New();
@@ -2350,22 +2363,24 @@ public:
         stepScale=scalesEstimator->EstimateStepScale(derivative);
         //estimate learning rate
         maxStepSize=scalesEstimator->EstimateMaximumStepSize();
-        learningRate=maxStepSize/stepScale;
+        learningRate=2*maxStepSize/stepScale;
         
-        LOGV(2)<<VAR(value)<<endl;
+        LOGV(1)<<VAR(value)<<endl;
         
 
         //deriv=TransfUtils<ImageType>::createEmpty(def);
         int numberOfPixels=deriv->GetBufferedRegion().GetNumberOfPixels();
         typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationIteratorType;
         DeformationIteratorType defIt(deriv,deriv->GetLargestPossibleRegion());
+        DeformationFieldPointerType bestDeriv;
+        int countBad=0;
         for (int i=0;i<10;++i){
             int p=0;
             for (defIt.GoToBegin();!defIt.IsAtEnd();++defIt,++p){
                 DeformationType disp;
                 for (int d=0;d<D;++d){
                     LOGV(4)<<VAR(p+d*numberOfPixels)<<" "<<VAR(derivative[p+d*numberOfPixels])<<" "<<VAR(scales[p+d*numberOfPixels])<<" "<<VAR(stepScale)<<" "<<VAR(maxStepSize)<<" "<<VAR(learningRate)<<endl;
-                    disp[d]=-derivative[p+d*numberOfPixels]*learningRate;///scales[p+d*numberOfPixels];
+                    disp[d]=derivative[p+d*numberOfPixels]*learningRate;///scales[p+d*numberOfPixels];
                 }
                 defIt.Set(disp);
 
@@ -2380,12 +2395,19 @@ public:
             double newValue=metric->GetValue();
             LOGV(1)<<VAR(i)<<" "<<VAR(value)<<" "<<VAR(newValue)<<" "<<VAR(learningRate)<<endl;
             if (newValue<value){
-                return;
+                value=newValue; learningRate*=2;
+                bestDeriv=deriv;
+                countBad=0;
             }else{
+                if (countBad>2) return;
                 learningRate/=2;
+                countBad+=1;
             }
         }
+        DeformationFieldPointerType newDef=TransfUtils<ImageType>::add(TransfUtils<ImageType,double,float>::cast(dblDef),deriv);
+        deriv=newDef;
         ImageUtils<DeformationFieldType>::writeImage("derivative.mha",deriv);
+        
     }
 
     void locallyUpdateDeformation(DeformationFieldPointerType & def, DeformationFieldPointerType &updatedDef, FloatImagePointerType & similarity, FloatImagePointerType updatedSimilarity){

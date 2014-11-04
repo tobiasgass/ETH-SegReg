@@ -10,7 +10,8 @@
 #include <itkBoxMeanImageFilter.h>
 #include "itkSubtractAbsImageFilter.h"
 #include <itkAbsoluteValueDifferenceImageFilter.h>
-
+#include "dataCostSSC.h"
+#include "dataCostLCC.h"
 using namespace std;
 
 template<class InputImage, class OutputImage = InputImage, class InternalPrecision=double>
@@ -1357,5 +1358,48 @@ public:
         }
         
         return FilterUtils<InternalImage,OutputImage>::cast(result);
-  }
+    }
+
+    static inline OutputImagePointer deedsMIND(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0,double sigmaNorm=1.0){
+        InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
+        InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
+        float * i1Data=i1Cast->GetBufferPointer();
+        float * i2Data=i2Cast->GetBufferPointer();
+        InternalImagePointer result=ImageUtils<InternalImage>::createEmpty(i1Cast);
+        float * resultData=result->GetBufferPointer();
+        typename InputImage::SizeType size=i1->GetLargestPossibleRegion().GetSize();
+        int hw = 0;
+        int sparse=1;
+        int r=int(sigmaWidth);
+        dataRegSSC(resultData,i1Data,i2Data,hw,sparse,r,0,size[0],size[1],D>2?size[2]:1);
+        typename ImageUtils<InternalImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+        for (resultIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt){
+            InternalPrecision d = resultIt.Get();
+            resultIt.Set(InternalPrecision(1.0)-pow(min(d,InternalPrecision(1.0)),InternalPrecision(sigmaNorm)));
+            //resultIt.Set(pow(exp(-0.5 * fabs(d)  / mean ),sigmaNorm ));
+        }
+        return FilterUtils<InternalImage,OutputImage>::cast(result);
+    }
+    static inline OutputImagePointer deedsLCC(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0,double sigmaNorm=1.0){
+        InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
+        InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
+        float * i1Data=i1Cast->GetBufferPointer();
+        float * i2Data=i2Cast->GetBufferPointer();
+        InternalImagePointer result=ImageUtils<InternalImage>::createEmpty(i1Cast);
+        float * resultData=result->GetBufferPointer();
+        typename InputImage::SizeType size=i1->GetLargestPossibleRegion().GetSize();
+        int hw = 0;
+        int sparse=1;
+        int r=int(sigmaWidth);
+        dataRegLCC(resultData,i1Data,i2Data,hw,sparse,r,0,size[0],size[1],D>2?size[2]:1);
+        typename ImageUtils<InternalImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
+        for (resultIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt){
+            InternalPrecision d = resultIt.Get();
+            resultIt.Set(pow(1.0-d,InternalPrecision(sigmaNorm)));
+            //resultIt.Set(pow(exp(-0.5 * fabs(d)  / mean ),sigmaNorm ));
+        }
+        return FilterUtils<InternalImage,OutputImage>::cast(result);
+    }
+
+    
 };
