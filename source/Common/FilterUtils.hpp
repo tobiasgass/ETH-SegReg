@@ -936,6 +936,21 @@ public:
         return outputImage;
     }
 
+       static OutputImagePointer sign(
+                                    InputImagePointer inputImage
+                                    ) {
+        OutputImagePointer outputImage=createEmpty(ConstInputImagePointer(inputImage));
+        itk::ImageRegionIterator<InputImage> it(
+                                                inputImage, inputImage->GetLargestPossibleRegion());
+        itk::ImageRegionIterator<OutputImage> it2(
+                                                  outputImage, outputImage->GetLargestPossibleRegion());
+        for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
+            double val=it.Get();
+            it2.Set(val>0?1.0:-1.0);
+        }
+        return outputImage;
+    }
+
     static OutputImagePointer invert(
                                      InputImagePointer inputImage
                                      ) {
@@ -945,7 +960,7 @@ public:
         itk::ImageRegionIterator<OutputImage> it2(
                                                   outputImage, outputImage->GetLargestPossibleRegion());
         for (it2.GoToBegin(),it.GoToBegin(); !it.IsAtEnd(); ++it,++it2) {
-            double val=it.Get();
+            int val=it.Get();
             it2.Set(val>0.0?0.0:1.0);
         }
         return outputImage;
@@ -1203,6 +1218,13 @@ public:
         filter->SetInput(img);
         filter->Update();
         return filter->GetMean();
+
+    }
+  static InputImagePixelType getVariance(InputImagePointer img){
+        typename StatisticsFilterType::Pointer filter=StatisticsFilterType::New();
+        filter->SetInput(img);
+        filter->Update();
+        return filter->GetVariance();
 
     }
 

@@ -123,7 +123,9 @@ int main(int argc, char ** argv){
     double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
     string optimizer="csdx100";
+    double tolerance=1e-2;
     bool useTaylor=false;
+    bool lowResSim=false;
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -142,6 +144,7 @@ int main(int argc, char ** argv){
 
     (*as) >> parameter ("masks", maskFileList, " list of  binary masks used to compute inconsistency", false);
     (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
+    (*as) >> parameter ("tol", tolerance, " stopping criterion on the relative change of the inconsistency", false);
     (*as) >> parameter ("s", m_sigma," kernel width for lncc",false);
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
 
@@ -150,7 +153,8 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops per level",false);
     (*as) >> parameter ("maxLevels", maxLevels,"maximum number of multi-resolution levels",false);
-(*as) >> option ("useTaylor", useTaylor,"use something similar to first order taylor approximation for inconsistency terms.");
+    (*as) >> option ("useTaylor", useTaylor,"use something similar to first order taylor approximation for inconsistency terms.");
+    (*as) >> option ("lowResSim", lowResSim,"compute local similarities/gradients only at ROI resolution instead of image resolution.");
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
     (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
@@ -359,6 +363,7 @@ int main(int argc, char ** argv){
     solver->setMasks(inputMasks);
     solver->setROI(ROI);
     solver->setUseTaylor(useTaylor);
+    solver->setLowResSim(lowResSim);
 
 
     solver->setGrid(grid);
@@ -375,7 +380,8 @@ int main(int argc, char ** argv){
         double oldInconsistency=inconsistency;
         double minJac=solver->getMinJac();
         double averageNCC=solver->getAverageNCC();
-        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
+	double stdJac=solver->getAverageJacSTD();
+        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
         for (iter=1;iter<maxHops+1;++iter){
             if (! iter % 5){
                 solver->doubleImageResolution();
@@ -397,15 +403,17 @@ int main(int argc, char ** argv){
             dice=solver->getDice();
             minJac=solver->getMinJac();
             averageNCC=solver->getAverageNCC();
-            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
-            if (updateDeformations){
+	double stdJac=solver->getAverageJacSTD();
+
+             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
+            if (false && updateDeformations){
                 solver->setWeightTransformationSimilarity(winput*pow(1.2,1.0*iter),true);
                 ++c;
             }
             if (iter == maxHops){
                 //double resolution
             }
-            if (fabs(oldInconsistency-inconsistency)/oldInconsistency <=1e-2){
+            if (iter >1 && oldInconsistency>0.0 && fabs(oldInconsistency-inconsistency)/oldInconsistency <=tolerance){
                 LOG<<"Convergence reached, stopping refinement."<<endl;
                 break;
             }
@@ -416,7 +424,10 @@ int main(int argc, char ** argv){
         if (level !=maxLevels-1){
             //resample ROI for next level with increased resolution
             ROI=FilterUtils<ImageType>::LinearResample(ROI,2.0,false,true);
+            grid=FilterUtils<ImageType>::LinearResample(grid,2.0,false);
             solver->setROI(ROI);
+            solver->setGrid(grid);
+            solver->Initialize();
             solver->DoALot();
         }
 

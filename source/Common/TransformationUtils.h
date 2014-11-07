@@ -1599,6 +1599,22 @@ public:
         return result;
         
     }
+    static void setComponent(DeformationFieldPointerType def, FloatImagePointerType comp, int d){
+
+        typedef itk::ImageRegionIterator<DeformationFieldType> DeformationIteratorType;
+        DeformationIteratorType defIt(def,def->GetLargestPossibleRegion());
+        typedef itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
+        FloatImageIteratorType resultIt(comp,comp->GetLargestPossibleRegion());
+
+        for (defIt.GoToBegin(),resultIt.GoToBegin();!defIt.IsAtEnd();++defIt,++resultIt){
+            
+            DisplacementType disp=defIt.Get();
+            disp[d]=resultIt.Get();
+            defIt.Set(disp);
+        }
+
+        
+    }
 
 
     static double computeError(DeformationCacheType * cache, DeformationCacheType * m_trueDeformations,  std::vector<string> * m_imageIDList, ImagePointerType mask=NULL){

@@ -416,7 +416,19 @@ public:
         }
         return result;
     }
+     static  void multiplyImage(ImagePointerType img, ImagePointerType img2,bool verbose=false){
+            typedef itk::ImageRegionIterator<ImageType> IteratorType;
 
+        IteratorType it1(img,img->GetLargestPossibleRegion());
+        IteratorType it2(img2,img2->GetLargestPossibleRegion());
+        for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2){
+            PixelType val=it1.Get()*it2.Get();
+            it1.Set(val);
+            //std::cout<<it2.Get()<<" "<<scalar<<" "<<it1.Get()<<std::endl;
+            if (verbose) std::cout<<" "<<it1.Get()<<" "<<it2.Get()<<std::endl;
+
+        }
+    }
      static  ImagePointerType localSquare(ImagePointerType img){
         typedef itk::ImageRegionIterator<ImageType> IteratorType;
         ImagePointerType result=createEmpty(ConstImagePointerType(img));

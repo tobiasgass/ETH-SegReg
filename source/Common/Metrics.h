@@ -407,7 +407,7 @@ public:
         return efficientLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp);
     }
     static inline OutputImagePointer efficientLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0){
-        if (exp == 0.0 ) exp = 1.0;
+        //if (exp == 0.0 ) exp = 1.0;
         if (sigma==0.0) sigma=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);

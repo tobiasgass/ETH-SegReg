@@ -123,6 +123,7 @@ int main(int argc, char ** argv){
     double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
     string optimizer="csdx100";
+    double tolerance=1e-2;
     bool useTaylor=false;
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
@@ -142,6 +143,7 @@ int main(int argc, char ** argv){
 
     (*as) >> parameter ("masks", maskFileList, " list of  binary masks used to compute inconsistency", false);
     (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
+    (*as) >> parameter ("tol", tolerance, " stopping criterion on the relative change of the inconsistency", false);
     (*as) >> parameter ("s", m_sigma," kernel width for lncc",false);
     (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
 
@@ -398,14 +400,14 @@ int main(int argc, char ** argv){
             minJac=solver->getMinJac();
             averageNCC=solver->getAverageNCC();
             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
-            if (updateDeformations){
+            if (false && updateDeformations){
                 solver->setWeightTransformationSimilarity(winput*pow(1.2,1.0*iter),true);
                 ++c;
             }
             if (iter == maxHops){
                 //double resolution
             }
-            if (fabs(oldInconsistency-inconsistency)/oldInconsistency <=1e-2){
+            if (iter >1 && oldInconsistency>0.0 && fabs(oldInconsistency-inconsistency)/oldInconsistency <=tolerance){
                 LOG<<"Convergence reached, stopping refinement."<<endl;
                 break;
             }
@@ -416,7 +418,10 @@ int main(int argc, char ** argv){
         if (level !=maxLevels-1){
             //resample ROI for next level with increased resolution
             ROI=FilterUtils<ImageType>::LinearResample(ROI,2.0,false,true);
+            grid=FilterUtils<ImageType>::LinearResample(grid,2.0,false);
             solver->setROI(ROI);
+            solver->setGrid(grid);
+            solver->Initialize();
             solver->DoALot();
         }
 
