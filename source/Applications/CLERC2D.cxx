@@ -25,9 +25,10 @@
 #include <itkSubtractImageFilter.h>
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
 #include "CLERCIndependentDimensions.h"
+#include "itkMemoryProbesCollectorBase.h"
 
 //using namespace std;
-typedef unsigned char PixelType; 
+typedef float PixelType; 
 static const unsigned int D=2 ;
 typedef itk::Image<PixelType,D> ImageType;
 typedef   ImageType::Pointer ImagePointerType;
@@ -383,9 +384,13 @@ int main(int argc, char ** argv){
 	double stdJac=solver->getAverageJacSTD();
         LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
         for (iter=1;iter<maxHops+1;++iter){
-            if (! iter % 5){
+            if (! iter % 2){
+                LOGV(2)<<"Increasing image resolution for bspline registration"<<endl;
                 solver->doubleImageResolution();
             }
+            itk::MemoryProbesCollectorBase memorymeter;
+            memorymeter.Start( "CBRR complete" );
+
             solver->createSystem();
             solver->solve();
             //compute and store results. For efficiency reasons, CLERC computes all metrics in one go within this routine.
@@ -396,14 +401,15 @@ int main(int argc, char ** argv){
                 LOGV(1)<<VAR(ROI->GetOrigin())<<endl;
             }
             solver->DoALot(outputDir);
-
+            memorymeter.Stop( "CBRR complete" );
+            memorymeter.Report( std::cout );
             error=solver->getADE();
             inconsistency=solver->getInconsistency();
             TRE=solver->getTRE();
             dice=solver->getDice();
             minJac=solver->getMinJac();
             averageNCC=solver->getAverageNCC();
-	double stdJac=solver->getAverageJacSTD();
+            double stdJac=solver->getAverageJacSTD();
 
              LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
             if (false && updateDeformations){

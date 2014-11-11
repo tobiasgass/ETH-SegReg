@@ -231,7 +231,6 @@ public:
     void setLowResSim(bool b){m_lowResSimilarity=b;}
     void setROI(ImagePointerType ROI){ 
         this->m_ROI=ROI;
-        m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
         IndexType startIndex,nullIdx;
         nullIdx.Fill(0);
         PointType startPoint;
@@ -243,6 +242,7 @@ public:
     void setGrid(ImagePointerType grid){
         this->m_grid=grid;
         m_nGridPoints=grid->GetLargestPossibleRegion().GetNumberOfPixels();
+        m_nPixels=this->m_grid->GetLargestPossibleRegion().GetNumberOfPixels( );
 
     }
 
@@ -1262,7 +1262,7 @@ protected:
 
  
                                         
-                                    this->m_ROI->TransformPhysicalPointToIndex(ptTarget,roiTargetIndex);
+                                    dSourceTarget->TransformPhysicalPointToIndex(ptTarget,roiTargetIndex);
                                     LOGV(9)<<VAR(targetIndex)<<" "<<VAR(roiTargetIndex)<<endl;
                                 
                                     if (inside){
@@ -1375,7 +1375,7 @@ protected:
                                           long int & eq , 
                                           unsigned int  d)
     {
-        double dblSpacing=this->m_ROI->GetSpacing()[d];
+        double dblSpacing=this->m_grid->GetSpacing()[d];
         
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
@@ -1403,7 +1403,7 @@ protected:
                         if (findDeformation(m_trueDeformationFileList,sourceID,targetID)){
                             LOGV(3)<<"Evaluating true def! "<<VAR(sourceID)<<" " <<VAR(targetID)<<endl;
                             trueDef =ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
-                            trueDef=TransfUtils<ImageType>::linearInterpolateDeformationField(trueDef,this->m_ROI,false);
+                            trueDef=TransfUtils<ImageType>::linearInterpolateDeformationField(trueDef,this->m_grid,false);
                         }
 #endif                   
                         DeformationFieldPointerType dSourceTarget=(this->m_downSampledDeformationCache)[sourceID][targetID];
@@ -1484,7 +1484,7 @@ protected:
                       double update=0.0;//localGradient;
                       //#define CONTINUOUSDERIVATIVE
                       
-                      double magnitude=this->m_ROI->GetSpacing()[d];
+                      double magnitude=this->m_grid->GetSpacing()[d];
                       if (true && localGradient!=0){
                           //update=(weight+fabs(localGradient))/localGradient;
                           //update=(1.0-weight)/localGradient;
@@ -1537,7 +1537,7 @@ protected:
                             LOGV(3)<<"ORACLE! "<<VAR(sourceID)<<" " <<VAR(targetID)<<endl;
                             if (findDeformation(m_trueDeformationFileList,sourceID,targetID)){
                                 dSourceTarget =ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
-                                dSourceTarget= TransfUtils<ImageType>::linearInterpolateDeformationField(dSourceTarget,this->m_ROI,false);
+                                dSourceTarget= TransfUtils<ImageType>::linearInterpolateDeformationField(dSourceTarget,this->m_grid,false);
                             }else{
                                 LOGV(3)<<"ORACLE FAILED"<<VAR(sourceID)<<" " <<VAR(targetID)<<" MISSING"<<endl;
                             }
@@ -1653,7 +1653,7 @@ protected:
 
         int c=0;
         int eq=1;
-        double dblSpacing=this->m_ROI->GetSpacing()[d];
+        double dblSpacing=this->m_grid->GetSpacing()[d];
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
             for (int t=0;t<m_numImages;++t){
@@ -1886,7 +1886,7 @@ public:
                             updatedDeform=deformation;
                         }
                         //compare segmentations
-
+#if 0
                         if (m_groundTruthSegmentations[targetID].IsNotNull() && m_groundTruthSegmentations[sourceID].IsNotNull()){
                             ImagePointerType deformedSeg=TransfUtils<ImageType>::warpImage(  m_groundTruthSegmentations[sourceID] , updatedDeform,true);
                             typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
@@ -1910,7 +1910,8 @@ public:
                             
                             m_dice+=dice;
                         }
-                        
+#endif
+
 
                         // compare landmarks
 
@@ -1930,7 +1931,7 @@ public:
                         
                         //compute LNCC
                         warpedImage = TransfUtils<ImageType>::warpImage(  sourceImage , updatedDeform,m_metric == "categorical");
-                        double samplingFactor=1.0*warpedImage->GetLargestPossibleRegion().GetSize()[0]/this->m_ROI->GetLargestPossibleRegion().GetSize()[0];
+                        double samplingFactor=1.0*warpedImage->GetLargestPossibleRegion().GetSize()[0]/this->m_grid->GetLargestPossibleRegion().GetSize()[0];
                         double imageResamplingFactor=min(1.0,8.0/(samplingFactor));
                         nCC= Metrics<ImageType>::nCC(targetImage,warpedImage);
                         if (-nCC>m_maxSim) m_maxSim=-nCC;
@@ -1951,7 +1952,7 @@ public:
                             //lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                             lncc= Metrics<ImageType,FloatImageType,long double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                         }else if (m_metric == "itklncc"){
-                            lncc= Metrics<ImageType,FloatImageType,float>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
+                            lncc= Metrics<ImageType,FloatImageType,float>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_grid);
                         }else if (m_metric == "lnccAbs"){
                             lncc= Metrics<ImageType,FloatImageType>::efficientLNCCNewNorm(warpedImage,targetImage,m_sigma,m_exponent);
                         }else if (m_metric == "lnccAbsMultiscale"){
@@ -2002,8 +2003,12 @@ public:
 #ifdef ITKGRADIENT
                             double value;
                             //computeMetricAndDerivative(targetImage, m_imageList[sourceID] ,updatedDeform ,   (m_pairwiseGradients)[sourceID][targetID] ,  value);
-                            (m_pairwiseGradients)[sourceID][targetID] = Registration<ImageType>::registerImagesBSpline(targetImage, warpedImage,0,updatedDeform);
+                            ImagePointerType downsampledTarget=FilterUtils<ImageType>::LinearResample(targetImage,m_resolutionFactor,true);
+                            ImagePointerType downsampledMoving=FilterUtils<ImageType>::LinearResample(warpedImage,m_resolutionFactor,true);
+                            (m_pairwiseGradients)[sourceID][targetID] = Registration<ImageType>::registerImagesBSpline(targetImage, downsampledMoving,m_grid->GetLargestPossibleRegion().GetSize(),0,updatedDeform);
+                            (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::linearInterpolateDeformationField((m_pairwiseGradients)[sourceID][targetID],updatedDeform,false);
                             (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::composeDeformations( (m_pairwiseGradients)[sourceID][targetID],updatedDeform);
+                            (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::linearInterpolateDeformationField((m_pairwiseGradients)[sourceID][targetID],m_grid,false);
                             //(m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::composeDeformations(updatedDeform, (m_pairwiseGradients)[sourceID][targetID]);
                             double nCC2=Metrics<ImageType>::nCC( targetImage,sourceImage, (m_pairwiseGradients)[sourceID][targetID]);
                             LOGV(2)<<VAR(nCC2)<<endl;
@@ -2011,7 +2016,7 @@ public:
                             //updatedDeform= (m_pairwiseGradients)[sourceID][targetID];
 #else			  
                             for (int d=0;d<D;++d){
-                                double magnitude=this->m_ROI->GetSpacing()[d];
+                                double magnitude=this->m_grid->GetSpacing()[d];
                                 
                                 DisplacementType plusOne,minusOne; plusOne.Fill(0);minusOne.Fill(0); plusOne[d]=magnitude; minusOne[d]=-magnitude;
 
@@ -2031,8 +2036,8 @@ public:
 #endif
                                 map<string , map<string,FloatImagePointerType> > &cache=m_pairwiseMetricDerivatives[d];
                                 map<string, FloatImagePointerType> & mmap1=cache[sourceID];
-                                mmap1[targetID] = FilterUtils<FloatImageType>::LinearResample(gradient,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
-				// mmap1[targetID] = FilterUtils<FloatImageType>::gaussian(mmap1[targetID],this->m_ROI->GetSpacing()*0.5);
+                                mmap1[targetID] = FilterUtils<FloatImageType>::LinearResample(gradient,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),true);
+				// mmap1[targetID] = FilterUtils<FloatImageType>::gaussian(mmap1[targetID],this->m_grid->GetSpacing()*0.5);
 #else
                                 //calcuate wen lncc is better than input when shifted right
                                 FloatImagePointerType lnccDiffRight=FilterUtils<FloatImageType>::substract(lnccPlusOne,lncc);
@@ -2124,7 +2129,7 @@ public:
                                 }
                                   map<string , map<string,FloatImagePointerType> > &cache=m_pairwiseMetricDerivatives[d];
                                   map<string, FloatImagePointerType> & mmap1=cache[sourceID];
-                                  mmap1[targetID] = FilterUtils<FloatImageType>::LinearResample(lnccUpdateRight,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
+                                  mmap1[targetID] = FilterUtils<FloatImageType>::LinearResample(lnccUpdateRight,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),true);
 #endif
                                   ostringstream oss;
                                 oss<<m_metric<<"-DERIVATIVE-directon"<<d<<"-"<<sourceID<<"-TO-"<<targetID<<".mha";
@@ -2135,7 +2140,7 @@ public:
                                 
                             }
 #endif
-                        }
+                        }//gradient
 
                         LOGV(3)<<"done."<<endl;
                         ostringstream oss;
@@ -2145,7 +2150,7 @@ public:
                         //resample lncc result
                          
                         //resample with smoothing
-                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
+                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),false);
                          
                         oss<<"-resampled";
                         if (D==2){
@@ -2181,7 +2186,7 @@ public:
                             m_pairwiseGlobalSimilarity[sourceID][targetID]=nCC;
                             m_updatedPairwiseLocalWeightMaps[sourceID][targetID]=lncc;
                             //upsample if necessary.. note that here, quite some accuracy of the lncc is lost :( in fact, lncc should be recomputed
-                            if (m_pairwiseLocalWeightMaps[sourceID][targetID]->GetLargestPossibleRegion().GetSize()!=this->m_ROI->GetLargestPossibleRegion().GetSize()){
+                            if (m_pairwiseLocalWeightMaps[sourceID][targetID]->GetLargestPossibleRegion().GetSize()!=this->m_grid->GetLargestPossibleRegion().GetSize()){
                                 //update the pairwise similarity of the original deformation to the correct resolution
                                 warpedImage = TransfUtils<ImageType>::warpImage(  sourceImage , deformation,m_metric == "categorical");
                                 if (m_metric != "categorical"){
@@ -2201,7 +2206,7 @@ public:
                                 }else if (m_metric == "deedsLCC"){
                                     lncc=  Metrics<ImageType,FloatImageType,float>::deedsLCC(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else if (m_metric == "itklncc"){
-                                    lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
+                                    lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_grid);
                                 }else if (m_metric == "lsad"){
                                     lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else if (m_metric == "lssd"){
@@ -2218,7 +2223,7 @@ public:
                                     LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                                     exit(-1);
                                 } 
-                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),false);
+                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),false);
                                 m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
                             }
                         }
@@ -2291,10 +2296,10 @@ public:
                         //sample to correct resolution (downsample)
                         
                         if (m_bSplineInterpol){
-                            updatedDeform=TransfUtils<ImageType>::bSplineInterpolateDeformationField(updatedDeform,this->m_ROI,m_smoothDeformationDownsampling);
-                            //updatedDeform=TransfUtils<ImageType>::computeBSplineTransformFromDeformationField(updatedDeform,this->m_ROI);
+                            updatedDeform=TransfUtils<ImageType>::bSplineInterpolateDeformationField(updatedDeform,this->m_grid,m_smoothDeformationDownsampling);
+                            //updatedDeform=TransfUtils<ImageType>::computeBSplineTransformFromDeformationField(updatedDeform,this->m_grid);
                         }else{
-                            updatedDeform=TransfUtils<ImageType>::linearInterpolateDeformationField(updatedDeform,this->m_ROI,m_smoothDeformationDownsampling);
+                            updatedDeform=TransfUtils<ImageType>::linearInterpolateDeformationField(updatedDeform,this->m_grid,m_smoothDeformationDownsampling);
                         }
                        
                         if (updateThisDeformation){//m_updateDeformations ||  !m_downSampledDeformationCache[sourceID][targetID].IsNotNull()){
@@ -2317,10 +2322,10 @@ public:
 
                             m_haveDeformationEstimate = true;
                             //resample deformation if resolution or origin was changed
-                            if (this->m_ROI->GetLargestPossibleRegion().GetSize() != m_downSampledDeformationCache[sourceID][targetID]->GetLargestPossibleRegion().GetSize()
-                                || this->m_ROI->GetOrigin() != m_downSampledDeformationCache[sourceID][targetID]->GetOrigin() )
+                            if (this->m_grid->GetLargestPossibleRegion().GetSize() != m_downSampledDeformationCache[sourceID][targetID]->GetLargestPossibleRegion().GetSize()
+                                || this->m_grid->GetOrigin() != m_downSampledDeformationCache[sourceID][targetID]->GetOrigin() )
                                 {
-                                    m_downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,this->m_ROI,m_smoothDeformationDownsampling);
+                                    m_downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,this->m_grid,m_smoothDeformationDownsampling);
                                 }
 
                         }
