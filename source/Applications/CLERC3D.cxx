@@ -25,9 +25,10 @@
 #include <itkSubtractImageFilter.h>
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
 #include "CLERCIndependentDimensions.h"
+#include "itkMemoryProbesCollectorBase.h"
 
 //using namespace std;
-typedef short PixelType; 
+typedef float PixelType; 
 static const unsigned int D=3 ;
 typedef itk::Image<PixelType,D> ImageType;
 typedef   ImageType::Pointer ImagePointerType;
@@ -90,7 +91,7 @@ int main(int argc, char ** argv){
     string maskFileList="",groundTruthSegmentationFileList="",landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
-    int radius=3;
+    int radius=4;
     int maxHops=1;
     int maxLevels=1;
     bool updateDeformations=false;
@@ -102,11 +103,11 @@ int main(int argc, char ** argv){
     bool graphCut=false;
     double smoothness=0.0;
     double lambda=0.0;
-    double resamplingFactor=8.0;
+    double resamplingFactor=4.0;
     double imageResamplingFactor=-1.0;
-    m_sigma=10;
+    m_sigma=4;
     string solverName="localnorm";
-    double wwd=0.0,winput=1.0,wsmooth=0.0,wcons=1.0,wwdelta=0.0,wsmoothum=0,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
+    double wwd=0.0,winput=1.0,wsmooth=0.0,wcons=1.0,wwdelta=0.0,wsmoothum=0,wsdelta=0.0,m_exponent=10.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
     bool nearestneighb=false;
     double shearing = 1.0;
     double circWeightScaling = 1.0;
@@ -122,9 +123,10 @@ int main(int argc, char ** argv){
     bool useConstraints=false;
     double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
-    string optimizer="csdx100";
+    string optimizer="csd:100";
     double tolerance=1e-2;
     bool useTaylor=false;
+    bool lowResSim=false;
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -152,14 +154,15 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     (*as) >> parameter ("maxHops", maxHops,"maximum number of hops per level",false);
     (*as) >> parameter ("maxLevels", maxLevels,"maximum number of multi-resolution levels",false);
-(*as) >> option ("useTaylor", useTaylor,"use something similar to first order taylor approximation for inconsistency terms.");
+    (*as) >> option ("useTaylor", useTaylor,"use something similar to first order taylor approximation for inconsistency terms.");
+    (*as) >> option ("lowResSim", lowResSim,"compute local similarities/gradients only at ROI resolution instead of image resolution.");
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
     (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
     (*as) >> option ("useConstraints", useConstraints,"Use hard constraints to prevent folding. Tearing might currently still occur.");
 
 
-    (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (lncc, lsad, lssd,localautocorrelation).",false);
+    (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (none,lncc, lsad, lssd,localautocorrelation).",false);
     (*as) >> option ("filterMetricWithGradient", filterMetricWithGradient,"Multiply local metric with target and warped source image gradients to filter out smooth regions.");
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
@@ -361,6 +364,7 @@ int main(int argc, char ** argv){
     solver->setMasks(inputMasks);
     solver->setROI(ROI);
     solver->setUseTaylor(useTaylor);
+    solver->setLowResSim(lowResSim);
 
 
     solver->setGrid(grid);
@@ -377,11 +381,16 @@ int main(int argc, char ** argv){
         double oldInconsistency=inconsistency;
         double minJac=solver->getMinJac();
         double averageNCC=solver->getAverageNCC();
-        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
+	double stdJac=solver->getAverageJacSTD();
+        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
         for (iter=1;iter<maxHops+1;++iter){
-            if (! iter % 5){
+            if (! iter % 2){
+                LOGV(2)<<"Increasing image resolution for bspline registration"<<endl;
                 solver->doubleImageResolution();
             }
+            itk::MemoryProbesCollectorBase memorymeter;
+            //memorymeter.Start( "CBRR complete" );
+
             solver->createSystem();
             solver->solve();
             //compute and store results. For efficiency reasons, CLERC computes all metrics in one go within this routine.
@@ -392,14 +401,17 @@ int main(int argc, char ** argv){
                 LOGV(1)<<VAR(ROI->GetOrigin())<<endl;
             }
             solver->DoALot(outputDir);
-
+            //memorymeter.Stop( "CBRR complete" );
+            //memorymeter.Report( std::cout );
             error=solver->getADE();
             inconsistency=solver->getInconsistency();
             TRE=solver->getTRE();
             dice=solver->getDice();
             minJac=solver->getMinJac();
             averageNCC=solver->getAverageNCC();
-            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<endl;
+            double stdJac=solver->getAverageJacSTD();
+
+             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
             if (false && updateDeformations){
                 solver->setWeightTransformationSimilarity(winput*pow(1.2,1.0*iter),true);
                 ++c;

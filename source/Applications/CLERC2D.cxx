@@ -123,7 +123,7 @@ int main(int argc, char ** argv){
     bool useConstraints=false;
     double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
-    string optimizer="csdx100";
+    string optimizer="csd:100";
     double tolerance=1e-2;
     bool useTaylor=false;
     bool lowResSim=false;

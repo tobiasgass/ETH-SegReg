@@ -197,7 +197,7 @@ public:
         m_bSplineInterpol=false;
         m_lineSearch=false;
         m_updateDeformationsGlobalSim=false;
-        m_optimizer="csdx100";
+        m_optimizer="csd:100";
         m_maskList=NULL;
         m_useTaylor=false;
         m_minSim=100;
@@ -664,7 +664,7 @@ public:
 
             string opt, params="";
 	  
-            char delim='x';
+            char delim=':';
             std::vector<string> p=split(m_optimizer,delim);
             opt=p[0];
             if (p.size()>1){
@@ -672,8 +672,24 @@ public:
             }
             if ( opt!="lsqlin" ){
                 ostringstream minFunc; 		    
-                string iters=params!=""?params:"100";
-                minFunc<<"tic;[x fval] =grad_solve(A,b,0,"<<iters<<",'"<<opt<<"',init);t=toc;";
+                if (opt=="lasso"){
+                    //[xLASSO, status, history] = Lasso(A, b, 0.5, ...
+                    //                                  4, ... any tho will do it is automatically tuned
+                    //                                                             200, 1e-3, ... 
+                    //                                  100, 'lbfgs' ... lbfgs is the very best here, if you will have enough memory
+                    //                                  ); 
+
+                    string gradMethod=p[1];
+                    string gradIter=p[2];
+                    string lambda=p[3];
+                    //m_numDeformationsToEstimate
+                    string ADMMiter=p[4];
+                    string ADMMtol=p[5];
+                    minFunc<<"tic;[x] =Lasso(A,b,"<<lambda<<"/"<<m_numDeformationsToEstimate<<",4,"<<ADMMiter<<","<<ADMMtol<<","<<gradIter<<",'"<<gradMethod<<"');t=toc;";
+                }else{
+                    string iters=params!=""?params:"100";
+                    minFunc<<"tic;[x fval] =grad_solve(A,b,0,"<<iters<<",'"<<opt<<"',init);t=toc;";
+                }
                 TIME(engEvalString(this->m_ep, minFunc.str().c_str()));
                 TIME(engEvalString(this->m_ep, "res=norm(A*x-b);"));
 
@@ -700,7 +716,7 @@ public:
             mxArray * mxRes=engGetVariable(this->m_ep,"res");
             double* res = ( double *) mxGetData(mxRes);
 	   
-            LOGV(1)<<"Finished optimizer "<<opt<<" for dimension "<<d<<" in "<<t[0]<<" seconds, result: "<<res[0]<<std::endl;
+            LOGV(1)<<"Finished optimizer "<<m_optimizer<<" for dimension "<<d<<" in "<<t[0]<<" seconds, result: "<<res[0]<<std::endl;
             mxDestroyArray(mxtime);
             mxDestroyArray(mxRes);
 
@@ -805,7 +821,7 @@ public:
                                     if (!m_estError && m_estDef){
                                         estimatedError[d]= originalDeformation[d]-estimatedDeformation[d];
                                     } else if (!m_estDef && m_estError)
-                                        estimatedDeformation[d]= originalDeformation[d]-estimatedError[d];
+                                        estimatedDeformation[d]= originalDeformation[d]+estimatedError[d];
                                 }
                             }else{
                                 estimatedDeformation=(originalDeformation);
@@ -1363,7 +1379,7 @@ protected:
                                                         //indirect
                                                         x[c]=eq;
                                                         y[c]=edgeNumError(intermediate,target,gridIndex,d);
-                                                        v[c]=-val* m_wCircleNorm*(1.0);
+                                                        v[c]=val* m_wCircleNorm*(1.0);
                                                         t3=dIntermediateTarget->GetPixel(gridIndex)[d];
                                                         RHS-=t3;
                                                         ++c;
@@ -1378,7 +1394,7 @@ protected:
                                                         if (estSourceIntermediate    && insideIntermediate[i]){
                                                             x[c]=eq;
                                                             y[c]=edgeNumError(source,intermediate,ptIntermediateNeighbors[i].first,d); // this is an APPROXIMIATION!!! might be bad :o
-                                                            v[c]=-ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
+                                                            v[c]=ptIntermediateNeighbors[i].second*val* m_wCircleNorm;
                                                             t2t3+=ptIntermediateNeighbors[i].second*dSourceIntermediate->GetPixel(ptIntermediateNeighbors[i].first)[d];
                                                             ++c;
                                                             LOGV(8)<<VAR(roiTargetIndex)<<" "<<VAR(i)<<" "<<VAR(ptIntermediateNeighbors[i].first)<<" "<<VAR(ptIntermediateNeighbors[i].second)<<endl;
@@ -1394,7 +1410,7 @@ protected:
                                                         //minus direct
                                                         x[c]=eq;
                                                         y[c]=edgeNumError(source,target,gridIndex,d);
-                                                        v[c]=  val* m_wCircleNorm;
+                                                        v[c]= - val* m_wCircleNorm;
                                                         t1=dSourceTarget->GetPixel(gridIndex)[d];
                                                         RHS+=t1;
                                                         ++c;
