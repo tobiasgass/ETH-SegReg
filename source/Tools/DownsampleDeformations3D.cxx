@@ -41,7 +41,7 @@ int main(int argc, char ** argv)
         LabelImagePointerType difference=TransfUtils<ImageType,double,double,double>::subtract(deformation1,highResDeformation);
         LOG<<"BsplineConversion :"<<TransfUtils<ImageType,double,double,double>::computeDeformationNorm(difference)<<endl;
     }
-    if (1){
+    if (0){
         typedef TransfUtils<ImageType,double,double,double>::BSplineTransformPointerType BSplineTransformPointerType;
         BSplineTransformPointerType lowResDeformation= TransfUtils<ImageType,double,double,double>::computeITKBSplineTransformFromDeformationField(deformation1,refImageLowRes) ;
       

@@ -334,6 +334,7 @@ public:
             typename ResamplerType::Pointer resampler=ResamplerType::New();
             if (smooth){
                 DeformationFieldPointerType smoothedInput = gaussian(labelImg,reference->GetSpacing()-labelImg->GetSpacing());
+                //DeformationFieldPointerType smoothedInput = gaussian(labelImg,reference->GetSpacing()*0.5);
                 resampler->SetInput(smoothedInput);
                 LOGV(4)<<"Downsampling deformation image (with smoothing)"<<std::endl;
 
@@ -448,6 +449,7 @@ public:
             typename ResamplerType::Pointer resampler=ResamplerType::New();
             if (smooth){
                 DeformationFieldPointerType smoothedInput = gaussian(labelImg,reference->GetSpacing()-labelImg->GetSpacing());
+                //DeformationFieldPointerType smoothedInput = gaussian(labelImg,reference->GetSpacing()*0.5);
                 resampler->SetInput(smoothedInput);
                 LOGV(4)<<"Downsampling deformation image (with smoothing)"<<std::endl;
 

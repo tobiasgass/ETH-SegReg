@@ -234,6 +234,8 @@ TARGET_LINK_LIBRARIES(CropImageToBoundingBox3D   Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(GenerateDeformation2D GenerateDeformation2D.cxx )
 TARGET_LINK_LIBRARIES(GenerateDeformation2D   Utils   ${ITK_LIBRARIES}  )
+ADD_EXECUTABLE(GenerateDeformation3D GenerateDeformation3D.cxx )
+TARGET_LINK_LIBRARIES(GenerateDeformation3D   Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(PrintDeformationNorms2D PrintDeformationNorms2D.cxx )
 TARGET_LINK_LIBRARIES(PrintDeformationNorms2D   Utils   ${ITK_LIBRARIES}  )

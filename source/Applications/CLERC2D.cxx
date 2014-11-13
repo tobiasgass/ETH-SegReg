@@ -91,7 +91,7 @@ int main(int argc, char ** argv){
     string maskFileList="",groundTruthSegmentationFileList="",landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
-    int radius=3;
+    int radius=4;
     int maxHops=1;
     int maxLevels=1;
     bool updateDeformations=false;
@@ -103,11 +103,11 @@ int main(int argc, char ** argv){
     bool graphCut=false;
     double smoothness=0.0;
     double lambda=0.0;
-    double resamplingFactor=8.0;
+    double resamplingFactor=4.0;
     double imageResamplingFactor=-1.0;
-    m_sigma=10;
+    m_sigma=4;
     string solverName="localnorm";
-    double wwd=0.0,winput=1.0,wsmooth=0.0,wcons=1.0,wwdelta=0.0,wsmoothum=0,wsdelta=0.0,m_exponent=1.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
+    double wwd=0.0,winput=1.0,wsmooth=0.0,wcons=1.0,wwdelta=0.0,wsmoothum=0,wsdelta=0.0,m_exponent=10.0,wwInconsistencyError=0.0,wErrorStatistics=0.0,wSymmetry=0.0;
     bool nearestneighb=false;
     double shearing = 1.0;
     double circWeightScaling = 1.0;
@@ -162,7 +162,7 @@ int main(int argc, char ** argv){
     (*as) >> option ("useConstraints", useConstraints,"Use hard constraints to prevent folding. Tearing might currently still occur.");
 
 
-    (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (lncc, lsad, lssd,localautocorrelation).",false);
+    (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (none,lncc, lsad, lssd,localautocorrelation).",false);
     (*as) >> option ("filterMetricWithGradient", filterMetricWithGradient,"Multiply local metric with target and warped source image gradients to filter out smooth regions.");
 
     (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
@@ -389,7 +389,7 @@ int main(int argc, char ** argv){
                 solver->doubleImageResolution();
             }
             itk::MemoryProbesCollectorBase memorymeter;
-            memorymeter.Start( "CBRR complete" );
+            //memorymeter.Start( "CBRR complete" );
 
             solver->createSystem();
             solver->solve();
@@ -401,8 +401,8 @@ int main(int argc, char ** argv){
                 LOGV(1)<<VAR(ROI->GetOrigin())<<endl;
             }
             solver->DoALot(outputDir);
-            memorymeter.Stop( "CBRR complete" );
-            memorymeter.Report( std::cout );
+            //memorymeter.Stop( "CBRR complete" );
+            //memorymeter.Report( std::cout );
             error=solver->getADE();
             inconsistency=solver->getInconsistency();
             TRE=solver->getTRE();
