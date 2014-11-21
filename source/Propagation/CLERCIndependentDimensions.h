@@ -363,14 +363,16 @@ public:
         if (m_firstInit){
             //normalize weights according to number of deformation pairs/circles
             m_wFullCircleEnergy /=m_nCircles;
-            m_wCircleNorm/=m_nCircles;
+            m_wCircleNorm=m_wCircleNorm/m_nCircles*m_numDeformationsToEstimate;
             m_wErrorInconsistency/=m_nCircles;
+#if 0
             m_wDeformationSmootheness/=m_numDeformationsToEstimate;
             m_wErrorSmootheness/=m_numDeformationsToEstimate;
             m_wErrorNorm/=m_numDeformationsToEstimate;
             m_wErrorStatistics/=m_numDeformationsToEstimate;
             m_wTransformationSimilarity/=m_numDeformationsToEstimate;
             m_wTransformationSymmetry/=m_numDeformationsToEstimate;
+#endif
             if (m_nPixels!=m_nGridPoints){
                 m_wTransformationSimilarity*=1.0*m_nGridPoints/(m_nPixels);
             }
@@ -708,7 +710,10 @@ public:
                 //minFunc<<"tic;[x] =Lasso(A,b,"<<lambda<<"/"<<m_numDeformationsToEstimate<<",4,"<<ADMMiter<<","<<ADMMtol<<","<<gradIter<<",'"<<gradMethod<<"');t=toc;";
                 minFunc<<"tic;[x] =Lasso(A,b,lambda,4,"<<ADMMiter<<",0,"<<ADMMtol<<","<<gradIter<<",'"<<gradMethod<<"');t=toc;";
             } else if (opt=="l1general"){
-                minFunc<<"tic;[x] =l1_solve(A,b,lambda,0,'METHOD',init);t=toc;";
+                string iter=p.size()>1?p[1]:"100";
+                string optTol=p.size()>2?p[3]:"-1";
+                string progTol=p.size()>2?p[3]:"-1";
+                minFunc<<"tic;[x] =l1_solve(A,b,lambda,"<<iter<<","<<optTol<<","<<progTol<<",init);t=toc;";
             } else if ( opt =="lsqlin" ){
                 //solve using trust region method
                 //engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
@@ -1586,6 +1591,9 @@ protected:
                                         weight=1.0/max(0.00001,err);//exp(-err/m_exponent);
                                 }
                                 LOGV(4)<<VAR(weight)<<" "<<VAR(err)<<endl;
+                                
+                                //when using l1 regularization, square weight
+                              
                                 ++lnccIt;
                             }
                             //weight*=pow(abs( (m_pairwiseGlobalSimilarity[sourceID][targetID]-m_minSim)/(m_maxSim-m_minSim)),1.0);
@@ -1649,11 +1657,13 @@ protected:
                                     weight=1.0;
                                 }
                                 //weight=pow((weight-m_minSim)/(m_maxSim-m_minSim),m_exponent);
-                                weight=max(0.01,weight);
+                                weight=max(0.00001,weight)*m_wErrorNorm;
+                                if (m_optRegularizer)
+                                    weight*=0.5*weight;
                                 x[c]    = eq;
                                 y[c]    = edgeNumError(source,target,idx,d);
-                                v[c++]  = 1.0*m_wErrorNorm*weight;
-                                b[eq-1] = RHS*weight*m_wErrorNorm;
+                                v[c++]  = 1.0*weight;
+                                b[eq-1] = RHS*weight;
                                 ++eq;
                                 //LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(weight)<<endl;
                             }
