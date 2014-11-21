@@ -31,7 +31,7 @@ public:
         m_map=MapType();
         m_nLabels=0;
         std::vector<int> labelList(0);
-        LOG<<"Mapping segmentation labels to a continuous discrete range... "<<std::endl;
+        LOGV(2)<<"Mapping segmentation labels to a continuous discrete range... "<<std::endl;
         //build mmap
         for (inputIt.GoToBegin();!inputIt.IsAtEnd();++ inputIt){
             int l=inputIt.Get();
@@ -60,7 +60,7 @@ public:
                 resultIt.Set(m_map.left.find(l)->second);
             }
         }
-        LOG<<"Found "<<m_nLabels<<" segmentation labels."<<std::endl;
+        LOGV(2)<<"Found "<<m_nLabels<<" segmentation labels."<<std::endl;
         return result;
     }
     void FindMap(ImagePointerType input){
@@ -72,7 +72,7 @@ public:
         m_map=MapType();
         m_nLabels=0;
         std::vector<int> labelList(0);
-        LOG<<"Mapping segmentation labels to a continuous discrete range... "<<std::endl;
+        LOGV(2)<<"Mapping segmentation labels to a continuous discrete range... "<<std::endl;
         //build mmap
         for (inputIt.GoToBegin();!inputIt.IsAtEnd();++ inputIt){
             int l=inputIt.Get();
@@ -92,7 +92,7 @@ public:
 
         }
 
-        LOG<<"Found "<<m_nLabels<<" segmentation labels."<<std::endl;
+        LOGV(2)<<"Found "<<m_nLabels<<" segmentation labels."<<std::endl;
     }
     ImagePointerType ApplyMap(ImagePointerType input){
         return ApplyMap((ConstImagePointerType)input);

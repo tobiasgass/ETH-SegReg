@@ -233,7 +233,7 @@ void dataRegSSC(float* costvol,float* target,float* warped1,int hw,int sparse,in
     timeP=(time2.tv_sec+time2.tv_usec/1e6-(time1.tv_sec+time1.tv_usec/1e6));
 
 
-    delete targetS; delete warped1p;  delete tempmem;
+    delete[] targetS; delete[] warped1p;  delete[] tempmem;
 
     float numd=(float)len4*(float)sz1;
 

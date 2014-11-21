@@ -296,7 +296,7 @@ void downsample(float* im1f,float* im,int step1,int d)
         }
 		
 	}
-    delete cost1;
+    delete[] cost1;
 	
 }
 

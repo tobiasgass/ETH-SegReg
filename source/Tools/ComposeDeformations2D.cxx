@@ -34,17 +34,15 @@ int main(int argc, char ** argv)
 
     LabelImagePointerType deformation2 = ImageUtils<LabelImageType>::readImage(argv[2]);
     
-    LabelImagePointerType composedDeformation= TransfUtils<ImageType>::composeDeformations(deformation2,deformation1) ;
     
     if (argc > 4){
-        LabelImagePointerType deformation3= ImageUtils<LabelImageType>::readImage(argv[3]);
-        composedDeformation=TransfUtils<ImageType>::composeDeformations(deformation3,composedDeformation) ;
-        ImageUtils<LabelImageType>::writeImage(argv[4],composedDeformation);
-
+        LabelImagePointerType composedDeformation= TransfUtils<ImageType>::add(deformation2,deformation1) ;
+        ImageUtils<LabelImageType>::writeImage(argv[3],composedDeformation);
     }else
         {
-        ImageUtils<LabelImageType>::writeImage(argv[3],composedDeformation);
-    }
+            LabelImagePointerType composedDeformation= TransfUtils<ImageType>::composeDeformations(deformation2,deformation1) ;
+            ImageUtils<LabelImageType>::writeImage(argv[3],composedDeformation);
+        }
     LOG<<"deformed image "<<argv[1]<<endl;
 	return 1;
 }

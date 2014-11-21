@@ -84,6 +84,7 @@ protected:
     string m_metric;
     std::vector< map< string, int > >m_offsets;
     std::vector< map<string , map<string,FloatImagePointerType> > > m_pairwiseMetricDerivatives;
+    map< string, map <string,int> > m_tripletCounts;
 private:
     bool m_smoothDeformationDownsampling;
     int m_nPixels;// number of pixels/voxels
@@ -139,7 +140,7 @@ private:
     
     double m_shearingReduction;
     bool m_linearInterpol;
-    int m_ORACLE;
+    double m_ORACLE;
     bool m_haveDeformationEstimate;
 
     double m_segConsisntencyWeight;
@@ -164,7 +165,11 @@ private:
     bool m_lowResSimilarity;
     bool m_firstInit;
     double m_meanMeanSim;
+    bool m_optRegularizer;
     std::map< string, std::map< string, float > > m_pairwiseStepLength, m_pairwiseSimilarities;
+    double m_averageLNCC;
+    bool m_normalizeForces;
+    int m_maxTripletOcc;
 public:
     CLERCIndependentDimensions(){
         m_wTransformationSimilarity=1.0;
@@ -205,6 +210,10 @@ public:
         m_pairwiseMetricDerivatives=std::vector<map<string , map<string,FloatImagePointerType> > >(D);
         m_lowResSimilarity=false;
         m_firstInit=true;
+        m_optRegularizer=false;
+        m_normalizeForces=true;
+	m_maxTripletOcc=10000000;
+
     }
 
     double getADE(){return m_ADE;}
@@ -213,8 +222,15 @@ public:
     double getInconsistency(){return m_Inconsistency;}
     double getMinJac(){return m_minMinJacobian;}
     double getAverageNCC(){ return m_averageNCC;}
+    double getAverageLNCC(){ return m_averageLNCC;}
     double getAverageJacSTD(){return 	m_averageJacSTD;}
-    void setOptimizer(string s){m_optimizer=s;}
+    void setOptimizer(string s){m_optimizer=s;   
+        char delim=':';
+        std::vector<string> p=split(m_optimizer,delim);
+        if (p[0] =="lasso" || p[0] == "l1general"){
+            m_optRegularizer=true;
+        }
+    }
     void setDeformationFilenames(FileListCacheType deformationFilenames) {m_deformationFileList = deformationFilenames;}
     void setTrueDeformationFilenames(FileListCacheType trueDeformationFilenames){m_trueDeformationFileList=trueDeformationFilenames;}
     void setLandmarkFilenames(map<string,string> landmarkFilenames){m_landmarkFileList=landmarkFilenames;}
@@ -230,6 +246,8 @@ public:
     void setUpdateDeformationsGlobalSim(bool b){ m_updateDeformationsGlobalSim=b;}
     void setUseTaylor(bool b){m_useTaylor=b;}
     void setLowResSim(bool b){m_lowResSimilarity=b;}
+    void setNormalizeForces(bool b){m_normalizeForces=b;}
+    void setMaxTripletOccs(int i){m_maxTripletOcc=i;}
     void setROI(ImagePointerType ROI){ 
         this->m_ROI=ROI;
         IndexType startIndex,nullIdx;
@@ -239,11 +257,12 @@ public:
         (m_imageList)[(m_imageIDList)[0]]->TransformPhysicalPointToIndex(startPoint,startIndex);
         m_regionOfInterest.SetIndex(startIndex);
         m_regionOfInterest.SetSize(this->m_ROI->GetLargestPossibleRegion().GetSize());
+        m_nPixels=this->m_ROI->GetLargestPossibleRegion().GetNumberOfPixels( );
     }
     void setGrid(ImagePointerType grid){
         this->m_grid=grid;
         m_nGridPoints=grid->GetLargestPossibleRegion().GetNumberOfPixels();
-        m_nPixels=this->m_grid->GetLargestPossibleRegion().GetNumberOfPixels( );
+
 
     }
 
@@ -277,7 +296,7 @@ public:
                 if (t!=s){
                     int target=t;
                     string targetID=(m_imageIDList)[target];
-
+		    m_tripletCounts[sourceID][targetID]=m_maxTripletOcc;
 
                     bool estSourceTarget=false;
                     bool skip=false;
@@ -335,6 +354,7 @@ public:
                 }
             }
         }
+	m_nCircles=min(m_nCircles,m_numImages*(m_numImages-1)*m_maxTripletOcc);
         LOGV(1)<<VAR(m_nCircles)<<" "<<VAR(m_numDeformationsToEstimate)<<endl;
         if (m_nCircles == 0 || m_numDeformationsToEstimate == 0){
             LOG<<"No deformations to estimate, or not able to form any circles from input registrations, aborting!"<<endl;
@@ -372,7 +392,7 @@ public:
 
     }
     
-    void setOracle(int o){m_ORACLE=o;}
+    void setOracle(double o){m_ORACLE=o;}
     void setWeightFullCircleEnergy(double w){m_wFullCircleEnergy=w;}
     void setWeightTransformationSimilarity(double w,bool update=false){
         m_wTransformationSimilarity=w;  
@@ -614,7 +634,10 @@ public:
             engEvalString(this->m_ep,"clear xCordPairs yCordPairs valPairs;" );
             //clear unnneeded variables from matlab workspace
             //engEvalString(this->m_ep,"clear xCord yCord val b1 a1;t=toc;" );
-            if (m_estError ||m_useTaylor || d==0){
+            if (m_optRegularizer){
+                engEvalString(this->m_ep,"lambda=diag(APairs);" );
+
+            }else   if  (m_estError ||m_useTaylor || d==0){
                 LOGV(2)<<"concatenating matrices.."<<endl;
                 engEvalString(this->m_ep,"A=vertcat(A,APairs);");
                 engEvalString(this->m_ep,"b=vertcat(b,bPairs);");
@@ -626,8 +649,8 @@ public:
                 engEvalString(this->m_ep,"b((size(A,1)-size(APairs,1)+1):end,:)=bPairs;");
 
             }
-            
             engEvalString(this->m_ep,"clear bPairs APairs;" );
+
             LOGV(2)<<"done."<<endl;
 
             
@@ -667,49 +690,68 @@ public:
             char delim=':';
             std::vector<string> p=split(m_optimizer,delim);
             opt=p[0];
-            if (p.size()>1){
-                params=p[1];
-            }
-            if ( opt!="lsqlin" ){
-                ostringstream minFunc; 		    
-                if (opt=="lasso"){
-                    //[xLASSO, status, history] = Lasso(A, b, 0.5, ...
-                    //                                  4, ... any tho will do it is automatically tuned
-                    //                                                             200, 1e-3, ... 
-                    //                                  100, 'lbfgs' ... lbfgs is the very best here, if you will have enough memory
-                    //                                  ); 
-
-                    string gradMethod=p[1];
-                    string gradIter=p[2];
-                    string lambda=p[3];
-                    //m_numDeformationsToEstimate
-                    string ADMMiter=p[4];
-                    string ADMMtol=p[5];
-                    minFunc<<"tic;[x] =Lasso(A,b,"<<lambda<<"/"<<m_numDeformationsToEstimate<<",4,"<<ADMMiter<<","<<ADMMtol<<","<<gradIter<<",'"<<gradMethod<<"');t=toc;";
-                }else{
-                    string iters=params!=""?params:"100";
-                    minFunc<<"tic;[x fval] =grad_solve(A,b,0,"<<iters<<",'"<<opt<<"',init);t=toc;";
-                }
-                TIME(engEvalString(this->m_ep, minFunc.str().c_str()));
-                TIME(engEvalString(this->m_ep, "res=norm(A*x-b);"));
-
-                LOGV(1)<<"Done with grad_solve()"<<endl;
-            }else{
+          
+            ostringstream minFunc; 		    
+            if (opt=="lasso"){
+                //[xLASSO, status, history] = Lasso(A, b, 0.5, ...
+                //                                  4, ... any tho will do it is automatically tuned
+                //                                                             200, 1e-3, ... 
+                //                                  100, 'lbfgs' ... lbfgs is the very best here, if you will have enough memory
+                //                                  ); 
+                
+                string gradMethod=p.size()>1?p[1]:"lbfgs";
+                string gradIter=p.size()>2?p[2]:"5";
+                string lambda=p.size()>3?p[3]:"0";
+                //m_numDeformationsToEstimate
+                string ADMMiter=p.size()>4?p[4]:"100";
+                string ADMMtol=p.size()>5?p[5 ]:"1e-8";
+                //minFunc<<"tic;[x] =Lasso(A,b,"<<lambda<<"/"<<m_numDeformationsToEstimate<<",4,"<<ADMMiter<<","<<ADMMtol<<","<<gradIter<<",'"<<gradMethod<<"');t=toc;";
+                minFunc<<"tic;[x] =Lasso(A,b,lambda,4,"<<ADMMiter<<",0,"<<ADMMtol<<","<<gradIter<<",'"<<gradMethod<<"');t=toc;";
+            } else if (opt=="l1general"){
+                minFunc<<"tic;[x] =l1_solve(A,b,lambda,0,'METHOD',init);t=toc;";
+            } else if ( opt =="lsqlin" ){
                 //solve using trust region method
-	      
-                engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
-                TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;"));
-                TIME(engEvalString(this->m_ep, "res=norm(A*x-b);"));
-
-                mxArray * flag=engGetVariable(this->m_ep,"flag");
-                if (flag !=NULL){
-                    mxDestroyArray(flag);
-                }else{
-                    LOG<<"LSQLIN large scale failed, trying medium scale algorithm"<<endl;
-                    TIME(engEvalString(this->m_ep, "tic;[x resnorm residual flag output lambda] =lsqlin(A,b,[],[],[],[],[],[],[]);t=toc"));
-                }
-                       
+                //engEvalString(this->m_ep, "options=optimset(optimset('lsqlin'),'Display','iter','TolFun',1e-54,'LargeScale','on');");//,'Algorithm','active-set' );");
+                //minFunc<<"tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init,options);t=toc;";
+                minFunc<<"tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],lb,ub,init);t=toc;";
+                //minFunc<<"tic;[x resnorm residual flag  output lambda] =lsqlin(A,b,[],[],[],[],[],[],init,options);t=toc;";
+                
             }
+            else{
+                string iter="100";
+                string optTol="1e-6";
+                string progTol="1e-9";
+                if (p.size()>1){
+                    iter =p[1];
+                }
+                if (p.size()>2){
+                    optTol =p[2];
+                }
+                if (p.size()>3){
+                    progTol =p[3];
+                }
+                minFunc<<"tic;[x fval flag output] =grad_solveTol(A,b,0,"<<iter<<","<<optTol<<","<<progTol<<",'"<<opt<<"',init);t=toc;";
+    
+
+
+            }
+            TIME(engEvalString(this->m_ep, minFunc.str().c_str()));
+            //LOGI(1,printf("gradSolveEnd: %s", buffer+2));
+            if (0 && opt !="lsqlin" && opt != "lasso" && opt!="l1general"){
+                mxArray * flag=engGetVariable(this->m_ep,"flag");
+                int* f = ( int *) mxGetData(flag);
+                engEvalString(this->m_ep, "iters=output.iterations;");
+                 mxArray * iters=engGetVariable(this->m_ep,"iters ");
+                int* it = ( int *) mxGetData(iters);
+                LOGV(1)<<VAR(f[0])<<" "<<VAR(it[0])<<endl;
+                mxDestroyArray(flag);
+                mxDestroyArray(iters);
+            }
+
+            TIME(engEvalString(this->m_ep, "res=norm(A*x-b);"));
+            
+            
+               
             mxArray * mxtime=engGetVariable(this->m_ep,"t");
             double* t = ( double *) mxGetData(mxtime);
 	   
@@ -792,7 +834,12 @@ public:
                     DeformationFieldPointerType oldDeformation;
                     
                     if ((m_downSampledDeformationCache)[sourceID][targetID].IsNotNull()){
-                        oldDeformation=(m_downSampledDeformationCache)[sourceID][targetID];
+                        if ( m_estError && m_locallyUpdateDeformationEstimate && m_updatedDeformationCache[sourceID][targetID].IsNotNull()){
+                            oldDeformation=(m_downSampledDeformationCache)[sourceID][targetID];
+                            //oldDeformation= m_updatedDeformationCache[sourceID][targetID];
+                        }else{
+                            oldDeformation=(m_downSampledDeformationCache)[sourceID][targetID];
+                        }
 
                         DeformationFieldIterator origIt(oldDeformation,oldDeformation->GetLargestPossibleRegion());
                         origIt.GoToBegin();
@@ -1150,7 +1197,9 @@ protected:
                     DeformationFieldPointerType dSourceTarget;
                     bool estSourceTarget=false;
                     bool skip=false;
-                    if ((m_downSampledDeformationCache)[sourceID][targetID].IsNotNull()){
+                    if (false&&m_tripletCounts[sourceID][targetID]<=0){
+                        skip=true;
+                    }else if ((m_downSampledDeformationCache)[sourceID][targetID].IsNotNull()){
                         dSourceTarget=(m_downSampledDeformationCache)[sourceID][targetID];
                         estSourceTarget=true;
                     }else{
@@ -1171,7 +1220,9 @@ protected:
                             DeformationFieldPointerType dSourceIntermediate;
                             
                             bool estSourceIntermediate=false;
-                            if ((m_downSampledDeformationCache)[sourceID][intermediateID].IsNotNull()){
+                            if (false && m_tripletCounts[sourceID][intermediateID]<=0){
+                                skip=true;
+                            }else if ((m_downSampledDeformationCache)[sourceID][intermediateID].IsNotNull()){
                                 dSourceIntermediate=(m_downSampledDeformationCache)[sourceID][intermediateID];
                                 estSourceIntermediate=true;
                             }else{
@@ -1184,7 +1235,9 @@ protected:
                             DeformationFieldPointerType dIntermediateTarget;
                             
                             bool estIntermediateTarget=false;
-                            if ((m_downSampledDeformationCache)[intermediateID][targetID].IsNotNull()){
+                            if (false && m_tripletCounts[intermediateID][targetID]<=0){
+                                skip=true;
+                            }else if ((m_downSampledDeformationCache)[intermediateID][targetID].IsNotNull()){
                                 dIntermediateTarget=(m_downSampledDeformationCache)[intermediateID][targetID];
                                 estIntermediateTarget=true;
                             }else{
@@ -1199,13 +1252,15 @@ protected:
                             skip= skip || (!(estIntermediateTarget || estSourceTarget || estSourceIntermediate));
                             LOGV(4)<<VAR(skip)<<" "<<VAR(estIntermediateTarget)<<" "<<VAR(estSourceTarget)<<" "<<VAR(estSourceIntermediate)<<" "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
                             if ( ! skip ){
-
+                                --m_tripletCounts[intermediateID][targetID];
+                                --m_tripletCounts[sourceID][targetID];
+                                --m_tripletCounts[sourceID][intermediateID];
                                 //use updated deform for constructing circle
-                                if (m_ORACLE && m_ORACLE<4){// && m_trueDeformations[intermediateID][targetID].IsNotNull()){
+                                if (m_ORACLE>=1 && m_ORACLE<4){// && m_trueDeformations[intermediateID][targetID].IsNotNull()){
                                     LOGV(3)<<"ORACLE! "<<VAR(intermediateID)<<" " <<VAR(targetID)<<endl;
                                     if (findDeformation(m_trueDeformationFileList,intermediateID,targetID)){
                                         dIntermediateTarget =ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[intermediateID][targetID]);
-                                        dIntermediateTarget= TransfUtils<ImageType>::linearInterpolateDeformationField(dIntermediateTarget,this->m_grid,false);
+                                        dIntermediateTarget= TransfUtils<ImageType>::linearInterpolateDeformationField(dIntermediateTarget,this->m_ROI,false);
                                     }else{
                                         LOGV(3)<<"ORACLE FAILED"<<VAR(intermediateID)<<" " <<VAR(targetID)<<" MISSING"<<endl;
                                         exit(-1);
@@ -1221,11 +1276,11 @@ protected:
                                 typename FilterUtils<FloatImageType>::LinearInterpolatorPointerType gradientInterpol;
                                 if (m_useTaylor){
                                     
-                                    if ( m_ORACLE && m_ORACLE<4){// && m_trueDeformations[intermediateID][targetID].IsNotNull()){
+                                    if ( m_ORACLE>=1 && m_ORACLE<4){// && m_trueDeformations[intermediateID][targetID].IsNotNull()){
                                         gradSourceIntermed=TransfUtils<ImageType,float,double,double>::computeDirectedGradient(
                                                                                                                                TransfUtils<ImageType>::linearInterpolateDeformationField(
                                                                                                                                                                                          ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][intermediateID])
-                                                                                                                                                                                         ,this->m_grid,false)
+                                                                                                                                                                                         ,this->m_ROI,false)
                                                                                                                                ,d);
                                     }else{
                                         gradSourceIntermed=TransfUtils<ImageType,float,double,double>::computeDirectedGradient(dSourceIntermediate,d);
@@ -1292,7 +1347,9 @@ protected:
 
                                         //if there are atlas segmentations, we're only forming circles at atlas segmentation points
                                         //and at all points otherwise
-                                        double val= m_atlasSegmentations.size()==0;
+                                        double val=1.0;
+                                        if (m_normalizeForces && m_Inconsistency>0.0)
+                                            val=1.0/m_Inconsistency; //m_atlasSegmentations.size()==0;
                                         
                                         //val*=getIndexBasedWeight(roiTargetIndex,roiSize);
 
@@ -1326,7 +1383,7 @@ protected:
                                                     if (estIntermediateTarget){
                                                         double taylorWeight=0.0;
                                                         if (m_useTaylor){
-                                                            taylorWeight=gradientInterpol->Evaluate(ptIntermediate);
+                                                            taylorWeight=-gradientInterpol->Evaluate(ptIntermediate);
                                                             RHS+=taylorWeight*dIntermediateTarget->GetPixel(gridIndex)[d];
                                                             //val*=1.0/(1.0+100*taylorWeight*taylorWeight);
                                                             //LOGV(3)<<VAR(taylorWeight)<<" "<<VAR(val)<<endl;
@@ -1374,12 +1431,19 @@ protected:
                                                     val=1.0;
                                                       //val/=m_Inconsistency;
                                                     double RHS=0.0;
-                                                    double t1,t3,t2t3;
+                                                    double t1,t3,t2t3;  
+                                                    double taylorWeight=0.0;
                                                     if (estIntermediateTarget){
+                                                        if (m_useTaylor){
+                                                            taylorWeight=gradientInterpol->Evaluate(ptIntermediate);
+                                                            // RHS+=taylorWeight*dIntermediateTarget->GetPixel(gridIndex)[d];
+                                                            //val*=1.0/(1.0+100*taylorWeight*taylorWeight);
+                                                            //LOGV(3)<<VAR(taylorWeight)<<" "<<VAR(val)<<endl;
+                                                        }
                                                         //indirect
                                                         x[c]=eq;
                                                         y[c]=edgeNumError(intermediate,target,gridIndex,d);
-                                                        v[c]=val* m_wCircleNorm*(1.0);
+                                                        v[c]=val* m_wCircleNorm*(1.0+taylorWeight);
                                                         t3=dIntermediateTarget->GetPixel(gridIndex)[d];
                                                         RHS-=t3;
                                                         ++c;
@@ -1417,7 +1481,7 @@ protected:
                                                     }else{
                                                         //RHS+=dSourceTarget->GetPixel(gridIndex)[d];
                                                     }
-                                                    LOGV(2)<<VAR(RHS)<<" "<<VAR(t1)<<" "<<VAR(t3)<<" "<<VAR(t2t3)<<endl;
+                                                    LOGV(12)<<VAR(RHS)<<" "<<VAR(t1)<<" "<<VAR(t3)<<" "<<VAR(t2t3)<<endl;
                                                     
                                                     b[eq-1]=val*m_wCircleNorm*RHS;
                                                     ++eq;
@@ -1480,19 +1544,15 @@ protected:
                         if (findDeformation(m_trueDeformationFileList,sourceID,targetID)){
                             LOGV(3)<<"Evaluating true def! "<<VAR(sourceID)<<" " <<VAR(targetID)<<endl;
                             trueDef =ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
-                            trueDef=TransfUtils<ImageType>::linearInterpolateDeformationField(trueDef,this->m_grid,false);
+                            trueDef=TransfUtils<ImageType>::linearInterpolateDeformationField(trueDef,this->m_ROI,false);
                         }
 #endif                   
                         DeformationFieldPointerType dSourceTarget=(this->m_downSampledDeformationCache)[sourceID][targetID];
                         DeformationFieldIterator it(dSourceTarget,m_regionOfInterest);
                         it.GoToBegin();
                   
-                        LOGV(1)<<VAR(dSourceTarget->GetSpacing())<<" "<<m_grid->GetSpacing()<<endl;
-                        
-                        FloatImagePointerType newLocalWeights;
-                        if (m_locallyUpdateDeformationEstimate && ! m_updateDeformations && m_haveDeformationEstimate && (m_updatedDeformationCache)[sourceID][targetID].IsNotNull()){
-                            newLocalWeights=(m_updatedPairwiseLocalWeightMaps)[sourceID][targetID];
-                        }
+                        LOGV(5)<<VAR(dSourceTarget->GetSpacing())<<" "<<this->m_ROI->GetSpacing()<<endl;
+                     
 
                    
 
@@ -1514,11 +1574,16 @@ protected:
                             //intensity based weight
                             double weight=1.0;
                             if (lncc.IsNotNull()){
-                                weight = max(0.00001,lnccIt.Get());
+                                //weight = max(0.00001,lnccIt.Get());
+                                weight = lnccIt.Get();
                                 //weight= weight>0.95?1000:weight;
                                 double err=0;
                                 if (trueDef.IsNotNull()){
-                                    err=trueDef->GetPixel(idx).GetNorm();
+                                    //err=(localDef-trueDef->GetPixel(idx)).GetNorm();
+                                    err=fabs((localDef[d]-trueDef->GetPixel(idx)[d]));
+                                    
+                                    if (m_ORACLE==0.5)
+                                        weight=1.0/max(0.00001,err);//exp(-err/m_exponent);
                                 }
                                 LOGV(4)<<VAR(weight)<<" "<<VAR(err)<<endl;
                                 ++lnccIt;
@@ -1532,59 +1597,26 @@ protected:
                             double localUpdatedDef;
                             //get local similarity weight for updated deformation if available
                             if (m_locallyUpdateDeformationEstimate  &&  m_haveDeformationEstimate && ! m_updateDeformations){
-                                localWeight=newLocalWeights->GetPixel(idx);
+                                localWeight=(m_updatedPairwiseLocalWeightMaps)[sourceID][targetID]->GetPixel(idx);
                                 localUpdatedDef=(m_updatedDeformationCache)[sourceID][targetID]->GetPixel(idx)[d];
                             }
-                        
+                            if (m_normalizeForces && m_averageLNCC>0.0)
+                                weight/=m_averageLNCC;
+                            //weight=pow((weight-m_minSim)/(m_maxSim-m_minSim),m_exponent);
                             //set w_T
                             //set eqn for soft constraining the estimated true deformation to be similar to the original deformation
                             if (m_wTransformationSimilarity>0.0){
-                                if (m_metric=="gradient"){
-              
-#define ITKGRADIENT
-                     
-#ifdef ITKGRADIENT
-                                    double localGradient= (m_pairwiseGradients)[sourceID][targetID]->GetPixel(idx)[d];
-#else
-                                    map<string , map<string,FloatImagePointerType> > &cache=m_pairwiseMetricDerivatives[d];
-                                    map<string, FloatImagePointerType> & mmap1=cache[sourceID];
-                                    FloatImagePointerType metricGradient=mmap1[targetID];
-                                    double localGradient=metricGradient->GetPixel(idx);
-#endif     
-                                    int edgeNumDef=edgeNumDeformation(source,target,idx,d);
-                                    x[c]    = eq;
-                                    y[c]    = edgeNumDef;
-                                    //v[c++]  = 1.0*m_wTransformationSimilarity* localGradient;
-                                    //b[eq-1] = (weight+localGradient-weight+localDef[d]*localGradient)*m_wTransformationSimilarity ;
-                      
-                                    v[c++]  = 1.0*m_wTransformationSimilarity*weight;
-                                    double update=0.0;//localGradient;
-                                    //#define CONTINUOUSDERIVATIVE
-                      
-                                    double magnitude=this->m_grid->GetSpacing()[d];
-                                    if (true && localGradient!=0){
-                                        //update=(weight+fabs(localGradient))/localGradient;
-                                        //update=(1.0-weight)/localGradient;
-                                        //update=localGradient>0?magnitude:-magnitude;
-                                        update=localGradient;//*magnitude;
-                                        //if (update>magnitude) update=magnitude;
-                                        //if ( update<-magnitude) update=-magnitude;
-                                    }
-                                    update=localGradient;
-                                    //b[eq-1] = (update+localDef[d])*m_wTransformationSimilarity ;
-                                    b[eq-1] = (update)*m_wTransformationSimilarity *weight;
-                                    //v[c++]  = 1.0*m_wTransformationSimilarity;
-                                    //b[eq-1] = (localGradient+localDef[d])*m_wTransformationSimilarity ;
-                                    ++eq;
-                                    weight=0.0;
-                      
-                                }
+                               
                                 //weight=1.0/sqrt(fabs(meanInconsistency));
                                 double localDisp  =localDef[d];
+                                LOGV(4)<<VAR(weight)<<" "<<VAR(localWeight)<<endl;
                                 if (localWeight>=weight){
                                     localDisp=localUpdatedDef;
+                                    //weight=1.0;
                                     weight=localWeight;
                                 }
+                                weight=max(0.00001 ,weight);
+                                //weight*=(0.001+m_pairwiseGlobalSimilarity[sourceID][targetID]-m_minSim)/(m_maxSim-m_minSim);
                                 //weight/=(1.0+m_averageNCC);
                                 PointType targetPoint;
                                 dSourceTarget->TransformIndexToPhysicalPoint(idx,targetPoint);
@@ -1607,10 +1639,31 @@ protected:
                             }//TransformationSimilarity
 
                             if (m_wErrorNorm>0.0){
+                                //weight*=(0.001+m_pairwiseGlobalSimilarity[sourceID][targetID]-m_minSim)/(m_maxSim-m_minSim);
+                                double RHS=0.0;
+                                if (m_metric=="gradient"){
+              
+                                    //#define ITKGRADIENT
+                     
+#ifdef ITKGRADIENT
+                                    double localGradient= (m_pairwiseGradients)[sourceID][targetID]->GetPixel(idx)[d];
+#else
+                                    map<string , map<string,FloatImagePointerType> > &cache=m_pairwiseMetricDerivatives[d];
+                                    map<string, FloatImagePointerType> & mmap1=cache[sourceID];
+                                    FloatImagePointerType metricGradient=mmap1[targetID];
+                                    double localGradient=metricGradient->GetPixel(idx);
+                                 
+#endif     
+                                    LOGV(4)<<VAR(localGradient)<<endl;
+                                    RHS=-dblSpacing*localGradient;
+                                    weight=1.0;
+                                }
+                                //weight=pow((weight-m_minSim)/(m_maxSim-m_minSim),m_exponent);
+                                weight=max(0.01,weight);
                                 x[c]    = eq;
                                 y[c]    = edgeNumError(source,target,idx,d);
                                 v[c++]  = 1.0*m_wErrorNorm*weight;
-                                b[eq-1] = 0.0;//weight*m_wErrorNorm;
+                                b[eq-1] = RHS*weight*m_wErrorNorm;
                                 ++eq;
                                 //LOGV(8)<<VAR(source)<<" "<<VAR(target)<<" "<<VAR(idx)<<" "<<VAR(d)<<" "<<VAR(edgeNumErr)<<" "<<VAR(weight)<<endl;
                             }
@@ -1626,7 +1679,7 @@ protected:
                             LOGV(3)<<"ORACLE! "<<VAR(sourceID)<<" " <<VAR(targetID)<<endl;
                             if (findDeformation(m_trueDeformationFileList,sourceID,targetID)){
                                 dSourceTarget =ImageUtils<DeformationFieldType>::readImage(m_trueDeformationFileList[sourceID][targetID]);
-                                dSourceTarget= TransfUtils<ImageType>::linearInterpolateDeformationField(dSourceTarget,this->m_grid,false);
+                                dSourceTarget= TransfUtils<ImageType>::linearInterpolateDeformationField(dSourceTarget,this->m_ROI,false);
                             }else{
                                 LOGV(3)<<"ORACLE FAILED"<<VAR(sourceID)<<" " <<VAR(targetID)<<" MISSING"<<endl;
                             }
@@ -1720,6 +1773,10 @@ protected:
                                 lb[edgeNumDef-1]=localDef[d] -dblSpacing;
                                 ub[edgeNumDef-1]=localDef[d] +dblSpacing;
                                 init[edgeNumDef-1] =  localDef[d];
+                            }
+                            if (m_estError){
+                                int edgeNumErr=edgeNumError(source,target,idx,d);
+                                init[edgeNumErr-1] =  0;
                             }
                            
                         }//for
@@ -1873,6 +1930,7 @@ public:
         m_ADE=(m_trueDeformationFileList.size()>0)?0:-1;
         m_dice=0;
         m_TRE=0;
+        m_averageLNCC=0.0;
         double m_averageMinJac=0.0;
         m_averageJacSTD=0.0;
         m_averageNCC=0.0;
@@ -1890,10 +1948,7 @@ public:
                     bool updateThisDeformation=false;
                     ImagePointerType targetImage=(m_imageList)[targetID];
                     ImagePointerType sourceImage=(m_imageList)[sourceID];
-                    if (computeDownsampledMetrics){
-                        targetImage=FilterUtils<ImageType>::LinearResample(targetImage,this->m_ROI,true);
-                        sourceImage=FilterUtils<ImageType>::LinearResample(sourceImage,this->m_ROI,true);
-                    }
+                  
                     double nCC=-5;;
                     double dice=-1,tre=-1;
                     ImagePointerType warpedImage;
@@ -1975,7 +2030,7 @@ public:
                             updatedDeform=deformation;
                         }
                         //compare segmentations
-#if 0
+#if 1
                         if (m_groundTruthSegmentations[targetID].IsNotNull() && m_groundTruthSegmentations[sourceID].IsNotNull()){
                             ImagePointerType deformedSeg=TransfUtils<ImageType>::warpImage(  m_groundTruthSegmentations[sourceID] , updatedDeform,true);
                             typename OverlapMeasureFilterType::Pointer filter = OverlapMeasureFilterType::New();
@@ -2017,16 +2072,22 @@ public:
                         }
                         
                         
-                        
+                        if (m_locallyUpdateDeformationEstimate || m_updateDeformations || m_pairwiseLocalWeightMaps[sourceID][targetID].IsNull()){
+
                         //compute LNCC
                         warpedImage = TransfUtils<ImageType>::warpImage(  sourceImage , updatedDeform,m_metric == "categorical");
                         double samplingFactor=1.0*warpedImage->GetLargestPossibleRegion().GetSize()[0]/this->m_grid->GetLargestPossibleRegion().GetSize()[0];
                         double imageResamplingFactor=min(1.0,8.0/(samplingFactor));
                         nCC= Metrics<ImageType>::nCC(targetImage,warpedImage);
-                        if (-nCC>m_maxSim) m_maxSim=-nCC;
-                        if (-nCC<m_minSim) m_minSim=-nCC;
+                        //if (-nCC>m_maxSim) m_maxSim=-nCC;
+                        //if (-nCC<m_minSim) m_minSim=-nCC;
 
                         m_averageNCC+=nCC;
+                        if (computeDownsampledMetrics){
+                            targetImage=FilterUtils<ImageType>::LinearResample(targetImage,this->m_ROI,true);
+                            warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,this->m_ROI,true);
+                        }
+#if 0
                         //if (m_sigma>0){
                         if (m_metric != "categorical"){
                             warpedImage=FilterUtils<ImageType>::LinearResample(warpedImage,imageResamplingFactor,true);
@@ -2036,6 +2097,7 @@ public:
                             targetImage=FilterUtils<ImageType>::NNResample(targetImage,imageResamplingFactor,false);
 
                         }
+#endif
                         LOGV(3)<<"Computing metric "<<m_metric<<" on images downsampled by "<<samplingFactor<<" to size "<<warpedImage->GetLargestPossibleRegion().GetSize()<<endl;
                         if (m_metric == "lncc"){
                             //lncc= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
@@ -2045,7 +2107,7 @@ public:
                             lncc= FilterUtils<ImageType,FloatImageType>::createEmpty(targetImage);
                             lncc->FillBuffer(1.0);
                         }else if (m_metric == "itklncc"){
-                            lncc= Metrics<ImageType,FloatImageType,float>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_grid);
+                            lncc= Metrics<ImageType,FloatImageType,float>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                         }else if (m_metric == "lnccAbs"){
                             lncc= Metrics<ImageType,FloatImageType>::efficientLNCCNewNorm(warpedImage,targetImage,m_sigma,m_exponent);
                         }else if (m_metric == "lnccAbsMultiscale"){
@@ -2092,148 +2154,6 @@ public:
                             lncc=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,gradient);
 
                         }
-                        if (m_metric == "gradient"){
-#ifdef ITKGRADIENT
-                            double value;
-                            //computeMetricAndDerivative(targetImage, m_imageList[sourceID] ,updatedDeform ,   (m_pairwiseGradients)[sourceID][targetID] ,  value);
-                            ImagePointerType downsampledTarget=FilterUtils<ImageType>::LinearResample(targetImage,m_resolutionFactor,true);
-                            ImagePointerType downsampledMoving=FilterUtils<ImageType>::LinearResample(warpedImage,m_resolutionFactor,true);
-                            (m_pairwiseGradients)[sourceID][targetID] = Registration<ImageType>::registerImagesBSpline(targetImage, downsampledMoving,m_grid->GetLargestPossibleRegion().GetSize(),0,updatedDeform);
-                            (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::linearInterpolateDeformationField((m_pairwiseGradients)[sourceID][targetID],updatedDeform,false);
-                            (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::composeDeformations( (m_pairwiseGradients)[sourceID][targetID],updatedDeform);
-                            (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::linearInterpolateDeformationField((m_pairwiseGradients)[sourceID][targetID],m_grid,false);
-                            //(m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::composeDeformations(updatedDeform, (m_pairwiseGradients)[sourceID][targetID]);
-                            double nCC2=Metrics<ImageType>::nCC( targetImage,sourceImage, (m_pairwiseGradients)[sourceID][targetID]);
-                            LOGV(2)<<VAR(nCC2)<<endl;
-
-                            //updatedDeform= (m_pairwiseGradients)[sourceID][targetID];
-#else			  
-                            for (int d=0;d<D;++d){
-                                double magnitude=this->m_grid->GetSpacing()[d];
-                                
-                                DisplacementType plusOne,minusOne; plusOne.Fill(0);minusOne.Fill(0); plusOne[d]=magnitude; minusOne[d]=-magnitude;
-
-                                //calculate lncc shifted right
-                                ImagePointerType shiftedImage = TransfUtils<ImageType>::translateImage(  warpedImage , plusOne);
-                                FloatImagePointerType lnccPlusOne= Metrics<ImageType,FloatImageType, double>::efficientLNCC(shiftedImage,targetImage,m_sigma,m_exponent);
-                                //lncc shifted left
-                                shiftedImage = TransfUtils<ImageType>::translateImage(  warpedImage , minusOne);
-                                FloatImagePointerType lnccMinusOne= Metrics<ImageType,FloatImageType, double>::efficientLNCC(shiftedImage,targetImage,m_sigma,m_exponent);
-
-#ifdef CONTINUOUSDERIVATIVE
-#define PARABOLAFIT
-#ifdef PARABOLAFIT
-                                FloatImagePointerType gradient=computeStepLengthBasedOnParabolaFit(lnccMinusOne,lncc,lnccPlusOne, magnitude);
-#else
-                                FloatImagePointerType gradient=FilterUtils<FloatImageType>::substract(lnccPlusOne,lnccMinusOne);
-#endif
-                                map<string , map<string,FloatImagePointerType> > &cache=m_pairwiseMetricDerivatives[d];
-                                map<string, FloatImagePointerType> & mmap1=cache[sourceID];
-                                mmap1[targetID] = FilterUtils<FloatImageType>::LinearResample(gradient,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),true);
-                                // mmap1[targetID] = FilterUtils<FloatImageType>::gaussian(mmap1[targetID],this->m_grid->GetSpacing()*0.5);
-#else
-                                //calcuate wen lncc is better than input when shifted right
-                                FloatImagePointerType lnccDiffRight=FilterUtils<FloatImageType>::substract(lnccPlusOne,lncc);
-                                ostringstream oss1;
-                                double meanLNCC_center=FilterUtils<FloatImageType>::getMean(lncc);
-                                LOGV(1)<<VAR(meanLNCC_center)<<endl;
-
-                                FloatImagePointerType lnccUpdateRight=FilterUtils<FloatImageType>::binaryThresholdingLow(lnccDiffRight,0);
-                                oss1<<m_metric<<"-diffRight-directon"<<d<<"-"<<sourceID<<"-TO-"<<targetID<<".mha";
-                                LOGI(6,ImageUtils<FloatImageType>::writeImage(oss1.str(),lnccUpdateRight));
-                                oss1.str("");
-                                oss1.clear();
-                                ImageUtils<FloatImageType>::multiplyImage(lnccUpdateRight,magnitude);
-                                bool test=true;
-                                //TESTDEFORM
-                                if (test){
-                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
-                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
-                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateRight);
-                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
-                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage( sourceImage,updateDefSimple);
-                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
-                                    double meanLNCC_updateRight=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
-                                    LOGV(1)<<VAR(meanLNCC_updateRight)<<endl;
-                                }
-                              
-                                
-                                //calculate improvement over initival lncc
-                                FloatImagePointerType lnccDiffLeft=FilterUtils<FloatImageType>::substract(lnccMinusOne,lncc);
-                               
-                                FloatImagePointerType lnccUpdateLeft=FilterUtils<FloatImageType>::binaryThresholdingLow(lnccDiffLeft,0);
-                                ImageUtils<FloatImageType>::multiplyImage(lnccUpdateLeft,-magnitude);
-                                //TESTDEFORM
-                                if (test){
-                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
-                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
-                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateLeft);
-                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
-                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage( sourceImage,updateDefSimple);
-                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
-                                    double meanLNCC_updateLeft=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
-                                    LOGV(1)<<VAR(meanLNCC_updateLeft)<<endl;
-                                }
-
-                                //compare left and right shift lncc
-                                FloatImagePointerType lnccDiffLeftRight=FilterUtils<FloatImageType>::substract(lnccPlusOne,lnccMinusOne);
-                                //1 if right is better, 0 if left is better
-                                FloatImagePointerType lnccUpdateLeftRight=FilterUtils<FloatImageType>::binaryThresholdingLow(lnccDiffLeftRight,0);
-                                //keep only entries in lnccUpdateRight when it is also better than the update left
-                                ImageUtils<FloatImageType>::multiplyImage(lnccUpdateRight,lnccUpdateLeftRight);
-                                //TESTDEFORM
-                                if (test){
-                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
-                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
-                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateRight);
-                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
-                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage( sourceImage,updateDefSimple);
-                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
-                                    double meanLNCC_updateRightexcludingLeft=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
-                                    LOGV(1)<<VAR(meanLNCC_updateRightexcludingLeft)<<endl;
-                                }
-                                
-                               
-                                //invert mask
-                                FloatImagePointerType lnccUpdateRightLeft=FilterUtils<FloatImageType>::invert(lnccUpdateLeftRight);
-                                //keep only entries in lnccUpdateLeft when it is also better than the update right
-                                ImageUtils<FloatImageType>::multiplyImage(lnccUpdateLeft,lnccUpdateRightLeft);
-                                if (test){
-                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
-                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
-                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateLeft);
-                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
-                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage(sourceImage,updateDefSimple);
-                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
-                                    double meanLNCC_updateLeftexcludingRight=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
-                                    LOGV(1)<<VAR(meanLNCC_updateLeftexcludingRight)<<endl;
-                                }
-
-                                FilterUtils<FloatImageType>::add(lnccUpdateRight,lnccUpdateLeft);
-                                if (test){
-                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
-                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
-                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateRight);
-                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
-                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage( sourceImage,updateDefSimple);
-                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
-                                    double meanLNCC_updateFinal=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
-                                    LOGV(1)<<VAR(meanLNCC_updateFinal)<<endl;
-                                }
-                                map<string , map<string,FloatImagePointerType> > &cache=m_pairwiseMetricDerivatives[d];
-                                map<string, FloatImagePointerType> & mmap1=cache[sourceID];
-                                mmap1[targetID] = FilterUtils<FloatImageType>::LinearResample(lnccUpdateRight,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),true);
-#endif
-                                ostringstream oss;
-                                oss<<m_metric<<"-DERIVATIVE-directon"<<d<<"-"<<sourceID<<"-TO-"<<targetID<<".mha";
-                                LOGI(6,ImageUtils<FloatImageType>::writeImage(oss.str(),mmap1[targetID]));
-
-                           
-                      
-                                
-                            }
-#endif
-                        }//gradient
 
                         LOGV(3)<<"done."<<endl;
                         ostringstream oss;
@@ -2243,8 +2163,12 @@ public:
                         //resample lncc result
                          
                         //resample with smoothing
-                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),false);
-                         
+                        lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
+                        m_averageLNCC+=FilterUtils<FloatImageType>::getMean(lncc);
+                        double mmax=FilterUtils<FloatImageType>::getMax(lncc);
+                        if (mmax>m_maxSim) m_maxSim=mmax;
+                        double mmin=FilterUtils<FloatImageType>::getMin(lncc);
+                        if (mmin<m_minSim) m_minSim=mmin;
                         oss<<"-resampled";
                         if (D==2){
                             oss<<".nii";
@@ -2253,12 +2177,14 @@ public:
                         LOGI(6,ImageUtils<ImageType>::writeImage(oss.str(),FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(lncc,255))));
                         //}
                         //store...
+                    
+
                         if (m_updateDeformations || m_pairwiseLocalWeightMaps[sourceID][targetID].IsNull()){
 
                             if (m_pairwiseLocalWeightMaps[sourceID][targetID].IsNull()){
                                 //certainly update local weights maps when it was not set before ;)
                                 m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
-                                m_pairwiseGlobalSimilarity[sourceID][targetID]=nCC;
+                                m_pairwiseGlobalSimilarity[sourceID][targetID]=-nCC;
                                 m_pairwiseStepLength[sourceID][targetID]=1.0;
                                 updateThisDeformation=true;
                             }else{
@@ -2270,7 +2196,7 @@ public:
                                     {
                                         //update if global Sim improved or if it shouldn't be considered anyway
                                         m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
-                                        m_pairwiseGlobalSimilarity[sourceID][targetID]=nCC;
+                                        m_pairwiseGlobalSimilarity[sourceID][targetID]=-nCC;
                                         updateThisDeformation=true;
 
                                     }
@@ -2279,7 +2205,7 @@ public:
                             m_pairwiseGlobalSimilarity[sourceID][targetID]=nCC;
                             m_updatedPairwiseLocalWeightMaps[sourceID][targetID]=lncc;
                             //upsample if necessary.. note that here, quite some accuracy of the lncc is lost :( in fact, lncc should be recomputed
-                            if (m_pairwiseLocalWeightMaps[sourceID][targetID]->GetLargestPossibleRegion().GetSize()!=this->m_grid->GetLargestPossibleRegion().GetSize()){
+                            if (m_pairwiseLocalWeightMaps[sourceID][targetID]->GetLargestPossibleRegion().GetSize()!=this->m_ROI->GetLargestPossibleRegion().GetSize()){
                                 //update the pairwise similarity of the original deformation to the correct resolution
                                 warpedImage = TransfUtils<ImageType>::warpImage(  sourceImage , deformation,m_metric == "categorical");
                                 if (m_metric != "categorical"){
@@ -2303,7 +2229,7 @@ public:
                                 }else if (m_metric == "deedsLCC"){
                                     lncc=  Metrics<ImageType,FloatImageType,float>::deedsLCC(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else if (m_metric == "itklncc"){
-                                    lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_grid);
+                                    lncc= Metrics<ImageType,FloatImageType>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                                 }else if (m_metric == "lsad"){
                                     lncc= Metrics<ImageType,FloatImageType>::LSADNorm(warpedImage,targetImage,m_sigma,m_exponent);
                                 }else if (m_metric == "lssd"){
@@ -2320,10 +2246,12 @@ public:
                                     LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                                     exit(-1);
                                 } 
-                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),false);
+                                lncc=FilterUtils<FloatImageType>::LinearResample(lncc,FilterUtils<ImageType,FloatImageType>::cast(this->m_ROI),true);
                                 m_pairwiseLocalWeightMaps[sourceID][targetID]=lncc;
                             }
                         }
+                        }
+                     
                     }
                     double ade=0.0;
                     //read true deformation if it is a) in the file list and b) we want to either compare it to the estimate or it needs to be cached.
@@ -2374,32 +2302,37 @@ public:
                             ImageUtils<DeformationFieldType>::writeImage(outfile2.str().c_str(),updatedDeform);
                         }
 
-                        
+                        double minJac=0;
+                        double stdDevJac=0;
+
+#if 0                        
                         typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,double> DisplacementFieldJacobianDeterminantFilterType;
                         typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
                         jacobianFilter->SetInput(updatedDeform);
                         jacobianFilter->SetUseImageSpacingOff();
                         jacobianFilter->Update();
                         FloatImagePointerType jac=jacobianFilter->GetOutput();
-                        double minJac = FilterUtils<FloatImageType>::getMin(jac);
-                        double stdDevJac=sqrt(FilterUtils<FloatImageType>::getVariance(jac));
+                         minJac = FilterUtils<FloatImageType>::getMin(jac);
+                         stdDevJac=sqrt(FilterUtils<FloatImageType>::getVariance(jac));
+
                         m_averageJacSTD+=stdDevJac;
-                        LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<< " " << VAR(minJac) <<" " <<VAR(stdDevJac)<<" "<<VAR(nCC)<<" "<<VAR(ade)<<" "<<VAR(dice)<<" "<<VAR(tre)<<endl;
+
                         m_averageMinJac+=minJac;
                         if (minJac<m_minMinJacobian){
                             m_minMinJacobian=minJac;
                         }
-
+#endif
+                        LOGV(2)<<VAR(sourceID)<<" "<<VAR(targetID)<< " " << VAR(minJac) <<" " <<VAR(stdDevJac)<<" "<<VAR(nCC)<<" "<<VAR(ade)<<" "<<VAR(dice)<<" "<<VAR(tre)<<endl;
                         //sample to correct resolution (downsample)
                         
                         if (m_bSplineInterpol){
-                            updatedDeform=TransfUtils<ImageType>::bSplineInterpolateDeformationField(updatedDeform,this->m_grid,m_smoothDeformationDownsampling);
-                            //updatedDeform=TransfUtils<ImageType>::computeBSplineTransformFromDeformationField(updatedDeform,this->m_grid);
+                            updatedDeform=TransfUtils<ImageType>::bSplineInterpolateDeformationField(updatedDeform,this->m_ROI,m_smoothDeformationDownsampling);
+                            //updatedDeform=TransfUtils<ImageType>::computeBSplineTransformFromDeformationField(updatedDeform,this->m_ROI);
                         }else{
-                            updatedDeform=TransfUtils<ImageType>::linearInterpolateDeformationField(updatedDeform,this->m_grid,m_smoothDeformationDownsampling);
+                            updatedDeform=TransfUtils<ImageType>::linearInterpolateDeformationField(updatedDeform,this->m_ROI,m_smoothDeformationDownsampling);
                         }
                        
-                        if (updateThisDeformation){//m_updateDeformations ||  !m_downSampledDeformationCache[sourceID][targetID].IsNotNull()){
+                        if (updateThisDeformation || (!m_updateDeformations && !m_locallyUpdateDeformationEstimate)){
                             
                             firstRun=true;// 
 			   
@@ -2410,19 +2343,22 @@ public:
 
                             (m_updatedDeformationCache)[sourceID][targetID] = updatedDeform;
                             
-#if 0
-                            locallyUpdateDeformation( m_downSampledDeformationCache[sourceID][targetID],(m_updatedDeformationCache)[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID]);
-                            //locallyUpdateDeformation((m_updatedDeformationCache)[sourceID][targetID],m_downSampledDeformationCache[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID]);
+#if 1
+                            if (m_estDef){
+                                locallyUpdateDeformationError( m_downSampledDeformationCache[sourceID][targetID],(m_updatedDeformationCache)[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID]);
+                            }else{
+                                locallyUpdateDeformation((m_updatedDeformationCache)[sourceID][targetID],m_downSampledDeformationCache[sourceID][targetID],m_updatedPairwiseLocalWeightMaps[sourceID][targetID], m_pairwiseLocalWeightMaps[sourceID][targetID]);
+                            }
                             //updatedDeform=(m_updatedDeformationCache)[sourceID][targetID];(m_updatedDeformationCache)[sourceID][targetID]=(m_updatedDeformationCache)[sourceID][targetID];(m_updatedDeformationCache)[sourceID][targetID]=updatedDeform;
                             //jac=m_updatedPairwiseLocalWeightMaps[sourceID][targetID];m_updatedPairwiseLocalWeightMaps[sourceID][targetID]=m_pairwiseLocalWeightMaps[sourceID][targetID];m_pairwiseLocalWeightMaps[sourceID][targetID]=jac;
 #endif
 
                             m_haveDeformationEstimate = true;
                             //resample deformation if resolution or origin was changed
-                            if (this->m_grid->GetLargestPossibleRegion().GetSize() != m_downSampledDeformationCache[sourceID][targetID]->GetLargestPossibleRegion().GetSize()
-                                || this->m_grid->GetOrigin() != m_downSampledDeformationCache[sourceID][targetID]->GetOrigin() )
+                            if (this->m_ROI->GetLargestPossibleRegion().GetSize() != m_downSampledDeformationCache[sourceID][targetID]->GetLargestPossibleRegion().GetSize()
+                                || this->m_ROI->GetOrigin() != m_downSampledDeformationCache[sourceID][targetID]->GetOrigin() )
                                 {
-                                    m_downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,this->m_grid,m_smoothDeformationDownsampling);
+                                    m_downSampledDeformationCache[sourceID][targetID]=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,this->m_ROI,m_smoothDeformationDownsampling);
                                 }
 
                         }
@@ -2439,6 +2375,7 @@ public:
         m_averageMinJac/=count;
         m_averageNCC/=count;
         m_averageJacSTD/=count;
+        m_averageLNCC/=count;
         //LOG<<VAR(m_averageMinJac)<<" "<<VAR(minMinJac)<<" "<<VAR(m_averageNCC)<<endl;
         if (m_updateDeformations || firstRun ){
             m_Inconsistency=TransfUtils<ImageType>::computeInconsistency(&m_downSampledDeformationCache,&m_imageIDList, &m_trueDeformations,m_maskList);
@@ -2732,12 +2669,58 @@ public:
             if (updatedSimIt.Get()>=simIt.Get()){
                 simIt.Set(updatedSimIt.Get());
                 defIt.Set(updatedDefIt.Get());
+            }else{
+                //simIt.Set(sqrt(max(simIt.Get(),0.0)));
+                //simIt.Set(simIt.Get()*simIt.Get()/updatedSimIt.Get());
             }
 
         }
 
 
     }
+
+
+     void locallyUpdateDeformationError(DeformationFieldPointerType & def, DeformationFieldPointerType &updatedDef, FloatImagePointerType & similarity, FloatImagePointerType updatedSimilarity){
+        typedef typename itk::ImageRegionIterator<DeformationFieldType> DeformationIteratorType;
+        DeformationIteratorType defIt(def,def->GetLargestPossibleRegion());
+        DeformationIteratorType updatedDefIt(updatedDef,def->GetLargestPossibleRegion());
+        typedef typename itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
+        FloatImageIteratorType simIt(similarity,similarity->GetLargestPossibleRegion());
+        FloatImageIteratorType updatedSimIt(updatedSimilarity,similarity->GetLargestPossibleRegion());
+        defIt.GoToBegin();
+        updatedDefIt.GoToBegin();
+        simIt.GoToBegin();
+        updatedSimIt.GoToBegin();
+        for (;!defIt.IsAtEnd();++simIt,++updatedSimIt,++defIt,++updatedDefIt){
+            
+            if (updatedSimIt.Get()>=simIt.Get()){
+                simIt.Set(updatedSimIt.Get());
+                defIt.Set(updatedDefIt.Get());
+            }else{
+                //simIt.Set(sqrt(max(simIt.Get(),0.0)));
+                //simIt.Set(simIt.Get()*simIt.Get()/updatedSimIt.Get());
+            }
+
+        }
+
+
+    }
+
+    void locallyUpdateDeformationLinesearch(DeformationFieldPointerType & def, DeformationFieldPointerType &updatedDef, FloatImagePointerType & similarity, FloatImagePointerType updatedSimilarity,ImagePointerType sourceImage, ImagePointerType targetImage){
+
+         DeformationFieldPointerType diffDef=TransfUtils<ImageType>::subtract(def,updatedDef);
+         FloatImagePointerType diffWeights=ImageUtils<FloatImageType>::substract(similarity,updatedSimilarity);
+         diffDef=TransfUtils<FloatImageType>::multiply(diffDef,diffWeights);
+         
+         double startNCC=Metrics<ImageType>::nCC(targetImage,sourceImage,updatedDef);
+         double bestNCC=startNCC;
+         for (int i=0;i<10;++i){
+
+             
+         }
+    }
+
+
     FloatImagePointerType computeStepLengthBasedOnParabolaFit(FloatImagePointerType simMinusOne,FloatImagePointerType simCenter, FloatImagePointerType simPlusOne,double scale){
         FloatImageIterator minusIt(simMinusOne,simMinusOne->GetLargestPossibleRegion());
         FloatImageIterator centerIt(simCenter,simCenter->GetLargestPossibleRegion());
@@ -2775,3 +2758,147 @@ public:
         return simMinusOne;
     }
 };
+
+#if 0
+#ifdef ITKGRADIENT
+                            double value;
+                            //computeMetricAndDerivative(targetImage, m_imageList[sourceID] ,updatedDeform ,   (m_pairwiseGradients)[sourceID][targetID] ,  value);
+                            ImagePointerType downsampledTarget=FilterUtils<ImageType>::LinearResample(targetImage,m_resolutionFactor,true);
+                            ImagePointerType downsampledMoving=FilterUtils<ImageType>::LinearResample(warpedImage,m_resolutionFactor,true);
+                            (m_pairwiseGradients)[sourceID][targetID] = Registration<ImageType>::registerImagesBSpline(targetImage, downsampledMoving,m_grid->GetLargestPossibleRegion().GetSize(),0,updatedDeform);
+                            (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::linearInterpolateDeformationField((m_pairwiseGradients)[sourceID][targetID],updatedDeform,false);
+                            (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::composeDeformations( (m_pairwiseGradients)[sourceID][targetID],updatedDeform);
+                            (m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::linearInterpolateDeformationField((m_pairwiseGradients)[sourceID][targetID],m_grid,false);
+                            //(m_pairwiseGradients)[sourceID][targetID] = TransfUtils<ImageType>::composeDeformations(updatedDeform, (m_pairwiseGradients)[sourceID][targetID]);
+                            double nCC2=Metrics<ImageType>::nCC( targetImage,sourceImage, (m_pairwiseGradients)[sourceID][targetID]);
+                            LOGV(2)<<VAR(nCC2)<<endl;
+
+                            //updatedDeform= (m_pairwiseGradients)[sourceID][targetID];
+#else			  
+                            for (int d=0;d<D;++d){
+                                double magnitude=this->m_grid->GetSpacing()[d];
+                                
+                                DisplacementType plusOne,minusOne; plusOne.Fill(0);minusOne.Fill(0); plusOne[d]=magnitude; minusOne[d]=-magnitude;
+
+                                //calculate lncc shifted right
+                                ImagePointerType shiftedImage = TransfUtils<ImageType>::translateImage(  warpedImage , plusOne);
+                                FloatImagePointerType lnccPlusOne= Metrics<ImageType,FloatImageType, double>::efficientLNCC(shiftedImage,targetImage,m_sigma,m_exponent);
+                                //lncc shifted left
+                                shiftedImage = TransfUtils<ImageType>::translateImage(  warpedImage , minusOne);
+                                FloatImagePointerType lnccMinusOne= Metrics<ImageType,FloatImageType, double>::efficientLNCC(shiftedImage,targetImage,m_sigma,m_exponent);
+
+#ifdef CONTINUOUSDERIVATIVE
+#define PARABOLAFIT
+#ifdef PARABOLAFIT
+                                FloatImagePointerType gradient=computeStepLengthBasedOnParabolaFit(lnccMinusOne,lncc,lnccPlusOne, magnitude);
+#else
+                                FloatImagePointerType gradient=FilterUtils<FloatImageType>::substract(lnccPlusOne,lnccMinusOne);
+#endif
+                                map<string , map<string,FloatImagePointerType> > &cache=m_pairwiseMetricDerivatives[d];
+                                map<string, FloatImagePointerType> & mmap1=cache[sourceID];
+                                mmap1[targetID] = FilterUtils<FloatImageType>::LinearResample(gradient,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),true);
+                                // mmap1[targetID] = FilterUtils<FloatImageType>::gaussian(mmap1[targetID],this->m_grid->GetSpacing()*0.5);
+#else
+                                //calcuate wen lncc is better than input when shifted right
+                                FloatImagePointerType lnccDiffRight=FilterUtils<FloatImageType>::substract(lnccPlusOne,lncc);
+                                ostringstream oss1;
+                                double meanLNCC_center=FilterUtils<FloatImageType>::getMean(lncc);
+                                LOGV(1)<<VAR(meanLNCC_center)<<endl;
+
+                                FloatImagePointerType lnccUpdateRight=FilterUtils<FloatImageType>::binaryThresholdingLow(lnccDiffRight,0);
+                                oss1<<m_metric<<"-diffRight-directon"<<d<<"-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                                LOGI(6,ImageUtils<FloatImageType>::writeImage(oss1.str(),lnccUpdateRight));
+                                oss1.str("");
+                                oss1.clear();
+                                ImageUtils<FloatImageType>::multiplyImage(lnccUpdateRight,magnitude);
+                                bool test=true;
+                                //TESTDEFORM
+                                if (test){
+                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
+                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
+                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateRight);
+                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
+                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage( sourceImage,updateDefSimple);
+                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
+                                    double meanLNCC_updateRight=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
+                                    LOGV(1)<<VAR(meanLNCC_updateRight)<<endl;
+                                }
+                              
+                                
+                                //calculate improvement over initival lncc
+                                FloatImagePointerType lnccDiffLeft=FilterUtils<FloatImageType>::substract(lnccMinusOne,lncc);
+                               
+                                FloatImagePointerType lnccUpdateLeft=FilterUtils<FloatImageType>::binaryThresholdingLow(lnccDiffLeft,0);
+                                ImageUtils<FloatImageType>::multiplyImage(lnccUpdateLeft,-magnitude);
+                                //TESTDEFORM
+                                if (test){
+                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
+                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
+                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateLeft);
+                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
+                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage( sourceImage,updateDefSimple);
+                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
+                                    double meanLNCC_updateLeft=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
+                                    LOGV(1)<<VAR(meanLNCC_updateLeft)<<endl;
+                                }
+
+                                //compare left and right shift lncc
+                                FloatImagePointerType lnccDiffLeftRight=FilterUtils<FloatImageType>::substract(lnccPlusOne,lnccMinusOne);
+                                //1 if right is better, 0 if left is better
+                                FloatImagePointerType lnccUpdateLeftRight=FilterUtils<FloatImageType>::binaryThresholdingLow(lnccDiffLeftRight,0);
+                                //keep only entries in lnccUpdateRight when it is also better than the update left
+                                ImageUtils<FloatImageType>::multiplyImage(lnccUpdateRight,lnccUpdateLeftRight);
+                                //TESTDEFORM
+                                if (test){
+                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
+                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
+                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateRight);
+                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
+                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage( sourceImage,updateDefSimple);
+                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
+                                    double meanLNCC_updateRightexcludingLeft=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
+                                    LOGV(1)<<VAR(meanLNCC_updateRightexcludingLeft)<<endl;
+                                }
+                                
+                               
+                                //invert mask
+                                FloatImagePointerType lnccUpdateRightLeft=FilterUtils<FloatImageType>::invert(lnccUpdateLeftRight);
+                                //keep only entries in lnccUpdateLeft when it is also better than the update right
+                                ImageUtils<FloatImageType>::multiplyImage(lnccUpdateLeft,lnccUpdateRightLeft);
+                                if (test){
+                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
+                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
+                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateLeft);
+                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
+                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage(sourceImage,updateDefSimple);
+                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
+                                    double meanLNCC_updateLeftexcludingRight=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
+                                    LOGV(1)<<VAR(meanLNCC_updateLeftexcludingRight)<<endl;
+                                }
+
+                                FilterUtils<FloatImageType>::add(lnccUpdateRight,lnccUpdateLeft);
+                                if (test){
+                                    DeformationFieldPointerType updateDefSimple=ImageUtils<DeformationFieldType>::duplicate(updatedDeform);
+                                    FloatImagePointerType directionD=TransfUtils<ImageType,float,double,double>::getComponent(updateDefSimple,d);
+                                    directionD=FilterUtils<FloatImageType>::add(directionD,lnccUpdateRight);
+                                    TransfUtils<ImageType,float,double,double>::setComponent(updateDefSimple,directionD,d);
+                                    ImagePointerType warpedImage2=TransfUtils<ImageType>::warpImage( sourceImage,updateDefSimple);
+                                    FloatImagePointerType lnccWarpedUpdate= Metrics<ImageType,FloatImageType, double>::efficientLNCC(warpedImage2,targetImage,m_sigma,m_exponent);
+                                    double meanLNCC_updateFinal=FilterUtils<FloatImageType>::getMean(lnccWarpedUpdate);
+                                    LOGV(1)<<VAR(meanLNCC_updateFinal)<<endl;
+                                }
+                                map<string , map<string,FloatImagePointerType> > &cache=m_pairwiseMetricDerivatives[d];
+                                map<string, FloatImagePointerType> & mmap1=cache[sourceID];
+                                mmap1[targetID] = FilterUtils<FloatImageType>::LinearResample(lnccUpdateRight,FilterUtils<ImageType,FloatImageType>::cast(this->m_grid),true);
+#endif
+                                ostringstream oss;
+                                oss<<m_metric<<"-DERIVATIVE-directon"<<d<<"-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                                LOGI(6,ImageUtils<FloatImageType>::writeImage(oss.str(),mmap1[targetID]));
+
+                           
+                      
+                                
+                            }
+#endif
+
+#endif

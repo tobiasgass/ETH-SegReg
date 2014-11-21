@@ -411,7 +411,7 @@ public:
         if (sigma==0.0) sigma=0.001;
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
-        //#define RECURSIVE
+#define RECURSIVE
 
 #ifdef RECURSIVE
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
@@ -527,19 +527,19 @@ public:
             //we correct this errors by thresholding, which looks fine when compared to discrete gaussian filtering.
             InternalPrecision tmp=i1SquareBarIt.Get() - i1BarV*i1BarV;
 
-            if (tmp<0){
+            if (tmp<0.0){
                 LOGV(10)<<VAR(i1SquareBarIt.Get() - i1BarV*i1BarV)<<endl;
-                tmp=0;
+                tmp=0.0;
             }
             InternalPrecision varianceI1V=sqrt(tmp);
             tmp=i2SquareBarIt.Get() - i2BarV*i2BarV;
-            if (tmp<0){
+            if (tmp<0.0){
                 LOGV(10)<<VAR(i2SquareBarIt.Get() - i2BarV*i2BarV)<<endl;
-                tmp=0;
+                tmp=0.0;
             }
             InternalPrecision varianceI2V=sqrt(tmp);
             InternalPrecision denominatorV=varianceI1V*varianceI2V;
-            InternalPrecision r = (abs(denominatorV)!=0.0)?numeratorV/(denominatorV):0.0;
+            InternalPrecision r = (abs(denominatorV)>1000.0*std::numeric_limits<InternalPrecision>::epsilon())?numeratorV/(denominatorV):0.0;
                         
 #else
             InternalPrecision varianceI1V=sqrt((i1SquareBarIt.Get() - i1BarV*i1BarV));
@@ -557,9 +557,9 @@ public:
 
 #ifdef RECURSIVE
             if (r< -(InternalPrecision)1.0 ){
-                r = 0;
+                r = -1.0;
             }else if ( r > (InternalPrecision)1.0){
-                r = 0;
+                r = 1.0;
             }
 #endif
             r = pow((r+1.0)/2,exp);
@@ -938,7 +938,7 @@ public:
             }else{
                 newIndex=idx;
             }
-            LOGV(7)<<VAR(idx)<<" "<<VAR(newIndex)<<" "<<VAR(sigma)<<endl;
+            LOGV(9)<<VAR(idx)<<" "<<VAR(newIndex)<<" "<<VAR(sigma)<<endl;
 
 #if 0            
             //convert newIndex to corner of patch, assumind newIndex is the central pixel
@@ -980,7 +980,7 @@ public:
                 region.SetIndex(newIndex);
                 nccMetric->SetFixedImageRegion(region);
                 InternalPrecision val=(1.0-nccMetric->GetValue(iTrans->GetParameters()))/2;
-                LOGV(7)<<VAR(newIndex)<<" "<<VAR(pt)<<" " <<VAR(val)<<" "<<endl;
+                LOGV(9)<<VAR(newIndex)<<" "<<VAR(pt)<<" " <<VAR(val)<<" "<<endl;
                 resultIt.Set(pow(val,exp));
             }
             
@@ -1038,7 +1038,7 @@ public:
             }else{
                 newIndex=idx;
             }
-            LOGV(7)<<VAR(idx)<<" "<<VAR(newIndex)<<" "<<VAR(sigma)<<endl;
+            LOGV(9)<<VAR(idx)<<" "<<VAR(newIndex)<<" "<<VAR(sigma)<<endl;
 
 #if 0            
             //convert newIndex to corner of patch, assumind newIndex is the central pixel
@@ -1080,7 +1080,7 @@ public:
                 region.SetIndex(newIndex);
                 nccMetric->SetFixedImageRegion(region);
                 InternalPrecision val=(1.0-nccMetric->GetValue(iTrans->GetParameters()))/2;
-                LOGV(7)<<VAR(newIndex)<<" "<<VAR(pt)<<" " <<VAR(val)<<" "<<endl;
+                LOGV(9)<<VAR(newIndex)<<" "<<VAR(pt)<<" " <<VAR(val)<<" "<<endl;
                 resultIt.Set(pow(val,exp));
             }
             
@@ -1381,7 +1381,8 @@ public:
         typename ImageUtils<InternalImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
         for (resultIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt){
             InternalPrecision d = resultIt.Get();
-            resultIt.Set(InternalPrecision(1.0)-pow(min(d,InternalPrecision(1.0)),InternalPrecision(sigmaNorm)));
+            //resultIt.Set(InternalPrecision(1.0)-pow(min(d,InternalPrecision(1.0)),InternalPrecision(sigmaNorm)));
+            resultIt.Set(-d);
             //resultIt.Set(pow(exp(-0.5 * fabs(d)  / mean ),sigmaNorm ));
         }
         return FilterUtils<InternalImage,OutputImage>::cast(result);

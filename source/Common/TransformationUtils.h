@@ -1880,7 +1880,7 @@ public:
         FloatImageIteratorType resIt(result,result->GetLargestPossibleRegion());
         resIt.GoToBegin();
         typename DeformationFieldType::SizeType size=result->GetLargestPossibleRegion().GetSize();
-	double space=2*def->GetSpacing()[d];
+        double space=2*def->GetSpacing()[d];
         for (deformationIt.GoToBegin();!deformationIt.IsAtEnd();++deformationIt,++resIt){
             IndexType idx=deformationIt.GetIndex();
             double gradient=0;
@@ -1889,7 +1889,7 @@ public:
                 rIdx[d]+=1;
                 lIdx[d]-=1;
                 gradient=def->GetPixel(rIdx)[d]-def->GetPixel(lIdx)[d];
-		gradient/=space;
+                gradient/=space;
             }
             resIt.Set(gradient);
             

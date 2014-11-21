@@ -28,7 +28,7 @@
 #include "itkMemoryProbesCollectorBase.h"
 
 //using namespace std;
-typedef float PixelType; 
+typedef short PixelType; 
 static const unsigned int D=3 ;
 typedef itk::Image<PixelType,D> ImageType;
 typedef   ImageType::Pointer ImagePointerType;
@@ -112,7 +112,7 @@ int main(int argc, char ** argv){
     double shearing = 1.0;
     double circWeightScaling = 1.0;
     double scalingFactorForConsistentSegmentation = 1.0;
-    int oracle = 0;
+    double oracle = 0;
     string localSimMetric="lncc";
     bool evalLowResolutionDeformationss=false;
     bool roiShift=false;
@@ -127,6 +127,8 @@ int main(int argc, char ** argv){
     double tolerance=1e-2;
     bool useTaylor=false;
     bool lowResSim=false;
+    bool normalizeForces=false;
+    int maxTripletOcc=100000;
     (*as) >> parameter ("i", imageFileList, " list of  images", true);
     (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
     (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
@@ -137,6 +139,7 @@ int main(int argc, char ** argv){
     (*as) >> parameter ("winp", winput,"weight for adherence to input registration",false);
     (*as) >> parameter ("wcons", wcons,"weight consistency penalty",false);
     (*as) >> parameter ("wsmooth", wsmooth,"weight for smoothness of deformation (first-order derivative)",false);
+    (*as) >> parameter ("maxOcc", maxTripletOcc,"maximal number of triplets in which a pairwise registration can occur.",false);
 
     (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
     (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file> for immediate DICE evaluation", false);
@@ -159,6 +162,7 @@ int main(int argc, char ** argv){
     (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
     (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
     (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
+    (*as) >> option ("normalizeForces", normalizeForces,"divide inconsistency and regularization equation weights by their respective average to equalize the forces.");
     (*as) >> option ("useConstraints", useConstraints,"Use hard constraints to prevent folding. Tearing might currently still occur.");
 
 
@@ -365,8 +369,8 @@ int main(int argc, char ** argv){
     solver->setROI(ROI);
     solver->setUseTaylor(useTaylor);
     solver->setLowResSim(lowResSim);
-
-
+    solver->setNormalizeForces(normalizeForces);
+    solver->setMaxTripletOccs(maxTripletOcc);
     solver->setGrid(grid);
     solver->setOptimizer(optimizer);
     solver->Initialize();
@@ -381,8 +385,9 @@ int main(int argc, char ** argv){
         double oldInconsistency=inconsistency;
         double minJac=solver->getMinJac();
         double averageNCC=solver->getAverageNCC();
-	double stdJac=solver->getAverageJacSTD();
-        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
+        double stdJac=solver->getAverageJacSTD();
+        double averageLNCC=solver->getAverageLNCC();
+        LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(averageLNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
         for (iter=1;iter<maxHops+1;++iter){
             if (! iter % 2){
                 LOGV(2)<<"Increasing image resolution for bspline registration"<<endl;
@@ -409,9 +414,11 @@ int main(int argc, char ** argv){
             dice=solver->getDice();
             minJac=solver->getMinJac();
             averageNCC=solver->getAverageNCC();
-            double stdJac=solver->getAverageJacSTD();
+            averageLNCC=solver->getAverageLNCC();
 
-             LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
+            stdJac=solver->getAverageJacSTD();
+
+
             if (false && updateDeformations){
                 solver->setWeightTransformationSimilarity(winput*pow(1.2,1.0*iter),true);
                 ++c;
@@ -419,10 +426,18 @@ int main(int argc, char ** argv){
             if (iter == maxHops){
                 //double resolution
             }
+            if (iter >1 && (oldInconsistency-inconsistency<-0.01)){
+                LOG<<"inconsistency increased("<<inconsistency<<" , stopping refinement."<<endl;
+                break;
+            }
+            LOG<<VAR(iter)<<" "<<VAR(error)<<" "<<VAR(inconsistency)<<" "<<VAR(TRE)<<" "<<VAR(dice)<<" "<<VAR(averageNCC)<<" "<<VAR(averageLNCC)<<" "<<VAR(minJac)<<" "<<VAR(stdJac)<<endl;
             if (iter >1 && oldInconsistency>0.0 && fabs(oldInconsistency-inconsistency)/oldInconsistency <=tolerance){
                 LOG<<"Convergence reached, stopping refinement."<<endl;
                 break;
             }
+          
+            
+
             oldInconsistency=inconsistency;
             
         }

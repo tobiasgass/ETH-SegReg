@@ -54,6 +54,8 @@
 #include "itkNormalizeImageFilter.h"
 #include <itkGrayscaleFillholeImageFilter.h>
 #include "itkSignedMaurerDistanceMapImageFilter.h"
+#include <itkMinimumMaximumImageCalculator.h>
+
 using namespace std;
 
 template<class InputImage, class OutputImage = InputImage>
@@ -1211,6 +1213,16 @@ public:
         filter->SetInput(img);
         filter->Update();
         return filter->GetMinimumOutput()->Get();
+
+    }
+    static InputImagePixelType getMin(InputImagePointer img,InputImageRegion region){
+        typedef typename itk::MinimumMaximumImageCalculator<InputImage> FilterType;
+        typename FilterType::Pointer  filter =FilterType::New();
+        filter->SetImage(img);
+        filter->SetRegion(region);
+        //filter->Update();
+        filter->ComputeMinimum();
+        return filter->GetMinimum();
 
     }
     static InputImagePixelType getMean(InputImagePointer img){

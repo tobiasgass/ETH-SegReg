@@ -51,8 +51,8 @@ void prepNCC(float* meanvar1,float* vol1,int r,int m,int n,int o){
     }
     
     
-    delete val1; delete temp1; delete temp2; delete mean1;
-    delete var1;
+    delete[] val1; delete[] temp1; delete[] temp2; delete[] mean1;
+    delete[] var1;
     
 }
 
@@ -253,9 +253,9 @@ void dataRegLCC(float* costvol,float* target,float* warped1,int hw,int sparse,in
     timeP=(time2.tv_sec+time2.tv_usec/1e6-(time1.tv_sec+time1.tv_usec/1e6));
 
 
-    delete targetS; delete warped1p;
-    delete meanvar1; delete meanvar2;
-    delete tempmem;
+    delete[] targetS; delete[] warped1p;
+    delete[] meanvar1; delete[] meanvar2;
+    delete[] tempmem;
 
     float numd=(float)len4*(float)sz1;
 
