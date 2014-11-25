@@ -24,6 +24,8 @@
 #include <itkDisplacementFieldJacobianDeterminantFilter.h>
 #include "SegmentationTools.hxx"
 #include "RegistrationMethods.h"
+#include "mat.h"
+
 template<class ImageType >
 //template<class ImageType, class MetricType=itk::NormalizedCorrelationImageToImageMetric<ImageType,ImageType> >
 //template<class ImageType, class MetricType=itk::MeanSquaresImageToImageMetric<ImageType,ImageType> >
@@ -543,7 +545,31 @@ public:
                 cForConsistency=c;
                 eqForConsistency=eq;
                 LOGV(2)<<"Passing variables to matlab"<<endl;
-#if 1
+#if 0
+
+                char tmpFile[10];
+                //gen_random(tmpFile,6);
+                tmpnam(tmpFile);
+                ostringstream filename;
+                filename<<tmpFile<<".mat";
+                LOGV(1)<<"writing tmp mat file to "<<filename.str()<<endl;
+                MATFile *tmpmat=matOpen(filename.str().c_str(), "w7.3");
+                matPutVariable(tmpmat,"xCord",mxX);
+                mxDestroyArray(mxX);
+                matPutVariable(tmpmat,"yCord",mxY);
+                mxDestroyArray(mxY);
+                matPutVariable(tmpmat,"val",mxV);
+                mxDestroyArray(mxV);
+                matPutVariable(tmpmat,"b",mxB);
+                matClose(tmpmat);
+                mxDestroyArray(mxB);
+                ostringstream loadString;
+                loadString<<"load "<<tmpFile;
+                engEvalString(this->m_ep,loadString.str().c_str());
+
+
+                
+#else
                 //put variables into workspace and immediately destroy them
                 engPutVariable(this->m_ep,"xCord",mxX);
                 mxDestroyArray(mxX);
@@ -604,6 +630,7 @@ public:
             computePairwiseEnergiesAndBounds( x,  y, v,  b, init, lb, ub, cPair,  eqPair,d);
             LOGV(1)<<VAR(eq)<<" "<<VAR(c)<<endl;
             //put variables into workspace and immediately destroy them
+
             engPutVariable(this->m_ep,"xCordPairs",mxPairsX);
             mxDestroyArray(mxPairsX);
             engPutVariable(this->m_ep,"yCordPairs",mxPairsY);
@@ -710,7 +737,7 @@ public:
                 //minFunc<<"tic;[x] =Lasso(A,b,"<<lambda<<"/"<<m_numDeformationsToEstimate<<",4,"<<ADMMiter<<","<<ADMMtol<<","<<gradIter<<",'"<<gradMethod<<"');t=toc;";
                 minFunc<<"tic;[x] =Lasso(A,b,lambda,4,"<<ADMMiter<<",0,"<<ADMMtol<<","<<gradIter<<",'"<<gradMethod<<"');t=toc;";
             } else if (opt=="l1general"){
-                string iter=p.size()>1?p[1]:"100";
+                string iter=p.size()>1?p[1]:"-1";
                 string optTol=p.size()>2?p[3]:"-1";
                 string progTol=p.size()>2?p[3]:"-1";
                 minFunc<<"tic;[x] =l1_solve(A,b,lambda,"<<iter<<","<<optTol<<","<<progTol<<",init);t=toc;";
@@ -723,18 +750,9 @@ public:
                 
             }
             else{
-                string iter="100";
-                string optTol="1e-6";
-                string progTol="1e-9";
-                if (p.size()>1){
-                    iter =p[1];
-                }
-                if (p.size()>2){
-                    optTol =p[2];
-                }
-                if (p.size()>3){
-                    progTol =p[3];
-                }
+                string iter=p.size()>1?p[1]:"-1";
+                string optTol=p.size()>2?p[3]:"-1";
+                string progTol=p.size()>2?p[3]:"-1";
                 minFunc<<"tic;[x fval flag output] =grad_solveTol(A,b,0,"<<iter<<","<<optTol<<","<<progTol<<",'"<<opt<<"',init);t=toc;";
     
 
@@ -1288,7 +1306,7 @@ protected:
                                                                                                                                                                                          ,this->m_ROI,false)
                                                                                                                                ,d);
                                     }else{
-                                        gradSourceIntermed=TransfUtils<ImageType,float,double,double>::computeDirectedGradient(dSourceIntermediate,d);
+                                        gradSourceIntermed=TransfUtils<ImageType,float,double,double>::computeDirectedGradient((m_previousDeformationCache)[sourceID][intermediateID],d);
                                     }
                                     gradientInterpol= FilterUtils<FloatImageType>::LinearInterpolatorType::New();
                                     gradientInterpol->SetInputImage(gradSourceIntermed);
@@ -1388,7 +1406,7 @@ protected:
                                                     if (estIntermediateTarget){
                                                         double taylorWeight=0.0;
                                                         if (m_useTaylor){
-                                                            taylorWeight=-gradientInterpol->Evaluate(ptIntermediate);
+                                                            taylorWeight=gradientInterpol->Evaluate(ptIntermediate);
                                                             RHS+=taylorWeight*dIntermediateTarget->GetPixel(gridIndex)[d];
                                                             //val*=1.0/(1.0+100*taylorWeight*taylorWeight);
                                                             //LOGV(3)<<VAR(taylorWeight)<<" "<<VAR(val)<<endl;
@@ -1580,7 +1598,7 @@ protected:
                             double weight=1.0;
                             if (lncc.IsNotNull()){
                                 //weight = max(0.00001,lnccIt.Get());
-                                weight = lnccIt.Get();
+                                weight = lnccIt.Get()/(2*m_averageLNCC);
                                 //weight= weight>0.95?1000:weight;
                                 double err=0;
                                 if (trueDef.IsNotNull()){
@@ -1772,7 +1790,8 @@ protected:
                             if (m_estDef){
                                 lb[edgeNumDef-1]=localDef[d] -dblSpacing;
                                 ub[edgeNumDef-1]=localDef[d] +dblSpacing;
-                                init[edgeNumDef-1] =  localDef[d];
+                                //init[edgeNumDef-1] =  localDef[d];
+                                init[edgeNumDef-1] = fRand(-10,10);//0.5*localDef[d],1.5*localDef[d]);
                             }
                             if (m_estError){
                                 int edgeNumErr=edgeNumError(source,target,idx,d);

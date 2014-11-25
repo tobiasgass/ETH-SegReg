@@ -424,7 +424,7 @@ int main(int argc, char ** argv){
             if (iter == maxHops){
                 //double resolution
             }
-            if (iter >1 && (tolerance*(oldInconsistency-inconsistency)<-0.0001)){
+            if (iter >1 && (tolerance*(oldInconsistency-inconsistency)<-0.1)){
                 LOG<<"inconsistency increased("<<inconsistency<<" , stopping refinement."<<endl;
                 break;
             }

@@ -92,24 +92,25 @@ INCLUDE_DIRECTORIES(
     ../External/RF
     ../External/c-ugmix
     ../Common
-    /home/gasst/work/src/statismoREADONLY/build/include/statismo_ITK
-    /home/gasst/work/src/statismoREADONLY/build/include/Representers/ITK/
-    ${STATISMO_INCLUDE_DIR} ${STATISMO_INCLUDE_DIR}/statismo_ITK  ${STATISMO_INCLUDE_DIR}/3rdParty  ${STATISMO_INCLUDE_DIR}  
-    ${STATISMO_INCLUDE_DIR}/Representers/ITK
- )
+)
+#    /home/gasst/work/src/statismoREADONLY/build/include/statismo_ITK
+#    /home/gasst/work/src/statismoREADONLY/build/include/Representers/ITK/
+#    ${STATISMO_INCLUDE_DIR} ${STATISMO_INCLUDE_DIR}/statismo_ITK  ${STATISMO_INCLUDE_DIR}/3rdParty  ${STATISMO_INCLUDE_DIR}  
+#    ${STATISMO_INCLUDE_DIR}/Representers/ITK
+# )
 
 ADD_EXECUTABLE(RegProp2D RegistrationPropagation-2D.cxx )
-TARGET_LINK_LIBRARIES(RegProp2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${STATISMO_LIBRARIES} )
+TARGET_LINK_LIBRARIES(RegProp2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} )#${STATISMO_LIBRARIES} )
 ADD_EXECUTABLE(RegProp3D RegistrationPropagation-3D.cxx )
-TARGET_LINK_LIBRARIES(RegProp3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  ${STATISMO_LIBRARIES} )
+TARGET_LINK_LIBRARIES(RegProp3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} )# ${STATISMO_LIBRARIES} )
 
 ADD_EXECUTABLE(RegFuse2D RegistrationFusion2D.cxx )
-TARGET_LINK_LIBRARIES(RegFuse2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${STATISMO_LIBRARIES} )
+TARGET_LINK_LIBRARIES(RegFuse2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES})# ${STATISMO_LIBRARIES} )
 ADD_EXECUTABLE(RegFuse3D RegistrationFusion3D.cxx )
-TARGET_LINK_LIBRARIES(RegFuse3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${STATISMO_LIBRARIES} )
+TARGET_LINK_LIBRARIES(RegFuse3D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} )#${STATISMO_LIBRARIES} )
 
 ADD_EXECUTABLE(RandomFusionReg2D RandomFusionReg2D.cxx )
-TARGET_LINK_LIBRARIES(RandomFusionReg2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${STATISMO_LIBRARIES} )
+TARGET_LINK_LIBRARIES(RandomFusionReg2D   Utils  SRSMRFModels  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES})# ${STATISMO_LIBRARIES} )
 
 
 
@@ -122,9 +123,9 @@ ADD_EXECUTABLE(AquircLocalErrors2D AquircLocalError2D.cxx )
 TARGET_LINK_LIBRARIES(AquircLocalErrors2D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )
 
 ADD_EXECUTABLE(CLERC2D CLERC2D.cxx )
-TARGET_LINK_LIBRARIES(CLERC2D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )
+TARGET_LINK_LIBRARIES(CLERC2D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  ${MATLAB_MAT_LIBRARY} )
 ADD_EXECUTABLE(CLERC3D CLERC3D.cxx )
-TARGET_LINK_LIBRARIES(CLERC3D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )
+TARGET_LINK_LIBRARIES(CLERC3D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  ${MATLAB_MAT_LIBRARY})
 
 ADD_EXECUTABLE(CBRR2D CBRR2D.cxx )
 TARGET_LINK_LIBRARIES(CBRR2D Utils    xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES} ${MATLAB_ENG_LIBRARY} ${MATLAB_MX_LIBRARY}  )
