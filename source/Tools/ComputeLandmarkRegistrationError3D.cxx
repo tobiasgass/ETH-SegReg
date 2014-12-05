@@ -10,7 +10,9 @@
 
 #include <itkInverseDisplacementFieldImageFilter.h>
 #include "itkVectorLinearInterpolateImageFunction.h"
-
+#include "itkThinPlateSplineKernelTransform.h"
+// Software Guide : EndCodeSnippet
+#include "itkPointSet.h"
 using namespace std;
 using namespace itk;
 
@@ -33,14 +35,25 @@ int main(int argc, char ** argv)
     typedef Image<LabelType,D> LabelImageType;
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
+    typedef   double                                           CoordinateRepType;
+    typedef   itk::ThinPlateSplineKernelTransform< CoordinateRepType,
+                                                   D>                                      TransformType;
+    typedef   itk::Point< CoordinateRepType,
+                          D >           PointType;
+    typedef   TransformType::PointSetType                      PointSetType;
+    typedef   PointSetType::PointIdentifier                    PointIdType;
+    
+
+
     argstream * as=new argstream(argc,argv);
-    string refLandmarks,targetLandmarks,target="",def,output;
+    string refLandmarks,targetLandmarks,target="",def="",output="";
     bool linear=false;
     bool snap=false;
 
     (*as) >> parameter ("refLandmarks", refLandmarks, " filename...", true);
     (*as) >> parameter ("targetLandmarks", targetLandmarks, " filename...", true);
-    (*as) >> parameter ("def", def, " filename of deformation", true);
+    (*as) >> parameter ("def", def, " filename of deformation", false);
+    (*as) >> parameter ("output", output, " TPS interpolation of registration error", false);
     (*as) >> parameter ("target", target, " filename of target image", true);
     (*as) >> option ("linear", linear, " use linear upsampling of deformation");
     (*as) >> option ("snap", snap, " snap deformed landmarks to voxel");
@@ -48,12 +61,15 @@ int main(int argc, char ** argv)
     (*as) >> help();
     as->defaultErrorHandling();
     
-    LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
-    ImageConstPointerType targetImage;
+    LabelImagePointerType deformation;
+    if (def!=""){
+        deformation= ImageUtils<LabelImageType>::readImage(def);
+    }
+    ImagePointerType targetImage;
     if (target!=""){
-        targetImage=(ImageConstPointerType) ImageUtils<ImageType>::readImage(target);
+        targetImage= ImageUtils<ImageType>::readImage(target);
         
-        if (deformation->GetLargestPossibleRegion().GetSize() != targetImage->GetLargestPossibleRegion().GetSize()){
+        if (deformation.IsNotNull() && deformation->GetLargestPossibleRegion().GetSize() != targetImage->GetLargestPossibleRegion().GetSize()){
             if (linear){
                 deformation=TransfUtils<ImageType>::linearInterpolateDeformationField(deformation,targetImage);
             }else{
@@ -61,9 +77,21 @@ int main(int argc, char ** argv)
             }
         }
     }
+    if (deformation.IsNull()){
+        LOG<<"creating zero deformation"<<endl;
+        deformation=TransfUtils<ImageType>::createEmpty(targetImage);
+        LabelType zd;zd.Fill(0);deformation->FillBuffer(zd);
+    }
+    PointSetType::Pointer sourceLandMarks = PointSetType::New();
+    PointSetType::Pointer targetLandMarks = PointSetType::New();
+    PointType p1;     PointType p2;
+    PointSetType::PointsContainer::Pointer sourceLandMarkContainer =
+        sourceLandMarks->GetPoints();
+    PointSetType::PointsContainer::Pointer targetLandMarkContainer =
+        targetLandMarks->GetPoints();
+    // Software Guide : EndCodeSnippet
+    PointIdType id = itk::NumericTraits< PointIdType >::ZeroValue();
     
-
-
     DirectionType targetDir=deformation->GetDirection();
     typedef itk::VectorLinearInterpolateImageFunction<LabelImageType> DefInterpolatorType;
     DefInterpolatorType::Pointer defInterpol=DefInterpolatorType::New();
@@ -89,6 +117,8 @@ int main(int argc, char ** argv)
         }
         //LOG<<point<<endl;
         landmarksReference.push_back(point);
+        sourceLandMarkContainer->InsertElement( id++, point );
+
        
     } 
     //std::cout<<"read "<<landmarksReference.size()<<" landmarks"<<std::endl;
@@ -96,17 +126,21 @@ int main(int argc, char ** argv)
     ifstream ifs2(targetLandmarks.c_str());
     i=0;
     int count = 0;
+    id = itk::NumericTraits< PointIdType >::ZeroValue();
+
     for (;i<landmarksReference.size()-1;++i){
         PointType pointTarget;
         for (int d=0;d<D;++d){
             ifs2>>pointTarget[d];
             pointTarget[d]=pointTarget[d]*targetDir[d][d];
+
         }        
+        PointType deformedReferencePoint;
         IndexType indexTarget,indexReference;
         deformation->TransformPhysicalPointToIndex(pointTarget,indexTarget);
         //LOG<<VAR(deformation->GetOrigin())<<endl;
         //LOG<<VAR(pointTarget)<<" "<<VAR(indexTarget)<<endl;
-        PointType deformedReferencePoint;
+        
         targetImage->TransformPhysicalPointToIndex(landmarksReference[i],indexReference);
         
         //std::cout<<VAR(targetPoint)<<endl;
@@ -116,30 +150,95 @@ int main(int argc, char ** argv)
         //LOG<<VAR(landmarksReference[i])<<" "<<VAR(indexReference)<<" "<<VAR(cindex)<<endl;
         if (deformation->GetLargestPossibleRegion().IsInside(cindex)){
             deformedReferencePoint= pointTarget+defInterpol->EvaluateAtContinuousIndex(cindex);
+                
             if (snap){
                 targetImage->TransformPhysicalPointToIndex(deformedReferencePoint,indexReference);
                 targetImage->TransformIndexToPhysicalPoint(indexReference,deformedReferencePoint);
-
+                    
             }
             //LOG<< VAR(pointTarget) << endl;
-            double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
-            for (int d=0;d<D;++d){
-                deformedReferencePoint[d]=deformedReferencePoint[d]*targetDir[d][d];
-            }    
-            //LOG<< VAR(deformedReferencePoint) << endl;
-
-            std::cout<<"pt"<<i<<": "<<(localSquaredError)<<" ";
-            sumSquareError+=localSquaredError;
-            ++count;
         }
+        
+        double localSquaredError=(deformedReferencePoint - landmarksReference[i]).GetNorm();
+        targetLandMarkContainer->InsertElement( id++, deformedReferencePoint );
+        
+        for (int d=0;d<D;++d){
+            deformedReferencePoint[d]=deformedReferencePoint[d]*targetDir[d][d];
+        }    
+        //LOG<< VAR(deformedReferencePoint) << endl;
+        
+        std::cout<<"pt"<<i<<": "<<(localSquaredError)<<" ";
+        sumSquareError+=localSquaredError;
+        ++count;
     }
     
+    
     std::cout<<" "<<"totalAverage: "<<(sumSquareError)/(count)<<std::endl;
-   
-    if (argc>6){
-        // ImageUtils<ImageType>::writeImage(argv[5],  (ImageConstPointerType) deformedReferenceLandmarkImage );
-        //ImageUtils<ImageType>::writeImage(argv[6],  (ImageConstPointerType) targetLandmarkImage );
+    if (output!=""){
+
+        TransformType::Pointer tps = TransformType::New();
+        LOG<<VAR(tps->GetStiffness())<<endl;
+        //fix image borders
+        IndexType border1;
+        PointType point;
+        for (int d=0;d<D;++d){
+            ImageType::SizeType size=deformation->GetLargestPossibleRegion().GetSize();
+            for (int s=0;s<size[d];s+=5){
+                border1.Fill(0);
+                border1[d]=s;
+                //main axis
+                deformation->TransformIndexToPhysicalPoint(border1,point);
+                sourceLandMarkContainer->InsertElement( id, point );
+                targetLandMarkContainer->InsertElement( id++, point );
+                //xy +xz
+                for (int d2=0;d2<D;++d2){
+                    if (d2!=d){
+                        border1.Fill(0);
+                        border1[d]=s;
+                        border1[d2]=size[d2]-1;
+                        deformation->TransformIndexToPhysicalPoint(border1,point);
+                        sourceLandMarkContainer->InsertElement( id, point );
+                        targetLandMarkContainer->InsertElement( id++, point );
+                    }
+                }
+                //xyz
+                border1.Fill(0);
+                border1[d]=s;
+                for (int d2=0;d2<D;++d2){
+                    if (d2!=d){
+                        border1[d2]=size[d2]-1;
+                    }
+                }
+                deformation->TransformIndexToPhysicalPoint(border1,point);
+                sourceLandMarkContainer->InsertElement( id, point );
+                targetLandMarkContainer->InsertElement( id++, point );
+                
+            }
+        }
+        tps->SetSourceLandmarks(sourceLandMarks);
+        tps->SetTargetLandmarks(targetLandMarks);
+        tps->ComputeWMatrix();
+        LabelImagePointerType interpError = ImageUtils<LabelImageType>::duplicate(deformation);
+        
+        typedef  itk::ImageRegionIterator<LabelImageType> DefIterator;
+        DefIterator defIt(interpError,interpError->GetLargestPossibleRegion());
+        defIt.GoToBegin();
+        IndexType index;
+        PointType p1,p2;
+        for (;!defIt.IsAtEnd();++defIt){
+            index=defIt.GetIndex();
+            interpError->TransformIndexToPhysicalPoint(index,p1);
+            p2=tps->TransformPoint(p1);
+            defIt.Set(p2-p1);
+
+
+
+        }
+        ImageUtils<LabelImageType>::writeImage(output,interpError);
+
+
     }
+    
 
 	return 1;
 }

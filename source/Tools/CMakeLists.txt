@@ -135,7 +135,8 @@ TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationErrorTwoDef3D Utils   ${ITK_LIB
 
 ADD_EXECUTABLE(ComputeDeformationError2D ComputeDeformationError2D.cxx )
 TARGET_LINK_LIBRARIES(ComputeDeformationError2D Utils   ${ITK_LIBRARIES}  )
-
+ADD_EXECUTABLE(CorrelateDeformationErrorMagnitude2D CorrelateDeformationErrorMagnitude2D.cxx )
+TARGET_LINK_LIBRARIES(CorrelateDeformationErrorMagnitude2D Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ComputeDeformationImprovement2D ComputeDeformationImprovement2D.cxx )
 TARGET_LINK_LIBRARIES(ComputeDeformationImprovement2D Utils   ${ITK_LIBRARIES}  )
 
@@ -144,6 +145,9 @@ TARGET_LINK_LIBRARIES(ComputeDeformationErrorGroup2D Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(ComputeDeformationErrorGroup3D ComputeDeformationErrorGroup3D.cxx )
 TARGET_LINK_LIBRARIES(ComputeDeformationErrorGroup3D Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(ComputeRegistrationErrorTriplet3D ComputeRegistrationErrorTriplet3D.cxx )
+TARGET_LINK_LIBRARIES(ComputeRegistrationErrorTriplet3D Utils   ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SubtractDeformations3D SubtractDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(SubtractDeformations3D Utils   ${ITK_LIBRARIES}  )

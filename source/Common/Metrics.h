@@ -567,6 +567,7 @@ public:
 #ifdef SAFE    
             r = max(r,std::numeric_limits<InternalPrecision>::epsilon());
 #endif
+            //LOGV(7)<<"LNCC-local: "<<r<<endl;
             resultIt.Set(r);
 
         }
@@ -923,7 +924,7 @@ public:
         nccMetric->SetInterpolator(interpolator);
         typename itk::IdentityTransform< double, D >::Pointer iTrans= itk::IdentityTransform< double, D >::New();
         nccMetric->SetTransform(iTrans);
-        nccMetric->SetSubtractMean(true);
+        //nccMetric->SetSubtractMean(true);
 
 
         for (resultIt.Begin();!resultIt.IsAtEnd();++resultIt){
@@ -1381,8 +1382,8 @@ public:
         typename ImageUtils<InternalImage>::ImageIteratorType resultIt(result,result->GetLargestPossibleRegion());
         for (resultIt.GoToBegin(); !resultIt.IsAtEnd(); ++resultIt){
             InternalPrecision d = resultIt.Get();
-            //resultIt.Set(InternalPrecision(1.0)-pow(min(d,InternalPrecision(1.0)),InternalPrecision(sigmaNorm)));
-            resultIt.Set(-d);
+            resultIt.Set(InternalPrecision(1.0)-pow(min(d,InternalPrecision(1.0)),InternalPrecision(sigmaNorm)));
+            //resultIt.Set(-d);
             //resultIt.Set(pow(exp(-0.5 * fabs(d)  / mean ),sigmaNorm ));
         }
         return FilterUtils<InternalImage,OutputImage>::cast(result);

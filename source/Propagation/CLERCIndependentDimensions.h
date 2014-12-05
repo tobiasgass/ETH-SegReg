@@ -1598,7 +1598,8 @@ protected:
                             double weight=1.0;
                             if (lncc.IsNotNull()){
                                 //weight = max(0.00001,lnccIt.Get());
-                                weight = lnccIt.Get()/(2*m_averageLNCC);
+                                //weight = lnccIt.Get()/(2*m_averageLNCC);
+                                weight = lnccIt.Get();
                                 //weight= weight>0.95?1000:weight;
                                 double err=0;
                                 if (trueDef.IsNotNull()){
@@ -1957,6 +1958,8 @@ public:
         int count=0, treCount=0;
         bool firstRun=false;
         bool computeDownsampledMetrics=m_lowResSimilarity;
+        m_maxSim=-1;
+        m_minSim=100000;
         for (int target=0;target<m_numImages;++target){
             for (int source=0;source<m_numImages;++source){
                 if (source!=target){
@@ -2318,6 +2321,7 @@ public:
             m_averageJacSTD/=count;
             m_averageLNCC/=count;
             //LOG<<VAR(m_averageMinJac)<<" "<<VAR(minMinJac)<<" "<<VAR(m_averageNCC)<<endl;
+            LOGV(3)<<VAR(m_ADE)<<" "<<VAR(m_averageLNCC)<<" "<<VAR(m_minSim)<<" "<<VAR(m_maxSim)<<endl;
             m_Inconsistency=TransfUtils<ImageType>::computeInconsistency(&m_previousDeformationCache,&m_imageIDList, &m_trueDeformations,m_maskList);
         
         }//DoALot
@@ -2669,6 +2673,8 @@ public:
                                 localWeightImage->FillBuffer(1.0);
                             }else if (m_metric == "itklncc"){
                                 localWeightImage= Metrics<ImageType,FloatImageType,float>::ITKLNCC(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
+                            }else if (m_metric == "itklmi"){
+                                localWeightImage= Metrics<ImageType,FloatImageType,float>::ITKLMI(warpedImage,targetImage,m_sigma,m_exponent, this->m_ROI);
                             }else if (m_metric == "lnccAbs"){
                                 localWeightImage= Metrics<ImageType,FloatImageType>::efficientLNCCNewNorm(warpedImage,targetImage,m_sigma,m_exponent);
                             }else if (m_metric == "lnccAbsMultiscale"){
