@@ -87,6 +87,7 @@ protected:
     std::vector< map< string, int > >m_offsets;
     std::vector< map<string , map<string,FloatImagePointerType> > > m_pairwiseMetricDerivatives;
     map< string, map <string,int> > m_tripletCounts;
+    std::vector<std::vector<int> > m_edgeNums;
 private:
     bool m_smoothDeformationDownsampling;
     int m_nPixels;// number of pixels/voxels
@@ -270,6 +271,8 @@ public:
 
     virtual void Initialize(){
         m_numImages=m_imageIDList.size();
+        m_edgeNums=std::vector<std::vector<int> >(m_numImages,std::vector<int>(m_numImages,0));
+        int continuousPairNumber=0;
         m_numDeformationsToEstimate=0;
         m_nCircles=0;
         //calculate number of deformations and number of deformation circles
@@ -313,6 +316,10 @@ public:
                             skip=true;
                     }
                     m_numDeformationsToEstimate+=estSourceTarget;
+                    if (estSourceTarget){
+                        m_edgeNums[s][t]=continuousPairNumber;
+                        ++continuousPairNumber;
+                    }
 
                     for (int i=0;i<m_numImages;++i){ 
                         if (t!=i && i!=s){
@@ -346,7 +353,9 @@ public:
                                 else
                                     skip = true;
                             }
-                            
+                            //never skip circles with all deformations to be estimted ( how can that even happen?)
+                            skip=skip && !(estIntermediateTarget && estSourceTarget && estSourceIntermediate);
+                            LOGV(4)<<VAR(sourceID)<<" "<<VAR(intermediateID)<<" "<<VAR(targetID)<<" "<<VAR(skip)<<" "<<VAR(estIntermediateTarget)<<" "<<VAR(estSourceTarget)<<" "<<VAR(estSourceIntermediate)<<endl;
                             //check if any of the deformations of the loop should be estimated
                             if (! skip && (estIntermediateTarget || estSourceTarget || estSourceIntermediate)){
                                 ++m_nCircles;
@@ -452,7 +461,7 @@ public:
         m_nEqTransformationSimilarity =  (m_wTransformationSimilarity>0.0)*m_nPixels * internalD * m_numDeformationsToEstimate;//m_numImages*(m_numImages-1); //same as ErrorNorm
         m_nVarTransformationSimilarity=m_nPixels!=m_nGridPoints?interpolationFactor:1;
       
-        m_nEqErrorNorm = (m_wErrorNorm>0.0)*  m_nGridPoints * internalD * m_numImages*(m_numImages-1); //every error at every location in each image pair
+        m_nEqErrorNorm = (m_wErrorNorm>0.0)*  m_nGridPoints * internalD *m_numDeformationsToEstimate; //every error at every location in each image pair
         m_nVarErrorNorm = 1;
 
         int m_nEqSUM=(m_wSum>0.0)*m_nGridPoints * internalD * m_numImages*(m_numImages-1);
@@ -469,7 +478,7 @@ public:
         
         m_estError= m_nEqSUM || m_nEqErrorNorm ;
         m_estDef =  m_nEqTransformationSimilarity ||  m_nEqDeformationSmootheness || m_nEqSUM;
-        m_nVars= m_numImages*(m_numImages-1)*m_nGridPoints*internalD *(m_estError + m_estDef); // total number of free variables (error and deformation)
+        m_nVars= m_numDeformationsToEstimate*m_nGridPoints*internalD *(m_estError + m_estDef); // total number of free variables (error and deformation)
 
         long int m_nNonZeroesTripls=m_nEqCircleNorm * m_nVarCircleNorm; //maximum number of non-zeros        
         m_nNonZeroes=m_nEqCircleNorm * m_nVarCircleNorm + m_nEqDeformationSmootheness*m_nVarDeformationSmootheness + m_nEqTransformationSimilarity*m_nVarTransformationSimilarity + m_nEqSUM*m_nVarSUM +  m_nEqErrorNorm ; //maximum number of non-zeros
@@ -975,7 +984,11 @@ public:
 
 protected:
     //return fortlaufende number of pairs n1,n2, 0..(n*(n-1)-1)
-    inline long int edgeNum(int n1,int n2){ return ((n1)*(m_numImages-1) + n2 - (n2>n1));}
+    inline long int edgeNum(int n1,int n2){ 
+        //return ((n1)*(m_numImages-1) + n2 - (n2>n1));
+        return m_edgeNums[n1][n2];
+        
+    }
  
 
     inline long int edgeNumDeformation(int n1,int n2,IndexType idx, int d){ 
@@ -1003,7 +1016,7 @@ protected:
         //return offset*internalD+edgeNum(n1,n2)*m_nGridPoints*internalD + 1 ;
         double result= internalD*edgeNumber*m_nGridPoints+offset + 1 ;
         if (result > m_nVars){
-            LOG<<VAR(result)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(idx)<<endl;
+            LOG<<VAR(result)<<" "<<VAR(n1)<<" "<<VAR(n2)<<" "<<VAR(edgeNumber)<<" "<<VAR(idx)<<endl;
         }
         return result;
     }
@@ -1209,6 +1222,8 @@ protected:
         //0=min,1=mean,2=max,3=median,-1=off,4=gauss;
         int accumulate=4;
         double manualResidual=0.0;
+        int tripletCount=0;
+
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
             string sourceID=(m_imageIDList)[source];
@@ -1273,8 +1288,12 @@ protected:
 
                             //skip also if none of the registrations in the circle are to be re-estimated
                             skip= skip || (!(estIntermediateTarget || estSourceTarget || estSourceIntermediate));
+                            //don't skip if they're all to be estimated oO
+                            skip=skip && !(estIntermediateTarget && estSourceTarget && estSourceIntermediate);
+
                             LOGV(4)<<VAR(skip)<<" "<<VAR(estIntermediateTarget)<<" "<<VAR(estSourceTarget)<<" "<<VAR(estSourceIntermediate)<<" "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
                             if ( ! skip ){
+                                ++tripletCount;
                                 --m_tripletCounts[intermediateID][targetID];
                                 --m_tripletCounts[sourceID][targetID];
                                 --m_tripletCounts[sourceID][intermediateID];
@@ -1526,6 +1545,7 @@ protected:
             }//target
         }//source
         LOGV(1)<<VAR(manualResidual)<<endl;
+        LOGV(2)<<VAR(tripletCount)<<endl;
     }//compute triplets
 
     void computePairwiseEnergiesAndBounds(double * x, 
@@ -1540,7 +1560,6 @@ protected:
                                           unsigned int  d)
     {
         double dblSpacing=this->m_grid->GetSpacing()[d];
-        
         for (int s = 0;s<m_numImages;++s){                            
             int source=s;
             for (int t=0;t<m_numImages;++t){
