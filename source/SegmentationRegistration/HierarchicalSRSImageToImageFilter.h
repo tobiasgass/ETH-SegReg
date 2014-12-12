@@ -21,6 +21,7 @@
 #include "BaseLabel.h"
 #include "MRF-TRW-S.h"
 #include "MRF-GCO.h"
+#include "MRF-opengm.h"
 #include "MRF-GC.h"
 //#include "MRF-FAST-PD.h"
 #include <boost/lexical_cast.hpp>
@@ -594,7 +595,7 @@ namespace itk{
                     //#define TRUNC
                     LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
                     logUpdateStage(":Optimization");
-                    if (m_config->nSegmentations == 2 && segment && !coherence && !regist){
+                    if (false && m_config->nSegmentations == 2 && segment && !coherence && !regist){
                         typedef  GC_MRFSolverSeg<GraphModelType> SolverType;
                         SolverType  *mrfSolverGC= new SolverType(graph, m_config->unarySegmentationWeight,
                                                                  m_config->pairwiseSegmentationWeight,m_config->verbose);
@@ -627,6 +628,17 @@ namespace itk{
                                                           m_config->pairwiseSegmentationWeight,//*(segmentationScalingFactor),
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
+                        }else if (m_config->OPENGM){
+                            typedef OPENGM_SRSMRFSolver<GraphModelType> MRFSolverType;
+                            mrfSolver = new MRFSolverType(graph,
+                                                          m_config->unaryRegistrationWeight,
+                                                          m_config->pairwiseRegistrationWeight, 
+                                                          m_config->unarySegmentationWeight,
+                                                          m_config->pairwiseSegmentationWeight,//*(segmentationScalingFactor),
+                                                          m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
+                                                          m_config->verbose);
+
+
                         }
 
                         mrfSolver->setPotentialCaching(m_config->cachePotentials);

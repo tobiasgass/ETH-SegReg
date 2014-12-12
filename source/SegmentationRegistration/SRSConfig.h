@@ -51,7 +51,7 @@ public:
     bool log_UnaryReg,log_PairwiseReg;
     double displacementScaling;
     bool evalContinuously;
-    bool TRW,GCO;
+    bool TRW,GCO,OPENGM;
     bool fullRegPairwise;
     double coherenceMultiplier;
     bool dontNormalizeRegUnaries;
@@ -72,6 +72,7 @@ public:
     std::vector<int> nRegSamples;
     std::vector<double> resamplingFactors;
     int nSegmentationLevels;
+    string solver;
 private:
 	argstream * as;
 public:
@@ -125,7 +126,7 @@ public:
         displacementScaling=1.0;
         evalContinuously=false;
         logFileName="";
-        TRW=true;
+        TRW=false;
         GCO=false;
         fullRegPairwise=false;
         coherenceMultiplier=1.0;
@@ -146,6 +147,7 @@ public:
         linearDeformationInterpolation=false;
         histNorm=false;
         nSegmentationLevels=1;
+        solver="GCO";
 	}
     ~SRSConfig(){
 		//delete as;
@@ -319,7 +321,8 @@ public:
         (*as) >> option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");
 
         (*as) >> option ("evalContinuously",evalContinuously ,"evaluate optimization at each step. slower, but also returns actual energy and changes in labellings during each iteration.");
-        (*as) >> option ("GCO",GCO ,"Use (alpha expansion) graph cuts instead of TRW-S for optimization.");
+        //(*as) >> option ("GCO",GCO ,"Use (alpha expansion) graph cuts instead of TRW-S for optimization.");
+        (*as) >> parameter ("solver",solver ,"choose solver for optimization (TRWS,GCO,OPENGM).",false);
         (*as) >> option ("linearDeformationInterpolation",linearDeformationInterpolation ,"Use linear interpolation for deformation field upsampling.");
         (*as) >> option ("histNorm",histNorm ,"Use histogram normalization to adapt the atlas intensity distribution to the target.");
          
@@ -380,10 +383,19 @@ public:
         resamplingFactors.push_back(0.15);        
         resamplingFactors.push_back(0.15);
         if (imageLevels<0)imageLevels=nLevels;
-        TRW=!GCO;
+      
         coherence= (pairwiseCoherenceWeight>0);
         segment=pairwiseSegmentationWeight>0 ||  unarySegmentationWeight>0 || coherence;
         regist= pairwiseRegistrationWeight>0||  unaryRegistrationWeight>0|| coherence;
+
+        if (solver == "GCO"){
+            GCO=true;
+        }else if (solver == "TRWS"){
+            TRW=true;
+        }else if (solver == "OPENGM"){
+            OPENGM=true;
+        }
+
 	}
 };
 #endif /* CONFIG_H_ */

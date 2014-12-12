@@ -4,6 +4,11 @@ INCLUDE_REGULAR_EXPRESSION("^.*$")
 
 find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
+
+#find_package(opengm2 REQUIRED)
+#include(${opengm2_use_file})
+
+
 find_package(STATISMO REQUIRED)
 OPTION(TCMALLOC "Use tcmalloc" OFF)
 set (STATISMO_INCLUDE_DIR ${STATISMO_DIR}/include)
