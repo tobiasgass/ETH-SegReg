@@ -8,12 +8,14 @@
 #include <limits.h>
 #include <time.h>
 #include <omp.h>
+#include <map>
 #include <opengm/graphicalmodel/graphicalmodel.hxx>
 #include <opengm/graphicalmodel/space/discretespace.hxx>
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/minimizer.hxx>
 #include <opengm/inference/graphcut.hxx>
 #include <opengm/functions/explicit_function.hxx>
+#include <opengm/functions/sparsemarray.hxx>
 #include <opengm/inference/alphaexpansion.hxx>
 //#include <opengm/inference/auxiliary/minstcutkolmogorov.hxx>
 #include <opengm/inference/auxiliary/minstcutboost.hxx>
@@ -36,10 +38,12 @@ public:
     static const int D = GraphModelType::ImageType::ImageDimension;
 
     typedef typename   opengm::DiscreteSpace<size_t, size_t> OpenGMLabelSpace;
-    typedef typename opengm::ExplicitFunction<EnergyType, size_t, size_t> OpenGMExplicitFunction;
+    typedef typename opengm::ExplicitFunction<EnergyType, size_t, size_t> FunctionType;
+    //typedef typename opengm::SparseFunction<EnergyType, size_t, size_t> FunctionType;
+    //typedef typename opengm::SparseMarray< std::map<size_t,EnergyType> > FunctionType;
     typedef typename opengm::GraphicalModel<EnergyType, 
                                             typename opengm::Adder,
-                                            OpenGMExplicitFunction,
+                                            FunctionType,
                                             OpenGMLabelSpace
                                             > GraphicalModelType;
     typedef typename opengm::MinSTCutBoost<size_t, EnergyType,opengm::KOLMOGOROV> MinStCutType;
@@ -157,26 +161,35 @@ public:
         m_gm=new GraphicalModelType;
         OpenGMLabelSpace space; 
         typedef typename  GraphicalModelType::FunctionIdentifier FunctionIdentifier;
-
+        std::vector<unsigned char> nLabels(GLOBALnRegNodes+GLOBALnSegNodes);
         if (m_register){
             //add registration variables
             for (int d=0;d<nRegNodes;++d){
-                space.addVariable(nRegLabels);
+                //space.addVariable(nRegLabels);
+                nLabels[d]=nRegLabels;
             }
         }
         if (m_segment){
             //add segmentation variables
             for (int d=0;d<nSegNodes;++d){
-                space.addVariable(nSegLabels);
+                //space.addVariable(nSegLabels);
+                nLabels[d+GLOBALnRegNodes]=nSegLabels;
             }
         }
+        space=OpenGMLabelSpace(nLabels.begin(),nLabels.end());
         m_gm=new GraphicalModelType(space);
-
-
+#if 0
+//,nSegLabels+nSegLabels*nSegLabels*pow(2,D-1));
+        m_gm->reserveFactors(nSegNodes*(1+pow(2,D-1)));
+        m_gm->reserveFunctions<FunctionType>(nSegNodes*(1+pow(2,D-1)));
+        m_gm->reserveFactorsVarialbeIndices((nSegNodes*nSegLabels+nSegNodes*nSegLabels*nSegLabels*pow(2,D-1)));
+#endif
+        float functionDefaultValue=0.0;
+        
         if (m_register){
             //add factors
             const size_t shape[] = {nRegLabels};
-            std::vector<  typename opengm::ExplicitFunction<float> > f(nRegNodes,typename opengm::ExplicitFunction<float>(shape, shape + 1));
+            std::vector<  FunctionType > f(nRegNodes, FunctionType(shape, shape + 1));
   
             for (int l1=0;l1<nRegLabels;++l1){
                 this->m_GraphModel->cacheRegistrationPotentials(l1);
@@ -187,12 +200,12 @@ public:
             }
             for (int d=0;d<nRegNodes;++d){
                  FunctionIdentifier fid=m_gm->addFunction(f[d]);
-                size_t vi[]={d};
-                m_gm->addFactor(fid,vi,vi+1);
-                //pairwise factors
-                {
-                    const size_t shape[] = {nRegLabels,nRegLabels};
-                    typename opengm::ExplicitFunction<float> f(shape, shape + 2);
+                 size_t vi[]={d};
+                 m_gm->addFactor(fid,vi,vi+1);
+                 //pairwise factors
+                 {
+                     const size_t shape[] = {nRegLabels,nRegLabels};
+                     FunctionType f(shape, shape + 2,functionDefaultValue);
                     std::vector<int> neighbours= this->m_GraphModel->getForwardRegistrationNeighbours(d);
                     int nNeighbours=neighbours.size();
                     for (int i=0;i<nNeighbours;++i){
@@ -200,7 +213,9 @@ public:
                         
                         for (int l1=0;l1<nRegLabels;++l1){
                             for (int l2=0;l2<nRegLabels;++l2){
-                                f(l1,l2)=m_pairwiseRegistrationWeight*this->m_GraphModel->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+                                double cost=m_pairwiseRegistrationWeight*this->m_GraphModel->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+                                if (cost !=functionDefaultValue)
+                                    f(l1,l2)=cost;
                             }
                         }
                         FunctionIdentifier fid= m_gm->addFunction(f);
@@ -220,7 +235,7 @@ public:
                 {
                     //unary factors
                     const size_t shape[] = {nSegLabels};
-                    OpenGMExplicitFunction f(shape, shape + 1);
+                    FunctionType f(shape, shape + 1);
                     for (int l1=0;l1<nSegLabels;++l1){
                         
                         f(l1)=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1);
@@ -233,15 +248,16 @@ public:
                 //pairwise factors
                 {
                     const size_t shape[] = {nSegLabels,nSegLabels};
-                    typename opengm::ExplicitFunction<float> f(shape, shape + 2);
+                    FunctionType f(shape, shape + 2, functionDefaultValue);
                     std::vector<int> neighbours= this->m_GraphModel->getForwardSegmentationNeighbours(d);
                     int nNeighbours=neighbours.size();
                     for (int i=0;i<nNeighbours;++i){
-                        //LOG<<d<<" "<<regNodes[d]<<" "<<i<<" "<<neighbours[i]<<std::endl;
-                        
+                      
                         for (int l1=0;l1<nSegLabels;++l1){
                             for (int l2=0;l2<nSegLabels;++l2){
-                                f(l1,l2)=m_pairwiseSegmentationWeight*this->m_GraphModel->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);
+                                double cost = m_pairwiseSegmentationWeight*this->m_GraphModel->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);
+                                 if (cost !=functionDefaultValue)
+                                    f(l1,l2)=cost;
                             }
                         }
                         FunctionIdentifier fid= m_gm->addFunction(f);
@@ -256,14 +272,17 @@ public:
 
         if (m_coherence){
             const size_t shape[] = {nSegLabels,nRegLabels};
-            OpenGMExplicitFunction f(shape, shape + 2);
+
             for (int d=0;d<nSegNodes;++d){
                 std::vector<int> segRegNeighbors=this->m_GraphModel->getSegRegNeighbors(d);
                 int nNeighbours=segRegNeighbors.size();
                 for (int i=0;i<nNeighbours;++i){
+                    FunctionType f(shape, shape + 2,functionDefaultValue);
                     for (int l1=0;l1<nSegLabels;++l1){
                         for (int l2=0;l2<nRegLabels;++l2){
-                            f(l1,l2)=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(segRegNeighbors[i],d,l2,l1);
+                            double cost=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(segRegNeighbors[i],d,l2,l1);
+                            if (cost !=functionDefaultValue)
+                                f(l1,l2)=cost;
                         }
                     }
                     FunctionIdentifier fid= m_gm->addFunction(f);
@@ -288,25 +307,26 @@ public:
         typename TRWS::Parameter param;
         param.numberOfIterations_=maxIter;
         param.useZeroStart_=true;
-        TRWS ae(*m_gm,param);
+        param.energyType_=TRWS::Parameter::TABLES;
+        TRWS solver(*m_gm,param);
 
 
         clock_t opt_start=clock();
         double energy;//=m_optimizer->compute_energy();
         //LOGV(2)<<VAR(energy)<<endl;
         try{
-            ae.infer();
+            solver.infer();
             //m_optimizer->swap(maxIter);
         }catch (...){
 
         }
-        energy=ae.value();
+        energy=solver.value();
         clock_t finish = clock();
         tOpt+=((double)(finish-opt_start)/CLOCKS_PER_SEC);
         float t = (float) ((double)(finish - m_start) / CLOCKS_PER_SEC);
         LOG<<"Finished optimization after "<<t<<" , resulting energy is "<<energy<<std::endl;
        
-        ae.arg(m_solution);
+        solver.arg(m_solution);
         logResetStage;         
         return energy;
 

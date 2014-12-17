@@ -29,7 +29,12 @@ using namespace std;
  * Returns current/next position in a grid based on size and resolution
  */
 namespace itk{
-    template<class TImage>
+    template<class TImage,
+             class TUnaryRegistrationFunction=FastUnaryPotentialRegistrationNCC<TImage>,
+             class TPairwiseRegistrationFunction= PairwisePotentialRegistration<TImage>,
+             class TUnarySegmentationFunction=UnaryPotentialSegmentation<TImage>,
+             class TPairwiseSegmentationFunction=PairwisePotentialSegmentation<TImage>,
+             class TPairwiseCoherenceFunction=PairwisePotentialCoherence<TImage> >
     class GraphModel: public itk::Object{
     public:
         typedef GraphModel Self;
@@ -50,17 +55,18 @@ namespace itk{
 
         typedef typename itk::ConstNeighborhoodIterator<ImageType> ConstImageNeighborhoodIteratorType;
 
-        //typedef TUnaryRegistrationFunction UnaryRegistrationFunctionType;
-        typedef FastUnaryPotentialRegistrationNCC<TImage> UnaryRegistrationFunctionType;
+        typedef TUnaryRegistrationFunction UnaryRegistrationFunctionType;
+        //typedef FastUnaryPotentialRegistrationNCC<TImage> UnaryRegistrationFunctionType;
         typedef typename UnaryRegistrationFunctionType::Pointer UnaryRegistrationFunctionPointerType;
-        
-        typedef PairwisePotentialRegistration<TImage> PairwiseRegistrationFunctionType;
+        //typedef PairwisePotentialRegistration<TImage> PairwiseRegistrationFunctionType;
+        typedef TPairwiseRegistrationFunction PairwiseRegistrationFunctionType;
         typedef typename PairwiseRegistrationFunctionType::Pointer PairwiseRegistrationFunctionPointerType;
-        typedef UnaryPotentialSegmentation<TImage> UnarySegmentationFunctionType;
+       
+        typedef TUnarySegmentationFunction UnarySegmentationFunctionType;
         typedef typename UnarySegmentationFunctionType::Pointer UnarySegmentationFunctionPointerType;
-        typedef PairwisePotentialSegmentation<TImage> PairwiseSegmentationFunctionType;
+        typedef TPairwiseSegmentationFunction PairwiseSegmentationFunctionType;
         typedef typename PairwiseSegmentationFunctionType::Pointer PairwiseSegmentationFunctionPointerType;
-        typedef PairwisePotentialCoherence<TImage> PairwiseCoherenceFunctionType;
+        typedef TPairwiseCoherenceFunction PairwiseCoherenceFunctionType;
         typedef typename PairwiseCoherenceFunctionType::Pointer PairwiseCoherenceFunctionPointerType;
     
         typedef typename TransfUtils<ImageType>::DisplacementType RegistrationLabelType;
