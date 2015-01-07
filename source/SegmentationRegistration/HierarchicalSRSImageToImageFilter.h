@@ -521,12 +521,15 @@ namespace itk{
                 //tolerance=max(1.0,0.5*(graph->getSpacing()[0]));
                 double oldtolerance=pow(m_config->toleranceBase,exponent+1);
                 if (l==0){ //calculate acumulated maximum displacement 'capture range'
+                    tolerance=0.0;
+                    LOGV(5)<<"Calculating tolerance based on maximum possible displacement (approximatively)"<<std::endl;
                     double maxDispAtFirstLevel=graph->getMaxDisplacementFactor()*m_config->nRegSamples[0];
                     for (int l2=0;l2<m_config->nLevels;++l2){
                         double disp=maxDispAtFirstLevel;
                         if (m_config->nRegSamples[l2]>0){
                             for (int it2=0;it2<m_config->iterationsPerLevel;++it2){
                                 tolerance+=disp;
+                                LOGV(5)<<VAR(l2)<<" "<<VAR(it2)<<" "<<VAR(tolerance)<<" "<<VAR(disp)<<" "<<VAR(maxDispAtFirstLevel)<<std::endl;
                                 disp*=m_config->displacementRescalingFactor;
                             }
                         }

@@ -309,7 +309,7 @@ namespace itk{
             IndexType idx;
             GetDistanceTransform(0)->TransformPhysicalPointToIndex(pt,idx);
             for (int i=1;i<this->m_nSegmentationLabels;++i){
-                if ( i!=this->m_auxiliaryLabel){
+                if (i!=this->m_auxiliaryLabel){
                     //double pot=sqrt(this->getPotential(idx,bufferIdx,disp,i));
                     double pot=fabs(GetDistanceTransform(i)->GetPixel(idx));
                     if (pot<minPot){
