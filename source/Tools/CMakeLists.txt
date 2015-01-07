@@ -217,6 +217,9 @@ TARGET_LINK_LIBRARIES(ResampleImage3D  Utils   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ResampleImage2D ResampleImage2D.cxx )
 TARGET_LINK_LIBRARIES(ResampleImage2D  Utils   ${ITK_LIBRARIES}  )
 
+ADD_EXECUTABLE(FlipImageFilter FlipImageFilter.cxx )
+TARGET_LINK_LIBRARIES(FlipImageFilter  Utils   ${ITK_LIBRARIES}  )
+
 ADD_EXECUTABLE(CastShortToUchar2D CastShortToUchar2D.cxx )
 TARGET_LINK_LIBRARIES(CastShortToUchar2D  Utils   ${ITK_LIBRARIES}  )
 

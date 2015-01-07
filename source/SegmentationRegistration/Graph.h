@@ -64,8 +64,10 @@ namespace itk{
        
         typedef TUnarySegmentationFunction UnarySegmentationFunctionType;
         typedef typename UnarySegmentationFunctionType::Pointer UnarySegmentationFunctionPointerType;
+
         typedef TPairwiseSegmentationFunction PairwiseSegmentationFunctionType;
         typedef typename PairwiseSegmentationFunctionType::Pointer PairwiseSegmentationFunctionPointerType;
+
         typedef TPairwiseCoherenceFunction PairwiseCoherenceFunctionType;
         typedef typename PairwiseCoherenceFunctionType::Pointer PairwiseCoherenceFunctionPointerType;
     
@@ -472,7 +474,7 @@ namespace itk{
             }
             if ( m_reducedSegNodes ){
                 //if trying to label a pixel at the border of the segmentation ROI; penalize deviations from deformed atlas segmentation
-                //if (m_borderOfSegmentationROI->GetPixel(imageIndex) && labelIndex!=m_pairwiseSegRegFunction->getAtlasSegmentation()->GetPixel(imageIndex))
+                //                if (m_borderOfSegmentationROI->GetPixel(imageIndex) && labelIndex!=m_pairwiseSegRegFunction->getAtlasSegmentation()->GetPixel(imageIndex))
                 if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),this->m_labelMapper->getLabel(0),labelIndex))>m_coherenceThresh)
                     return 1000;
             }
@@ -850,8 +852,13 @@ namespace itk{
         }
     }; //GraphModel
 
-    template<class TImage            >
-    class FastGraphModel: public GraphModel<TImage>
+    template<class TImage,
+             class TUnaryRegistrationFunction=FastUnaryPotentialRegistrationNCC<TImage>,
+             class TPairwiseRegistrationFunction= PairwisePotentialRegistration<TImage>,
+             class TUnarySegmentationFunction=UnaryPotentialSegmentation<TImage>,
+             class TPairwiseSegmentationFunction=PairwisePotentialSegmentation<TImage>,
+             class TPairwiseCoherenceFunction=PairwisePotentialCoherence<TImage> >
+    class FastGraphModel: public GraphModel<TImage,TUnaryRegistrationFunction,TPairwiseRegistrationFunction,TUnarySegmentationFunction,TPairwiseSegmentationFunction,TPairwiseCoherenceFunction>
     {
     public:
         typedef FastGraphModel Self;

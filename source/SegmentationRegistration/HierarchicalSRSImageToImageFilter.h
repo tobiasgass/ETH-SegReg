@@ -415,7 +415,8 @@ namespace itk{
                 double segmentationScalingFactor=1.0;
 
                 if (m_config->segmentationScalingFactor != 0.0 && m_config->nSegmentationLevels>1){
-                    segmentationScalingFactor=max(m_config->segmentationScalingFactor,m_config->resamplingFactors[max(0,m_config->nSegmentationLevels-l-1)]);
+                    segmentationScalingFactor=pow(m_config->segmentationScalingFactor,m_config->nLevels-l-1);
+                    //segmentationScalingFactor=max(m_config->segmentationScalingFactor,m_config->resamplingFactors[max(0,m_config->nSegmentationLevels-l-1)]);
                     LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
                     m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor,true);
                 }else if (m_config->segmentationScalingFactor == 0.0){
@@ -541,9 +542,10 @@ namespace itk{
                 int i=0;
                 std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
                 if (labelmapper->getNumberOfDisplacementSamplesPerAxis() == 0 ) i=m_config->iterationsPerLevel-1;
-                LOGV(4)<<"tolerance :"<<max(2.0,sqrt(tolerance))<<" "<<VAR(oldtolerance)<<endl;
+                tolerance=tolerance<4.0?2.0:sqrt(tolerance);
+                LOGV(4)<<"tolerance :"<<tolerance<<" "<<VAR(oldtolerance)<<endl;
                 //tolerance gets set only at levels to avoid that the energy changes during inner iterations. if tolerance would change within the inner iterations, convergence criteria based on energy would not be well-defined any more
-                m_pairwiseCoherencePot->SetTolerance(max(2.0,sqrt(tolerance)));
+                m_pairwiseCoherencePot->SetTolerance(tolerance);
 
                 //INNER ITERATIONS AT EACH LEVEL OF HIERARCHY
                 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

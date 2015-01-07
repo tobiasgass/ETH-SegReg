@@ -76,12 +76,12 @@ int main(int argc, char ** argv)
     
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
     //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     
-    typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
+    typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
     //    typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
@@ -97,8 +97,7 @@ int main(int argc, char ** argv)
         RegistrationPairwisePotentialType,
         SegmentationUnaryPotentialType,
         SegmentationPairwisePotentialType,
-        CoherencePairwisePotentialType,
-        LabelMapperType>        GraphType;
+        CoherencePairwisePotentialType>        GraphType;
     
     typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
     //create filter

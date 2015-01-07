@@ -76,7 +76,7 @@ namespace itk{
             //m_maxDist=sqrt(m_maxDist);
         }
         virtual void setFullRegularization(bool b){ m_fullRegPairwise = b; }
-        virtual inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
+        inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
             assert(m_haveDisplacementMap);
             double result=0;
             IndexType targetIndex1, targetIndex2;
@@ -128,7 +128,7 @@ namespace itk{
             return (result);
         }
             
-        virtual inline double getPotential(IndexType targetIndex1, IndexType targetIndex2,DisplacementType displacement1, DisplacementType displacement2){
+        inline double getPotential(IndexType targetIndex1, IndexType targetIndex2,DisplacementType displacement1, DisplacementType displacement2){
             LOG<<"DEPRECATED, do not call!"<<endl;
             exit(0);
             assert(m_haveDisplacementMap);
@@ -259,7 +259,7 @@ namespace itk{
 
    
         
-     virtual inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
+     inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
 
             double result=0;
             IndexType targetIndex1, targetIndex2;
@@ -325,7 +325,7 @@ namespace itk{
 
    
         
-        virtual inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
+        inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
             assert(this->m_haveDisplacementMap);
             double leftCost=0, rightCost=0;
             double controlPointDistance=0.0;

@@ -729,7 +729,8 @@ namespace itk{
             return Metrics<ImageType,FloatImageType>::LNCC(i1,i2,i1->GetSpacing()[0]);
         }
 
-        virtual double getLocalPotential(IndexType targetIndex){
+        //virtual double getLocalPotential(IndexType targetIndex){
+        inline double getLocalPotential(IndexType targetIndex){
 
             double result;
             this->nIt.SetLocation(targetIndex);
@@ -834,7 +835,7 @@ namespace itk{
 
       
     
-        virtual double getLocalPotential(IndexType targetIndex){
+        inline double getLocalPotential(IndexType targetIndex){
 
             double result;
             this->nIt.SetLocation(targetIndex);
@@ -921,7 +922,7 @@ namespace itk{
         }
      
     
-        virtual double getLocalPotential(IndexType targetIndex){
+        inline double getLocalPotential(IndexType targetIndex){
 
             double result;
             this->nIt.SetLocation(targetIndex);
@@ -1127,7 +1128,7 @@ namespace itk{
             LOG<<"ERROR NEVER CALL THIS"<<endl;
             exit(0);
         }
-        virtual double getLocalPotential(IndexType targetIndex){
+        inline double getLocalPotential(IndexType targetIndex){
 #if 1
             //use ITK (SLOW!!!)
             typedef itk::IdentityTransform<double,ImageType::ImageDimension> TransType;
@@ -1280,7 +1281,7 @@ namespace itk{
 #endif
         }
 #ifdef NMI
-        virtual double getLocalPotential(IndexType targetIndex, double entropyX, double entropyY){
+        inline double getLocalPotential(IndexType targetIndex, double entropyX, double entropyY){
             if (!this->nIt.Size()) {
                 cout<<VAR(this->nIt.Size())<<endl;
             }
@@ -1382,7 +1383,7 @@ namespace itk{
             LOGV(15)<<VAR(result)<<endl;
             return result*insideCount/this->nIt.Size();
         }
-        virtual double getLocalPotentialNCC(IndexType targetIndex){
+        inline double getLocalPotentialNCC(IndexType targetIndex){
 
             double result;
             this->nIt.SetLocation(targetIndex);
@@ -1624,7 +1625,7 @@ namespace itk{
             return NULL;
         }
 
-        virtual double getLocalPotential(IndexType targetIndex){
+        inline double getLocalPotential(IndexType targetIndex){
 
             double result;
             this->nIt.SetLocation(targetIndex);
@@ -1749,7 +1750,7 @@ namespace itk{
       //        ~SuperClass();
       //    }
 
-        virtual double getLocalPotential(IndexType targetIndex){
+        inline double getLocalPotential(IndexType targetIndex){
 
             double result;
             this->nIt.SetLocation(targetIndex);

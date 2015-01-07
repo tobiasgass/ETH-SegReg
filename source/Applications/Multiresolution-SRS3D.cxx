@@ -90,8 +90,12 @@ int main(int argc, char ** argv)
     // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
     // //typedef FastRegistrationGraphModel<
     // //    typedef SortedSubsamplingGraphModel<
-    
+#define POTENTIALINHERITANCE
+#ifdef POTENTIALINHERITANCE
     typedef FastGraphModel<ImageType>        GraphType;
+#else
+    typedef FastGraphModel<ImageType,RegistrationUnaryPotentialType,RegistrationPairwisePotentialType,SegmentationUnaryPotentialType,SegmentationPairwisePotentialType,CoherencePairwisePotentialType>        GraphType;
+#endif
     
     typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
     //create filter
@@ -106,13 +110,21 @@ int main(int argc, char ** argv)
     RegistrationPairwisePotentialType::Pointer pairwiseRegistrationPot=RegistrationPairwisePotentialType::New();
     SegmentationPairwisePotentialType::Pointer pairwiseSegmentationPot=SegmentationPairwisePotentialType::New();
     CoherencePairwisePotentialType::Pointer pairwiseCoherencePot=CoherencePairwisePotentialType::New();
+#ifdef POTENTIALINHERITANCE
 
     filter->setUnaryRegistrationPotentialFunction(static_cast<typename FastUnaryPotentialRegistrationNCC<ImageType>::Pointer>(unaryRegistrationPot));
     filter->setPairwiseRegistrationPotentialFunction(static_cast<typename PairwisePotentialRegistration<ImageType>::Pointer>(pairwiseRegistrationPot));
     filter->setUnarySegmentationPotentialFunction(static_cast<typename UnaryPotentialSegmentation<ImageType>::Pointer>(unarySegmentationPot));
     filter->setPairwiseCoherencePotentialFunction(static_cast<typename PairwisePotentialCoherence<ImageType>::Pointer>(pairwiseCoherencePot));
     filter->setPairwiseSegmentationPotentialFunction(static_cast<typename PairwisePotentialSegmentation<ImageType>::Pointer>(pairwiseSegmentationPot));
-    
+#else
+    filter->setUnaryRegistrationPotentialFunction((unaryRegistrationPot));
+    filter->setPairwiseRegistrationPotentialFunction((pairwiseRegistrationPot));
+    filter->setUnarySegmentationPotentialFunction((unarySegmentationPot));
+    filter->setPairwiseCoherencePotentialFunction((pairwiseCoherencePot));
+    filter->setPairwiseSegmentationPotentialFunction((pairwiseSegmentationPot));
+
+#endif
 
     logUpdateStage("IO");
     logSetVerbosity(filterConfig.verbose);
