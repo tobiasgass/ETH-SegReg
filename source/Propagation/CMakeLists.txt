@@ -1,4 +1,11 @@
 include(${ITK_USE_FILE})
+
+find_package(STATISMO REQUIRED)
+set (STATISMO_INCLUDE_DIR ${STATISMO_DIR}/include)
+set(MATLAB_ROOT /usr/pack/matlab-8.3r2014a-fg/ )
+#message(${CMAKE_MODULE_PATH})
+find_package(MATLAB REQUIRED)
+
 INCLUDE_DIRECTORIES(
     /usr/include/libxml2
     ../External/RF
