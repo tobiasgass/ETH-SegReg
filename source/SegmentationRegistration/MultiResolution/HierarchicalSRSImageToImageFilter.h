@@ -545,10 +545,10 @@ namespace itk{
                 int i=0;
                 std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
                 if (labelmapper->getNumberOfDisplacementSamplesPerAxis() == 0 ) i=m_config->iterationsPerLevel-1;
-                tolerance=tolerance<4.0?2.0:sqrt(tolerance);
-                LOGV(4)<<"tolerance :"<<tolerance<<" "<<VAR(oldtolerance)<<endl;
+                double tol=tolerance<4.0?2.0:sqrt(tolerance);
+                LOGV(4)<<"tolerance :"<<tol<<" "<<VAR(oldtolerance)<<endl;
                 //tolerance gets set only at levels to avoid that the energy changes during inner iterations. if tolerance would change within the inner iterations, convergence criteria based on energy would not be well-defined any more
-                m_pairwiseCoherencePot->SetTolerance(tolerance);
+                m_pairwiseCoherencePot->SetTolerance(tol);
 
                 //INNER ITERATIONS AT EACH LEVEL OF HIERARCHY
                 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
