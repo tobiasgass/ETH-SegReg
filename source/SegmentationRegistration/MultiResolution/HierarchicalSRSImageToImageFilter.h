@@ -57,7 +57,6 @@
 #include "itkImageRegionConstIteratorWithIndex.h"
 #include "ChamferDistanceTransform.h"
 #include "itkCastImageFilter.h"
-//#include "Classifier.h"
 #include "itkHausdorffDistanceImageFilter.h"
 #include <float.h>
 
