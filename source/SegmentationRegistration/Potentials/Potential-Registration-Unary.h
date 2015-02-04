@@ -17,7 +17,6 @@
 #include "itkConstNeighborhoodIterator.h"
 #include <itkVectorLinearInterpolateImageFunction.h>
 #include <itkVectorResampleImageFilter.h>
-#include "Potential-SegmentationRegistration-Pairwise.h"
 #include "itkTranslationTransform.h"
 #include "TransformationUtils.h"
 #include "Log.h"

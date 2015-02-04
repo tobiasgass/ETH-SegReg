@@ -24,11 +24,14 @@
 #include "BaseLabel.h"
 
 
-/*
- * Isotropic Graph
- * Returns current/next position in a grid based on size and resolution
- */
+
 namespace SRS{
+
+    /** \brief
+     * General Graph class which provides access to potential functions and maps from node space to image space
+     * 
+     * 
+     */
     template<class TImage,
              class TUnaryRegistrationFunction=FastUnaryPotentialRegistrationNCC<TImage>,
              class TPairwiseRegistrationFunction= PairwisePotentialRegistration<TImage>,
@@ -88,14 +91,9 @@ namespace SRS{
     
         SizeType m_totalSize,m_imageLevelDivisors,m_graphLevelDivisors,m_gridSize, m_imageSize;
         ImagePointerType m_coarseGraphImage,m_borderOfSegmentationROI;
-        //grid spacing in unit pixels
-        SpacingType m_gridPixelSpacing;
-        //grid spacing in mm
-        SpacingType m_gridSpacing, m_imageSpacing;
-    
-        //spacing of the displacement labels
-        SpacingType m_labelSpacing;
-
+        SpacingType m_gridPixelSpacing;        //grid spacing in unit pixels
+        SpacingType m_gridSpacing, m_imageSpacing;         //grid spacing in mm
+        SpacingType m_labelSpacing;        //spacing of the displacement labels
         PointType m_origin;
         double m_DisplacementScalingFactor;
         static const unsigned int m_dim=TImage::ImageDimension;
@@ -105,14 +103,12 @@ namespace SRS{
 
         double m_segmentationUnaryNormalizer;
 
-        //ImageInterpolatorType m_ImageInterpolator,m_SegmentationInterpolator,m_BoneConfidenceInterploator;
         UnaryRegistrationFunctionPointerType m_unaryRegFunction;
         UnarySegmentationFunctionPointerType m_unarySegFunction;
         PairwiseSegmentationFunctionPointerType m_pairwiseSegFunction;
         PairwiseCoherenceFunctionPointerType m_pairwiseSegRegFunction;
         PairwiseRegistrationFunctionPointerType m_pairwiseRegFunction;
   
-        //PairwiseFunctionPointerType m_pairwiseFunction;
         bool verbose;
         bool m_haveLabelMap;
         ConstImagePointerType m_targetImage,m_targetSegmentationImage;
@@ -456,6 +452,10 @@ namespace SRS{
             assert(m_targetImage->GetLargestPossibleRegion().IsInside(position));
             return position;
         }
+
+        /**
+         * Get Unary registration potential for node/label combination
+         */
         virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndexFromCoarseGraphIndex(nodeIndex);
             RegistrationLabelType l=this->m_labelMapper->getLabel(labelIndex);
@@ -464,15 +464,20 @@ namespace SRS{
             if (m_normalizePotentials) result/=m_nRegistrationNodes;
             return result;//m_nRegistrationNodes;
         }
+
+        /**
+         * Get Unary segmentation potential for node/label combination
+         */
         virtual double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndex(nodeIndex);
-                
+             
+            /// use labelIndex from provided segmentation image if it is set, overwriting the input labelIndex
             if (m_targetSegmentationImage.IsNotNull()){
                 labelIndex=m_targetSegmentationImage->GetPixel(imageIndex);
             }
+
+            /// return a large potential if segmentation nodes are reduced and the current node/label combination has a coherence potential larger than m_coherenceThresh
             if ( m_reducedSegNodes ){
-                //if trying to label a pixel at the border of the segmentation ROI; penalize deviations from deformed atlas segmentation
-                //                if (m_borderOfSegmentationROI->GetPixel(imageIndex) && labelIndex!=m_pairwiseSegRegFunction->getAtlasSegmentation()->GetPixel(imageIndex))
                 if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),this->m_labelMapper->getLabel(0),labelIndex))>m_coherenceThresh)
                     return 1000;
             }
@@ -480,7 +485,7 @@ namespace SRS{
 
 
             //Segmentation:labelIndex==segmentationlabel
-            double result=m_unarySegFunction->getPotential(imageIndex,labelIndex);///m_nSegmentationNodes;
+            double result=m_unarySegFunction->getPotential(imageIndex,labelIndex);// /m_nSegmentationNodes;
             if (result<0){
                 LOG<<"unary segmentation potential <0"<<std::endl;
                 LOG<<imageIndex<<" " <<result<<std::endl;

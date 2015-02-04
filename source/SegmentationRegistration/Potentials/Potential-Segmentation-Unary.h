@@ -12,7 +12,6 @@
 #include "itkObjectFactory.h"
 #include <utility>
 #include <itkStatisticsImageFilter.h>
-#include "Potential-SegmentationRegistration-Pairwise.h"
 
 namespace SRS{
 
