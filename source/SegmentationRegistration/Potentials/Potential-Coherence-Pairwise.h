@@ -17,7 +17,7 @@
 #include "itkStatisticsImageFilter.h"
 #include "itkThresholdImageFilter.h"
 
-namespace itk{
+namespace SRS{
 
 
 
@@ -26,8 +26,8 @@ namespace itk{
     public:
         //itk declarations
         typedef PairwisePotentialCoherence            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -43,12 +43,12 @@ namespace itk{
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
         typedef typename ImageType::PointType PointType;
-        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
         typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
-        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
         typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
 
-        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
         typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
         
@@ -327,8 +327,8 @@ namespace itk{
     public:
         //itk declarations
         typedef PairwisePotentialMultilabelCoherence            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -342,12 +342,12 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
         typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
-        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
         typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
 
-        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
         typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
         
@@ -396,8 +396,8 @@ namespace itk{
     public:
         //itk declarations
         typedef PairwisePotentialSigmoidCoherence            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -411,12 +411,12 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
         typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
-        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
         typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
 
-        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
         typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
         
@@ -463,8 +463,8 @@ namespace itk{
     public:
         //itk declarations
         typedef PairwisePotentialBoneCoherence            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -478,12 +478,12 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
         typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
-        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
         typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
 
-        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
         typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
         
@@ -631,8 +631,8 @@ namespace itk{
     public:
         //itk declarations
         typedef PairwisePotentialCoherenceBinary            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -646,12 +646,12 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> ImageInterpolatorType;
         typedef typename ImageInterpolatorType::Pointer ImageInterpolatorPointerType;
-        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
         typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
 
-        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
         typedef typename ImageInterpolatorType::ContinuousIndexType ContinuousIndexType;
         

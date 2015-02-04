@@ -14,15 +14,15 @@
 #include "itkVector.h"
 #include "itkLinearInterpolateImageFunction.h"
 
-namespace itk{
+namespace SRS{
 
     template<class TImage>
     class PairwisePotentialRegistration : public itk::Object{
     public:
         //itk declarations
         typedef PairwisePotentialRegistration            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -33,7 +33,7 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename itk::Vector<double,ImageType::ImageDimension> SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
@@ -176,8 +176,8 @@ namespace itk{
     public:
         //itk declarations
         typedef PairwisePotentialRegistrationSigmoid            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -187,7 +187,7 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
@@ -233,8 +233,8 @@ namespace itk{
     public:
         //itk declarations
         typedef PairwisePotentialRegistrationL1            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -245,7 +245,7 @@ namespace itk{
         typedef typename ImageType::PointType PointType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
@@ -298,8 +298,8 @@ namespace itk{
     public:
         //itk declarations
         typedef PairwisePotentialRegistrationACP            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -311,7 +311,7 @@ namespace itk{
         typedef typename ImageType::PointType PointType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;

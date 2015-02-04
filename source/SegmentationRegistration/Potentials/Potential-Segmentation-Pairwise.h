@@ -13,7 +13,7 @@
 #include <utility>
 #include <itkStatisticsImageFilter.h>
 
-namespace itk{
+namespace SRS{
 
     template<class TImage>
     class PairwisePotentialSegmentation: public itk::Object{
@@ -21,8 +21,8 @@ namespace itk{
         //itk declarations
         typedef PairwisePotentialSegmentation            Self;
         typedef itk::Object Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -244,8 +244,8 @@ namespace itk{
         //itk declarations
         typedef PairwisePotentialSegmentationClassifier            Self;
         typedef PairwisePotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -386,8 +386,8 @@ namespace itk{
         //itk declarations
         typedef PairwisePotentialSegmentationMarcel            Self;
         typedef PairwisePotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         static const int D=TImage::ImageDimension;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -452,8 +452,8 @@ namespace itk{
         //itk declarations
         typedef PairwisePotentialSegmentationContrastWithGradient            Self;
         typedef PairwisePotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -578,8 +578,8 @@ namespace itk{
         //itk declarations
         typedef PairwisePotentialSegmentationRGBContrast            Self;
         typedef PairwisePotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -757,8 +757,8 @@ namespace itk{
         //itk declarations
         typedef PairwisePotentialSegmentationUniform            Self;
         typedef PairwisePotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -786,8 +786,8 @@ namespace itk{
         //itk declarations
         typedef CachingPairwisePotentialSegmentationClassifier            Self;
         typedef PairwisePotentialSegmentationClassifier<TImage,TSmoothnessClassifier> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;

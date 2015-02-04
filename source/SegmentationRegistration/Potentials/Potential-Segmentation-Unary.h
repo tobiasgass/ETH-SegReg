@@ -14,7 +14,7 @@
 #include <itkStatisticsImageFilter.h>
 #include "Potential-SegmentationRegistration-Pairwise.h"
 
-namespace itk{
+namespace SRS{
 
 
 
@@ -24,8 +24,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialSegmentation            Self;
         typedef itk::Object Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -190,8 +190,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialSegmentationArtificial            Self;
         typedef  UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -227,8 +227,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialSegmentationArtificial2            Self;
         typedef UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
     public:
@@ -260,8 +260,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialSegmentationProb            Self;
         typedef  UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
     public:
@@ -291,8 +291,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialSegmentationUnsignedBone            Self;
         typedef UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -362,8 +362,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialSegmentationClassifier            Self;
         typedef UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -432,7 +432,7 @@ namespace itk{
       
     };
 
-  
+#if 0
 
     template<class TImage, class TClassifier>
     class UnaryPotentialSegmentationClassifierWithPrior: 
@@ -446,8 +446,8 @@ namespace itk{
 
         
         
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -480,7 +480,7 @@ namespace itk{
             return origPotential+m_alpha*priorPotential;
         }
     };//class
-
+#endif
     
     template<class TImage>
     class UnaryPotentialSegmentationUnsignedBoneMarcel: public UnaryPotentialSegmentation<TImage> {
@@ -488,8 +488,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialSegmentationUnsignedBoneMarcel           Self;
         typedef UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -552,19 +552,16 @@ namespace itk{
         typedef UnaryPotentialSegmentationBoneMarcel            Self;
         typedef UnaryPotentialSegmentationUnsignedBoneMarcel<TImage> UnarySuperclass;
         
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
 
-        typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
-        typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
-        
+              
     protected:
         double m_alpha;
-        SRSPotentialPointerType m_srsPotential;
         itk::Vector<float,ImageType::ImageDimension> zeroDisplacement;
     public:
         /** Method for creation through the object factory. */
@@ -624,7 +621,7 @@ namespace itk{
         }
     };//class
 
-    
+#if 0
     template<class TImage>
     class UnaryPotentialSegmentationMarcelWithPrior: 
         public UnaryPotentialSegmentationUnsignedBoneMarcel<TImage>  
@@ -634,8 +631,8 @@ namespace itk{
         typedef UnaryPotentialSegmentationMarcelWithPrior            Self;
         typedef UnaryPotentialSegmentationUnsignedBoneMarcel<TImage> UnarySuperclass;
         
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -666,6 +663,7 @@ namespace itk{
             return origPotential+m_alpha*priorPotential;
         }
     };//class
+#endif
 
     template<class TImage, class TClassifier>
     class UnaryPotentialNewSegmentationClassifier: public UnaryPotentialSegmentation<TImage> {
@@ -673,8 +671,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialNewSegmentationClassifier            Self;
         typedef UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -735,8 +733,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialNewSegmentationMultilabelClassifier            Self;
         typedef UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -815,8 +813,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching            Self;
         typedef UnaryPotentialSegmentation<TImage> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;
@@ -884,8 +882,8 @@ namespace itk{
         //itk declarations
         typedef UnaryPotentialSegmentationProbFile            Self;
         typedef UnaryPotentialNewSegmentationMultilabelClassifier<TImage,TClassifier> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         
         typedef TImage ImageType;
         typedef typename ImageType::IndexType IndexType;

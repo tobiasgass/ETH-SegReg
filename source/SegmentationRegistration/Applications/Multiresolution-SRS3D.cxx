@@ -6,6 +6,7 @@
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
 #include "Graph.h"
+#include "FastGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
@@ -18,6 +19,7 @@
 #include "TransformationUtils.h"
 #include "NewClassifier.h"
 using namespace std;
+using namespace SRS;
 using namespace itk;
 
 int main(int argc, char ** argv)

@@ -1,7 +1,8 @@
 include(${ITK_USE_FILE})
 
 
-SUBDIRS(Potentials Graphs MultiResolution Optimizers Applications )
+#SUBDIRS(Applications)
+add_subdirectory(Applications)
 
 
 # INCLUDE_DIRECTORIES(

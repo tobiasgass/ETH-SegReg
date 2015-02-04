@@ -1,4 +1,4 @@
-PROJECT(ImageRegistration)
+#PROJECT(ImageRegistration)
 INCLUDE_REGULAR_EXPRESSION("^.*$")
 
 include_directories (

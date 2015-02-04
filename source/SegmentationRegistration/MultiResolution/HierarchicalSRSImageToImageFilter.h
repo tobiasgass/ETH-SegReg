@@ -61,15 +61,15 @@
 #include "itkHausdorffDistanceImageFilter.h"
 #include <float.h>
 
-namespace itk{
+namespace SRS{
     template<class TGraph>
     class HierarchicalSRSImageToImageFilter: public itk::ImageToImageFilter<typename TGraph::ImageType,typename TGraph::ImageType>{
     public:
         typedef  TGraph GraphModelType;
         typedef typename TGraph::ImageType ImageType;
         typedef HierarchicalSRSImageToImageFilter Self;
-        typedef ImageToImageFilter<ImageType,ImageType > Superclass;
-        typedef SmartPointer< Self >        Pointer;
+        typedef itk::ImageToImageFilter<ImageType,ImageType > Superclass;
+        typedef itk::SmartPointer< Self >        Pointer;
     
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -104,7 +104,7 @@ namespace itk{
         typedef BaseLabelMapper<ImageType,LabelType> BaseLabelMapperType;
 
         typedef itk::ImageRegionIterator< DeformationFieldType>       LabelIteratorType;
-        typedef VectorLinearInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
+        typedef itk::VectorLinearInterpolateImageFunction<DeformationFieldType, double> LabelInterpolatorType;
         typedef typename  LabelInterpolatorType::Pointer LabelInterpolatorPointerType;
         typedef itk::VectorResampleImageFilter< DeformationFieldType , DeformationFieldType>	LabelResampleFilterType;
  
@@ -121,7 +121,7 @@ namespace itk{
         typedef typename  PairwiseRegistrationPotentialType::Pointer PairwiseRegistrationPotentialPointerType;
         typedef typename  PairwiseCoherencePotentialType::Pointer PairwiseCoherencePotentialPointerType;
 
-        typedef NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> SegmentationInterpolatorType;
         typedef typename  SegmentationInterpolatorType::Pointer SegmentationInterpolatorPointerType;
 
         //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
@@ -334,7 +334,7 @@ namespace itk{
                     previousFullDeformation->SetDirection(m_targetImage->GetDirection());
                     LOGV(1)<<"Initializing registration with identity transform." <<endl;
                     previousFullDeformation->Allocate();
-                    Vector<float, D> tmpVox(0.0);
+                    itk::Vector<float, D> tmpVox(0.0);
                     previousFullDeformation->FillBuffer(tmpVox);
                 }
                 deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,previousFullDeformation);

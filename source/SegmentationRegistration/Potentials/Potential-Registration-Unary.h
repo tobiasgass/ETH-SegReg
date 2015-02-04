@@ -35,15 +35,15 @@
 #include "itkSignedMaurerDistanceMapImageFilter.h"
 #include "SegmentationMapper.hxx"
 
-namespace itk{
+namespace SRS{
 
     template<class TImage>
     class UnaryPotentialRegistrationNCC : public itk::Object{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationNCC            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -55,7 +55,7 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
@@ -367,8 +367,8 @@ namespace itk{
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationNCC            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef UnaryPotentialRegistrationNCC<TImage> Superclass;
 
         typedef	TImage ImageType;
@@ -383,7 +383,7 @@ namespace itk{
 
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
@@ -792,8 +792,8 @@ namespace itk{
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationSAD            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -805,7 +805,7 @@ namespace itk{
 
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
@@ -881,8 +881,8 @@ namespace itk{
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationSSD            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -895,7 +895,7 @@ namespace itk{
 
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
@@ -970,8 +970,8 @@ namespace itk{
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationNMI            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef UnaryPotentialRegistrationNCC<TImage> Superclass;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -985,10 +985,10 @@ namespace itk{
 
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
-        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
 
         
 
@@ -1012,7 +1012,7 @@ namespace itk{
         typedef typename HistogramType::AbsoluteFrequencyType HistogramFrequencyType;
         typedef typename HistogramType::Iterator              HistogramIteratorType;
         
-        typedef Statistics::ScalarImageToHistogramGenerator<ImageType> HistGenType ;
+        typedef itk::Statistics::ScalarImageToHistogramGenerator<ImageType> HistGenType ;
 #else
 #ifdef MMI
         typedef typename itk::MattesMutualInformationImageToImageMetric<ImageType,ImageType> NMIMetricType;
@@ -1095,8 +1095,8 @@ namespace itk{
             histGen->Compute();
             typename HistogramType::ConstPointer  hist=histGen->GetOutput();
             LOGV(40)<<hist<<endl;
-            MeasureType entropyX = NumericTraits< MeasureType >::Zero;
-            typedef typename NumericTraits< HistogramFrequencyType >::RealType HistogramFrequencyRealType;
+            MeasureType entropyX = itk::NumericTraits< MeasureType >::Zero;
+            typedef typename itk::NumericTraits< HistogramFrequencyType >::RealType HistogramFrequencyRealType;
             HistogramFrequencyRealType totalFreq =
                 static_cast< HistogramFrequencyRealType >( hist->GetTotalFrequency() );
 
@@ -1342,8 +1342,8 @@ namespace itk{
             }
             
             if (count){
-                MeasureType jointEntropy = NumericTraits< MeasureType >::Zero;
-                typedef typename NumericTraits< HistogramFrequencyType >::RealType HistogramFrequencyRealType;
+                MeasureType jointEntropy = itk::NumericTraits< MeasureType >::Zero;
+                typedef typename itk::NumericTraits< HistogramFrequencyType >::RealType HistogramFrequencyRealType;
                 
                 HistogramFrequencyRealType totalFreq =
                     static_cast< HistogramFrequencyRealType >( jointHist->GetTotalFrequency() );
@@ -1439,8 +1439,8 @@ namespace itk{
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationCategorical            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef FastUnaryPotentialRegistrationNCC<TImage> Superclass;
 
         typedef	TImage ImageType;
@@ -1454,7 +1454,7 @@ namespace itk{
 
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
@@ -1694,8 +1694,8 @@ namespace itk{
     public:
         //itk declarations
         typedef FastUnaryPotentialRegistrationCategoricalDistanceBased<TImage>            Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef FastUnaryPotentialRegistrationCategorical<TImage> Superclass;
 
         typedef	TImage ImageType;
@@ -1709,7 +1709,7 @@ namespace itk{
 
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
 
@@ -1874,8 +1874,8 @@ namespace itk{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationSAD           Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
@@ -1885,7 +1885,7 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename InterpolatorType::ContinuousIndexType ContinuousIndexType;
         typedef typename TransfUtils<ImageType>::DeformationFieldPointerType DisplacementImagePointerType;
@@ -1945,14 +1945,15 @@ namespace itk{
                 return 999999999;
         }
     };//class
-    
+
+#if 0    
     template<class TImage>
     class UnaryPotentialRegistrationNCCWithSegmentationPrior : public UnaryPotentialRegistrationNCC< TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationNCCWithSegmentationPrior           Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
@@ -1962,8 +1963,8 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
-        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
         static const unsigned int D=ImageType::ImageDimension;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
@@ -2106,13 +2107,14 @@ namespace itk{
         }
 
     };//class
+#endif
     template<class TImage>
     class UnaryPotentialRegistrationNCCWithBonePrior : public UnaryPotentialRegistrationNCC< TImage>{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationNCCWithBonePrior           Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
@@ -2122,8 +2124,8 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
-        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
         static const unsigned int D=ImageType::ImageDimension;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
@@ -2330,8 +2332,8 @@ namespace itk{
     public:
         //itk declarations
         typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior           Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
@@ -2341,8 +2343,8 @@ namespace itk{
         typedef typename ImageType::IndexType IndexType;
         typedef typename ImageType::SizeType SizeType;
         typedef typename ImageType::SpacingType SpacingType;
-        typedef LinearInterpolateImageFunction<ImageType> InterpolatorType;
-        typedef NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
+        typedef itk::NearestNeighborInterpolateImageFunction<ImageType> NNInterpolatorType;
         static const unsigned int D=ImageType::ImageDimension;
         typedef typename InterpolatorType::Pointer InterpolatorPointerType;
         typedef typename NNInterpolatorType::Pointer NNInterpolatorPointerType;
@@ -2354,7 +2356,7 @@ namespace itk{
         typedef typename itk::Image<float,ImageType::ImageDimension> FloatImageType;
         typedef typename FloatImageType::Pointer FloatImagePointerType;
         typedef typename itk::StatisticsImageFilter< FloatImageType > StatisticsFilterType;
-        typedef LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
+        typedef itk::LinearInterpolateImageFunction<FloatImageType> FloatImageInterpolatorType;
         typedef typename FloatImageInterpolatorType::Pointer FloatImageInterpolatorPointerType;
     private:
         ConstImagePointerType m_targetSheetness, m_scaledTargetSheetness, m_atlasSegmentation, m_scaledAtlasSegmentation;
