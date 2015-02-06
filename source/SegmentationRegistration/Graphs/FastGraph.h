@@ -38,7 +38,7 @@ namespace SRS{
         typedef typename TImage::ConstPointer ConstImagePointerType;
         typedef typename TransfUtils<ImageType>::DisplacementType RegistrationLabelType;
     public:
-        virtual void Init(){
+         void Init(){
             //#define moarcaching
             this->m_unaryRegFunction->setCoarseImage(this->m_coarseGraphImage);
             TIME(this->m_unaryRegFunction->initCaching());
@@ -54,14 +54,14 @@ namespace SRS{
 #endif
             
         }
-        virtual void cacheRegistrationPotentials(int labelIndex){
+         void cacheRegistrationPotentials(int labelIndex){
 #ifndef moarcaching
             LOGV(25)<<"Caching unary registration function for label " << labelIndex<<endl;
             
             this->m_unaryRegFunction->cachePotentials(this->m_labelMapper->scaleDisplacement(this->m_labelMapper->getLabel(labelIndex),this->getDisplacementFactor()));
 #endif
         }
-        virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
+        inline double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType index=this->getGraphIndex(nodeIndex);
             LOGV(90)<<VAR(index);
 #ifdef moarcaching

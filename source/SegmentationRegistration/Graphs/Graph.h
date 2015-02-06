@@ -249,8 +249,8 @@ namespace SRS{
             logResetStage;
         }
         //can be used to initialize stuff right before potentials are called
-        virtual void Init(){};
-        virtual void setSpacing(int shortestN){
+         void Init(){};
+         void setSpacing(int shortestN){
             assert(m_targetImage);
             this->m_coarseGraphImage=ImageType::New();
             
@@ -364,7 +364,7 @@ namespace SRS{
         }
      
         //return position index in coarse graph from coarse graph node index
-        virtual IndexType  getGraphIndex(int nodeIndex){
+       inline  IndexType  getGraphIndex(int nodeIndex){
             IndexType position;
             for ( int d=m_dim-1;d>=0;--d){
                 //position[d] is now the index in the coarse graph (image)
@@ -375,7 +375,7 @@ namespace SRS{
         }
         //#define MANUALCONVERSION
         //return position in full image from coarse graph node index
-        virtual IndexType  getImageIndexFromCoarseGraphIndex(int idx){
+         inline IndexType  getImageIndexFromCoarseGraphIndex(int idx){
             IndexType position;
 #ifdef MANUALCONVERSION
             for ( int d=m_dim-1;d>=0;--d){
@@ -398,7 +398,7 @@ namespace SRS{
             assert(m_targetImage->GetLargestPossibleRegion().IsInside(position));
             return position;
         }
-        virtual IndexType getClosestGraphIndex(IndexType imageIndex){
+        inline IndexType getClosestGraphIndex(IndexType imageIndex){
             IndexType position;
 #ifdef MANUALCONVERSION
             for (unsigned int d=0;d<m_dim;++d){
@@ -412,7 +412,7 @@ namespace SRS{
 #endif
             return position;
         }
-        virtual IndexType getLowerGraphIndex(IndexType imageIndex){
+        inline IndexType getLowerGraphIndex(IndexType imageIndex){
             IndexType position;
             for (unsigned int d=0;d<m_dim;++d){
                 position[d]=int(imageIndex[d]*m_imageSpacing[d]/m_gridSpacing[d]);
@@ -420,14 +420,14 @@ namespace SRS{
             }
             return position;
         }
-        virtual int  getGraphIntegerIndex(IndexType gridIndex){
+        inline int  getGraphIntegerIndex(IndexType gridIndex){
             int i=0;
             for (unsigned int d=0;d<m_dim;++d){
                 i+=gridIndex[d]*m_graphLevelDivisors[d];
             }
             return i;
         }
-        virtual int  getImageIntegerIndex(IndexType imageIndex){
+        inline int  getImageIntegerIndex(IndexType imageIndex){
             int i=0;
             for (unsigned int d=0;d<m_dim;++d){
                 i+=imageIndex[d]*m_imageLevelDivisors[d];
@@ -440,7 +440,7 @@ namespace SRS{
         }
 
         //return position in full image depending on fine graph nodeindex
-        virtual IndexType getImageIndex(int idx){
+        inline IndexType getImageIndex(int idx){
             IndexType position;
             if (m_reducedSegNodes) {
                 idx=m_mapIdx1Rev[idx];
@@ -456,7 +456,7 @@ namespace SRS{
         /**
          * Get Unary registration potential for node/label combination
          */
-        virtual double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
+         inline double getUnaryRegistrationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndexFromCoarseGraphIndex(nodeIndex);
             RegistrationLabelType l=this->m_labelMapper->getLabel(labelIndex);
             l=this->m_labelMapper->scaleDisplacement(l,getDisplacementFactor());
@@ -468,7 +468,7 @@ namespace SRS{
         /**
          * Get Unary segmentation potential for node/label combination
          */
-        virtual double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
+         inline double getUnarySegmentationPotential(int nodeIndex,int labelIndex){
             IndexType imageIndex=getImageIndex(nodeIndex);
              
             /// use labelIndex from provided segmentation image if it is set, overwriting the input labelIndex
@@ -494,7 +494,7 @@ namespace SRS{
 
             return result;
         };
-        virtual inline double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
+         inline double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
             
             //IndexType graphIndex1=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             //IndexType graphIndex2=getImageIndexFromCoarseGraphIndex(nodeIndex2);
@@ -512,7 +512,7 @@ namespace SRS{
             if (m_normalizePotentials) result/=m_nRegEdges;
             return result;
         };
-        virtual double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
+         double getPairwiseSegRegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
             assert(false);
             IndexType graphIndex=getImageIndexFromCoarseGraphIndex(nodeIndex1);
             IndexType imageIndex=getImageIndex(nodeIndex2);
@@ -533,7 +533,7 @@ namespace SRS{
         }
 
         //#define MULTISEGREGNEIGHBORS
-        virtual inline double getPairwiseRegSegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
+         inline double getPairwiseRegSegPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int segmentationLabel){
     
             IndexType imageIndex=getImageIndex(nodeIndex2);
             if (m_targetSegmentationImage.IsNotNull()){
@@ -564,7 +564,7 @@ namespace SRS{
             return result;
         }
         
-        virtual inline double getPairwiseRegSegPotential(int nodeIndex2, int labelIndex1, int segmentationLabel){
+         inline double getPairwiseRegSegPotential(int nodeIndex2, int labelIndex1, int segmentationLabel){
     
             IndexType imageIndex=getImageIndex(nodeIndex2);
             if (m_targetSegmentationImage.IsNotNull()){
@@ -595,7 +595,7 @@ namespace SRS{
             return result;
         }
         
-        virtual inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
+         inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);
             if (m_targetSegmentationImage.IsNotNull()){
@@ -608,7 +608,7 @@ namespace SRS{
 
             return result;
         }
-        virtual inline double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
+         inline double getSegmentationWeight(int nodeIndex1, int nodeIndex2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);
             double result=m_unarySegFunction->getWeight(imageIndex1,imageIndex2)/m_nSegEdges;
@@ -710,7 +710,7 @@ namespace SRS{
             return neighbours;
         }
     
-        virtual RegistrationLabelImagePointerType getDeformationImage(std::vector<int>  labels){
+         RegistrationLabelImagePointerType getDeformationImage(std::vector<int>  labels){
             RegistrationLabelImagePointerType result=RegistrationLabelImageType::New();
             typename RegistrationLabelImageType::RegionType region;
             region.SetSize(m_gridSize);
@@ -733,7 +733,7 @@ namespace SRS{
         }
         
         //empty deformation image
-        virtual RegistrationLabelImagePointerType getDeformationImage(){
+         RegistrationLabelImagePointerType getDeformationImage(){
             RegistrationLabelImagePointerType result=RegistrationLabelImageType::New();
             typename RegistrationLabelImageType::RegionType region;
             region.SetSize(m_gridSize);
@@ -751,7 +751,7 @@ namespace SRS{
             }
             return result;
         }
-        virtual ImagePointerType getParameterImage(){
+        ImagePointerType getParameterImage(){
             ImagePointerType result=ImageType::New();
             typename ImageType::RegionType region;
             region.SetSize(m_gridSize);
@@ -847,7 +847,7 @@ namespace SRS{
         int nSegNodes(){
             return m_nSegmentationNodes;
         }
-        virtual int nRegLabels(){
+         int nRegLabels(){
             return this->m_nDisplacementLabels;
         }
         int nSegLabels(){

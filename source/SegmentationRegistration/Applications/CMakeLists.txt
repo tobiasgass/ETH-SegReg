@@ -18,22 +18,18 @@ include_directories (${SRS-MRF_SOURCE_DIR}/External/maxFlow)
 include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
 
 INCLUDE_DIRECTORIES(
-   # /home/gasst/work/include
-   # /usr/local/include
-    /usr/include/libxml2
+   /usr/include/libxml2
  ) 
 
-LINK_DIRECTORIES(
-    #/home/gasst/work/lib
-)
-# Make sure the linker can find the Hello library once it is built. 
-link_directories (${SRS-MRF_BINARY_DIR}/Models) 
 
 
 
 #SRS
 ADD_EXECUTABLE(SRS3D Multiresolution-SRS3D.cxx )
 TARGET_LINK_LIBRARIES(SRS3D ugmix maxflow GCO Utils TRWS     RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(SRS2D Multiresolution-SRS2D.cxx )
+TARGET_LINK_LIBRARIES(SRS2D ugmix maxflow  GCO Utils TRWS     RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SRS3DMultilabel Multiresolution-SRS3D-Multilabel.cxx )
 TARGET_LINK_LIBRARIES(SRS3DMultilabel ugmix maxflow  Utils TRWS     RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
@@ -43,8 +39,6 @@ TARGET_LINK_LIBRARIES(SRS3DCategorical ugmix maxflow  Utils TRWS     RF  xml2 /h
 ADD_EXECUTABLE(SRS2DMultilabel Multiresolution-SRS2D-Multilabel.cxx )
 TARGET_LINK_LIBRARIES(SRS2DMultilabel ugmix maxflow  Utils TRWS     RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
-ADD_EXECUTABLE(SRS2D Multiresolution-SRS2D.cxx )
-TARGET_LINK_LIBRARIES(SRS2D ugmix maxflow  Utils TRWS     RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SRS3D-Bone SRS3D-Bone.cxx )
 TARGET_LINK_LIBRARIES(SRS3D-Bone maxflow  Utils TRWS     RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
