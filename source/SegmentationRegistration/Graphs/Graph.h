@@ -595,7 +595,10 @@ namespace SRS{
             return result;
         }
         
-        virtual inline double getPairwiseSegmentationPotential(int nodeIndex1, int nodeIndex2, int label1, int label2){
+        virtual inline double getPairwiseSegmentationPotential(int nodeIndex1,
+                                                               int nodeIndex2,
+                                                               int label1,
+                                                               int label2){
             IndexType imageIndex1=getImageIndex(nodeIndex1);
             IndexType imageIndex2=getImageIndex(nodeIndex2);
             if (m_targetSegmentationImage.IsNotNull()){
