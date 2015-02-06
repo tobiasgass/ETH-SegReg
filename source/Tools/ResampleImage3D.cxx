@@ -1,0 +1,82 @@
+#include "Log.h"
+
+#include <stdio.h>
+#include <iostream>
+#include "argstream.h"
+#include "ImageUtils.h"
+#include "FilterUtils.hpp"
+#include <fstream>
+
+using namespace std;
+using namespace itk;
+
+
+
+int main(int argc, char ** argv)
+{
+
+	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+    typedef  short PixelType;
+    const unsigned int D=3;
+    typedef Image<PixelType,D> ImageType;
+    typedef  ImageType::IndexType IndexType;
+    typedef  ImageType::PointType PointType;
+    typedef  ImageType::DirectionType DirectionType;
+
+    typedef ImageType::Pointer ImagePointerType;
+    typedef ImageType::ConstPointer ImageConstPointerType;
+ 
+    argstream * as=new argstream(argc,argv);
+    string inFile, outFile,refFile="";
+    double factor=-1;
+    bool noSmoothing=false;
+    bool nnResampling=false;
+    bool rectifyAlignment=false;
+    (*as) >> parameter ("in", inFile, " filename...", true);
+    (*as) >> parameter ("out", outFile, " filename...", true);
+    (*as) >> parameter ("ref", refFile, " filename...", false);
+    (*as) >> option ("NN", nnResampling, " use NN resampling instead of linear resampling");
+    (*as) >> option ("noSmoothing", noSmoothing, " do not smooth image when linearly downsampling..");
+    (*as) >> option ("rectify", rectifyAlignment, " set origin to zero and direction matrix to identity.");
+    (*as) >> parameter ("f", factor, "resample image by factor", false);
+
+    (*as) >> help();
+    as->defaultErrorHandling();
+
+    ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
+
+    ImagePointerType outImage=img;
+    if (refFile!=""){
+        ImagePointerType reference=ImageUtils<ImageType>::readImage(refFile);
+        if (nnResampling){
+            outImage=FilterUtils<ImageType>::NNResample(img,reference,false);
+        }else{
+            outImage=FilterUtils<ImageType>::LinearResample(img,reference,!noSmoothing);
+        }
+    }else if (factor>0.0){
+        if (nnResampling){
+            outImage=FilterUtils<ImageType>::NNResample(img,factor,false);
+        }else{
+            outImage=FilterUtils<ImageType>::LinearResample(img,factor,!noSmoothing);
+        }
+    }
+    
+    if (rectifyAlignment){
+        PointType org; org.Fill(0.0); outImage->SetOrigin(org);
+        ImageType::DirectionType dir;
+        for (unsigned int d=0;d<D;++d){
+            for (unsigned int d2=0;d2<D;++d2){
+                if (d==d2){
+                    dir(d,d2)=1.0;
+                }else
+                    dir(d,d2)=0.0;
+            }
+        }
+        outImage->SetDirection(dir);
+
+
+    }
+    ImageUtils<ImageType>::writeImage(outFile,outImage);
+
+	return 1;
+}
