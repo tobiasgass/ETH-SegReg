@@ -9,6 +9,8 @@
 #ifndef GC_REGISTRATION_H_
 #define GC_REGISTRATION_H_
 #include "bgraph.h"
+
+namespace SRS{
 template<class TGraphModel>
 class GC_MRFSolver {
 public:
@@ -226,5 +228,5 @@ public:
     }
 };
 
-
+}//namespace
 #endif /* TRW_S_REGISTRATION_H_ */

@@ -11,7 +11,7 @@
 
 #include "Graph.h"
 
-
+namespace SRS{
 template<class TGraphModel>
 class BaseMRFSolver{
 
@@ -43,7 +43,7 @@ public:
     virtual void setPotentialCaching(bool b){} 
 
 };//MRFSolver
-
+}//namespace
 
 
 

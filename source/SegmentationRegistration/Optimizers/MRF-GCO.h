@@ -3,15 +3,15 @@
 #include "Log.h"
 #include "GCoptimization.h"
 #include <vector>
+#include <map>
 #include <google/heap-profiler.h>
 #include "ordering.cpp"
 #include <limits.h>
 #include <time.h>
 #include <omp.h>
 
-//#include "malloc.c"
-using namespace std;
 
+namespace SRS{
 
 
 
@@ -42,17 +42,16 @@ protected:
     int nSegLabels;
     bool m_segment, m_register,m_coherence;
     double m_lastLowerBound;
-    vector<int> m_labelOrder;
+    std::vector<int> m_labelOrder;
     int m_zeroDisplacementLabel;
     bool m_deleteRegNeighb;
     
 
-    static const double MULTIPLIER=1.0;//e3*24466320;//e6;
-
+    
     //ugly  static members because of GCO
-    static vector<vector<vector<map<int,float> > > > (*regPairwise);
-    static vector<vector<vector<float > > > *srsPairwise;
-    static vector<vector<vector<vector<float> > > > *segPairwise;
+    static std::vector<std::vector<std::vector<std::map<int,float> > > > (*regPairwise);
+    static std::vector<std::vector<std::vector<float > > > *srsPairwise;
+    static std::vector<std::vector<std::vector<std::vector<float> > > > *segPairwise;
     static int S0,S1;
     static int GLOBALnRegNodes,GLOBALnSegNodes,GLOBALnSegLabels,GLOBALnRegLabels;
     static GraphModelPointerType m_GraphModel;
@@ -143,7 +142,7 @@ public:
             }
         }
         //LOGV(10)<<VAR(EnergyType(MULTIPLIER*pot))<<endl;
-        return EnergyType(MULTIPLIER*pot);
+        return EnergyType(pot);
     }
 
 public:
@@ -169,7 +168,7 @@ public:
         regPairwise=NULL;
         segPairwise=NULL;
         srsPairwise=NULL;
-        m_labelOrder=vector<int>(this->m_GraphModel->nRegLabels());
+        m_labelOrder=std::vector<int>(this->m_GraphModel->nRegLabels());
         //order registration labels such that they start with zero displacement
         m_zeroDisplacementLabel=this->m_GraphModel->getLabelMapper()->getZeroDisplacementIndex();
         m_labelOrder[0]=m_zeroDisplacementLabel;
@@ -346,7 +345,7 @@ public:
                         this->m_GraphModel->cacheRegistrationPotentials(regLabel);
                         for (int d=0;d<nRegNodes;++d){
                             costs[d].site=d;
-                            costs[d].cost=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,regLabel)*MULTIPLIER;
+                            costs[d].cost=m_unaryRegistrationWeight*this->m_GraphModel->getUnaryRegistrationPotential(d,regLabel);
                             if (m_coherence && !m_segment){
                                 //pretty inefficient as the reg neighbors are recomputed #registrationLabels times for each registration node.
                                 std::vector<int> regSegNeighbors=this->m_GraphModel->getRegSegNeighbors(d);
@@ -370,7 +369,7 @@ public:
             tUnary+=t;
             // Pairwise potentials
             if (m_cachePotentials)
-                regPairwise= new vector<vector<vector<map<int,float> > > > (nRegLabels,vector<vector<map<int,float> > >(nRegLabels,vector<map<int,float> > (nRegNodes) ) );
+                regPairwise= new std::vector<std::vector<std::vector<std::map<int,float> > > > (nRegLabels,std::vector<std::vector<std::map<int,float> > >(nRegLabels,std::vector<std::map<int,float> > (nRegNodes) ) );
             
             for (int d=0;d<nRegNodes;++d){
                 m_optimizer->setLabel(d,m_zeroDisplacementLabel);
@@ -418,8 +417,8 @@ public:
                     for (int d=0;d<nSegNodes;++d){
                         double unarySegCost=this->m_GraphModel->getUnarySegmentationPotential(d,l1);
                         if ( unarySegCost<1000){
-                            costas[c].cost=m_unarySegmentationWeight*MULTIPLIER*unarySegCost;
-                            LOGV(10)<<"node "<<d<<"; seg unary label: "<<l1<<" "<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)*MULTIPLIER<<endl;
+                            costas[c].cost=m_unarySegmentationWeight*unarySegCost;
+                            LOGV(10)<<"node "<<d<<"; seg unary label: "<<l1<<" "<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)<<endl;
                             costas[c].site=d+GLOBALnRegNodes;
                             if (m_coherence && !m_register){
                                 double coherenceCost=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
@@ -442,8 +441,8 @@ public:
             int nSegEdges=0,nSegRegEdges=0;
             //Segmentation smoothness cache
             if (m_cachePotentials){
-                segPairwise= new vector<vector<vector<vector<float> > > > (GLOBALnSegLabels,vector<vector<vector<float> > >(GLOBALnSegLabels,vector< vector<float> > (GLOBALnSegNodes,vector<float> (D)) ) );
-                srsPairwise= new vector<vector<vector<float > > > (GLOBALnSegLabels,vector<vector<float > >(GLOBALnRegLabels,vector<float>(GLOBALnSegNodes) ) );
+                segPairwise= new std::vector<std::vector<std::vector<std::vector<float> > > > (GLOBALnSegLabels,std::vector<std::vector<std::vector<float> > >(GLOBALnSegLabels,std::vector< std::vector<float> > (GLOBALnSegNodes,std::vector<float> (D)) ) );
+                srsPairwise= new std::vector<std::vector<std::vector<float > > > (GLOBALnSegLabels,std::vector<std::vector<float > >(GLOBALnRegLabels,std::vector<float>(GLOBALnSegNodes) ) );
             }
 
             
@@ -652,9 +651,9 @@ public:
     }
 };
 
-template<class T> vector<vector<vector<map<int,float> > > >  * GCO_SRSMRFSolver<T>::regPairwise = NULL;
-template<class T> vector<vector<vector<vector<float> > > >   * GCO_SRSMRFSolver<T>::segPairwise = NULL;
-template<class T> vector<vector<vector<float > > >  * GCO_SRSMRFSolver<T>::srsPairwise = NULL;
+template<class T> std::vector<std::vector<std::vector<std::map<int,float> > > >  * GCO_SRSMRFSolver<T>::regPairwise = NULL;
+template<class T> std::vector<std::vector<std::vector<std::vector<float> > > >   * GCO_SRSMRFSolver<T>::segPairwise = NULL;
+template<class T> std::vector<std::vector<std::vector<float > > >  * GCO_SRSMRFSolver<T>::srsPairwise = NULL;
 template<class T>  typename GCO_SRSMRFSolver<T>::GraphModelPointerType   GCO_SRSMRFSolver<T>::m_GraphModel=NULL;
 
 template<class T> int  GCO_SRSMRFSolver<T>::S0=0;
@@ -668,3 +667,4 @@ template<class T>  double GCO_SRSMRFSolver<T>::m_pairwiseSegmentationWeight=0;
 template<class T>  double GCO_SRSMRFSolver<T>::m_pairwiseRegistrationWeight=0;
 template<class T>  bool GCO_SRSMRFSolver<T>::m_cachePotentials=false;
 
+}
