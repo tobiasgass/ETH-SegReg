@@ -1,12 +1,12 @@
 #PROJECT(ImageRegistration)
 INCLUDE_REGULAR_EXPRESSION("^.*$")
 
-#include_directories (
- # ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Potentials
-#  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Graphs
- # ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/MultiResolution
-#  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Optimizers
-#) 
+include_directories (
+  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Potentials
+  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Graphs
+ ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/MultiResolution
+  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Optimizers
+) 
 
 include_directories (${SRS-MRF_SOURCE_DIR}/Utils)
 #include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
