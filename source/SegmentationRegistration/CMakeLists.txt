@@ -7,7 +7,7 @@ add_subdirectory(Applications)
 FILE(GLOB optHeaders "Optimizers/*.h")
 FILE(GLOB graphHeaders "Graphs/*.h")
 FILE(GLOB potHeaders "Potentials/*.h")
-FILE(GLOB multHeaders "Multiresolution/*.h")
+FILE(GLOB multHeaders "MultiResolution/*.h")
 
 
 # INCLUDE_DIRECTORIES(
