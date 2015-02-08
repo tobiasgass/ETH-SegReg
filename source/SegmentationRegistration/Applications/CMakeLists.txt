@@ -1,12 +1,12 @@
 #PROJECT(ImageRegistration)
 INCLUDE_REGULAR_EXPRESSION("^.*$")
 
-include_directories (
-  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Potentials
-  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Graphs
-  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/MultiResolution
-  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Optimizers
-) 
+#include_directories (
+ # ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Potentials
+#  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Graphs
+ # ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/MultiResolution
+#  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Optimizers
+#) 
 
 include_directories (${SRS-MRF_SOURCE_DIR}/Utils)
 #include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
@@ -26,7 +26,8 @@ INCLUDE_DIRECTORIES(
 
 #SRS
 ADD_EXECUTABLE(SRS3D Multiresolution-SRS3D.cxx )
-TARGET_LINK_LIBRARIES(SRS3D ugmix maxflow GCO Utils TRWS     RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3D ugmix maxflow GCO Utils TRWS     RF
+SRSMRFModels xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
 
 ADD_EXECUTABLE(SRS2D Multiresolution-SRS2D.cxx )
 TARGET_LINK_LIBRARIES(SRS2D ugmix maxflow  GCO Utils TRWS     RF  xml2 /home/gasst/work/lib/libconfig++.a  ${ITK_LIBRARIES}  )
