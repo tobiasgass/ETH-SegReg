@@ -39,8 +39,7 @@ FILE(GLOB multHeaders "MultiResolution/*.h")
 # )
 # 
 
-ADD_LIBRARY(SRSMRFModels ${optHeaders} ${graphHeaders} ${potHeaders}
-${multHeaders} dummy.cxx)
+ADD_LIBRARY(SRSMRFModels ${optHeaders} ${graphHeaders} ${potHeaders} ${multHeaders} dummy.cxx)
 
 #TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters FastPD )
 
