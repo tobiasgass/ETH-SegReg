@@ -4,6 +4,11 @@ include(${ITK_USE_FILE})
 #SUBDIRS(Applications)
 add_subdirectory(Applications)
 
+FILE(GLOB optHeaders "Optimizers/*.h")
+FILE(GLOB graphHeaders "Graphs/*.h")
+FILE(GLOB potHeaders "Potentials/*.h")
+FILE(GLOB multHeaders "Multiresolution/*.h")
+
 
 # INCLUDE_DIRECTORIES(
 #     /usr/include/libxml2
@@ -33,7 +38,10 @@ add_subdirectory(Applications)
 #   dummy.cxx  
 # )
 # 
-#ADD_LIBRARY(SRSMRFModels ${SRSMRFModels_SRC} )
+
+ADD_LIBRARY(SRSMRFModels optHeaders graphHeaders potHeaders
+multHeaders dummy.cxx)
+
 #TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters FastPD )
 
 #IF (TCMALLOC)
