@@ -169,22 +169,29 @@ namespace SRS{
 	double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
 	LOGV(1)<<"Registration Unaries took "<<t<<" seconds."<<endl;
 	tUnary+=t;
-	// Pairwise potentials
+	/// Pairwise potentials
+	/// pure Registration
 	for (int d=0;d<nRegNodes;++d){
-            
-	  {//pure Registration
+	  ///iterate over node indices (of the registration graph)
+	  {
+	    /// get neighbours of each node
 	    std::vector<int> neighbours= this->m_GraphModel->getForwardRegistrationNeighbours(d);
 	    int nNeighbours=neighbours.size();
+	    /// iterate over neighbours
 	    for (int i=0;i<nNeighbours;++i){
+	      //iterate over all registration label combinations
 	      for (int l1=0;l1<nRegLabels;++l1){
 		for (int l2=0;l2<nRegLabels;++l2){
-		  if (m_pairwiseRegistrationWeight>0)
+		  if (m_pairwiseRegistrationWeight>0){
+		    /// get potential and store in array
 		    Vreg[l1+l2*nRegLabels]=m_pairwiseRegistrationWeight*this->m_GraphModel->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+		  }
 		  else{
 		    Vreg[l1*nRegLabels+l2]=0;
 		  }
 		}
 	      }
+	      /// add edge with stored potentials to external optimizer object
 	      m_optimizer.AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vreg));
 	      edgeCount++;
 	    }
