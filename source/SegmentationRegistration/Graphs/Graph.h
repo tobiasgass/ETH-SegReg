@@ -246,8 +246,9 @@ namespace SRS{
     LOGV(1)<<" finished graph init" <<std::endl;
     logResetStage;
   }
-  //can be used to initialize stuff right before potentials are called
+  ///can be used to initialize stuff right before potentials are called
   void Init(){};
+  ///set coarse graph size/resolution/spacing based on target image and desired number of nodes on the shortest edge
   void setSpacing(int shortestN){
     assert(m_targetImage);
     this->m_coarseGraphImage=ImageType::New();
@@ -314,6 +315,7 @@ namespace SRS{
       return 0;
   }
 
+  ///reduces the nodes for which segmentation labels are computed, based on the coherence potential
   void ReduceSegmentationNodesByCoherencePotential(double thresh){
     m_coherenceThresh=thresh;
     int maxLabel=this->m_nSegmentationLabels-1;
