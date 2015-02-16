@@ -21,6 +21,9 @@
 
 
 namespace SRS{
+/** \brief
+   * Wrapper for the TRW-S MRF solver package
+   */
 
   template<class TGraphModel>
     class TRWS_SRSMRFSolver : public BaseMRFSolver<TGraphModel> {

@@ -15,7 +15,9 @@
 
 namespace SRS{
 
-
+/** \brief
+   * Segmentation unary function which implements the bone segmentation potential described in Fuernstahl et al. 
+   */
 
     template<class TImage>
     class UnaryPotentialSegmentation: public itk::Object{

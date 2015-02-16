@@ -12,6 +12,10 @@
 #include "Graph.h"
 
 namespace SRS{
+
+  /** \brief
+   * Abstract class for MRF wrappers
+   */
   template<class TGraphModel>
     class BaseMRFSolver{
 
@@ -30,13 +34,13 @@ namespace SRS{
 		  double pairwiseSegRegWeight=1.0,
                   int vverbose=false){};
 
-    //pure virtual functions have to be implemented by derived classes
+    ///pure virtual functions have to be implemented by derived classes
 
-    //create MRF graph, implementatiuon depends on the used optimisation library
+    ///create MRF graph, implementatiuon depends on the used optimisation library
     virtual void createGraph()=0;
-    //finalize initialization and call the optimisation
+    ///finalize initialization and call the optimisation
     virtual double optimize(int maxIter)=0;
-
+    ///store MRF result in vectors of int(labels)
     virtual std::vector<int> getDeformationLabels()=0;
     virtual std::vector<int> getSegmentationLabels()=0;
     virtual double optimizeOneStep(int currentIter , bool & converged)=0;

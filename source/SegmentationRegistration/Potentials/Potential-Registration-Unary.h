@@ -36,6 +36,9 @@
 
 namespace SRS{
 
+  /** \brief
+   * Local NCC registration potential, also serves as base class for the remaining registration potential classes
+   */
     template<class TImage>
     class UnaryPotentialRegistrationNCC : public itk::Object{
     public:
@@ -359,8 +362,9 @@ namespace SRS{
     };//class
 
  
- 
-
+ /** \brief
+   * This registration potential computes all local potentials for a specific displacement at once and caches them, allowing for greater efficiency
+   */
     template<class TImage>
     class FastUnaryPotentialRegistrationNCC: public UnaryPotentialRegistrationNCC<TImage> {
     public:
