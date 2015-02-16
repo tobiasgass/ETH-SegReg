@@ -22,8 +22,12 @@
 #include <opengm/inference/external/trws.hxx>
 
 
-
-
+namespace SRS{
+/** \brief
+   * Wrapper for the openGM MRF solver package
+   * 
+   * 
+   */
 template<class TGraphModel>
 class OPENGM_SRSMRFSolver :public BaseMRFSolver<TGraphModel>{
 public:
@@ -364,3 +368,4 @@ public:
 
   
 };
+}

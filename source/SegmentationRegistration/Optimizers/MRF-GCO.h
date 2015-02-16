@@ -14,7 +14,9 @@
 namespace SRS{
 
 
-
+/** \brief
+   * Wrapper for Olga Vekslers Multilabel graph cut library
+   */
 template<class TGraphModel>
 class GCO_SRSMRFSolver :public BaseMRFSolver<TGraphModel>{
 public:

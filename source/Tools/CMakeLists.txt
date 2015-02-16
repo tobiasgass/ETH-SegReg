@@ -1,13 +1,13 @@
 PROJECT(ImageRegistration)
-include_directories (${SRS-MRF_SOURCE_DIR}/SegmentationRegistration) 
-include_directories (${SRS-MRF_SOURCE_DIR}/Propagation) 
+#include_directories (${SRS-MRF_SOURCE_DIR}/SegmentationRegistration) 
+#include_directories (${SRS-MRF_SOURCE_DIR}/Propagation) 
 include_directories (${SRS-MRF_SOURCE_DIR}/Utils)
-include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
-include_directories (${SRS-MRF_SOURCE_DIR}/External/TRWS) 
-include_directories (${SRS-MRF_SOURCE_DIR}/External/RF) 
-include_directories (${SRS-MRF_SOURCE_DIR}/External/c-ugmix) 
-include_directories (${SRS-MRF_SOURCE_DIR}/External/maxFlow) 
-include_directories (${SRS-MRF_SOURCE_DIR}/External/GCO) 
+#include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
+#include_directories (${SRS-MRF_SOURCE_DIR}/External/TRWS) 
+#include_directories (${SRS-MRF_SOURCE_DIR}/External/RF) 
+#include_directories (${SRS-MRF_SOURCE_DIR}/External/c-ugmix) 
+#include_directories (${SRS-MRF_SOURCE_DIR}/External/maxFlow) 
+#include_directories (${SRS-MRF_SOURCE_DIR}/External/GCO) 
 
 include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
 
@@ -18,6 +18,14 @@ INCLUDE_DIRECTORIES(
  ) 
 
 #Tools
+
+ADD_EXECUTABLE(RegistrationAffineMultiRes3D RegistrationAffineMultiRes3D.cxx )
+TARGET_LINK_LIBRARIES(RegistrationAffineMultiRes3D  Utils   ${ITK_LIBRARIES}  )
+
+ADD_EXECUTABLE(CreateMultiLabelAtlasSegmentation3D CreateMultiLabelAtlasSegmentation3D.cxx )
+TARGET_LINK_LIBRARIES(CreateMultiLabelAtlasSegmentation3D  Utils   ${ITK_LIBRARIES}  )
+
+
 ADD_EXECUTABLE(PrintImageContent2D PrintImageContent2D.cxx )
 TARGET_LINK_LIBRARIES(PrintImageContent2D  Utils   ${ITK_LIBRARIES}  )
 
