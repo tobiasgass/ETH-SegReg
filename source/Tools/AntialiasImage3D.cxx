@@ -8,6 +8,9 @@
 #include <fstream>
 #include "itkAntiAliasBinaryImageFilter.h"
 #include "itkSignedMaurerDistanceMapImageFilter.h"
+
+#include "ArgParse.h"
+
 using namespace std;
 using namespace itk;
 
@@ -16,7 +19,7 @@ using namespace itk;
 int main(int argc, char ** argv)
 {
     //feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    typedef  double PixelType;
+    typedef  int PixelType;
     typedef double OutputPixelType;
     const unsigned int D=3;
     typedef Image<PixelType,D> ImageType;
@@ -33,22 +36,26 @@ int main(int argc, char ** argv)
  
     argstream * as=new argstream(argc,argv);
     string inFile, outFile, outSurface="";
-    double thresh=0.07;
-    int iter=20;
+    double thresh=0.001;
+    int iter=50;
+    int layers=2;
     double spacingScalingFactor=2.0;
+    PixelType label=1;
     bool gaussian=false;
     (*as) >> parameter ("in", inFile, " filename...", true);
     (*as) >> parameter ("out", outFile, " filename...", true);
-    (*as) >> parameter ("outSurf", outSurface, " Output Zero Level Set Surface filename...", true);
+    //(*as) >> parameter ("outSurf", outSurface, " Output Zero Level Set Surface filename...", true);
+    (*as) >> parameter ("label", label, "label to select from input volume", false);
     (*as) >> parameter ("iter", iter, " number of AA iterations (max)...", false);
+    (*as) >> parameter ("layers", layers, " number of AA layers (??)...", false);
     (*as) >> parameter ("thresh", thresh, "max desired RMSE change for convergence...", false);
-    (*as) >> parameter ("scale", spacingScalingFactor, "weird...", false);
+    (*as) >> parameter ("scale", spacingScalingFactor, "multiply spacing with scaling factor. Can reduce artefacts if the spacing of the input volume is very small. Somewhat weird...", false);
     (*as) >> option ("gauss", gaussian, "use gaussian smoothing of surface instead of AA filter. thresh becomes size of kernel relative to image spacing");
 
     (*as) >> help();
     as->defaultErrorHandling();
 
-    ImagePointerType img = FilterUtils<ImageType>::binaryThresholdingLow(ImageUtils<ImageType>::readImage(inFile),1);
+    ImagePointerType img = FilterUtils<ImageType>::select(ImageUtils<ImageType>::readImage(inFile),label);
     img->DisconnectPipeline();
     OutputImagePointerType out;
 
@@ -65,6 +72,7 @@ int main(int argc, char ** argv)
     
         antiAliasFilter->SetNumberOfIterations(iter);
         antiAliasFilter->SetMaximumRMSError(thresh);
+        antiAliasFilter->SetNumberOfLayers(layers);
 
         antiAliasFilter->Update();
 
