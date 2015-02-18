@@ -71,7 +71,7 @@ int main(int argc, char * argv[] )
 
   if( argc < 3 )
     {
-    std::cerr << "Usage: IsoSurfaceExtraction  inputImageFile   outputMeshFile " << std::endl;
+    std::cerr << "Usage: IsoSurfaceExtraction  inputImageFile   outputMeshFile <objectValue>" << std::endl;
     return EXIT_FAILURE;
     }
 
@@ -174,7 +174,9 @@ int main(int argc, char * argv[] )
 // Software Guide : EndLatex
 
 // Software Guide : BeginCodeSnippet
-  const PixelType objectValue = 1;
+  PixelType objectValue = 1;
+  if( argc > 3 )
+      objectValue=atoi(argv[3]);
 
   meshSource->SetObjectValue( objectValue );
 // Software Guide : EndCodeSnippet
