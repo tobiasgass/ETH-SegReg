@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
 
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"

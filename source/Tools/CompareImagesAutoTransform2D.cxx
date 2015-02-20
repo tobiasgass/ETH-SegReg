@@ -8,7 +8,7 @@
 #include <map>
 
 #include <map>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
 #include <sstream>
@@ -39,26 +39,25 @@ int main(int argc, char * argv [])
 {
 
 
-    argstream as(argc, argv);
+    ArgumentParser as(argc, argv);
 	string groundTruth,segmentationFilename,outputFilename="";
     double sigma=1;
     std::string metric="lncc";
     int nSamples=2;
     string acc="mean";
     string eval="exp";
-	as >> parameter ("a", groundTruth, "image 1", true);
-	as >> parameter ("b", segmentationFilename, "image2", true);
-	as >> parameter ("s", sigma, "lncc kernel width", true);
-	as >> parameter ("o", outputFilename, "output image (file name)", false);
-	as >> parameter ("metric", metric, "metric (lncc,itklncc,lsad,lssd)", false);
-	as >> parameter ("nSamples", nSamples, "number of samples for autocorrelation", false);
-    as >> parameter ("acc", acc, "accumulater (mean,max)", false);
-	as >> parameter ("eval", eval, "evaluation method (exp,diff)", false);
+	as.parameter ("a", groundTruth, "image 1", true);
+	as.parameter ("b", segmentationFilename, "image2", true);
+	as.parameter ("s", sigma, "lncc kernel width", true);
+	as.parameter ("o", outputFilename, "output image (file name)", false);
+	as.parameter ("metric", metric, "metric (lncc,itklncc,lsad,lssd)", false);
+	as.parameter ("nSamples", nSamples, "number of samples for autocorrelation", false);
+    as.parameter ("acc", acc, "accumulater (mean,max)", false);
+	as.parameter ("eval", eval, "evaluation method (exp,diff)", false);
 
     int nTotalSamples=D*2*nSamples;
   
-	as >> help();
-	as.defaultErrorHandling();
+	as.parse();
 
  
     ImageType::Pointer groundTruthImg =

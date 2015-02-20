@@ -8,7 +8,7 @@
 #include <map>
 
 #include <map>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
 #include <sstream>
@@ -37,19 +37,19 @@ int main(int argc, char * argv [])
 {
 
 
-    argstream as(argc, argv);
+    ArgumentParser as(argc, argv);
 	string target,movingationFilename,outputFilename="",outputDefFilename;
     double sigma=1;
     std::string metric="lncc";
-	as >> parameter ("t", target, "image 1", true);
-	as >> parameter ("m", movingationFilename, "image2", true);
-	as >> parameter ("s", sigma, "lncc kernel width", true);
-	as >> parameter ("o", outputFilename, "output image (file name)", false);
-	as >> parameter ("T", outputDefFilename, "output Def image (file name)", false);
-	as >> parameter ("metric", metric, "metric (lncc,itklncc,lsad,lssd)", false);
+	as.parameter ("t", target, "image 1", true);
+	as.parameter ("m", movingationFilename, "image2", true);
+	as.parameter ("s", sigma, "lncc kernel width", true);
+	as.parameter ("o", outputFilename, "output image (file name)", false);
+	as.parameter ("T", outputDefFilename, "output Def image (file name)", false);
+	as.parameter ("metric", metric, "metric (lncc,itklncc,lsad,lssd)", false);
   
-	as >> help();
-	as.defaultErrorHandling();
+	as.parse();
+	
 
  
     ImageType::Pointer targetImg =

@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -31,14 +31,14 @@ int main(int argc, char ** argv)
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
 
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string moving,target="",def1,def2,output;
     bool NN=false;
-    (*as) >> parameter ("def1", def1, " filename of deformation1", true);
-    (*as) >> parameter ("out", output, " output filename", true);
-    (*as) >> option ("NN", NN," use NN interpolation of image");
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parameter ("def1", def1, " filename of deformation1", true);
+    as->parameter ("out", output, " output filename", true);
+    as->option ("NN", NN," use NN interpolation of image");
+    as->parse();
+    
 
     typedef TransfUtils<ImageType,float>::AffineTransformType  AffineTransformType;
     typedef TransfUtils<ImageType,float>::AffineTransformPointerType  AffineTransformPointerType;

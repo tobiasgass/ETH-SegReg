@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -11,7 +11,7 @@
 #include "FilterUtils.hpp"
 #include "bgraph.h"
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -55,7 +55,7 @@ int main(int argc, char ** argv)
     
 
   
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string atlasSegmentationFilename,deformationFileList,imageFileList,atlasID="",supportSamplesListFileName="",outputDir=".",outputSuffix="";
     int verbose=0;
     int nImages=-1;
@@ -64,22 +64,22 @@ int main(int argc, char ** argv)
     double segPairwiseWeight=0.0;
     bool NCC=false;
     int radius=3;
-    (*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
-    (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-    (*as) >> parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
-    (*as) >> parameter ("N", nImages,"number of target images", false);
-    (*as) >> parameter ("a", atlasID,"atlas ID. if not set, first image in imageFileList is assumed to be the atlas",false);
-    (*as) >> parameter ("w", pWeight,"inter-image pairwise potential weight",false);
-    (*as) >> parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight (NOT YET IMPLEMENTED)",false);
-    (*as) >> parameter ("s", sigma,"sigma",false);
-    (*as) >> parameter ("O", outputDir,"outputdirectory",false);
-    (*as) >> option ("NCC", NCC,"outputdirectory");
-    (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
+    as->parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
+    as->parameter ("T", deformationFileList, " list of deformations", true);
+    as->parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
+    as->parameter ("N", nImages,"number of target images", false);
+    as->parameter ("a", atlasID,"atlas ID. if not set, first image in imageFileList is assumed to be the atlas",false);
+    as->parameter ("w", pWeight,"inter-image pairwise potential weight",false);
+    as->parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight (NOT YET IMPLEMENTED)",false);
+    as->parameter ("s", sigma,"sigma",false);
+    as->parameter ("O", outputDir,"outputdirectory",false);
+    as->option ("NCC", NCC,"outputdirectory");
+    as->parameter ("radius", radius,"patch radius for NCC",false);
 
-    (*as) >> parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
-    (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
+    as->parameter ("verbose", verbose,"get verbose output",false);
+    as->parse();
+    
 
     logSetStage("IO");
     logSetVerbosity(verbose);

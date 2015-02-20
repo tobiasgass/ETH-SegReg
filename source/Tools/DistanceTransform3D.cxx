@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <fstream>
@@ -28,15 +28,15 @@ int main(int argc, char ** argv)
     typedef FloatImageType::Pointer FloatImagePointerType;
 
  
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile;
     int label=0;
-    (*as) >> parameter ("in", inFile, " filename...", true);
-    (*as) >> parameter ("out", outFile, " filename...", true);
-    (*as) >> parameter ("l", label, "label", true);
+    as->parameter ("in", inFile, " filename...", true);
+    as->parameter ("out", outFile, " filename...", true);
+    as->parameter ("l", label, "label", true);
 
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
 
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 

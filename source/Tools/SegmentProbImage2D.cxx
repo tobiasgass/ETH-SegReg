@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <iostream>
 #include "GCoptimization.h"
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -12,7 +12,7 @@
 #include "FilterUtils.hpp"
 #include "bgraph.h"
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -151,23 +151,23 @@ ImagePointerType probSegmentationToSegmentationGraphcutMultiLabel( Probabilistic
 
 int main(int argc, char ** argv){
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string probImageFilename="",imageFilename="",outImageFilename="";
     double smoothness=1.0;
     double m_graphCutSigma=10;
     int nSegmentations=2;
     bool graphCut=true;
     int verbose = 0  ; 
-    (*as) >> parameter ("p",probImageFilename , "prob image file name", true);
-    (*as) >> parameter ("i", imageFilename, " intensity image", true);
-    (*as) >> parameter ("o", outImageFilename, " output segmentations image", true);
-    (*as) >> parameter ("sigmaGC", m_graphCutSigma,"sigma for exp(- contrast/sigma) for graphcut smoothness",false);
-    (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
-    (*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-    (*as) >> parameter ("nSegLabels", nSegmentations,"number of segmentation labels (including background)",false);
-    (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parameter ("p",probImageFilename , "prob image file name", true);
+    as->parameter ("i", imageFilename, " intensity image", true);
+    as->parameter ("o", outImageFilename, " output segmentations image", true);
+    as->parameter ("sigmaGC", m_graphCutSigma,"sigma for exp(- contrast/sigma) for graphcut smoothness",false);
+    as->option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
+    as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
+    as->parameter ("nSegLabels", nSegmentations,"number of segmentation labels (including background)",false);
+    as->parameter ("verbose", verbose,"get verbose output",false);
+    as->parse();
+    
       
     ImagePointerType img=ImageUtils<ImageType>::readImage(imageFilename);
     ProbabilisticVectorImagePointerType probs=ImageUtils<ProbabilisticVectorImageType>::readImage(probImageFilename);

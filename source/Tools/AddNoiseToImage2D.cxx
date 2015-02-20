@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -33,17 +33,17 @@ int main(int argc, char ** argv)
     typedef Image<LabelType,D> LabelImageType;
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile;
     double variance=1.0,mean=0.0,freq=0.1;
-    (*as) >> parameter ("in", inFile, " filename...", true);
-    (*as) >> parameter ("out", outFile, " filename...", true);
-    (*as) >> parameter ("var", variance, "variance of additive noise", true);
-    (*as) >> parameter ("mean", mean, "mean of additive noise", true);
-    (*as) >> parameter ("freq", freq, "frequency of additive noise", true);
+    as->parameter ("in", inFile, " filename...", true);
+    as->parameter ("out", outFile, " filename...", true);
+    as->parameter ("var", variance, "variance of additive noise", true);
+    as->parameter ("mean", mean, "mean of additive noise", true);
+    as->parameter ("freq", freq, "frequency of additive noise", true);
 
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
 
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 

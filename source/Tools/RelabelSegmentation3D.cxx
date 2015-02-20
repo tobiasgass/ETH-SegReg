@@ -12,7 +12,7 @@
 #include <itkMinimumMaximumImageCalculator.h>
 #include <itkHausdorffDistanceImageFilter.h>
 #include <map>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
 #include "mmalloc.h"
@@ -30,18 +30,18 @@ int main(int argc, char * argv [])
 {
 
     
-    argstream as(argc, argv);
+    ArgumentParser as(argc, argv);
 	string segmentationFilename,outputFilename="";
     int verbose=0;
     string labelList="";
     int targetLabel=-1;
     bool binary=false;
-	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
-	as >> parameter ("o", outputFilename, "output image (file name)", true);
-	as >> parameter ("v", verbose, "verbosity level", false);
+	as.parameter ("s", segmentationFilename, "segmentation image (file name)", true);
+	as.parameter ("o", outputFilename, "output image (file name)", true);
+	as.parameter ("v", verbose, "verbosity level", false);
 
-	as >> help();
-	as.defaultErrorHandling();
+	as.parse();
+	
     logSetVerbosity(verbose);
  
      SegmentationMapper<LabelImage> segmentationMapper;

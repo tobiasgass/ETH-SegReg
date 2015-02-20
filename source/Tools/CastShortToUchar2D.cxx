@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -34,15 +34,15 @@ int main(int argc, char ** argv)
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
 
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string moving,target="",def,output;
     bool NN=false;
     int nFrames=1;
-    (*as) >> parameter ("in", moving, " filename of input image", true);
-    (*as) >> parameter ("out", output, " output filename", true);
+    as->parameter ("in", moving, " filename of input image", true);
+    as->parameter ("out", output, " output filename", true);
  
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
     ImagePointerType image = ImageUtils<ImageType>::readImage(moving);
 
     ImageUtils<ImageType>::multiplyImage(image,1.0*numeric_limits<OutputPixelType>::max()/numeric_limits<PixelType>::max());

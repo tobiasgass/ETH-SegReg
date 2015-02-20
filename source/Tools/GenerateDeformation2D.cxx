@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -33,7 +33,7 @@ int main(int argc, char ** argv)
     typedef DisplacementFieldType::Pointer DisplacementFieldPointerType;
     typedef ImageType::IndexType IndexType;
 
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string moving,target="",def,output,previousDef="";
     bool NN=false;
     int nFrames=1;
@@ -41,16 +41,16 @@ int main(int argc, char ** argv)
     double scale=1.0;
     double length=-1.0;
     double freq=1.0;
-    (*as) >> parameter ("target", target, " filename of target image", false);
-    (*as) >> parameter ("out", output, " output filename", true);
-    (*as) >> parameter ("prev", previousDef, "optional previous deformation. the new def is composed to the previous one, and the result is scaled such that the total magnitude of the def. does not change", false);
-    (*as) >> parameter ("n", nPoints, "number of grid control points per axis", false);
-    (*as) >> parameter ("s", scale, "std dev relative to grid spacing", false);
-    (*as) >> parameter ("l", length, "maximum error (overrides scale)", false);
-    (*as) >> parameter ("f", freq, "probability of error at each grid point", false);
+    as->parameter ("target", target, " filename of target image", false);
+    as->parameter ("out", output, " output filename", true);
+    as->parameter ("prev", previousDef, "optional previous deformation. the new def is composed to the previous one, and the result is scaled such that the total magnitude of the def. does not change", false);
+    as->parameter ("n", nPoints, "number of grid control points per axis", false);
+    as->parameter ("s", scale, "std dev relative to grid spacing", false);
+    as->parameter ("l", length, "maximum error (overrides scale)", false);
+    as->parameter ("f", freq, "probability of error at each grid point", false);
 
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
     ImagePointerType image = ImageUtils<ImageType>::readImage(target);
     
     ImagePointerType coarseImg=FilterUtils<ImageType>::NNResample(image,1.0*nPoints/image->GetLargestPossibleRegion().GetSize()[0],false);

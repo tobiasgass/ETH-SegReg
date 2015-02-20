@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -30,9 +30,9 @@ errors-grid13-scale1/localErrNorms.txt
     typedef DisplacementFieldType::Pointer DisplacementFieldPointerType;
     typedef ImageType::IndexType IndexType;
 
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string target="";
-    (*as) >> parameter ("target", target, " filename of target image", false);
+    as->parameter ("target", target, " filename of target image", false);
   
     DisplacementFieldPointerType def=ImageUtils<DisplacementFieldType>::readImage(target);
     itk::ImageRegionIteratorWithIndex<DisplacementFieldType> it(def,def->GetLargestPossibleRegion());

@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <fstream>
@@ -27,22 +27,22 @@ int main(int argc, char ** argv)
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
  
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile,refFile="";
     double factor=-1;
     bool noSmoothing=false;
     bool nnResampling=false;
     string size="";
-    (*as) >> parameter ("in", inFile, " filename...", true);
-    (*as) >> parameter ("out", outFile, " filename...", true);
-    (*as) >> parameter ("ref", refFile, " filename...", false);
-    (*as) >> parameter ("size", size, "new resolution (in #pixels)", false);
-    (*as) >> option ("NN", nnResampling, " use NN resampling instead of linear resampling");
-    (*as) >> option ("noSmoothing", noSmoothing, " do not smooth image when linearly downsampling..");
-    (*as) >> parameter ("f", factor, "resample image by factor", false);
+    as->parameter ("in", inFile, " filename...", true);
+    as->parameter ("out", outFile, " filename...", true);
+    as->parameter ("ref", refFile, " filename...", false);
+    as->parameter ("size", size, "new resolution (in #pixels)", false);
+    as->option ("NN", nnResampling, " use NN resampling instead of linear resampling");
+    as->option ("noSmoothing", noSmoothing, " do not smooth image when linearly downsampling..");
+    as->parameter ("f", factor, "resample image by factor", false);
 
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
 
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 

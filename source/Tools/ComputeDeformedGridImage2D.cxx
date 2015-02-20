@@ -2,12 +2,12 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include <itkWarpImageFilter.h>
 #include <itkGridForwardWarpImageFilter.h>
 #include "TransformationUtils.h"
-#include "argstream.h"
+#include "ArgumentParser.h"
 
 
 using namespace std;
@@ -18,18 +18,18 @@ using namespace itk;
 
 int main(int argc, char ** argv)
 {
-    argstream as(argc, argv);
+    ArgumentParser as(argc, argv);
     string def,outputFilename="";
     double gridResolutionFactor=0.125;
     int verbose=0;
     bool backwards=false;
-    as >> parameter ("def", def, "input deformation", true);
-    as >> parameter ("s", gridResolutionFactor, "resolutionfactor for grid creation", false);
-    as >> parameter ("o", outputFilename, "output image (file name)", false);
-    as >> option ("b", backwards, "compute inverse of deformation");
-    as >> parameter ("v", verbose, "verbosity level", false);
-	as >> help();
-	as.defaultErrorHandling();
+    as.parameter ("def", def, "input deformation", true);
+    as.parameter ("s", gridResolutionFactor, "resolutionfactor for grid creation", false);
+    as.parameter ("o", outputFilename, "output image (file name)", false);
+    as.option ("b", backwards, "compute inverse of deformation");
+    as.parameter ("v", verbose, "verbosity level", false);
+	as.parse();
+	
     logSetVerbosity(verbose);
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     typedef unsigned char PixelType;
