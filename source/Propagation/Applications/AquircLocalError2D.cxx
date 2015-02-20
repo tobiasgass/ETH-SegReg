@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -10,7 +10,7 @@
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -108,7 +108,7 @@ int main(int argc, char ** argv){
     double m_sigma;
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
@@ -126,28 +126,28 @@ int main(int argc, char ** argv){
     m_sigma=30;
     string solverName="localnorm";
     double w1=1.0,w3=1.0;
-    //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
-    (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-    (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
-    (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
+    //as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+    as->parameter ("T", deformationFileList, " list of deformations", true);
+    as->parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
+    as->parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
 
-    (*as) >> parameter ("i", imageFileList, " list of  images", true);
-    (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
-    (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
-    //(*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
-    (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-    //(*as) >> parameter ("radius", radius,"patch radius for NCC",false);
-    (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-    (*as) >> parameter ("lambda", lambda,"regularization",false);
-    (*as) >> parameter ("w1", w1,"weight for def1 in circle",false);
-    (*as) >> parameter ("w3", w3,"weight for def3 in circle",false);
-    (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
-    //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
-    //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-    (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
-    (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parameter ("i", imageFileList, " list of  images", true);
+    as->parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
+    as->parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+    //as->parameter ("radius", radius,"patch radius for local metrics",false);
+    as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
+    //as->parameter ("radius", radius,"patch radius for NCC",false);
+    as->parameter ("maxHops", maxHops,"maximum number of hops",false);
+    as->parameter ("lambda", lambda,"regularization",false);
+    as->parameter ("w1", w1,"weight for def1 in circle",false);
+    as->parameter ("w3", w3,"weight for def3 in circle",false);
+    as->option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
+    //        as->option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
+    //as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
+    as->parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    as->parameter ("verbose", verbose,"get verbose output",false);
+    as->parse();
+    
        
 
     //late fusion is only well defined for maximal 1 hop.

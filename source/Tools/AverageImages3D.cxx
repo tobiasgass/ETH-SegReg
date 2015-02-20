@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include <fstream>
 #include "itkGaussianImage.h"

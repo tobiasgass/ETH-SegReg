@@ -12,7 +12,7 @@
 #include <itkMinimumMaximumImageCalculator.h>
 #include <itkHausdorffDistanceImageFilter.h>
 #include <map>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
 #include "mmalloc.h"
@@ -41,23 +41,23 @@ int main(int argc, char * argv [])
 {
 
     
-    argstream as(argc, argv);
+    ArgumentParser as(argc, argv);
 	string groundTruth,segmentationFilename,outputFilename="";
     bool hausdorff=false;
     double threshold=1;
     int evalLabel=1;
     bool connectedComponent=false;
     int labelsToEvaluate=1;
-	as >> parameter ("g", groundTruth, "groundtruth image (file name)", true);
-	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
-	as >> parameter ("o", outputFilename, "output image (file name)", false);
-    as >> parameter ("t", threshold, "threshold segmentedImage (threshold)", false);
-	as >> parameter ("e", evalLabel, "label to evaluate", false);
-	as >> parameter ("labelsToEvaluate", labelsToEvaluate, "labels to evaluate", false);
-    as >> option ("h", hausdorff, "compute hausdorff distance(0,1)");
-	as >> option ("l", connectedComponent, "use largest connected component in segmentation");
-	as >> help();
-	as.defaultErrorHandling();
+	as.parameter ("g", groundTruth, "groundtruth image (file name)", true);
+	as.parameter ("s", segmentationFilename, "segmentation image (file name)", true);
+	as.parameter ("o", outputFilename, "output image (file name)", false);
+    as.parameter ("t", threshold, "threshold segmentedImage (threshold)", false);
+	as.parameter ("e", evalLabel, "label to evaluate", false);
+	as.parameter ("labelsToEvaluate", labelsToEvaluate, "labels to evaluate", false);
+    as.option ("h", hausdorff, "compute hausdorff distance(0,1)");
+	as.option ("l", connectedComponent, "use largest connected component in segmentation");
+	as.parse();
+	
 
  
     LabelImage::Pointer groundTruthImg =

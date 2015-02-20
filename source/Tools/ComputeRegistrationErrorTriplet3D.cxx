@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -45,22 +45,22 @@ int main(int argc, char ** argv)
     
 
 
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string sourceLandmarks,targetLandmarks,target="",def,output="",intLandmarks="", defST,defIT,defSI;
     bool linear=false;
     bool snap=false;
 
-    (*as) >> parameter ("sourceLandmarks", sourceLandmarks, " filename...", false);
-    (*as) >> parameter ("intLandmarks", intLandmarks, " filename...", false);
-    (*as) >> parameter ("targetLandmarks", targetLandmarks, " filename...", false);
-    (*as) >> parameter ("defST", defST, " filename of deformation", true);
-    (*as) >> parameter ("defSI", defSI, " filename of deformation", true);
-    (*as) >> parameter ("defIT", defIT, " filename of deformation", true);
-    (*as) >> parameter ("output", output, " TPS interpolation of registration error", false);
-    (*as) >> parameter ("target", target, " filename of target image", false);
+    as->parameter ("sourceLandmarks", sourceLandmarks, " filename...", false);
+    as->parameter ("intLandmarks", intLandmarks, " filename...", false);
+    as->parameter ("targetLandmarks", targetLandmarks, " filename...", false);
+    as->parameter ("defST", defST, " filename of deformation", true);
+    as->parameter ("defSI", defSI, " filename of deformation", true);
+    as->parameter ("defIT", defIT, " filename of deformation", true);
+    as->parameter ("output", output, " TPS interpolation of registration error", false);
+    as->parameter ("target", target, " filename of target image", false);
 
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
     
     LabelImagePointerType deformST = ImageUtils<LabelImageType>::readImage(defST);
     LabelImagePointerType deformIT = ImageUtils<LabelImageType>::readImage(defIT);

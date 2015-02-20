@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -33,18 +33,18 @@ int main(int argc, char ** argv)
     typedef Image<LabelType,D> LabelImageType;
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string refLandmarks,targetLandmarks,target="",def,output;
     bool linear=false;
 
-    (*as) >> parameter ("refLandmarks", refLandmarks, " filename...", true);
-    (*as) >> parameter ("targetLandmarks", targetLandmarks, " filename...", true);
-    (*as) >> parameter ("def", def, " filename of deformation", true);
-    (*as) >> parameter ("target", target, " filename of target image", true);
-    (*as) >> option ("linear", linear, " use linear upsampling of deformation");
+    as->parameter ("refLandmarks", refLandmarks, " filename...", true);
+    as->parameter ("targetLandmarks", targetLandmarks, " filename...", true);
+    as->parameter ("def", def, " filename of deformation", true);
+    as->parameter ("target", target, " filename of target image", true);
+    as->option ("linear", linear, " use linear upsampling of deformation");
 
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
     
     LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
     ImageConstPointerType referenceImage;

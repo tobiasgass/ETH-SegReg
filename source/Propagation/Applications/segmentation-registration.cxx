@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "itkImageRegionIteratorWithIndex.h"
 #include "ImageUtils.h"
 #include "itkImage.h"
@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
 
-	argstream as(argc, argv);
+	ArgumentParser as(argc, argv);
 	string targetFilename,movingFilename,fixedSegmentationFilename, movingSegmentationFilename, outputFilename,deformableFilename,defFilename="", segmentationOutputFilename;
 	double pairwiseWeight=1;
 	double pairwiseSegmentationWeight=1;
@@ -42,25 +42,25 @@ int main(int argc, char ** argv)
 	double rfWeight=1;
 	double segWeight=1;
 
-	as >> parameter ("t", targetFilename, "target image (file name)", true);
-	as >> parameter ("m", movingFilename, "moving image (file name)", true);
-	as >> parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", true);
-	as >> parameter ("g", fixedSegmentationFilename, "fixed segmentation image (file name)", true);
+	as.parameter ("t", targetFilename, "target image (file name)", true);
+	as.parameter ("m", movingFilename, "moving image (file name)", true);
+	as.parameter ("s", movingSegmentationFilename, "moving segmentation image (file name)", true);
+	as.parameter ("g", fixedSegmentationFilename, "fixed segmentation image (file name)", true);
 
-	as >> parameter ("o", outputFilename, "output image (file name)", true);
-	as >> parameter ("O", segmentationOutputFilename, "output segmentation image (file name)", true);
-	as >> parameter ("f", defFilename,"deformation field filename", false);
-	as >> parameter ("p", pairwiseWeight,"weight for pairwise potentials", false);
-	as >> parameter ("sp", pairwiseSegmentationWeight,"weight for pairwise segmentation potentials", false);
+	as.parameter ("o", outputFilename, "output image (file name)", true);
+	as.parameter ("O", segmentationOutputFilename, "output segmentation image (file name)", true);
+	as.parameter ("f", defFilename,"deformation field filename", false);
+	as.parameter ("p", pairwiseWeight,"weight for pairwise potentials", false);
+	as.parameter ("sp", pairwiseSegmentationWeight,"weight for pairwise segmentation potentials", false);
 
-	as >> parameter ("u", unaryWeight,"weight for unary potentials", false);
-	as >> parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
-	as >> parameter ("wi", simWeight,"weight for intensity similarity", false);
-	as >> parameter ("wr", rfWeight,"weight for segmentation posterior", false);
-	as >> parameter ("ws", segWeight,"weight for segmentation similarity", false);
+	as.parameter ("u", unaryWeight,"weight for unary potentials", false);
+	as.parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
+	as.parameter ("wi", simWeight,"weight for intensity similarity", false);
+	as.parameter ("wr", rfWeight,"weight for segmentation posterior", false);
+	as.parameter ("ws", segWeight,"weight for segmentation similarity", false);
 
-	as >> help();
-	as.defaultErrorHandling();
+	as.parse();
+	
 
 	if (displacementSampling==-1) displacementSampling=maxDisplacement;
 

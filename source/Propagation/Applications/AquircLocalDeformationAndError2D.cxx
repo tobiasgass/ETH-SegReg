@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -11,7 +11,7 @@
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -112,7 +112,7 @@ int main(int argc, char ** argv){
     double m_sigma;
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
@@ -135,39 +135,39 @@ int main(int argc, char ** argv){
     double m_sigmaD = 0.0;
     double circWeightScaling = 1.0;
     double scalingFactorForConsistentSegmentation = 1.0;
-    (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-    (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
-    (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
+    as->parameter ("T", deformationFileList, " list of deformations", true);
+    as->parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
+    as->parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
 
-    (*as) >> parameter ("i", imageFileList, " list of  images", true);
-    (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
-    (*as) >> parameter ("s", m_sigma," kernel width for lncc",false);
-    (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-    (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
+    as->parameter ("i", imageFileList, " list of  images", true);
+    as->parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
+    as->parameter ("s", m_sigma," kernel width for lncc",false);
+    as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
+    as->parameter ("maxHops", maxHops,"maximum number of hops",false);
 
-    (*as) >> parameter ("wwd", wwd,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwt", wwt,"weight for def1 in circle",false);
-    (*as) >> parameter ("wws", wws,"weight for def1 in circle",false);
-    (*as) >> parameter ("wsdelta", wsdelta,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwsum", wwsum,"weight for def1 in circle",false);
-    (*as) >> parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
+    as->parameter ("wwd", wwd,"weight for def1 in circle",false);
+    as->parameter ("wwt", wwt,"weight for def1 in circle",false);
+    as->parameter ("wws", wws,"weight for def1 in circle",false);
+    as->parameter ("wsdelta", wsdelta,"weight for def1 in circle",false);
+    as->parameter ("wwdelta", wwdelta,"weight for def1 in circle",false);
+    as->parameter ("wwcirc", wwcirc,"weight for def1 in circle",false);
+    as->parameter ("wwsum", wwsum,"weight for def1 in circle",false);
+    as->parameter ("wwincerr",wwInconsistencyError ,"weight for def1 in circle",false);
 
-    (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
-    (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
-    (*as) >> parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
-    (*as) >> parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
-    (*as) >> option ("linear", linear," use linear interpolation (instead of NN) when building equations for circles.");
-    (*as) >> parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
-    (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
+    as->parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
+    as->parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
+    as->parameter ("sigmaD", m_sigmaD,"scaling for residual distance based circle weight ",false);
+    as->parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
+    as->option ("linear", linear," use linear interpolation (instead of NN) when building equations for circles.");
+    as->parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
+    as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
 
-    //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
-    //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-    (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
-    (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-    (*as) >> help();
-    as->defaultErrorHandling();
+    //        as->option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
+    //as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
+    as->parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    as->parameter ("verbose", verbose,"get verbose output",false);
+    as->parse();
+    
        
     //late fusion is only well defined for maximal 1 hop.
     //it requires to explicitly compute all n!/(n-nHops) deformation paths to each image and is therefore infeasible for nHops>1

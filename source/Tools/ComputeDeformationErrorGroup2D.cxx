@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -10,7 +10,7 @@
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -78,7 +78,7 @@ int main(int argc, char ** argv){
     double m_sigma;
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string maskFileList="",groundTruthSegmentationFileList="",landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
@@ -112,14 +112,14 @@ int main(int argc, char ** argv){
     bool lineSearch=false;
     bool useConstraints=false;
     double annealing=1.0;
-    (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-    (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
-    (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
-    (*as) >> parameter ("i", imageFileList, " list of  images", true);
+    as->parameter ("T", deformationFileList, " list of deformations", true);
+    as->parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
+    as->parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
+    as->parameter ("i", imageFileList, " list of  images", true);
 
-    (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parameter ("verbose", verbose,"get verbose output",false);
+    as->parse();
+    
        
     //late fusion is only well defined for maximal 1 hop.
     //it requires to explicitly compute all n!/(n-nHops) deformation paths to each image and is therefore infeasible for nHops>1

@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -31,18 +31,18 @@ int main(int argc, char ** argv)
     typedef LabelImageType::Pointer LabelImagePointerType;
     typedef ImageType::IndexType IndexType;
 
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string moving,target="",def,output;
     bool NN=false;
     bool linear = false;
-    (*as) >> parameter ("moving", moving, " filename of moving image", true);
-    (*as) >> parameter ("target", target, " filename of target image", false);
-    (*as) >> parameter ("def", def, " filename of deformation", true);
-    (*as) >> parameter ("out", output, " output filename", true);
-    (*as) >> option ("NN", NN," use NN interpolation of image");
-    (*as) >> option ("linear", linear," use linear interpolation of deformation field");
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parameter ("moving", moving, " filename of moving image", true);
+    as->parameter ("target", target, " filename of target image", false);
+    as->parameter ("def", def, " filename of deformation", true);
+    as->parameter ("out", output, " output filename", true);
+    as->option ("NN", NN," use NN interpolation of image");
+    as->option ("linear", linear," use linear interpolation of deformation field");
+    as->parse();
+    
     ImagePointerType image = ImageUtils<ImageType>::readImage(moving);
     LabelImagePointerType deformation = ImageUtils<LabelImageType>::readImage(def);
 

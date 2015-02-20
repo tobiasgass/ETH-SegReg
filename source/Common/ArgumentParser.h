@@ -85,10 +85,3 @@ private:
     char ** m_argv;
 
 };
-
-// template void ArgumentParser::parameter<double>(const char *, double &, const char *, bool); // instantiates f<double>(double)
-// template void ArgumentParser::parameter<float>(const char *, float &, const char *, bool); // instantiates f<float>(float)
-// template void ArgumentParser::parameter<int>(const char *, int &, const char *, bool); // instantiates f<int>(int)
-// template void ArgumentParser::parameter<string>(const char *, string &, const char *, bool); // instantiates f<string>(string)
-// template void ArgumentParser::parameter<unsigned int>(const char *, unsigned int &, const char *, bool); // instantiates f<unsigned int>(unsigned int)
-// template void ArgumentParser::parameter<short>(const char *, short &, const char *, bool); // instantiates f<short>(short)

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "itkImageRegionIteratorWithIndex.h"
 #include "ImageUtils.h"
 #include "itkImage.h"
@@ -26,24 +26,24 @@ int main(int argc, char ** argv)
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
 
-	argstream as(argc, argv);
+	ArgumentParser as(argc, argv);
 	string targetFilename,movingFilename,outputFilename,deformableFilename,defFilename="";
 	double pairwiseWeight=1;
 	int displacementSampling=-1;
 	double unaryWeight=1;
 	int maxDisplacement=10;
 
-	as >> parameter ("t", targetFilename, "target image (file name)", true);
-	as >> parameter ("m", movingFilename, "moving image (file name)", true);
-	as >> parameter ("o", outputFilename, "output image (file name)", true);
-	as >> parameter ("d", deformableFilename, "deformable image (file name)", false);
-	as >> parameter ("f", defFilename,"deformation field filename", false);
-	as >> parameter ("p", pairwiseWeight,"weight for pairwise potentials", false);
-	as >> parameter ("u", unaryWeight,"weight for unary potentials", false);
-	as >> parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
-	as >> parameter ("n", displacementSampling,"number of samples for each displacement axis", false);
-	as >> help();
-	as.defaultErrorHandling();
+	as.parameter ("t", targetFilename, "target image (file name)", true);
+	as.parameter ("m", movingFilename, "moving image (file name)", true);
+	as.parameter ("o", outputFilename, "output image (file name)", true);
+	as.parameter ("d", deformableFilename, "deformable image (file name)", false);
+	as.parameter ("f", defFilename,"deformation field filename", false);
+	as.parameter ("p", pairwiseWeight,"weight for pairwise potentials", false);
+	as.parameter ("u", unaryWeight,"weight for unary potentials", false);
+	as.parameter ("max", maxDisplacement,"maximum displacement in pixels per axis", false);
+	as.parameter ("n", displacementSampling,"number of samples for each displacement axis", false);
+	as.parse();
+	
 
 	if (displacementSampling==-1) displacementSampling=maxDisplacement;
 

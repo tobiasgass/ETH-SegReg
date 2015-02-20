@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "itkImageRegionIteratorWithIndex.h"
 #include "ImageUtils.h"
 #include "itkImage.h"
@@ -37,7 +37,7 @@ int main(int argc, char ** argv)
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
 
-	argstream as(argc, argv);
+	ArgumentParser as(argc, argv);
 	string targetFilename,movingFilename,fixedSegmentationFilename, movingSegmentationFilename, outputFilename,deformableFilename,defFilename="", segmentationOutputFilename;
 	double pairwiseWeight=1;
 	double pairwiseSegmentationWeight=1;
@@ -48,12 +48,12 @@ int main(int argc, char ** argv)
 	double rfWeight=1;
 	double segWeight=1;
 
-	as >> parameter ("t", targetFilename, "target image (file name)", true);
+	as.parameter ("t", targetFilename, "target image (file name)", true);
 
-	as >> parameter ("o", outputFilename, "output image (file name)", true);
+	as.parameter ("o", outputFilename, "output image (file name)", true);
 
-	as >> help();
-	as.defaultErrorHandling();
+	as.parse();
+	
 
 	if (displacementSampling==-1) displacementSampling=maxDisplacement;
 

@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <fstream>
@@ -27,15 +27,15 @@ int main(int argc, char ** argv)
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
  
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile;
     double thresh=0.0;
     bool lcc=false;
-    (*as) >> parameter ("in", inFile, " filename...", true);
-    (*as) >> parameter ("out", outFile, " filename...", true);
+    as->parameter ("in", inFile, " filename...", true);
+    as->parameter ("out", outFile, " filename...", true);
 
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
 
     ImagePointerType image = ImageUtils<ImageType>::readImage(inFile);
     

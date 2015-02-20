@@ -13,7 +13,7 @@
 #include <itkHausdorffDistanceImageFilter.h>
 #include "ChamferDistanceTransform.h"
 #include <map>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
 
@@ -32,23 +32,23 @@ int main(int argc, char * argv [])
 {
 
 
-    argstream as(argc, argv);
+    ArgumentParser as(argc, argv);
 	string groundTruth,segmentationFilename,outputFilename="";
     bool hausdorff=false;
     double threshold=-9999999;
     bool convertFromClassified=false;
     bool multilabel=false;
     bool connectedComponent=false;
-	as >> parameter ("g", groundTruth, "groundtruth image (file name)", true);
-	as >> parameter ("s", segmentationFilename, "segmentation image (file name)", true);
-	as >> parameter ("o", outputFilename, "output image (file name)", false);
-	as >> option ("h", hausdorff, "compute hausdorff distance(0,1)", false);
-	as >> parameter ("t", threshold, "threshold segmentedImage (threshold)", false);
-	as >> parameter ("c", convertFromClassified, "convert from classified segmentation (after normalization) (0,1)", false);
-	as >> option ("m", multilabel, "convert from multilabel segmentation");
-	as >> option ("l", connectedComponent, "use largest connected component in segmentation");
-	as >> help();
-	as.defaultErrorHandling();
+	as.parameter ("g", groundTruth, "groundtruth image (file name)", true);
+	as.parameter ("s", segmentationFilename, "segmentation image (file name)", true);
+	as.parameter ("o", outputFilename, "output image (file name)", false);
+	as.option ("h", hausdorff, "compute hausdorff distance(0,1)", false);
+	as.parameter ("t", threshold, "threshold segmentedImage (threshold)", false);
+	as.parameter ("c", convertFromClassified, "convert from classified segmentation (after normalization) (0,1)", false);
+	as.option ("m", multilabel, "convert from multilabel segmentation");
+	as.option ("l", connectedComponent, "use largest connected component in segmentation");
+	as.parse();
+	
 
  
     LabelImage::Pointer groundTruthImg =

@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <fstream>
@@ -26,7 +26,7 @@ int main(int argc, char ** argv)
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
  
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile;
     double lThresh=std::numeric_limits<PixelType>::min();
     if (!std::numeric_limits<PixelType>::is_integer){
@@ -34,13 +34,13 @@ int main(int argc, char ** argv)
     }
     double uThresh=std::numeric_limits<PixelType>::max();
     bool negLow=false;
-    (*as) >> parameter ("in", inFile, " filename...", true);
-    (*as) >> parameter ("out", outFile, " filename...", true);
-    (*as) >> parameter ("lt", lThresh, "lower threshold", false);
-    (*as) >> option ("negL", negLow, "negatibe lower threshold");
-    (*as) >> parameter ("ut", uThresh, "upper threshold", false);
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parameter ("in", inFile, " filename...", true);
+    as->parameter ("out", outFile, " filename...", true);
+    as->parameter ("lt", lThresh, "lower threshold", false);
+    as->option ("negL", negLow, "negatibe lower threshold");
+    as->parameter ("ut", uThresh, "upper threshold", false);
+    as->parse();
+    
     if (negLow) lThresh=-lThresh;
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 

@@ -2,14 +2,13 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <fstream>
 #include "itkAntiAliasBinaryImageFilter.h"
 #include "itkSignedMaurerDistanceMapImageFilter.h"
 
-#include "ArgParse.h"
 
 using namespace std;
 using namespace itk;
@@ -42,34 +41,20 @@ int main(int argc, char ** argv)
     PixelType label=1;
     bool gaussian=false;
 
-#if 0
-    argstream * as=new argstream(argc,argv);
-    (*as) >> parameter ("in", inFile, " filename...", true);
-    (*as) >> parameter ("out", outFile, " filename...", true);
-    //(*as) >> parameter ("outSurf", outSurface, " Output Zero Level Set Surface filename...", true);
-    (*as) >> parameter ("label", label, "label to select from input volume", false);
-    (*as) >> parameter ("iter", iter, " number of AA iterations (max)...", false);
-    (*as) >> parameter ("layers", layers, " number of AA layers (??)...", false);
-    (*as) >> parameter ("thresh", thresh, "max desired RMSE change for convergence...", false);
-    (*as) >> parameter ("scale", spacingScalingFactor, "multiply spacing with scaling factor. Can reduce artefacts if the spacing of the input volume is very small. Somewhat weird...", false);
-    (*as) >> option ("gauss", gaussian, "use gaussian smoothing of surface instead of AA filter. thresh becomes size of kernel relative to image spacing");
-    (*as) >> help();
-    as->defaultErrorHandling();
 
-#else
-    ArgumentParser  as;
-    as.parameter ("in", inFile, " filename...", true);
-    as.parameter ("out", outFile, " filename...", true);
-    //as.parameter ("outSurf", outSurface, " Output Zero Level Set Surface filename...", true);
-    as.parameter ("label", label, "label to select from input volume", false);
-    as.parameter ("iter", iter, " number of AA iterations (max)...", false);
-    as.parameter ("layers", layers, " number of AA layers (??)...", false);
-    as.parameter ("thresh", thresh, "max desired RMSE change for convergence...", false);
-    as.parameter ("scale", spacingScalingFactor, "multiply spacing with scaling factor. Can reduce artefacts if the spacing of the input volume is very small. Somewhat weird...", false);
-    as.option ("gauss", gaussian, "use gaussian smoothing of surface instead of AA filter. thresh becomes size of kernel relative to image spacing");
-    as.help();
-    as.parse(argc,argv);
-#endif
+    ArgumentParser * as=new ArgumentParser(argc,argv);
+    as->parameter ("in", inFile, " filename...", true);
+    as->parameter ("out", outFile, " filename...", true);
+    //as->parameter ("outSurf", outSurface, " Output Zero Level Set Surface filename...", true);
+    as->parameter ("label", label, "label to select from input volume", false);
+    as->parameter ("iter", iter, " number of AA iterations (max)...", false);
+    as->parameter ("layers", layers, " number of AA layers (??)...", false);
+    as->parameter ("thresh", thresh, "max desired RMSE change for convergence...", false);
+    as->parameter ("scale", spacingScalingFactor, "multiply spacing with scaling factor. Can reduce artefacts if the spacing of the input volume is very small. Somewhat weird...", false);
+    as->option ("gauss", gaussian, "use gaussian smoothing of surface instead of AA filter. thresh becomes size of kernel relative to image spacing");
+    as->parse();
+    
+
 
     ImagePointerType img = FilterUtils<ImageType>::select(ImageUtils<ImageType>::readImage(inFile),label);
     img->DisconnectPipeline();

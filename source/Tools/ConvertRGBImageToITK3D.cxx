@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 #include <itkWarpImageFilter.h>
@@ -45,14 +45,14 @@ int main(int argc, char ** argv)
 
     
 
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile;
 
-    (*as) >> parameter ("in", inFile, " filename...", true);
-    (*as) >> parameter ("out", outFile, " filename...", true);
+    as->parameter ("in", inFile, " filename...", true);
+    as->parameter ("out", outFile, " filename...", true);
 
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parse();
+    
 
     RGBImagePointerType img = ImageUtils<RGBImageType>::readImage(inFile);
     

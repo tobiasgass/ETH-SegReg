@@ -12,7 +12,7 @@
 #include <itkMinimumMaximumImageCalculator.h>
 #include <itkHausdorffDistanceImageFilter.h>
 #include <map>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <limits>
 #include <itkLabelOverlapMeasuresImageFilter.h>
 #include "mmalloc.h"

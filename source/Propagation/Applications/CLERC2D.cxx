@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -10,7 +10,7 @@
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -87,7 +87,7 @@ int main(int argc, char ** argv){
     double m_sigma;
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    argstream * as=new argstream(argc,argv);
+    ArgumentParser * as=new ArgumentParser(argc,argv);
     string maskFileList="",groundTruthSegmentationFileList="",landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
     double pWeight=1.0;
@@ -128,71 +128,71 @@ int main(int argc, char ** argv){
     bool lowResSim=false;
     bool normalizeForces=false;
     int maxTripletOcc=100000;
-    (*as) >> parameter ("i", imageFileList, " list of  images", true);
-    (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-    (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
-    (*as) >> parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
-    (*as) >> parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
-    (*as) >> parameter ("optimizer", optimizer,"optimizer for lsq problem. optional number of iterations, eg lbfgsx100.opt in {lsqlin,cg,csd,,lbfgs,cgd}",false);
-    (*as) >> parameter ("imageResamplingFactor", imageResamplingFactor,"lower image resolution by a different factor. This will lead to having more equations for the regularization than there are variables, with the chosen interpolation affecting the interpolation.",false);
-    (*as) >> parameter ("winp", winput,"weight for adherence to input registration",false);
-    (*as) >> parameter ("wcons", wcons,"weight consistency penalty",false);
-    (*as) >> parameter ("wsmooth", wsmooth,"weight for smoothness of deformation (first-order derivative)",false);
-    (*as) >> parameter ("maxOcc", maxTripletOcc,"maximal number of triplets in which a pairwise registration can occur.",false);
+    as->parameter ("i", imageFileList, " list of  images", true);
+    as->parameter ("T", deformationFileList, " list of deformations", true);
+    as->parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
+    as->parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
+    as->parameter ("resamplingFactor", resamplingFactor,"lower resolution by a factor",false);
+    as->parameter ("optimizer", optimizer,"optimizer for lsq problem. optional number of iterations, eg lbfgsx100.opt in {lsqlin,cg,csd,,lbfgs,cgd}",false);
+    as->parameter ("imageResamplingFactor", imageResamplingFactor,"lower image resolution by a different factor. This will lead to having more equations for the regularization than there are variables, with the chosen interpolation affecting the interpolation.",false);
+    as->parameter ("winp", winput,"weight for adherence to input registration",false);
+    as->parameter ("wcons", wcons,"weight consistency penalty",false);
+    as->parameter ("wsmooth", wsmooth,"weight for smoothness of deformation (first-order derivative)",false);
+    as->parameter ("maxOcc", maxTripletOcc,"maximal number of triplets in which a pairwise registration can occur.",false);
 
-    (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
-    (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file> for immediate DICE evaluation", false);
-    (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file> for immediate TRE evaluation", false);
-
-
-    (*as) >> parameter ("masks", maskFileList, " list of  binary masks used to compute inconsistency", false);
-    (*as) >> parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
-    (*as) >> parameter ("tol", tolerance, " stopping criterion on the relative change of the inconsistency", false);
-    (*as) >> parameter ("s", m_sigma," kernel width for lncc",false);
-    (*as) >> parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
+    as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", false);
+    as->parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file> for immediate DICE evaluation", false);
+    as->parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file> for immediate TRE evaluation", false);
 
 
-    (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-    (*as) >> parameter ("maxHops", maxHops,"maximum number of hops per level",false);
-    (*as) >> parameter ("maxLevels", maxLevels,"maximum number of multi-resolution levels",false);
-    (*as) >> option ("useTaylor", useTaylor,"use something similar to first order taylor approximation for inconsistency terms.");
-    (*as) >> option ("lowResSim", lowResSim,"compute local similarities/gradients only at ROI resolution instead of image resolution.");
-    (*as) >> option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
-    (*as) >> option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
-    (*as) >> option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
-    (*as) >> option ("normalizeForces", normalizeForces,"divide inconsistency and regularization equation weights by their respective average to equalize the forces.");
-    (*as) >> option ("useConstraints", useConstraints,"Use hard constraints to prevent folding. Tearing might currently still occur.");
+    as->parameter ("masks", maskFileList, " list of  binary masks used to compute inconsistency", false);
+    as->parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
+    as->parameter ("tol", tolerance, " stopping criterion on the relative change of the inconsistency", false);
+    as->parameter ("s", m_sigma," kernel width for lncc",false);
+    as->parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
 
 
-    (*as) >> parameter ("metric",localSimMetric ,"metric to be used for local sim computation (none,lncc, lsad, lssd,localautocorrelation).",false);
-    (*as) >> option ("filterMetricWithGradient", filterMetricWithGradient,"Multiply local metric with target and warped source image gradients to filter out smooth regions.");
+    as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
+    as->parameter ("maxHops", maxHops,"maximum number of hops per level",false);
+    as->parameter ("maxLevels", maxLevels,"maximum number of multi-resolution levels",false);
+    as->option ("useTaylor", useTaylor,"use something similar to first order taylor approximation for inconsistency terms.");
+    as->option ("lowResSim", lowResSim,"compute local similarities/gradients only at ROI resolution instead of image resolution.");
+    as->option ("smoothDownsampling", smoothDownsampling,"Smooth deformation before downsampling. will capture errors between grid points, but will miss other inconsistencies due to the smoothing.");
+    as->option ("bSpline", bSplineResampling,"Use bSlpines for resampling the deformation fields. A lot slower, especially in 3D.");
+    as->option ("lineSearch", lineSearch,"Use (simple) line search to determine update step width, based on global NCC.");
+    as->option ("normalizeForces", normalizeForces,"divide inconsistency and regularization equation weights by their respective average to equalize the forces.");
+    as->option ("useConstraints", useConstraints,"Use hard constraints to prevent folding. Tearing might currently still occur.");
 
-    (*as) >> option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
-    (*as) >> option ("updateDeformationsGlobalWeight", updateDeformationsGlobalWeight," use estimate of previous iteration in next one IF global similarity improved.");
-    (*as) >> option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
-    (*as) >> option ("evalLowResolutionDeformations", evalLowResolutionDeformationss," Use only the (upsampled) low resolution deformation for further processing. This is faster (ofc), but less accurate.");
 
-    (*as) >> parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
-    (*as) >> parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
-    (*as) >> option ("nearestneighb", nearestneighb," use nearestneighb interpolation (instead of NN) when building equations for circles.");
-    (*as) >> parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
+    as->parameter ("metric",localSimMetric ,"metric to be used for local sim computation (none,lncc, lsad, lssd,localautocorrelation).",false);
+    as->option ("filterMetricWithGradient", filterMetricWithGradient,"Multiply local metric with target and warped source image gradients to filter out smooth regions.");
 
-    (*as) >> parameter ("wsmoothum", wsmoothum,"EXPERIMENTAL: weight for def1 in circle",false);
-    (*as) >> parameter ("wsmoothym", wSymmetry,"EXPERIMENTAL: weight for def1 in circle",false);
-    (*as) >> parameter ("wwincerr",wwInconsistencyError ,"EXPERIMENTAL: weight for def1 in circle",false);
-    (*as) >> parameter ("wErrorStatistics",wErrorStatistics ,"EXPERIMENTAL: weight for error variable being forced to be similar to the inconsitency statistics",false);
-    (*as) >> option ("roiShift", roiShift,"EXPERIMENTAL: Shift ROI by half spacing after each iteration, to sample from different points.");
+    as->option ("updateDeformations", updateDeformations," use estimate of previous iteration in next one.");
+    as->option ("updateDeformationsGlobalWeight", updateDeformationsGlobalWeight," use estimate of previous iteration in next one IF global similarity improved.");
+    as->option ("locallyUpdateDeformations", locallyUpdateDeformations," locally use better (in terms of similarity) from initial and prior Deformation estimate as target in next iteration.");
+    as->option ("evalLowResolutionDeformations", evalLowResolutionDeformationss," Use only the (upsampled) low resolution deformation for further processing. This is faster (ofc), but less accurate.");
 
-    (*as) >> parameter ("wwd", wwd,"EXPERIMENTAL: weight for def1 in circle",false);
-    (*as) >> parameter ("wsdelta", wsdelta,"EXPERIMENTAL: weight for def1 in circle",false);
-    (*as) >> parameter ("wwdelta", wwdelta,"EXPERIMENTAL: weight for def1 in circle",false);
-    //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
-    //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-    (*as) >> parameter ("ORACLE", oracle," oracle=1:use true deformation for indexing variables in loops.CHEATING!!. oracle=2: additianlly use true def as initial values. oracle = 3: use true def adherence  ",false);
+    as->parameter ("shearing",shearing ,"reduction coefficient for shearing potentials in spatial smoothing",false);
+    as->parameter ("circScale", circWeightScaling,"scaling of circ weight per iteration ",false);
+    as->option ("nearestneighb", nearestneighb," use nearestneighb interpolation (instead of NN) when building equations for circles.");
+    as->parameter ("segmentationConsistencyScaling",scalingFactorForConsistentSegmentation,"factor for increasing the weight on consistency for segmentated pixels",false);
 
-    (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-    (*as) >> help();
-    as->defaultErrorHandling();
+    as->parameter ("wsmoothum", wsmoothum,"EXPERIMENTAL: weight for def1 in circle",false);
+    as->parameter ("wsmoothym", wSymmetry,"EXPERIMENTAL: weight for def1 in circle",false);
+    as->parameter ("wwincerr",wwInconsistencyError ,"EXPERIMENTAL: weight for def1 in circle",false);
+    as->parameter ("wErrorStatistics",wErrorStatistics ,"EXPERIMENTAL: weight for error variable being forced to be similar to the inconsitency statistics",false);
+    as->option ("roiShift", roiShift,"EXPERIMENTAL: Shift ROI by half spacing after each iteration, to sample from different points.");
+
+    as->parameter ("wwd", wwd,"EXPERIMENTAL: weight for def1 in circle",false);
+    as->parameter ("wsdelta", wsdelta,"EXPERIMENTAL: weight for def1 in circle",false);
+    as->parameter ("wwdelta", wwdelta,"EXPERIMENTAL: weight for def1 in circle",false);
+    //        as->option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
+    //as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
+    as->parameter ("ORACLE", oracle," oracle=1:use true deformation for indexing variables in loops.CHEATING!!. oracle=2: additianlly use true def as initial values. oracle = 3: use true def adherence  ",false);
+
+    as->parameter ("verbose", verbose,"get verbose output",false);
+    as->parse();
+    
     
     if (imageResamplingFactor<0){
         imageResamplingFactor=resamplingFactor;
