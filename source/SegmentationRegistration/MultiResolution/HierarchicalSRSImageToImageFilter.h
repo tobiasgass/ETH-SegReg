@@ -39,7 +39,7 @@
 #include "itkImageConstIterator.h"
 #include "FilterUtils.hpp"
 #include <itkImageAdaptor.h>
-#include <itkAddPixelAccessor.h>
+#include <itkAddPixelAccessor.h> 
 #include "itkVectorImage.h"
 #include "itkConstNeighborhoodIterator.h"
 #include <itkVectorResampleImageFilter.h>

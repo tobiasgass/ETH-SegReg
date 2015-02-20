@@ -11,6 +11,8 @@ SUBDIRS(Common External)
 
 OPTION(TCMALLOC "Use tcmalloc" OFF)
 
+
+
 option( BUILD_SRS "Build SRS" ON )
 
 if( ${BUILD_SRS} MATCHES "ON" )
@@ -27,7 +29,12 @@ if( ${BUILD_TOOLS} MATCHES "ON" )
    add_subdirectory( Tools )
 endif()
 
+#option( BUILD_SHARED_LIBRARIES "Build shared libraries" OFF)
 
+#set(${LIBRARY_TYPE} STATIC)
+#if (${BUILD_SHARED_LIBRARIES} MATCHES "ON" )
+#  set (${LIBRARY_TYPE} SHARED)
+#endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /home/gasst/work/src/Novel-SRS/source )
 #set(MATLAB_ROOT /usr/pack/matlab-7.13r2011b-sd/ )
