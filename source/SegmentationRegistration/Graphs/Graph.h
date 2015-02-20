@@ -129,7 +129,7 @@ namespace SRS{
     assert(m_dim<4);
     m_haveLabelMap=false;
     verbose=false;
-      
+    
     m_DisplacementScalingFactor=1.0;
     m_normalizePotentials=false;
     m_reducedSegNodes=false;

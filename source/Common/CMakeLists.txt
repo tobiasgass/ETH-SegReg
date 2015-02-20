@@ -17,7 +17,7 @@ ADD_LIBRARY(Utils
   Metrics.h
   TemporalMedianImageFilter.h
   itkSubtractAbsImageFilter.h
-  ArgParse.h
+  ArgumentParser.h
 )
 TARGET_LINK_LIBRARIES(Utils ${ITK_LIBRARIES} ${Boost_LIBRARIES}  )
 

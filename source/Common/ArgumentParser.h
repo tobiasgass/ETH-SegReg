@@ -11,8 +11,9 @@ class ArgumentParser{
 
 public:
     
-    ArgumentParser(){m_brief="";   m_desc.add_options()("help,h","display help");}
-    ArgumentParser(std::string b){m_brief=b;  m_desc.add_options()("help,h","display help");}
+    ArgumentParser(int argc, char** argv){m_argc=argc; m_argv=argv; m_brief="";   m_desc.add_options()("help,h","display help");}
+    ArgumentParser(){m_argc=0; m_argv=NULL; m_brief="";   m_desc.add_options()("help,h","display help");}
+    //ArgumentParser(std::string b){m_brief=b;  m_desc.add_options()("help,h","display help");}
     
     template<typename T>
     void parameter(const char * opt, T& variable, const char * descr, bool required){
@@ -36,12 +37,12 @@ public:
                 (opt,po::value<bool>(&variable) ,descr) ;
     }
 
-    bool parse(int argc, char ** argv){
-        std::string appName = boost::filesystem::basename(argv[0]); 
+    bool parse(){
+        std::string appName = boost::filesystem::basename(m_argv[0]); 
         po::variables_map vm; 
         try 
             { 
-                po::store(po::parse_command_line(argc, argv, m_desc),  
+                po::store(po::parse_command_line(m_argc, m_argv, m_desc),  
                           vm); // can throw 
  
                 /** --help option 
@@ -61,7 +62,8 @@ public:
         catch(boost::program_options::required_option& e) 
             { 
                 //rad::OptionPrinter::formatRequiredOptionError(e); 
-                std::cerr << "ERROR: " << e.what() << std::endl << std::endl << m_desc<<std::endl; 
+                std::cerr << "ERROR: " << e.what() << std::endl ;
+                std::cout<<m_desc<<std::endl; 
                 //rad::OptionPrinter::printStandardAppDesc(appName, 
                 //                                         std::cout, 
                 //                                        m_desc                                               ); 
@@ -70,7 +72,7 @@ public:
         catch(po::error& e) 
             { 
                 std::cerr << "ERROR: " << e.what() << std::endl << std::endl; 
-                std::cerr << m_desc << std::endl; 
+                std::cout << m_desc << std::endl; 
                 exit(0);
             } 
     }
@@ -79,6 +81,8 @@ public:
 private:
     po::options_description m_desc; 
     std::string m_brief;
+    int m_argc;
+    char ** m_argv;
 
 };
 
