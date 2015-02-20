@@ -55,10 +55,10 @@ int main(int argc, char * argv [])
     as.parameter ("acc", acc, "accumulater (mean,max)", false);
 	as.parameter ("eval", eval, "evaluation method (exp,diff)", false);
 
-    int nTotalSamples=D*2*nSamples;
-  
 	as.parse();
 
+    int nTotalSamples=D*2*nSamples;
+  
  
     ImageType::Pointer groundTruthImg =
         (ImageUtils<ImageType>::readImage(groundTruth));
