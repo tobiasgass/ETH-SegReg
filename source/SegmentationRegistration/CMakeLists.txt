@@ -9,10 +9,43 @@ if( ${USE_GCO} MATCHES "ON" )
   set(DIR_GCO "${SRS-MRF_SOURCE_DIR}/External/GCO" CACHE  FILEPATH "Directory for GCO")
   #  option( GCO_DIR "GCO directory" ${SRS-MRF_SOURCE_DIR}/External/GCO )
   include_directories( ${DIR_GCO} )
+  FILE(GLOB gcoFiles ${DIR_GCO}/*.h ${DIR_GCO}/*.cxx ${DIR_GCO}/*.cpp ${DIR_GCO}/*.hxx ${DIR_GCO}/*.hpp ${DIR_GCO}/*.c)
+
   ADD_LIBRARY(GCO
-    ${DIR_GCO}/block.h  ${DIR_GCO}/energy.h   ${DIR_GCO}/GCoptimization.cpp  ${DIR_GCO}/GCoptimization.h  ${DIR_GCO}/graph.cpp  ${DIR_GCO}/graph.h  ${DIR_GCO}/LinkedBlockList.cpp  ${DIR_GCO}/LinkedBlockList.h  ${DIR_GCO}/maxflow.cpp
+    ${gcoFiles}
+    ) 
+
+endif()
+
+option( USE_GC "Use GC optimizer" ON )
+if( ${USE_GC} MATCHES "ON" )
+  add_definitions(-DWITH_GC)
+  set(DIR_GC "${SRS-MRF_SOURCE_DIR}/External/maxFlow" CACHE  FILEPATH "Directory for GC")
+  #  option( GC_DIR "GC directory" ${SRS-MRF_SOURCE_DIR}/External/GC )
+  include_directories( ${DIR_GC} )
+
+  FILE(GLOB gcFiles ${DIR_GC}/*.h ${DIR_GC}/*.cxx ${DIR_GC}/*.cpp ${DIR_GC}/*.hxx ${DIR_GC}/*.hpp ${DIR_GC}/*.c)
+  message("gcfiles=${gcFiles}")
+  message("gcDir=${DIR_GC}")
+  ADD_LIBRARY(GC
+    ${gcFiles}
+    ) 
+
+endif()
+
+option( USE_TRWS "Use TRWS optimizer" ON )
+if( ${USE_TRWS} MATCHES "ON" )
+  add_definitions(-DWITH_TRWS)
+  set(DIR_TRWS "${SRS-MRF_SOURCE_DIR}/External/TRWS" CACHE  FILEPATH "Directory for TRWS")
+  #  option( TRWS_DIR "TRWS directory" ${SRS-MRF_SOURCE_DIR}/External/TRWS )
+  include_directories( ${DIR_TRWS} )
+  FILE(GLOB trwsFiles ${DIR_TRWS}/*.h ${DIR_TRWS}/*.cxx ${DIR_TRWS}/*.cpp ${DIR_TRWS}/*.hxx ${DIR_TRWS}/*.hpp ${DIR_TRWS}/*.c)
+  ADD_LIBRARY(TRWS
+    ${trwsFiles}
     ) 
 endif()
+
+
 
 #SUBDIRS(Applications)
 add_subdirectory(Applications)
