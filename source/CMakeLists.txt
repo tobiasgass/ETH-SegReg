@@ -5,8 +5,7 @@ INCLUDE_REGULAR_EXPRESSION("^.*$")
 find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
 
-#find_package(opengm2 REQUIRED)
-#include(${opengm2_use_file})
+
 SUBDIRS(Common)
 
 OPTION(TCMALLOC "Use tcmalloc" OFF)
@@ -47,10 +46,5 @@ endif()
 #endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /home/gasst/work/src/Novel-SRS/source )
-#set(MATLAB_ROOT /usr/pack/matlab-7.13r2011b-sd/ )
-#set(MATLAB_ROOT /usr/pack/matlab-8.0r2012b-bs/ )
-
-#include(${MATLAB_USE_FILE})
-
 
 

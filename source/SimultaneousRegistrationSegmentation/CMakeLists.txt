@@ -47,12 +47,14 @@ endif()
 
 option( USE_CUGMIX "Use c-ugmix gaussian mixture estimator" ON )
 if( ${USE_CUGMIX} MATCHES "ON" )
-  add_directories(${SRS-MRF_SOURCE_DIR}/External/c-ugmix)
+  add_definitions(-DWITH_CUGMIX)
+  include_directories(${SRS-MRF_SOURCE_DIR}/External/c-ugmix)
 endif()
 
 option( USE_RF "Use random forest classifier" ON )
 if( ${USE_RF} MATCHES "ON" )
-  add_directories(${SRS-MRF_SOURCE_DIR}/External/RF)
+  add_definitions(-DWITH_RF)
+  include_directories(${SRS-MRF_SOURCE_DIR}/External/RF)
 endif()
 
 
@@ -65,43 +67,4 @@ FILE(GLOB potHeaders "Potentials/*.h")
 FILE(GLOB multHeaders "MultiResolution/*.h")
 
 
-# INCLUDE_DIRECTORIES(
-#     /usr/include/libxml2
-#     ../External/RF
-#     ../External/c-ugmix
-#     ../Common
-#  )
 
-
-# SET(SRSMRFModels_SRC
-#   NewClassifier.h
-#   Classifier.h
-#   BaseLabel.h
-#   MRF-TRW-S.h
-#   MRF-GCO.h
-#   Graph.h
-#   SubsamplingGraph.h
-#   FastRegistrationGraph.h
-#   SRSConfig.h
-#   HierarchicalSRSImageToImageFilter.h
-#   Potential-Registration-Pairwise.h
-#   Potential-Registration-Unary.h
-#   Potential-Segmentation-Unary.h
-#   Potential-Coherence-Pairwise.h
-#   SegmentationGraph.h
-#   SegmentationImageFilter.h
-#   dummy.cxx  
-# )
-# 
-
-ADD_LIBRARY(SRSMRFModels ${optHeaders} ${graphHeaders} ${potHeaders} ${multHeaders} dummy.cxx)
-
-#TARGET_LINK_LIBRARIES (SRSMRFModels RF ITKBasicFilters FastPD )
-
-#IF (TCMALLOC)
-#  TARGET_LINK_LIBRARIES (SRSMRFModels TRWS GCO ugmix RF   tcmalloc)
-#ELSE(TCMALLOC)
-#  TARGET_LINK_LIBRARIES (SRSMRFModels TRWS GCO ugmix RF   ) #tcmalloc
-#ENDIF(TCMALLOC)
-#INSTALL(TARGETS SRSMRFModels)
-#TARGET_LINK_LIBRARIES(ITKAlgorithms ITKStatistics ITKNumerics)
