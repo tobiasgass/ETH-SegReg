@@ -45,6 +45,15 @@ if( ${USE_TRWS} MATCHES "ON" )
     ) 
 endif()
 
+option( USE_CUGMIX "Use c-ugmix gaussian mixture estimator" ON )
+if( ${USE_CUGMIX} MATCHES "ON" )
+  add_directories(${SRS-MRF_SOURCE_DIR}/External/c-ugmix)
+endif()
+
+option( USE_RF "Use random forest classifier" ON )
+if( ${USE_RF} MATCHES "ON" )
+  add_directories(${SRS-MRF_SOURCE_DIR}/External/RF)
+endif()
 
 
 #SUBDIRS(Applications)

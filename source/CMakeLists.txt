@@ -7,7 +7,7 @@ include(${ITK_USE_FILE})
 
 #find_package(opengm2 REQUIRED)
 #include(${opengm2_use_file})
-SUBDIRS(Common External)
+SUBDIRS(Common)
 
 OPTION(TCMALLOC "Use tcmalloc" OFF)
 
@@ -16,15 +16,25 @@ OPTION(TCMALLOC "Use tcmalloc" OFF)
 option( BUILD_SRS "Build SRS" ON )
 
 if( ${BUILD_SRS} MATCHES "ON" )
-  add_subdirectory( SegmentationRegistration )
+  add_subdirectory( SimultaneousRegistrationSegmentation )
 endif()
 
-option( BUILD_PROPAGATION "Build Segmentation/Registration Propagation" OFF )
-if( ${BUILD_PROPAGATION} MATCHES "ON" )
-   add_subdirectory( Propagation )
+option( BUILD_CBRR "Build ConsistencyBasedRegistrationRectification" OFF )
+if( ${BUILD_CBRR} MATCHES "ON" )
+   add_subdirectory( ConsistencyBasedRegistrationRectification )
 endif()
 
-option( BUILD_TOOLS "Build General Tools" OFF )
+option( BUILD_SEMISUPERVISEDSEGMENTATIONPROPAGATION "Build  SemiSupervisedSegmentationPropagation" OFF )
+if( ${BUILD_SEMISUPERVISEDSEGMENTATIONPROPAGATION} MATCHES "ON" )
+   add_subdirectory( SemiSupervisedSegmentationPropagation )
+endif()
+
+option( BUILD_MARKOVRANDOMFIELDREGISTRATIONFUSION "Build  MarkovRandomFieldRegistrationFusion" OFF )
+if( ${BUILD_MARKOVRANDOMFIELDREGISTRATIONFUSION} MATCHES "ON" )
+   add_subdirectory( MarkovRandomFieldRegistrationFusion )
+endif()
+
+option( BUILD_TOOLS "Build General Tools and Utilities" OFF )
 if( ${BUILD_TOOLS} MATCHES "ON" )
    add_subdirectory( Tools )
 endif()
