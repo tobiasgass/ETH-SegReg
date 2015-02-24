@@ -763,9 +763,6 @@ public:
                 string optTol=p.size()>2?p[3]:"-1";
                 string progTol=p.size()>2?p[3]:"-1";
                 minFunc<<"tic;[x fval flag output] =grad_solveTol(A,b,0,"<<iter<<","<<optTol<<","<<progTol<<",'"<<opt<<"',init);t=toc;";
-    
-
-
             }
             TIME(engEvalString(this->m_ep, minFunc.str().c_str()));
             //LOGI(1,printf("gradSolveEnd: %s", buffer+2));
