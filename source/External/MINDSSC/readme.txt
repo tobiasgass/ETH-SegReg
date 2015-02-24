@@ -1,10 +1,17 @@
  written by Mattias Heinrich.
  Copyright (c) 2014. All rights reserved.
  See the LICENSE.txt file in the root folder
+
  
  contact: heinrich(at)imi.uni-luebeck.de
           www.mpheinrich.de
  
+ Some modifications by Tobias Gass, mainly to allow for using the
+ similarity metrics from c++ applications other than the original
+ package. This repository also only includes the files necessary for
+ that, if you are interested in the full code as originally
+ distributed, please contact Matthias Heinrich.
+
  If you use this implementation or parts of it please cite:
  
  “Non-parametric Discrete Registration with Convex Optimisation.”
