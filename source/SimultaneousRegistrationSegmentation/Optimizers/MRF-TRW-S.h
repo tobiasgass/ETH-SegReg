@@ -37,7 +37,7 @@ namespace SRS{
     typedef MRFEnergy<TRWType> MRFType;
     typedef TRWType::REAL Real;
     typedef typename MRFType::NodeId NodeType;
-    typedef typename MRFType::EdgeId EdgeType;
+
 
   protected:
     MRFType m_optimizer;
@@ -299,7 +299,7 @@ namespace SRS{
       options.m_iterMax = maxIter; // maximum number of iterations
       options.m_printMinIter=1;
       options.m_printIter=1;
-      options.verbose=verbose;
+      //options.verbose=verbose;
       options.m_eps=1e-6;
       logSetStage("TRWOptimizer");
       clock_t opt_start=clock();
@@ -320,7 +320,7 @@ namespace SRS{
       options.m_iterMax = 1; // maximum number of iterations
       options.m_printMinIter=0;
       options.m_printIter=0;
-      options.verbose=0;
+      //options.verbose=0;
       options.m_eps=1e-6;
       logSetStage("Optimizer");
       clock_t opt_start=clock();

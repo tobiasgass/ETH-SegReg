@@ -19,11 +19,18 @@
 #include "itkHistogramMatchingImageFilter.h"
 #include "Graph.h"
 #include "BaseLabel.h"
+#ifdef WITH_TRWS
 #include "MRF-TRW-S.h"
+#endif
+#ifdef WITH_GCO
 #include "MRF-GCO.h"
+#endif
+#ifdef WITH_OPENGM
 #include "MRF-opengm.h"
+#endif
+#ifdef WITH_GC
 #include "MRF-GC.h"
-//#include "MRF-FAST-PD.h"
+#endif
 #include <boost/lexical_cast.hpp>
 #include <itkNearestNeighborInterpolateImageFunction.h>
 #include <itkLinearInterpolateImageFunction.h>
@@ -600,6 +607,8 @@ namespace SRS{
                     LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
                     logUpdateStage(":Optimization");
                     if (false && m_config->nSegmentations == 2 && segment && !coherence && !regist){
+#ifdef WITH_GC
+
                         typedef  GC_MRFSolverSeg<GraphModelType> SolverType;
                         SolverType  *mrfSolverGC= new SolverType(graph, m_config->unarySegmentationWeight,
                                                                  m_config->pairwiseSegmentationWeight,m_config->verbose);
@@ -608,6 +617,9 @@ namespace SRS{
                         mrfSolverGC->optimize(1);
                         segmentation=graph->getSegmentationImage(mrfSolverGC->getLabels());
                         delete mrfSolverGC;
+#else
+                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<endl;
+#endif
 
                     }else{
                        
@@ -615,6 +627,8 @@ namespace SRS{
                         BaseMRFSolver<GraphModelType>  *mrfSolver;
 
                         if (m_config->TRW){
+#ifdef WITH_TRWS
+
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                             mrfSolver = new MRFSolverType(graph,
                                                           m_config->unaryRegistrationWeight,///pow(sqrt(2.0),l),
@@ -623,7 +637,12 @@ namespace SRS{
                                                           m_config->pairwiseSegmentationWeight,//*segmentationScalingFactor,
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
+#else
+                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<endl;
+#endif
                         }else if (m_config->GCO){
+#ifdef WITH_GCO
+
                             typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
                             mrfSolver = new MRFSolverType(graph,
                                                           m_config->unaryRegistrationWeight,
@@ -632,7 +651,12 @@ namespace SRS{
                                                           m_config->pairwiseSegmentationWeight,//*(segmentationScalingFactor),
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
+#else
+                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<endl;
+#endif
                         }else if (m_config->OPENGM){
+#ifdef WITH_OPENGM
+
                             typedef OPENGM_SRSMRFSolver<GraphModelType> MRFSolverType;
                             mrfSolver = new MRFSolverType(graph,
                                                           m_config->unaryRegistrationWeight,
@@ -641,6 +665,9 @@ namespace SRS{
                                                           m_config->pairwiseSegmentationWeight,//*(segmentationScalingFactor),
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
+#else
+                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<endl;
+#endif
 
 
                         }
@@ -683,11 +710,20 @@ namespace SRS{
                         }
                         
                         if (m_config->TRW){
+#ifdef WITH_GCO
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                             delete static_cast<MRFSolverType * >(mrfSolver);
+#endif
                         }else if (m_config->GCO){
+#ifdef WITH_GCO
                             typedef GCO_SRSMRFSolver<GraphModelType> MRFSolverType;
                             delete static_cast<MRFSolverType * >(mrfSolver);
+#endif
+                        }else if (m_config->OPENGM){
+#ifdef WITH_OPENGM
+                            typedef OPENGM_SRSMRFSolver<GraphModelType> MRFSolverType;
+                            delete static_cast<MRFSolverType * >(mrfSolver);
+#endif                      
                         }
 
                     }

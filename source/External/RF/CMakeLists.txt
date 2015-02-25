@@ -5,12 +5,19 @@ INCLUDE_DIRECTORIES(
   ${Boost_INCLUDE_DIR}
 )
 
+#set(DIR_XML  "/usr/include/libxml2/")
+set(DIR_LIBXML "/usr/include/libxml2/" CACHE  FILEPATH "Parent directory of directory libxml ")
+mark_as_advanced(DIR_LIBXML)
+
+
+IF(NOT IS_DIRECTORY "${DIR_LIBXML}/libxml" )
+  message( SEND_ERROR "libxml not found at ${DIR_LIBXML}/libxml, check directory" )
+  set(DIR_LIBXML "DIR NOT FOUND"   FILEPATH "Parent directory of directory libxml " FORCE)
+  mark_as_advanced(CLEAR DIR_LIBXML)
+endif()
 
 INCLUDE_DIRECTORIES(
-    /usr/include/libxml2
- )
-
-LINK_DIRECTORIES(
+    "${DIR_LIBXML}/"
  )
 
 
@@ -32,7 +39,7 @@ SET(ICG_RF_SRC
   utilities.h
 )
 
-ADD_LIBRARY(RF
+ADD_LIBRARY(RandomForest
   pairnode.cpp
   pairtree.cpp
   pairforest.cpp
@@ -52,19 +59,19 @@ ADD_LIBRARY(RF
   naivebayeshyperplane.cpp
   naivebayesfeature.cpp
 )
-TARGET_LINK_LIBRARIES (RF)
+#TARGET_LINK_LIBRARIES (RandomForest xml2)
 
 
-ADD_EXECUTABLE(RandomForest
-    RandomForest.cpp
-    ${ICG_RF_SRC}
-)
-
+# ADD_EXECUTABLE(RandomForest
+#     RandomForest.cpp
+#     ${ICG_RF_SRC}
+# )
+# 
 IF(WIN32)
 #TARGET_LINK_LIBRARIES(RandomForest
 #  libconfig++ iconv libxml2
 #)
-TARGET_LINK_LIBRARIES(RandomForestLib
+TARGET_LINK_LIBRARIES(RandomForest
   libconfig++ iconv libxml2
 )
 ELSE(WIN32)

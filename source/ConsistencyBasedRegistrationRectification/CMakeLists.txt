@@ -6,6 +6,14 @@ include_directories (${SRS-MRF_SOURCE_DIR}/Common)
 
 
 
+option( USE_MIND "Use MIND local similarity functions" ON )
+if( ${USE_MIND} MATCHES "ON" )
+  add_definitions(-DWITH_MIND)
+  set(DIR_MIND "${SRS-MRF_SOURCE_DIR}/External/MIND" CACHE  FILEPATH "Directory for MIND")
+  #  option( MIND_DIR "MIND directory" ${SRS-MRF_SOURCE_DIR}/External/MIND )
+  include_directories( ${DIR_MIND} )
+endif()
+
 #Aquirc like stuff
 #message( ${MATLAB_ENG_LIBRARY}  ${MATLAB_MX_LIBRARY})
 include_directories(${MATLAB_INCLUDE_DIR})

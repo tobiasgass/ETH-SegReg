@@ -2708,11 +2708,13 @@ public:
                                 localWeightImage=  Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                             }else if (m_metric == "categorical"){
                                 localWeightImage=  Metrics<ImageType,FloatImageType>::CategoricalDiffNorm(warpedImage,targetImage,m_sigma,m_exponent);
+#ifdef WITH_MIND
                             }else if (m_metric == "deedsSSC"){
                                 localWeightImage=  Metrics<ImageType,FloatImageType,float>::deedsMIND(warpedImage,targetImage,m_sigma,m_exponent);
                             }
                             else if (m_metric == "deedsLCC"){
                                 localWeightImage=  Metrics<ImageType,FloatImageType,float>::deedsLCC(warpedImage,targetImage,m_sigma,m_exponent);
+#endif
                             }else{
                                 LOG<<"do not understand "<<VAR(m_metric)<<",aborting."<<endl;
                                 exit(-1);

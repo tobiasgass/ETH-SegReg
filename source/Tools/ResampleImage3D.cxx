@@ -22,6 +22,7 @@ int main(int argc, char ** argv)
     typedef  ImageType::IndexType IndexType;
     typedef  ImageType::PointType PointType;
     typedef  ImageType::DirectionType DirectionType;
+    typedef  ImageType::SpacingType SpacingType;
 
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
@@ -32,6 +33,7 @@ int main(int argc, char ** argv)
     bool noSmoothing=false;
     bool nnResampling=false;
     bool rectifyAlignment=false;
+    double spacing=-1;
     as->parameter ("in", inFile, " filename...", true);
     as->parameter ("out", outFile, " filename...", true);
     as->parameter ("ref", refFile, " filename...", false);
@@ -39,6 +41,7 @@ int main(int argc, char ** argv)
     as->option ("noSmoothing", noSmoothing, " do not smooth image when linearly downsampling..");
     as->option ("rectify", rectifyAlignment, " set origin to zero and direction matrix to identity.");
     as->parameter ("f", factor, "resample image by factor", false);
+    as->parameter ("s", spacing, "resample image to uniform spacing", false);
 
     as->parse();
     
@@ -59,6 +62,14 @@ int main(int argc, char ** argv)
         }else{
             outImage=FilterUtils<ImageType>::LinearResample(img,factor,!noSmoothing);
         }
+    }else if (spacing>0.0){
+        
+        SpacingType spacingVec;
+        spacingVec.Fill(spacing);
+        outImage=FilterUtils<ImageType>::ResampleIsotropic(img,spacing,!noSmoothing,nnResampling);
+
+    }else{
+        LOG<<"No resampling directive given, image will be unchanged!"<<endl;
     }
     
     if (rectifyAlignment){

@@ -396,6 +396,56 @@ public:
         return LinearResample((ConstInputImagePointer)input,scale,smooth,true);
     }
 
+      static OutputImagePointer ResampleIsotropic( InputImagePointer input,  double spacing, bool smooth, bool nnResample=false) {
+          return ResampleIsotropic(ConstInputImagePointer(input),spacing, smooth, nnResample);
+
+      }
+      static OutputImagePointer ResampleIsotropic( ConstInputImagePointer input,  double isoSpacing, bool smooth, bool nnResample=false) {
+
+        LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
+        NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
+        ResampleFilterPointerType resampler=ResampleFilterType::New();
+        LOGV(5)<<VAR(smooth)<<" "<<VAR(nnResample)<<endl;
+        if (nnResample){
+            resampler->SetInterpolator(interpolNN);
+            smooth=false;
+        }
+        else
+            resampler->SetInterpolator(interpol);
+        typename InputImage::SpacingType spacing,inputSpacing;
+        typename InputImage::SizeType size,inputSize;
+        typename InputImage::PointType origin,inputOrigin;
+        inputOrigin=input->GetOrigin();
+        inputSize=input->GetLargestPossibleRegion().GetSize();
+        inputSpacing=input->GetSpacing();
+      
+        double newSpacing=isoSpacing;
+        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
+        for (uint d=0;d<InputImage::ImageDimension;++d){
+            spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+            //calculate new image size
+            size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
+            //finalize spacing as a function of the new size
+            spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
+            //size[d]=int(inputSpacing[d]/spacing[d]*(inputSize[d]));
+            origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
+        }
+        LOGV(7)<<"full parameters : "<<spacing<<" "<<size<<" "<<origin<<endl;
+        LOGV(3)<<"Resampling to isotropic  spacing "<<spacing<<" with resolution "<<size<<endl;
+        resampler->SetOutputOrigin(origin);
+		resampler->SetOutputSpacing ( spacing );
+		resampler->SetOutputDirection ( input->GetDirection() );
+		resampler->SetSize ( size );
+        if (smooth ){
+            InputImagePointer smoothedInput = FilterUtils<InputImage,InputImage>::gaussian(input,spacing-inputSpacing);
+            resampler->SetInput(smoothedInput);
+        }else{
+            resampler->SetInput(input);
+        }
+
+        resampler->Update();
+        return resampler->GetOutput();
+    }
 
     //resamp
     static OutputImagePointer EmptyResample( InputImagePointer input,  double scale) {

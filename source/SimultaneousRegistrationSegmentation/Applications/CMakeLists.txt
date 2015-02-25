@@ -2,57 +2,52 @@
 INCLUDE_REGULAR_EXPRESSION("^.*$")
 
 include_directories (
-  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Potentials
-  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Graphs
- ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/MultiResolution
-  ${SRS-MRF_SOURCE_DIR}/SegmentationRegistration/Optimizers
+  ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/Potentials
+  ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/Graphs
+  ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/MultiResolution
+  ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/Optimizers
 ) 
 
 
 
-include_directories (${SRS-MRF_SOURCE_DIR}/Utils)
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/TRWS) 
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/GCO) 
-include_directories (${SRS-MRF_SOURCE_DIR}/External/RF) 
-include_directories (${SRS-MRF_SOURCE_DIR}/External/c-ugmix) 
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/maxFlow) 
-include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
-
-INCLUDE_DIRECTORIES(
-   /usr/include/libxml2
- ) 
-
-
-get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-foreach(dir ${dirs})
-  message("dir='${dir}'")
-endforeach()
 
 #SRS
 ADD_EXECUTABLE(SRS3D Multiresolution-SRS3D.cxx )
-#TARGET_LINK_LIBRARIES(SRS3D ugmix maxflow GCO Utils TRWS     RF SRSMRFModels xml2   ${ITK_LIBRARIES}  )
-TARGET_LINK_LIBRARIES(SRS3D Utils GCO xml2   ${ITK_LIBRARIES}  )
-
 ADD_EXECUTABLE(SRS2D Multiresolution-SRS2D.cxx )
-TARGET_LINK_LIBRARIES(SRS2D ugmix maxflow  GCO Utils TRWS     RF  xml2   ${ITK_LIBRARIES}  )
-
 ADD_EXECUTABLE(SRS3DMultilabel Multiresolution-SRS3D-Multilabel.cxx )
-TARGET_LINK_LIBRARIES(SRS3DMultilabel ugmix maxflow  Utils TRWS     RF  xml2   ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(SRS3DCategorical Multiresolution-SRS3D-Categorical.cxx )
-TARGET_LINK_LIBRARIES(SRS3DCategorical ugmix maxflow  Utils TRWS     RF  xml2   ${ITK_LIBRARIES}  )
-
 ADD_EXECUTABLE(SRS2DMultilabel Multiresolution-SRS2D-Multilabel.cxx )
-TARGET_LINK_LIBRARIES(SRS2DMultilabel ugmix maxflow  Utils TRWS     RF  xml2   ${ITK_LIBRARIES}  )
+
+
+
+LINK_DIRECTORIES( ${LINK_DIRECTORIES} ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/)
+
+#TARGET_LINK_LIBRARIES(SRS3D ugmix maxflow GCO  TRWS     RandomForest    ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3D Utils ${Boost_LIBRARIES}   ${ITK_LIBRARIES}  )
+
+
+
+#optional linking
+if( ${USE_RF} MATCHES "ON" )
+  TARGET_LINK_LIBRARIES(SRS3D  RandomForest     )
+endif()
+
+
+TARGET_LINK_LIBRARIES(SRS2D Utils ${Boost_LIBRARIES} ugmix maxflow  GCO  TRWS     RandomForest     ${ITK_LIBRARIES}  )
+
+TARGET_LINK_LIBRARIES(SRS3DMultilabel Utils ${Boost_LIBRARIES} ugmix maxflow   TRWS     RandomForest     ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3DCategorical Utils  ${Boost_LIBRARIES} ugmix maxflow   TRWS     RandomForest     ${ITK_LIBRARIES}  )
+
+TARGET_LINK_LIBRARIES(SRS2DMultilabel Utils ${Boost_LIBRARIES} ugmix maxflow   TRWS     RandomForest     ${ITK_LIBRARIES}  )
 
 
 ADD_EXECUTABLE(SRS3D-Bone SRS3D-Bone.cxx )
-TARGET_LINK_LIBRARIES(SRS3D-Bone maxflow  Utils TRWS     RF  xml2   ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3D-Bone maxflow Utils ${Boost_LIBRARIES}  TRWS     RandomForest     ${ITK_LIBRARIES}  )
 
 
 #ARS
 
 ADD_EXECUTABLE(ARS2D Multiresolution-ARS2D.cxx )
-TARGET_LINK_LIBRARIES(ARS2D ugmix maxflow  Utils TRWS     RF  xml2   ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(ARS2D Utils ugmix maxflow ${Boost_LIBRARIES}  TRWS     RandomForest     ${ITK_LIBRARIES}  )
 ADD_EXECUTABLE(ARS3D Multiresolution-ARS3D.cxx )
-TARGET_LINK_LIBRARIES(ARS3D ugmix maxflow  Utils TRWS     RF  xml2   ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(ARS3D Utils ugmix maxflow ${Boost_LIBRARIES}  TRWS     RandomForest     ${ITK_LIBRARIES}  )

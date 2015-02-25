@@ -5,8 +5,14 @@ INCLUDE_REGULAR_EXPRESSION("^.*$")
 find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
 
+FIND_PACKAGE( Boost 1.40 COMPONENTS system filesystem program_options REQUIRED )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+ 
 
 SUBDIRS(Common)
+SUBDIRS(Utils)
+include_directories(Common)
+include_directories(Utils)
 
 OPTION(TCMALLOC "Use tcmalloc" OFF)
 

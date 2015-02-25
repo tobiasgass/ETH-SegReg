@@ -25,8 +25,8 @@ if( ${USE_GC} MATCHES "ON" )
   include_directories( ${DIR_GC} )
 
   FILE(GLOB gcFiles ${DIR_GC}/*.h ${DIR_GC}/*.cxx ${DIR_GC}/*.cpp ${DIR_GC}/*.hxx ${DIR_GC}/*.hpp ${DIR_GC}/*.c)
-  message("gcfiles=${gcFiles}")
-  message("gcDir=${DIR_GC}")
+#  message("gcfiles=${gcFiles}")
+ # message("gcDir=${DIR_GC}")
   ADD_LIBRARY(GC
     ${gcFiles}
     ) 
@@ -36,13 +36,17 @@ endif()
 option( USE_TRWS "Use TRWS optimizer" ON )
 if( ${USE_TRWS} MATCHES "ON" )
   add_definitions(-DWITH_TRWS)
-  set(DIR_TRWS "${SRS-MRF_SOURCE_DIR}/External/TRWS" CACHE  FILEPATH "Directory for TRWS")
-  #  option( TRWS_DIR "TRWS directory" ${SRS-MRF_SOURCE_DIR}/External/TRWS )
+  #set(DIR_TRWS "${SRS-MRF_SOURCE_DIR}/External/TRWS" CACHE  FILEPATH "Directory for TRWS")
+  set(DIR_TRWS "/home/gasst/Downloads/TRW_S-v1.3" CACHE  FILEPATH "Directory for TRWS")
   include_directories( ${DIR_TRWS} )
-  FILE(GLOB trwsFiles ${DIR_TRWS}/*.h ${DIR_TRWS}/*.cxx ${DIR_TRWS}/*.cpp ${DIR_TRWS}/*.hxx ${DIR_TRWS}/*.hpp ${DIR_TRWS}/*.c)
-  ADD_LIBRARY(TRWS
-    ${trwsFiles}
-    ) 
+  FILE(GLOB trwsFiles "${DIR_TRWS}/*.h" "${DIR_TRWS}/*.cxx" ${DIR_TRWS}/*.cpp ${DIR_TRWS}/*.hxx ${DIR_TRWS}/*.hpp ${DIR_TRWS}/*.c)
+  #message("${trwsFiles}")
+  #ADD_LIBRARY(TRWS_LIBRARIES  ${trwsFiles}   ) 
+endif()
+
+option( USE_OPENGM "Use OPENGM optimizer" ON )
+if( ${USE_OPENGM} MATCHES "ON" )
+  add_definitions(-DWITH_OPENGM)
 endif()
 
 option( USE_CUGMIX "Use c-ugmix gaussian mixture estimator" ON )
@@ -54,11 +58,12 @@ endif()
 option( USE_RF "Use random forest classifier" ON )
 if( ${USE_RF} MATCHES "ON" )
   add_definitions(-DWITH_RF)
-  include_directories(${SRS-MRF_SOURCE_DIR}/External/RF)
+  include_directories(../External/RF)
+  INCLUDE_DIRECTORIES("${DIR_LIBXML}/")
+  add_subdirectory(../External/RF ${CMAKE_BINARY_DIR}/External/RF)
 endif()
 
 
-#SUBDIRS(Applications)
 add_subdirectory(Applications)
 
 FILE(GLOB optHeaders "Optimizers/*.h")

@@ -11,9 +11,11 @@
 #include <itkBoxMeanImageFilter.h>
 #include "itkSubtractAbsImageFilter.h"
 #include <itkAbsoluteValueDifferenceImageFilter.h>
+#ifdef WITH_MIND
 #include "dataCostSSC.h"
 #include "dataCostLCC.h"
-using namespace std;
+#endif
+
 
 template<class InputImage, class OutputImage = InputImage, class InternalPrecision=double>
 class Metrics{
@@ -1367,7 +1369,7 @@ public:
         
         return FilterUtils<InternalImage,OutputImage>::cast(result);
     }
-
+#ifdef WITH_MIND
     static inline OutputImagePointer deedsMIND(InputImagePointer i1,InputImagePointer i2,double sigmaWidth=1.0,double sigmaNorm=1.0){
         InternalImagePointer i1Cast=FilterUtils<InputImage,InternalImage>::cast(i1);
         InternalImagePointer i2Cast=FilterUtils<InputImage,InternalImage>::cast(i2);
@@ -1409,7 +1411,7 @@ public:
         }
         return FilterUtils<InternalImage,OutputImage>::cast(result);
     }
-
+#endif
     static inline OutputImagePointer multiScaleLNCCAbs(InputImagePointer i1,InputImagePointer i2,double sigmaMax=1.0, double exp = 1.0){
         double sigma=1.0;
         int count=0;
