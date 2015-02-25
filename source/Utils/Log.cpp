@@ -98,3 +98,60 @@ void MyTimer::print(){
 }
 
 
+
+
+MyLog mylog;
+double tOpt=0;     
+double tUnary=0;   
+double tPairwise=0;
+MyTimer timeLOG;
+
+bool MatchPathSeparator::operator()( char ch ) const
+    {
+        return ch == '/';
+    }
+
+
+std::string basename( std::string const& pathname )
+{
+    return std::string( 
+        std::find_if( pathname.rbegin(), pathname.rend(),
+                      MatchPathSeparator() ).base(),
+        pathname.end() );
+}
+
+std::vector<std::string> &split(std::string &s, char delim, std::vector<std::string> &elems) {
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+    return elems;
+}
+
+
+std::vector<std::string> split(std::string &s, char delim) {
+    std::vector<std::string> elems;
+    split(s, delim, elems);
+    return elems;
+}
+
+
+void gen_random(char *s, const int len) {
+    static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+
+    for (int i = 0; i < len; ++i) {
+        s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+
+    s[len] = 0;
+}
+
+double fRand(double fMin, double fMax)
+{
+    double f = (double)rand() / RAND_MAX;
+    return fMin + f * (fMax - fMin);
+}

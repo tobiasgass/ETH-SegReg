@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef LOGGING
+#define LOGGING
+
 #include "boost/format.hpp"
 //#include "boost/timer.hpp"
 //#include "boost/timer/timer.hpp"
@@ -61,7 +64,7 @@ public:
 
 
 ///GLOBAL log variable!
-MyLog mylog;
+extern MyLog mylog;
 
 
 ///macros for using the log class. the log object is not used directly in the client code, but through these macros
@@ -77,29 +80,29 @@ MyLog mylog;
     if (mylog.getVerbosity()>=level && mylog.getVerbosity()>=10) \
         (*mylog.mOut) <<  " [" << __FILE__<<":"<<__LINE__<<":"<<__FUNCTION__<<"] "; \
     if (mylog.getVerbosity()>=level)                                    \
-        (*mylog.mOut)<<mylog.getStatus()<<" ["<<level<<"] "
+         (*mylog.mOut)<<mylog.getStatus()<<" ["<<level<<"] "
 
-#define LOGI(level, instruction) \
-    if (mylog.getVerbosity()>=level)  \
-        instruction
+ #define LOGI(level, instruction) \
+     if (mylog.getVerbosity()>=level)  \
+         instruction
 
-///more variable timer class
-///can keep track of separate timers for a number of strings, easy to call with a repeated function call
-class MyTimer{
-private:
-    //std::map<std::string, boost::timer::cpu_timer> m_timers;
-    std::map<std::string, MyCPUTimer> m_timers;
-    std::map<std::string, double> m_timings;
-    std::map<std::string,int> m_calls;
-    
-public:
-    void time();
-    void start(std::string tag);
-    void end(std::string tag);
-    void print();
+ ///more variable timer class
+ ///can keep track of separate timers for a number of strings, easy to call with a repeated function call
+ class MyTimer{
+ private:
+     //std::map<std::string, boost::timer::cpu_timer> m_timers;
+     std::map<std::string, MyCPUTimer> m_timers;
+     std::map<std::string, double> m_timings;
+     std::map<std::string,int> m_calls;
+  
+ public:
+     void time();
+     void start(std::string tag);
+     void end(std::string tag);
+     void print();
 };
 
-MyTimer timeLOG;
+extern MyTimer timeLOG;
 #define TIME(instruction) \
     timeLOG.start(#instruction);                  \
     instruction;                                \
@@ -112,59 +115,24 @@ MyTimer timeLOG;
 
 #define OUTPUTTIMER   timeLOG.print()
 
-double tOpt=0;
-double tUnary=0;
-double tPairwise=0;
+extern double tOpt;
+extern double tUnary;
+extern double tPairwise;
 
 struct MatchPathSeparator
 {
-    bool operator()( char ch ) const
-    {
-        return ch == '/';
-    }
+    bool operator()( char ch ) const;
 };
 
-std::string
-basename( std::string const& pathname )
-{
-    return std::string( 
-        std::find_if( pathname.rbegin(), pathname.rend(),
-                      MatchPathSeparator() ).base(),
-        pathname.end() );
-}
-
-std::vector<std::string> &split(std::string &s, char delim, std::vector<std::string> &elems) {
-    std::stringstream ss(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
-    return elems;
-}
+extern std::string basename( std::string const& pathname );
 
 
-std::vector<std::string> split(std::string &s, char delim) {
-    std::vector<std::string> elems;
-    split(s, delim, elems);
-    return elems;
-}
+extern std::vector<std::string> &split(std::string &s, char delim, std::vector<std::string> &elems) ;
 
 
-void gen_random(char *s, const int len) {
-    static const char alphanum[] =
-        "0123456789"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "abcdefghijklmnopqrstuvwxyz";
+extern std::vector<std::string> split(std::string &s, char delim) ;
 
-    for (int i = 0; i < len; ++i) {
-        s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
-    }
 
-    s[len] = 0;
-}
-
-double fRand(double fMin, double fMax)
-{
-    double f = (double)rand() / RAND_MAX;
-    return fMin + f * (fMax - fMin);
-}
+extern void gen_random(char *s, const int len) ;
+extern double fRand(double fMin, double fMax);
+#endif
