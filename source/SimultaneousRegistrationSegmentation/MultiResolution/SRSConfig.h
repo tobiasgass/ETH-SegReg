@@ -1,4 +1,3 @@
-#include "Log.h"
 /*
  * config.h
  *
@@ -13,6 +12,8 @@
 #include <sstream>
 #include <vector>
 #include <iterator>
+#include "Log.h"
+
 //#include "argstream.h"
 #include "ArgumentParser.h"
 class SRSConfig{
@@ -69,11 +70,11 @@ public:
     bool histNorm;
     bool normalizeImages;
     bool useLowResBSpline;
-    string atlasLandmarkFilename,targetLandmarkFilename;
+    std::string atlasLandmarkFilename,targetLandmarkFilename;
     std::vector<int> nRegSamples;
     std::vector<double> resamplingFactors;
     int nSegmentationLevels;
-    string solver;
+    std::string solver;
 private:
     ArgumentParser * as;
 public:
@@ -120,8 +121,8 @@ public:
         regist=false;
         coherence=false;
         optIter=10;
-        thresh_UnaryReg=numeric_limits<double>::max();
-        thresh_PairwiseReg=numeric_limits<double>::max();;
+        thresh_UnaryReg=std::numeric_limits<double>::max();
+        thresh_PairwiseReg=std::numeric_limits<double>::max();;
         log_UnaryReg=false;
         log_PairwiseReg=false;
         displacementScaling=1.0;
@@ -229,7 +230,7 @@ public:
 			fromFile.parseFile(filename);
 			copyFrom(fromFile);
 		}
-        string regSampleString="";
+        std::string regSampleString="";
         //input filenames
         //mandatory
 		as->parameter ("t", targetFilename, "target image (file name)", true);
@@ -356,7 +357,7 @@ public:
 				levels[i]=tmp_levels[i];
 			}
 		}
-        nRegSamples=std::vector<int>(max(nLevels,1),maxDisplacement);
+        nRegSamples=std::vector<int>(std::max(nLevels,1),maxDisplacement);
         if (regSampleString!=""){
             std::stringstream ss(regSampleString);
             int i;
