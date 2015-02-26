@@ -5,7 +5,6 @@
 #include <vector>
 #include <map>
 #include <google/heap-profiler.h>
-#include "ordering.cpp"
 #include <limits.h>
 #include <time.h>
 #include <omp.h>

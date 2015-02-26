@@ -12,11 +12,11 @@
 
 #include "typeGeneral.h"
 #include "MRFEnergy.h"
-#include "minimize.cpp"
-#include "treeProbabilities.cpp"
+//#include "minimize.cpp"
+//#include "treeProbabilities.cpp"
 #include <vector>
 #include <google/heap-profiler.h>
-#include "ordering.cpp"
+//#include "ordering.cpp"
 #include <limits.h>
 
 

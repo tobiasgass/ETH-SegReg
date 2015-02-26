@@ -5,12 +5,12 @@ include(${ITK_USE_FILE})
 option( USE_GCO "Use GCO optimizer" ON )
 
 if( ${USE_GCO} MATCHES "ON" )
-  add_definitions(-DWITH_GCO)
+  add_definitions(-DWITH_GCO -DGCO_ENERGYTYPE=double -DGCO_ENERGYTERMTYPE=float)
   set(DIR_GCO "${SRS-MRF_SOURCE_DIR}/External/GCO" CACHE  FILEPATH "Directory for GCO")
   #  option( GCO_DIR "GCO directory" ${SRS-MRF_SOURCE_DIR}/External/GCO )
   include_directories( ${DIR_GCO} )
-  FILE(GLOB gcoFiles ${DIR_GCO}/*.h ${DIR_GCO}/*.cxx ${DIR_GCO}/*.cpp ${DIR_GCO}/*.hxx ${DIR_GCO}/*.hpp ${DIR_GCO}/*.c)
-
+  FILE(GLOB gcoFiles 
+     ${DIR_GCO}/block.h   ${DIR_GCO}/energy.h   ${DIR_GCO}/GCoptimization.cpp   ${DIR_GCO}/GCoptimization.h  ${DIR_GCO}/graph.cpp   ${DIR_GCO}/graph.h   ${DIR_GCO}/LinkedBlockList.cpp   ${DIR_GCO}/LinkedBlockList.h     ${DIR_GCO}/maxflow.cpp )
   ADD_LIBRARY(GCO
     ${gcoFiles}
     ) 
@@ -19,7 +19,8 @@ endif()
 
 option( USE_GC "Use GC optimizer" ON )
 if( ${USE_GC} MATCHES "ON" )
-  add_definitions(-DWITH_GC)
+  add_definitions(-DWITH_GC )
+
   set(DIR_GC "${SRS-MRF_SOURCE_DIR}/External/maxFlow" CACHE  FILEPATH "Directory for GC")
   #  option( GC_DIR "GC directory" ${SRS-MRF_SOURCE_DIR}/External/GC )
   include_directories( ${DIR_GC} )
