@@ -4,7 +4,6 @@
 
 #include <vector>
 #include <google/heap-profiler.h>
-#include "ordering.cpp"
 #include <limits.h>
 #include <time.h>
 #include <omp.h>
@@ -19,7 +18,7 @@
 #include <opengm/inference/alphaexpansion.hxx>
 //#include <opengm/inference/auxiliary/minstcutkolmogorov.hxx>
 #include <opengm/inference/auxiliary/minstcutboost.hxx>
-#include <opengm/inference/external/trws.hxx>
+//#include <opengm/inference/external/trws.hxx>
 
 
 namespace SRS{
@@ -43,8 +42,6 @@ public:
 
     typedef typename   opengm::DiscreteSpace<size_t, size_t> OpenGMLabelSpace;
     typedef typename opengm::ExplicitFunction<EnergyType, size_t, size_t> FunctionType;
-    //typedef typename opengm::SparseFunction<EnergyType, size_t, size_t> FunctionType;
-    //typedef typename opengm::SparseMarray< std::map<size_t,EnergyType> > FunctionType;
     typedef typename opengm::GraphicalModel<EnergyType, 
                                             typename opengm::Adder,
                                             FunctionType,
@@ -55,7 +52,7 @@ public:
 
     typedef typename opengm::GraphCut<GraphicalModelType, typename opengm::Minimizer, MinStCutType> MinGraphCut;
     typedef typename opengm::AlphaExpansion<GraphicalModelType, MinGraphCut> MinAlphaExpansion;
-    typedef typename opengm::external::TRWS<GraphicalModelType> TRWS;
+    //typedef typename opengm::external::TRWS<GraphicalModelType> TRWS;
     
 
 protected:
@@ -182,12 +179,7 @@ public:
         }
         space=OpenGMLabelSpace(nLabels.begin(),nLabels.end());
         m_gm=new GraphicalModelType(space);
-#if 0
-//,nSegLabels+nSegLabels*nSegLabels*pow(2,D-1));
-        m_gm->reserveFactors(nSegNodes*(1+pow(2,D-1)));
-        m_gm->reserveFunctions<FunctionType>(nSegNodes*(1+pow(2,D-1)));
-        m_gm->reserveFactorsVarialbeIndices((nSegNodes*nSegLabels+nSegNodes*nSegLabels*nSegLabels*pow(2,D-1)));
-#endif
+
         float functionDefaultValue=0.0;
         
         if (m_register){
@@ -307,13 +299,15 @@ public:
 
     virtual double optimize(int maxIter=20){
         logSetStage("OPENGM-Optimizer");
-        //MinAlphaExpansion ae(*m_gm);
+#if 1
+        MinAlphaExpansion solver(*m_gm);
+#else
         typename TRWS::Parameter param;
         param.numberOfIterations_=maxIter;
         param.useZeroStart_=true;
         param.energyType_=TRWS::Parameter::TABLES;
         TRWS solver(*m_gm,param);
-
+#endif
 
         clock_t opt_start=clock();
         double energy;//=m_optimizer->compute_energy();

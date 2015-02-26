@@ -10,7 +10,7 @@
 #include "Log.h"
 #include "BaseMRF.h"
 
-#include "typeGeneral.h"
+//#include "typeGeneral.h"
 #include "MRFEnergy.h"
 //#include "minimize.cpp"
 //#include "treeProbabilities.cpp"
@@ -19,6 +19,7 @@
 //#include "ordering.cpp"
 #include <limits.h>
 
+using namespace TRWS;
 
 namespace SRS{
 /** \brief

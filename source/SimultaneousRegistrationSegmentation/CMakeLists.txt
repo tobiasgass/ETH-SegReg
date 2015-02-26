@@ -22,12 +22,10 @@ if( ${USE_GC} MATCHES "ON" )
   add_definitions(-DWITH_GC )
 
   set(DIR_GC "${SRS-MRF_SOURCE_DIR}/External/maxFlow" CACHE  FILEPATH "Directory for GC")
-  #  option( GC_DIR "GC directory" ${SRS-MRF_SOURCE_DIR}/External/GC )
   include_directories( ${DIR_GC} )
 
   FILE(GLOB gcFiles ${DIR_GC}/*.h ${DIR_GC}/*.cxx ${DIR_GC}/*.cpp ${DIR_GC}/*.hxx ${DIR_GC}/*.hpp ${DIR_GC}/*.c)
-#  message("gcfiles=${gcFiles}")
- # message("gcDir=${DIR_GC}")
+
   ADD_LIBRARY(GC
     ${gcFiles}
     ) 
@@ -40,7 +38,10 @@ if( ${USE_TRWS} MATCHES "ON" )
   #set(DIR_TRWS "${SRS-MRF_SOURCE_DIR}/External/TRWS" CACHE  FILEPATH "Directory for TRWS")
   set(DIR_TRWS "/home/gasst/Downloads/TRW_S-v1.3" CACHE  FILEPATH "Directory for TRWS")
   include_directories( ${DIR_TRWS} )
-  FILE(GLOB trwsFiles "${DIR_TRWS}/*.h" "${DIR_TRWS}/*.cxx" ${DIR_TRWS}/*.cpp ${DIR_TRWS}/*.hxx ${DIR_TRWS}/*.hpp ${DIR_TRWS}/*.c ${DIR_TRWS}/*.inc )
+  FILE(GLOB trwsFiles
+    ${DIR_TRWS}/minimize.cpp   ${DIR_TRWS}/MRFEnergy.h   ${DIR_TRWS}/treeProbabilities.cpp  ${DIR_TRWS}/instances.inc
+    ${DIR_TRWS}/instances.h  ${DIR_TRWS}/MRFEnergy.cpp  ${DIR_TRWS}/ordering.cpp  typeBinaryFast.h       ${DIR_TRWS}/typeGeneral.h  
+    )
   #message("${trwsFiles}")
   ADD_LIBRARY(TRWS_LIBRARIES  ${trwsFiles}   ) 
 endif()

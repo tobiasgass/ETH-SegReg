@@ -19,6 +19,8 @@
 #include "itkHistogramMatchingImageFilter.h"
 #include "Graph.h"
 #include "BaseLabel.h"
+#include "BaseMRF.h"
+
 #ifdef WITH_TRWS
 #include "MRF-TRW-S.h"
 #endif
@@ -606,7 +608,7 @@ namespace SRS{
                     //#define TRUNC
                     LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
                     logUpdateStage(":Optimization");
-                    if (false && m_config->nSegmentations == 2 && segment && !coherence && !regist){
+                    if (m_config->solver=="GC" && m_config->nSegmentations == 2 && segment && !coherence && !regist){
 #ifdef WITH_GC
 
                         typedef  GC_MRFSolverSeg<GraphModelType> SolverType;
@@ -710,7 +712,7 @@ namespace SRS{
                         }
                         
                         if (m_config->TRW){
-#ifdef WITH_GCO
+#ifdef WITH_TRWS
                             typedef TRWS_SRSMRFSolver<GraphModelType> MRFSolverType;
                             delete static_cast<MRFSolverType * >(mrfSolver);
 #endif

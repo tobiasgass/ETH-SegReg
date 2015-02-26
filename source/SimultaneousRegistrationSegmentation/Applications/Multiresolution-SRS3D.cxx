@@ -12,7 +12,6 @@
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-Coherence-Pairwise.h"
 #include "Potential-Segmentation-Pairwise.h"
-#include "MRF-TRW-S.h"
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"

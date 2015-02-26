@@ -397,6 +397,9 @@ public:
             TRW=true;
         }else if (solver == "OPENGM"){
             OPENGM=true;
+        }else{
+            LOG<<"Choosen solver is "<<solver<<", will default to OPENGM if "<<solver<<" is not applicable."<<std::endl;
+            OPENGM=true;
         }
 
 	}

@@ -6,21 +6,21 @@
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
 #include "Graph.h"
-#include "SubsamplingGraph.h"
-#include "FastRegistrationGraph.h"
+//#include "SubsamplingGraph.h"
+#include "FastGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-Coherence-Pairwise.h"
 #include "Potential-Segmentation-Pairwise.h"
-#include "MRF-TRW-S.h"
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
 #include "NewClassifier.h"
 using namespace std;
 using namespace itk;
+using namespace SRS;
 
 int main(int argc, char ** argv)
 {

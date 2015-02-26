@@ -23,19 +23,40 @@ ADD_EXECUTABLE(SRS2DMultilabel Multiresolution-SRS2D-Multilabel.cxx )
 LINK_DIRECTORIES( ${LINK_DIRECTORIES} ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/)
 
 #TARGET_LINK_LIBRARIES(SRS3D ugmix maxflow GCO  TRWS     RandomForest    ${ITK_LIBRARIES}  )
-TARGET_LINK_LIBRARIES(SRS3D Utils TRWS_LIBRARIES GCO ${Boost_LIBRARIES}   ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3D Utils    ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3DMultilabel Utils      ${ITK_LIBRARIES}  )
 
+#optional linking
+if( ${USE_TRWS} MATCHES "ON" )
+  TARGET_LINK_LIBRARIES(SRS3D  TRWS_LIBRARIES     )
+  TARGET_LINK_LIBRARIES(SRS3DMultilabel  TRWS_LIBRARIES     )
+endif()
+#optional linking
+if( ${USE_GC} MATCHES "ON" )
+  TARGET_LINK_LIBRARIES(SRS3D  GC     )
+  TARGET_LINK_LIBRARIES(SRS3DMultilabel  GC     )
+endif()
+#optional linking
+if( ${USE_GCO} MATCHES "ON" )
+  TARGET_LINK_LIBRARIES(SRS3D  GCO     )
+  TARGET_LINK_LIBRARIES(SRS3DMultilabel  GCO     )
+endif()
 
+#optional linking
+if( ${USE_OPENGM} MATCHES "ON" )
+  TARGET_LINK_LIBRARIES(SRS3D    ${Boost_LIBRARIES}   )
+  TARGET_LINK_LIBRARIES(SRS3DMultilabel    ${Boost_LIBRARIES}   )
+endif()
 
 #optional linking
 if( ${USE_RF} MATCHES "ON" )
   TARGET_LINK_LIBRARIES(SRS3D  RandomForest     )
+  TARGET_LINK_LIBRARIES(SRS3DMultilabel  RandomForest     )
 endif()
 
 
 TARGET_LINK_LIBRARIES(SRS2D Utils ${Boost_LIBRARIES} ugmix maxflow  GCO  TRWS     RandomForest     ${ITK_LIBRARIES}  )
 
-TARGET_LINK_LIBRARIES(SRS3DMultilabel Utils ${Boost_LIBRARIES} ugmix maxflow   TRWS     RandomForest     ${ITK_LIBRARIES}  )
 TARGET_LINK_LIBRARIES(SRS3DCategorical Utils  ${Boost_LIBRARIES} ugmix maxflow   TRWS     RandomForest     ${ITK_LIBRARIES}  )
 
 TARGET_LINK_LIBRARIES(SRS2DMultilabel Utils ${Boost_LIBRARIES} ugmix maxflow   TRWS     RandomForest     ${ITK_LIBRARIES}  )

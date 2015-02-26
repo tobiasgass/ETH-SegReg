@@ -8,7 +8,8 @@
 
 #ifndef GC_REGISTRATION_H_
 #define GC_REGISTRATION_H_
-#include "bgraph.h"
+#include "graph.h"
+#include "BaseMRF.h"
 
 namespace SRS{
 template<class TGraphModel>
@@ -19,7 +20,11 @@ public:
 	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 
 	//typedef BGraph<float,float,float> MRFType;
-	typedef BGraph<short ,short ,long long> MRFType;
+	//typedef Graph<short ,short ,long long> MRFType;
+
+    ///will not link against GCO if different from GCO_ENERGYTYPE defines
+    ///can probably still be linked against original maxflo
+    typedef Graph<float ,float ,double> MRFType;
 	typedef MRFType::node_id NodeType;
 protected:
 	MRFType* optimizer;
@@ -127,7 +132,8 @@ public:
 	typedef typename GraphModelType::LabelMapperType LabelMapperType;
 
 	//typedef BGraph<float,float,float> MRFType;
-	typedef BGraph<short,short,long long> MRFType;
+	//typedef Graph<short,short,long long> MRFType;
+    typedef Graph<float ,float ,double> MRFType;
 	typedef MRFType::node_id NodeType;
 protected:
 	MRFType* optimizer;
