@@ -8,6 +8,8 @@
 
 #include "Log.h"
 #include <vector>
+
+#ifdef WITH_RF
 #include "data.h"
 #include "forest.h"
 #include "randomnaivebayes.h"
@@ -17,6 +19,10 @@
 #include "utilities.h"
 #include "hyperparameters.h"
 #include <libconfig.h++>
+#include "unsupervised.h"
+
+#endif
+
 #include <boost/numeric/ublas/matrix.hpp>
 #include <iostream>
 #include "itkImageDuplicator.h"
@@ -32,13 +38,15 @@
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include "ImageUtils.h"
-#include "unsupervised.h"
 
 using namespace std;
 using namespace boost::numeric::ublas;
+namespace itk{
+#ifdef WITH_RF
+
 using namespace libconfig;
 
-namespace itk{
+
     template<class ImageType>
     class SegmentationRandomForestClassifier: public itk::Object{
     protected:
@@ -208,6 +216,8 @@ namespace itk{
 
     };//class
     
+#endif
+
     template<class ImageType>
     class SegmentationGMMClassifier: public itk::Object{
     protected:

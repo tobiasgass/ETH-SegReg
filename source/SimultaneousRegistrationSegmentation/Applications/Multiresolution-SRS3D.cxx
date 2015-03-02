@@ -15,7 +15,11 @@
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
+#ifdef WITH_RF
+#ifdef WITH_CUGMIX
 #include "NewClassifier.h"
+#endif
+#endif
 using namespace std;
 using namespace SRS;
 using namespace itk;

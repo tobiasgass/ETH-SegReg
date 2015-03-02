@@ -3,7 +3,11 @@
 #include "Log.h"
 
 #include <vector>
+
+#ifdef WITH_TCMALLOC
 #include <google/heap-profiler.h>
+#endif
+
 #include <limits.h>
 #include <time.h>
 #include <omp.h>
