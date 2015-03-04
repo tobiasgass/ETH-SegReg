@@ -67,8 +67,6 @@ TARGET_LINK_LIBRARIES(SubtractDeformations2D     ${ITK_LIBRARIES}   Utils  )
 ADD_EXECUTABLE(DefSetMetaParametersByReference2D DefSetMetaParametersByReference2D.cxx )
 TARGET_LINK_LIBRARIES(DefSetMetaParametersByReference2D     ${ITK_LIBRARIES}   Utils  )
 
-ADD_EXECUTABLE(TestDeformationResampling2D TestDeformationResampling2D.cxx )
-TARGET_LINK_LIBRARIES(TestDeformationResampling2D     ${ITK_LIBRARIES}   Utils  )
 
 ADD_EXECUTABLE(InvertComposeDeformations3D InvertComposeDeformations3d.cxx )
 TARGET_LINK_LIBRARIES(InvertComposeDeformations3D     ${ITK_LIBRARIES}   Utils  )
@@ -85,8 +83,7 @@ ADD_EXECUTABLE(DilateImage3D DilateImage3D.cxx )
 TARGET_LINK_LIBRARIES(DilateImage3D     ${ITK_LIBRARIES}   Utils  )
 
 
-ADD_EXECUTABLE(CreateSegmentationPriorFromAnnotatedImage3D CreateSegmentationPriorFromAnnotatedImage3D.cxx )
-TARGET_LINK_LIBRARIES(CreateSegmentationPriorFromAnnotatedImage3D     ${ITK_LIBRARIES}   Utils  )
+
 
 
 ADD_EXECUTABLE(convertPointToIndex3D convertPointToIndex3D.cxx )
@@ -125,12 +122,7 @@ ADD_EXECUTABLE(RelabelSegmentation3D RelabelSegmentation3D.cxx )
 TARGET_LINK_LIBRARIES(RelabelSegmentation3D    ${ITK_LIBRARIES}   Utils  )
 ADD_EXECUTABLE(ExtractSegmentationOutline2D ExtractSegmentationOutline2D.cxx )
 TARGET_LINK_LIBRARIES(ExtractSegmentationOutline2D    ${ITK_LIBRARIES}   Utils  )
-#segment 
-ADD_EXECUTABLE(SegmentProbImage3D SegmentProbImage3D.cxx )
-TARGET_LINK_LIBRARIES(SegmentProbImage3D  SRSMRFModels    ${ITK_LIBRARIES}   Utils  )
-ADD_EXECUTABLE(SegmentProbImage2D SegmentProbImage2D.cxx )
-TARGET_LINK_LIBRARIES(SegmentProbImage2D  SRSMRFModels    ${ITK_LIBRARIES}   Utils  )
- 
+
 #Compare registrations 
 ADD_EXECUTABLE(ComputeLandmarkRegistrationError2D ComputeLandmarkRegistrationError.cxx )
 TARGET_LINK_LIBRARIES(ComputeLandmarkRegistrationError2D    ${ITK_LIBRARIES}   Utils  )
@@ -160,8 +152,7 @@ TARGET_LINK_LIBRARIES(ComputeRegistrationErrorTriplet3D    ${ITK_LIBRARIES}   Ut
 ADD_EXECUTABLE(SubtractDeformations3D SubtractDeformations3D.cxx )
 TARGET_LINK_LIBRARIES(SubtractDeformations3D    ${ITK_LIBRARIES}   Utils  )
 
-ADD_EXECUTABLE(ComputeDeformedGridImage2D ComputeDeformedGridImage2D.cxx )
-TARGET_LINK_LIBRARIES(ComputeDeformedGridImage2D    ${ITK_LIBRARIES}   Utils  )
+
 
 ADD_EXECUTABLE(ComputeDeformationStatistics3D ComputeDeformationStatistics3D.cxx )
 TARGET_LINK_LIBRARIES(ComputeDeformationStatistics3D    ${ITK_LIBRARIES}   Utils  )
@@ -176,15 +167,13 @@ ADD_EXECUTABLE(ComputeLocalSimilarity2D ComputeLocalSimilarity2D.cxx )
 TARGET_LINK_LIBRARIES(ComputeLocalSimilarity2D    ${ITK_LIBRARIES}   Utils  )
 ADD_EXECUTABLE(ComputeLocalSimilarity3D ComputeLocalSimilarity3D.cxx )
 TARGET_LINK_LIBRARIES(ComputeLocalSimilarity3D    ${ITK_LIBRARIES}   Utils  )
-ADD_EXECUTABLE(CompareImagesAutoTransform2D CompareImagesAutoTransform2D.cxx )
-TARGET_LINK_LIBRARIES(CompareImagesAutoTransform2D    ${ITK_LIBRARIES}   Utils  )
+
 
 ADD_EXECUTABLE(GetImageMinMax3D GetImageMinMax3D.cxx )
 TARGET_LINK_LIBRARIES(GetImageMinMax3D    ${ITK_LIBRARIES}   Utils  )
 
 #registration
-ADD_EXECUTABLE(GradientDescentRegistration2D GradientDescentRegistration2D.cxx )
-TARGET_LINK_LIBRARIES(GradientDescentRegistration2D     ${ITK_LIBRARIES}   Utils  )
+
 
 ADD_EXECUTABLE(GradientDescentRegistrationITK GradientDescentITK.cxx )
 TARGET_LINK_LIBRARIES(GradientDescentRegistrationITK     ${ITK_LIBRARIES}   Utils  )
@@ -241,19 +230,43 @@ TARGET_LINK_LIBRARIES(GetBoundingBox3D     ${ITK_LIBRARIES}   Utils  )
 #tests
 
 
-ADD_EXECUTABLE(DeformationToBSplineTest2D DeformationToBSplineTest2D.cxx )
-TARGET_LINK_LIBRARIES(DeformationToBSplineTest2D     ${ITK_LIBRARIES}   Utils  )
-
-
-
 
 ADD_EXECUTABLE(CropImageToBoundingBox3D CropImageToBoundingBox3D.cxx )
 TARGET_LINK_LIBRARIES(CropImageToBoundingBox3D      ${ITK_LIBRARIES}   Utils  )
+
+###currently not compiling or broken
+if ( 0 )
+
+ADD_EXECUTABLE(CompareImagesAutoTransform2D CompareImagesAutoTransform2D.cxx )
+TARGET_LINK_LIBRARIES(CompareImagesAutoTransform2D    ${ITK_LIBRARIES}   Utils  )
+ADD_EXECUTABLE(ComputeDeformedGridImage2D ComputeDeformedGridImage2D.cxx )
+TARGET_LINK_LIBRARIES(ComputeDeformedGridImage2D    ${ITK_LIBRARIES}   Utils  )
+ADD_EXECUTABLE(CreateSegmentationPriorFromAnnotatedImage3D CreateSegmentationPriorFromAnnotatedImage3D.cxx )
+TARGET_LINK_LIBRARIES(CreateSegmentationPriorFromAnnotatedImage3D     ${ITK_LIBRARIES}   Utils  )
+
+
+ADD_EXECUTABLE(DeformationToBSplineTest2D DeformationToBSplineTest2D.cxx )
+TARGET_LINK_LIBRARIES(DeformationToBSplineTest2D     ${ITK_LIBRARIES}   Utils  )
+
 
 ADD_EXECUTABLE(GenerateDeformation2D GenerateDeformation2D.cxx )
 TARGET_LINK_LIBRARIES(GenerateDeformation2D      ${ITK_LIBRARIES}   Utils  )
 ADD_EXECUTABLE(GenerateDeformation3D GenerateDeformation3D.cxx )
 TARGET_LINK_LIBRARIES(GenerateDeformation3D      ${ITK_LIBRARIES}   Utils  )
+ADD_EXECUTABLE(GradientDescentRegistration2D GradientDescentRegistration2D.cxx )
+TARGET_LINK_LIBRARIES(GradientDescentRegistration2D     ${ITK_LIBRARIES}   Utils  )
 
 ADD_EXECUTABLE(PrintDeformationNorms2D PrintDeformationNorms2D.cxx )
 TARGET_LINK_LIBRARIES(PrintDeformationNorms2D      ${ITK_LIBRARIES}   Utils  )
+
+#segment 
+ADD_EXECUTABLE(SegmentProbImage3D SegmentProbImage3D.cxx )
+TARGET_LINK_LIBRARIES(SegmentProbImage3D  SRSMRFModels    ${ITK_LIBRARIES}   Utils  )
+ADD_EXECUTABLE(SegmentProbImage2D SegmentProbImage2D.cxx )
+TARGET_LINK_LIBRARIES(SegmentProbImage2D  SRSMRFModels    ${ITK_LIBRARIES}   Utils  )
+ 
+
+ADD_EXECUTABLE(TestDeformationResampling2D TestDeformationResampling2D.cxx )
+TARGET_LINK_LIBRARIES(TestDeformationResampling2D     ${ITK_LIBRARIES}   Utils  )
+
+endif()

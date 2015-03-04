@@ -8,10 +8,14 @@ include(${ITK_USE_FILE})
 FIND_PACKAGE( Boost 1.40 COMPONENTS system filesystem program_options REQUIRED )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
+option(BUILD_SHARED_LIBRARIES "Build (and link to) shared libraries" OFF)
+if( ${BUILD_SHARED_LIBRARIES} MATCHES "ON" )
 SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-SET(BUILD_SHARED_LIBRARIES OFF)
 SET(CMAKE_EXE_LINKER_FLAGS "-static") 
-
+else()
+SET(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
+SET(CMAKE_EXE_LINKER_FLAGS "") 
+endif()
 SUBDIRS(Common)
 SUBDIRS(Utils)
 include_directories(Common)
@@ -47,13 +51,6 @@ if( ${BUILD_TOOLS} MATCHES "ON" )
    add_subdirectory( Tools )
 endif()
 
-#option( BUILD_SHARED_LIBRARIES "Build shared libraries" OFF)
-
-#set(${LIBRARY_TYPE} STATIC)
-#if (${BUILD_SHARED_LIBRARIES} MATCHES "ON" )
-#  set (${LIBRARY_TYPE} SHARED)
-#endif()
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /home/gasst/work/src/Novel-SRS/source )
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /home/gasst/work/src/Novel-SRS/source )
 
 
