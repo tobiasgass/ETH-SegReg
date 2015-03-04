@@ -16,10 +16,12 @@
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
 #ifdef WITH_RF
+#include "RandomForestClassifier.h"
+#endif
 #ifdef WITH_CUGMIX
-#include "NewClassifier.h"
+#include "GMMClassifier.h"
 #endif
-#endif
+
 using namespace std;
 using namespace SRS;
 using namespace itk;

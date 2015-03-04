@@ -6,22 +6,27 @@
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
 #include "Graph.h"
-#include "SubsamplingGraph.h"
-#include "FastRegistrationGraph.h"
+#include "FastGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
 #include "Potential-Coherence-Pairwise.h"
 #include "Potential-Segmentation-Pairwise.h"
-#include "MRF-TRW-S.h"
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
-#include "NewClassifier.h"
+#ifdef WITH_RF
+#include "RandomForestClassifier.h"
+#endif
+#ifdef WITH_CUGMIX
+#include "GMMClassifier.h"
+#endif
+
 #include "SegmentationMapper.hxx"
 using namespace std;
 using namespace itk;
+using namespace SRS;
 
 int main(int argc, char ** argv)
 {
@@ -64,26 +69,26 @@ int main(int argc, char ** argv)
     
     typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
     //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialSegmentationProbFile< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    //typedef UnaryPotentialSegmentationProbFile< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     // //pairwise seg
     //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
+    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
     // //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
     //typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
     //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
-    //typedef PairwisePotentialSegmentationContrastWithGradient<ImageType> SegmentationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationRGBContrast<ImageType> SegmentationPairwisePotentialType;
+    typedef PairwisePotentialSegmentationContrastWithGradient<ImageType> SegmentationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationRGBContrast<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationNCC<  ImageType > RegistrationUnaryPotentialType;
     // //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     
-    typedef PairwisePotentialRegistration< LabelMapperType, ImageType > RegistrationPairwisePotentialType;
+    typedef PairwisePotentialRegistration<  ImageType > RegistrationPairwisePotentialType;
     
     typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
     // //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
@@ -97,8 +102,7 @@ int main(int argc, char ** argv)
         RegistrationPairwisePotentialType,
         SegmentationUnaryPotentialType,
         SegmentationPairwisePotentialType,
-        CoherencePairwisePotentialType,
-        LabelMapperType>        GraphType;
+        CoherencePairwisePotentialType>        GraphType;
     
     typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
     //create filter

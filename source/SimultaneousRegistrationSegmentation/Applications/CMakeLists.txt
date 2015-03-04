@@ -63,6 +63,13 @@ if( ${USE_RF} MATCHES "ON" )
   TARGET_LINK_LIBRARIES(SRS2D  RandomForest     )
   TARGET_LINK_LIBRARIES(SRS2DMultilabel  RandomForest     )
 endif()
+#optional linking
+if( ${USE_CUGMIX} MATCHES "ON" )
+  TARGET_LINK_LIBRARIES(SRS3D  ugmix     )
+  TARGET_LINK_LIBRARIES(SRS3DMultilabel  ugmix     )
+  TARGET_LINK_LIBRARIES(SRS2D  ugmix     )
+  TARGET_LINK_LIBRARIES(SRS2DMultilabel  ugmix     )
+endif()
 
 
 if (0)

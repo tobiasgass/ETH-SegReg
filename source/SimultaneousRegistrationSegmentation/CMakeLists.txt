@@ -55,6 +55,8 @@ option( USE_CUGMIX "Use c-ugmix gaussian mixture estimator" ON )
 if( ${USE_CUGMIX} MATCHES "ON" )
   add_definitions(-DWITH_CUGMIX)
   include_directories(${SRS-MRF_SOURCE_DIR}/External/c-ugmix)
+  add_subdirectory(../External/c-ugmix ${CMAKE_BINARY_DIR}/External/c-ugmix)
+
 endif()
 
 option( USE_RF "Use random forest classifier" ON )
