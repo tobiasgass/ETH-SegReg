@@ -69,6 +69,7 @@ endif()
 
 
 add_subdirectory(Applications)
+add_subdirectory(Potentials)
 
 FILE(GLOB optHeaders "Optimizers/*.h")
 FILE(GLOB graphHeaders "Graphs/*.h")

@@ -19,7 +19,7 @@
 #include "utilities.h"
 #include "hyperparameters.h"
 #include <libconfig.h++>
-#include "unsupervised.h"
+//#include "unsupervised.h"
 
 
 
@@ -38,6 +38,7 @@
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include "ImageUtils.h"
+#include "FilterUtils.hpp"
 
 //using namespace boost::numeric::ublas;
 namespace SRS{
@@ -114,7 +115,7 @@ using namespace libconfig;
                     int label=0;
                     if (labels)
                         label=labels->GetPixel(iterators[0].GetIndex())>0;
-                    //LOGV(10)<<i<<" "<<label<<" "<<nFeatures<<endl;
+                    //LOGV(10)<<i<<" "<<label<<" "<<nFeatures<<std::endl;
                     for (unsigned int f=0;f<nFeatures;++f){
                         int intens=(iterators[f].Get());
                         data(i,f)=intens;
@@ -185,7 +186,7 @@ using namespace libconfig;
             // DATA
             hp.numLabeled = m_nData;//configFile.lookup("Data.numLabeled");
             hp.numClasses = m_nSegmentationLabels;//configFile.lookup("Data.numClasses");
-            LOGV(9)<<VAR(hp.numLabeled)<<" "<<VAR(hp.numClasses)<<endl;
+            LOGV(9)<<VAR(hp.numLabeled)<<" "<<VAR(hp.numClasses)<<std::endl;
             // TREE
             hp.maxTreeDepth = configFile.lookup("Tree.maxDepth");
             hp.bagRatio = configFile.lookup("Tree.bagRatio");
@@ -200,7 +201,7 @@ using namespace libconfig;
             hp.numTrees = configFile.lookup("Forest.numTrees");
             hp.useSoftVoting = configFile.lookup("Forest.useSoftVoting");
             hp.saveForest = configFile.lookup("Forest.saveForest");
-            LOGV(9)<<VAR(hp.numTrees)<<" "<<VAR(hp.maxTreeDepth)<<endl;
+            LOGV(9)<<VAR(hp.numTrees)<<" "<<VAR(hp.maxTreeDepth)<<std::endl;
 
             LOG<<"creating forest"<<std::endl;
             m_Forest= new Forest(hp);

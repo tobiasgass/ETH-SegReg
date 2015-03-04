@@ -9,6 +9,7 @@
 #include "Log.h"
 #include <vector>
 
+#include "unsupervised.h"
 
 #include <boost/numeric/ublas/matrix.hpp>
 #include <iostream>
@@ -25,6 +26,7 @@
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include "ImageUtils.h"
+#include "FilterUtils.hpp"
 
 using namespace boost::numeric::ublas;
 namespace SRS{
@@ -99,7 +101,7 @@ namespace SRS{
                     //if (counts[l]<maxTrain) maxTrain=counts[l];
                 }
                 for (int l=0;l<m_nSegmentationLabels;++l){
-                    LOGV(7)<<VAR(l)<<" "<<VAR(counts[l])<<" "<<VAR(nFeatures)<<endl;
+                    LOGV(7)<<VAR(l)<<" "<<VAR(counts[l])<<" "<<VAR(nFeatures)<<std::endl;
                     //m_observations.push_back(NEWMAT::Matrix(nFeatures,counts[l]));
                     m_observations.push_back(NEWMAT::Matrix(nFeatures,min((long int)counts[l],maxTrain)));
                 }
@@ -124,7 +126,7 @@ namespace SRS{
                     if (labels)
                         label= (labels->GetPixel(iterators[0].GetIndex()) > 0 );
                     
-                    // LOGV(10)<<i<<" "<<VAR(label)<<" "<<VAR(counts[label])<<" "<<nFeatures<<endl;
+                    // LOGV(10)<<i<<" "<<VAR(label)<<" "<<VAR(counts[label])<<" "<<nFeatures<<std::endl;
                     if ( counts[label] <maxTrain){
                         for (unsigned int f=0;f<nFeatures;++f){
                             int intens=(iterators[f].Get());
@@ -142,7 +144,7 @@ namespace SRS{
             LOG<<"done adding data. "<<std::endl;
             LOG<<"stored "<<m_nData<<" samples "<<std::endl;
             for ( int s=0;s<m_nSegmentationLabels;++s){
-                LOG<<VAR(counts[s])<<endl;
+                LOG<<VAR(counts[s])<<std::endl;
             }
 
         };
@@ -153,12 +155,12 @@ namespace SRS{
         virtual void train(){
             for ( int s=0;s<m_nSegmentationLabels;++s){
                 if (m_observations[s].size()>0){
-                    LOGV(1)<<"Training GMM for label :"<<s<<endl;
+                    LOGV(1)<<"Training GMM for label :"<<s<<std::endl;
                     m_GMMs[s].estimate(4,m_observations[s]);
                     LOGI(4,m_GMMs[s].display());
                     m_trainedGMMs[s]=true;
                 }else{
-                    LOGV(1)<<"No training data  for label :"<<s<<endl;
+                    LOGV(1)<<"No training data  for label :"<<s<<std::endl;
                 }
             }
         };
@@ -368,7 +370,7 @@ namespace SRS{
                     //if (counts[l]<maxTrain) maxTrain=counts[l];
                 }
                 for (int l=0;l<this->m_nSegmentationLabels;++l){
-                    LOGV(7)<<VAR(l)<<" "<<VAR(counts[l])<<" "<<VAR(nFeatures)<<endl;
+                    LOGV(7)<<VAR(l)<<" "<<VAR(counts[l])<<" "<<VAR(nFeatures)<<std::endl;
                     //this->m_observations.push_back(NEWMAT::Matrix(nFeatures,counts[l]));
                     this->m_observations.push_back(NEWMAT::Matrix(nFeatures,min((long int)counts[l],maxTrain)));
                 }
@@ -401,7 +403,7 @@ namespace SRS{
             LOG<<"done adding data. "<<std::endl;
             LOG<<"stored "<<this->m_nData<<" samples "<<std::endl;
             for ( int s=0;s<this->m_nSegmentationLabels;++s){
-                LOG<<VAR(counts[s])<<endl;
+                LOG<<VAR(counts[s])<<std::endl;
             }
 
         }
@@ -425,7 +427,7 @@ namespace SRS{
                     //if (counts[l]<maxTrain) maxTrain=counts[l];
                 }
                 for (int l=0;l<this->m_nSegmentationLabels;++l){
-                    LOGV(7)<<VAR(l)<<" "<<VAR(counts[l])<<" "<<VAR(nFeatures)<<endl;
+                    LOGV(7)<<VAR(l)<<" "<<VAR(counts[l])<<" "<<VAR(nFeatures)<<std::endl;
                     //this->m_observations.push_back(NEWMAT::Matrix(nFeatures,counts[l]));
                     this->m_observations.push_back(NEWMAT::Matrix(nFeatures,min((long int)counts[l],maxTrain)));
                 }
@@ -451,7 +453,7 @@ namespace SRS{
                         if (labels)
                             label= (labels->GetPixel(iterators[0].GetIndex())  );
                     
-                        // LOGV(10)<<i<<" "<<VAR(label)<<" "<<VAR(counts[label])<<" "<<nFeatures<<endl;
+                        // LOGV(10)<<i<<" "<<VAR(label)<<" "<<VAR(counts[label])<<" "<<nFeatures<<std::endl;
                         if ( counts[label] <maxTrain){
                             for (unsigned int f=0;f<nFeatures;++f){
                                 int intens=(iterators[f].Get());
@@ -486,7 +488,7 @@ namespace SRS{
             LOG<<"done adding data. "<<std::endl;
             LOG<<"stored "<<this->m_nData<<" samples "<<std::endl;
             for ( int s=0;s<this->m_nSegmentationLabels;++s){
-                LOG<<VAR(counts[s])<<endl;
+                LOG<<VAR(counts[s])<<std::endl;
             }
 
         }
