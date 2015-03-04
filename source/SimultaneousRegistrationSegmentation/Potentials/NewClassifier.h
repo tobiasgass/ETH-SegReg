@@ -39,9 +39,8 @@
 #include "itkObjectFactory.h"
 #include "ImageUtils.h"
 
-using namespace std;
 using namespace boost::numeric::ublas;
-namespace itk{
+namespace SRS{
 #ifdef WITH_RF
 
 using namespace libconfig;
@@ -57,8 +56,8 @@ using namespace libconfig;
     public:
         typedef SegmentationRandomForestClassifier            Self;
         typedef itk::Object Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
         typedef typename ImageType::PixelType PixelType;
@@ -229,8 +228,8 @@ using namespace libconfig;
     public:
         typedef SegmentationGMMClassifier            Self;
         typedef itk::Object Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
         typedef typename ImageType::PixelType PixelType;
@@ -517,8 +516,8 @@ using namespace libconfig;
     public:
         typedef MultilabelSegmentationGMMClassifier            Self;
         typedef SegmentationGMMClassifier<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
         typedef typename ImageType::PixelType PixelType;
