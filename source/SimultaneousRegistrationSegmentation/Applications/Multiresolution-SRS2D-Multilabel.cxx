@@ -16,12 +16,7 @@
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
-#ifdef WITH_RF
-#include "RandomForestClassifier.h"
-#endif
-#ifdef WITH_CUGMIX
-#include "GMMClassifier.h"
-#endif
+#include "ExplicitInstantiationsPotentials.h"
 
 #include "SegmentationMapper.hxx"
 using namespace std;

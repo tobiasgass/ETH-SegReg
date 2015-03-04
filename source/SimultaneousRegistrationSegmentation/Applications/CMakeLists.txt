@@ -21,9 +21,9 @@ ADD_EXECUTABLE(SRS2DMultilabel Multiresolution-SRS2D-Multilabel.cxx )
 
 LINK_DIRECTORIES( ${LINK_DIRECTORIES} ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/)
 
-TARGET_LINK_LIBRARIES(SRS3D Utils    ${ITK_LIBRARIES}  )
-TARGET_LINK_LIBRARIES(SRS2D Utils    ${ITK_LIBRARIES}  )
-TARGET_LINK_LIBRARIES(SRS3DMultilabel Utils      ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3D Utils SRSPotentials   ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS2D Utils SRSPotentials   ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3DMultilabel Utils SRSPotentials     ${ITK_LIBRARIES}  )
 TARGET_LINK_LIBRARIES(SRS2DMultilabel Utils SRSPotentials     ${ITK_LIBRARIES}  )
 
 #optional linking
@@ -56,20 +56,7 @@ if( ${USE_OPENGM} MATCHES "ON" )
   TARGET_LINK_LIBRARIES(SRS2DMultilabel    ${Boost_LIBRARIES}   )
 endif()
 
-#optional linking
-if( ${USE_RF} MATCHES "ON" )
-  TARGET_LINK_LIBRARIES(SRS3D  RandomForest     )
-  TARGET_LINK_LIBRARIES(SRS3DMultilabel  RandomForest     )
-  TARGET_LINK_LIBRARIES(SRS2D  RandomForest     )
-  TARGET_LINK_LIBRARIES(SRS2DMultilabel  RandomForest     )
-endif()
-#optional linking
-if( ${USE_CUGMIX} MATCHES "ON" )
-  TARGET_LINK_LIBRARIES(SRS3D  ugmix     )
-  TARGET_LINK_LIBRARIES(SRS3DMultilabel  ugmix     )
-  TARGET_LINK_LIBRARIES(SRS2D  ugmix     )
-  TARGET_LINK_LIBRARIES(SRS2DMultilabel  ugmix     )
-endif()
+
 
 
 if (0)
