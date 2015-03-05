@@ -57,8 +57,9 @@ namespace SRS{
               virtual ~BaseSegmentationPairwiseClassifier(){}
 
   };
-    
-  template<class ImageType>
+  ///\brief Standard classifier that learns local posterior probabilities from intensities+class labels
+  /// ...
+     template<class ImageType>
     class SegmentationClassifierRandomForest: public BaseSegmentationUnaryClassifier<ImageType>{
     protected:
     
