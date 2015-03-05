@@ -1,6 +1,6 @@
 /**
  * @file   Classifier-Segmentation-Unary.h
- * @author gasst <gasst@ETHSEGREG>
+ * @author Tobias Gass <tobiasgass@gmail.com>
  * @date   Thu Mar  5 15:52:07 2015
  * 
  * @brief  Classifier interfaces and some general classes to penalize different segmentation labels of neighboring nodes.
