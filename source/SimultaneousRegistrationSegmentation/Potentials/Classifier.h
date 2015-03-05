@@ -1,3 +1,4 @@
+#pragma once
 #include "Log.h"
 /*
  * Classifier.h
@@ -6,8 +7,7 @@
  *      Author: gasst
  */
 
-#ifndef CLASSIFIER_H_
-#define CLASSIFIER_H_
+
 #include <vector>
 #include "data.h"
 #include "forest.h"
@@ -32,13 +32,34 @@
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include "ImageUtils.h"
-using namespace std;
-using namespace boost::numeric::ublas;
-using namespace libconfig;
 
-namespace itk{
-    template<class ImageType>
-    class SegmentationClassifier: public itk::Object{
+
+namespace SRS{
+   template<class ImageType>
+     class BaseSegmentationUnaryClassifier: public itk::Object{
+     protected:
+         	  int m_nSegmentationLabels;
+          public:
+         	  virtual 	void setNSegmentationLabels(int n){
+         		  m_nSegmentationLabels=n;
+         	  }
+              virtual ~BaseSegmentationUnaryClassifier(){}
+
+  }; 
+  template<class ImageType>
+     class BaseSegmentationPairwiseClassifier: public itk::Object{
+     protected	:
+         	  int m_nSegmentationLabels;
+          public:
+         	  virtual 	void setNSegmentationLabels(int n){
+         		  m_nSegmentationLabels=n;
+         	  }
+              virtual ~BaseSegmentationPairwiseClassifier(){}
+
+  };
+    
+  template<class ImageType>
+    class SegmentationClassifierRandomForest: public BaseSegmentationUnaryClassifier<ImageType>{
     protected:
     
         FileData m_TrainData;
@@ -52,10 +73,10 @@ namespace itk{
         int m_nIntensities;
         std::vector<float> m_probs;
         double m_mean,m_variance;
-        int m_nSegmentationLabels;
+
     public:
-        typedef SegmentationClassifier            Self;
-        typedef itk::Object Superclass;
+        typedef SegmentationClassifierRandomForest            Self;
+        typedef BaseSegmentationUnaryClassifier<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -65,22 +86,20 @@ namespace itk{
 
     public:
         /** Standard part of every itk Object. */
-        itkTypeMacro(SegmentationClassifier, Object);
+        itkTypeMacro(SegmentationClassifierRandomForest, Object);
         itkNewMacro(Self);
 
-        SegmentationClassifier(){
+        SegmentationClassifierRandomForest(){
             LOGV(5)<<"Initializing intensity based segmentation classifier" << endl;
             m_data=matrix<float>(1,3);
             m_conf=matrix<float>(1,2);
             m_labelVector=std::vector<int>(1);
-        };
+        }
         virtual void setNIntensities(int n){
             m_nIntensities=n;
             m_probs= std::vector<float> (2*m_nIntensities,0);
         }
-        virtual void setNSegmentationLabels(int n){
-            m_nSegmentationLabels=n;
-        }
+
         virtual void freeMem(){
             delete m_Forest;
             m_data=matrix<float>(0,0);
@@ -276,10 +295,10 @@ namespace itk{
     };
     
     template<class ImageType>
-    class SegmentationClassifierGradient: public SegmentationClassifier<ImageType> {
+    class SegmentationClassifierGradient: public SegmentationClassifierRandomForest<ImageType> {
     public:
         typedef SegmentationClassifierGradient            Self;
-        typedef SegmentationClassifier<ImageType> Superclass;
+        typedef SegmentationClassifierRandomForest<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -339,7 +358,7 @@ namespace itk{
             
             maxTrain=maxTrain>nData?nData:maxTrain;
             LOG<<maxTrain<<" computed"<<std::endl;
-            int nFeatures=2;
+int nFeatures=2;
             matrix<float> data(maxTrain,nFeatures);
             LOG<<maxTrain<<" matrix allocated"<<std::endl;
             std::vector<int> labelVector(maxTrain);
@@ -1026,10 +1045,10 @@ namespace itk{
     };
   
     template<class ImageType>
-    class SmoothnessClassifierGradient: public SegmentationClassifier<ImageType> {
+    class SmoothnessClassifierGradient: public SegmentationClassifierRandomForest<ImageType> {
     public:
         typedef SmoothnessClassifierGradient            Self;
-        typedef SegmentationClassifier<ImageType> Superclass;
+        typedef SegmentationClassifierRandomForest<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -1862,7 +1881,7 @@ namespace itk{
                     for ( int d=0;d<ImageType::ImageDimension && i<maxTrain;++d){
                         typename ImageType::OffsetType off;
                         off.Fill(0);
-                        off[d]+=pow(-1,i%3);
+                        off[d]+=pow(int(-1),int(i%3));
                         typename ImageType::IndexType newInd=idx+off;
                         if ((int)newInd[d]<(int)intensities->GetLargestPossibleRegion().GetSize()[d] &&(int)newInd[d]>=0 ){
                             //alternate between +1 and -1
@@ -2246,5 +2265,4 @@ namespace itk{
   
 
 
-}//namespace
-#endif /* CLASSIFIER_H_ */
+}//namespace SRS

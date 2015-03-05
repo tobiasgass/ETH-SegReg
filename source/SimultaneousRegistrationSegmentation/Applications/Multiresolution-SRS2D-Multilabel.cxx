@@ -62,7 +62,7 @@ int main(int argc, char ** argv)
   
     // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
     
-    typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
+    typedef ClassifierSegmentationUnaryGMMMultilabel<ImageType> ClassifierType;
     //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
     //typedef UnaryPotentialSegmentationProbFile< ImageType, ClassifierType > SegmentationUnaryPotentialType;
@@ -70,10 +70,10 @@ int main(int argc, char ** argv)
     // //pairwise seg
     //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
     //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
-    //typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+    typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
+    typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
     //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
-    typedef PairwisePotentialSegmentationContrastWithGradient<ImageType> SegmentationPairwisePotentialType;
+    //typedef PairwisePotentialSegmentationContrastWithGradient<ImageType> SegmentationPairwisePotentialType;
     //typedef PairwisePotentialSegmentationRGBContrast<ImageType> SegmentationPairwisePotentialType;
     
     // //reg

@@ -1,27 +1,27 @@
 #pragma once
 
 #ifdef WITH_CUGMIX
-#include "GMMClassifier.h"
+#include "Classifier-Segmentation-Unary-GMM.h"
 #endif
 #ifdef WITH_RF
-#include "RandomForestClassifier.h"
+#include "Classifier-Segmentation-Unary-RandomForest.h"
 #endif
 
 namespace SRS{
 
 
 template<class ImageType>
-  class PotentialInstantiations{
-  
- private:
+class PotentialInstantiations{
+
+private:
 #ifdef WITH_CUGMIX
-  typedef SegmentationGMMClassifier<ImageType> segClassGMMType;
-  typedef MultilabelSegmentationGMMClassifier<ImageType> segClassMultilabelGMMType;
+	typedef ClassifierSegmentationUnaryGMM<ImageType> segClassGMMType;
+	typedef ClassifierSegmentationUnaryGMMMultilabel<ImageType> segClassMultilabelGMMType;
 #endif
 #ifdef WITH_RF 
-  typedef SegmentationRandomForestClassifier<ImageType> segClassRFType;
+	typedef SegmentationRandomForestClassifier<ImageType> segClassRFType;
 #endif
- };
+};
 
 
 
