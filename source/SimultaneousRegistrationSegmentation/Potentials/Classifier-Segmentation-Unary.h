@@ -36,14 +36,14 @@
 
 namespace SRS{
    template<class ImageType>
-     class SegmentationUnaryClassifierBase: public itk::Object{
+     class ClassifierSegmentationUnaryBase: public itk::Object{
      protected:
          	  int m_nSegmentationLabels;
           public:
          	  virtual 	void setNSegmentationLabels(int n){
          		  m_nSegmentationLabels=n;
          	  }
-              virtual ~SegmentationUnaryClassifierBase(){}
+              virtual ~ClassifierSegmentationUnaryBase(){}
 
   }; 
   template<class ImageType>
@@ -60,7 +60,7 @@ namespace SRS{
   ///\brief Standard classifier that learns local posterior probabilities from intensities+class labels
   /// ...
      template<class ImageType>
-    class SegmentationClassifierRandomForest: public SegmentationUnaryClassifierBase<ImageType>{
+    class ClassifierSegmentationUnaryRandomForest: public ClassifierSegmentationUnaryBase<ImageType>{
     protected:
     
         FileData m_TrainData;
@@ -76,8 +76,8 @@ namespace SRS{
         double m_mean,m_variance;
 
     public:
-        typedef SegmentationClassifierRandomForest            Self;
-        typedef SegmentationUnaryClassifierBase<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryRandomForest            Self;
+        typedef ClassifierSegmentationUnaryBase<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -87,10 +87,10 @@ namespace SRS{
 
     public:
         /** Standard part of every itk Object. */
-        itkTypeMacro(SegmentationClassifierRandomForest, Object);
+        itkTypeMacro(ClassifierSegmentationUnaryRandomForest, Object);
         itkNewMacro(Self);
 
-        SegmentationClassifierRandomForest(){
+        ClassifierSegmentationUnaryRandomForest(){
             LOGV(5)<<"Initializing intensity based segmentation classifier" << endl;
             m_data=matrix<float>(1,3);
             m_conf=matrix<float>(1,2);
@@ -296,10 +296,10 @@ namespace SRS{
     };
     
     template<class ImageType>
-    class SegmentationClassifierGradient: public SegmentationClassifierRandomForest<ImageType> {
+    class ClassifierSegmentationUnaryRandomforestWithGradient: public ClassifierSegmentationUnaryRandomForest<ImageType> {
     public:
-        typedef SegmentationClassifierGradient            Self;
-        typedef SegmentationClassifierRandomForest<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryRandomforestWithGradient            Self;
+        typedef ClassifierSegmentationUnaryRandomForest<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -321,10 +321,10 @@ namespace SRS{
 
     public:
         /** Standard part of every itk Object. */
-        itkTypeMacro(SegmentationClassifierGradient, Object);
+        itkTypeMacro(ClassifierSegmentationUnaryRandomforestWithGradient, Object);
         itkNewMacro(Self);
 
-        SegmentationClassifierGradient(){
+        ClassifierSegmentationUnaryRandomforestWithGradient(){
             LOGV(5)<<"Initializing intensity and gradient based segmentation classifier" << endl;
                         
             this->m_data=matrix<float>(1,3);
@@ -567,10 +567,10 @@ int nFeatures=2;
 
     
     template<class ImageType>
-    class SegmentationGaussianClassifierGradient: public SegmentationClassifierGradient<ImageType> {
+    class SegmentationGaussianClassifierGradient: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
     public:
         typedef SegmentationGaussianClassifierGradient            Self;
-        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -745,10 +745,10 @@ int nFeatures=2;
     };
   
     template<class ImageType>
-    class HandcraftedBoneSegmentationClassifierGradient: public SegmentationClassifierGradient<ImageType> {
+    class HandcraftedBoneClassifierSegmentationUnaryRandomforestWithGradient: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
     public:
-        typedef HandcraftedBoneSegmentationClassifierGradient            Self;
-        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef HandcraftedBoneClassifierSegmentationUnaryRandomforestWithGradient            Self;
+        typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -763,10 +763,10 @@ int nFeatures=2;
         int tissue;
     public:
         /** Standard part of every itk Object. */
-        itkTypeMacro(HandcraftedBoneSegmentationClassifierGradient, Object);
+        itkTypeMacro(HandcraftedBoneClassifierSegmentationUnaryRandomforestWithGradient, Object);
         itkNewMacro(Self);
 
-        HandcraftedBoneSegmentationClassifierGradient(){
+        HandcraftedBoneClassifierSegmentationUnaryRandomforestWithGradient(){
             bone=(100+1000)*255.0/2000;
             tissue=(-500+1000)*255.0/2000;
         };
@@ -846,10 +846,10 @@ int nFeatures=2;
     };
   
     template<class ImageType>
-    class HandcraftedBoneSegmentationClassifierMarcel: public SegmentationClassifierGradient<ImageType> {
+    class HandcraftedBoneSegmentationClassifierMarcel: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
     public:
         typedef HandcraftedBoneSegmentationClassifierMarcel            Self;
-        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -957,10 +957,10 @@ int nFeatures=2;
   
 
     template<class ImageType>
-    class SegmentationClassifierProbabilityImage: public SegmentationClassifierGradient<ImageType> {
+    class SegmentationClassifierProbabilityImage: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
     public:
         typedef SegmentationClassifierProbabilityImage            Self;
-        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -1046,10 +1046,10 @@ int nFeatures=2;
     };
   
     template<class ImageType>
-    class SmoothnessClassifierGradient: public SegmentationClassifierRandomForest<ImageType> {
+    class SmoothnessClassifierGradient: public ClassifierSegmentationUnaryRandomForest<ImageType> {
     public:
         typedef SmoothnessClassifierGradient            Self;
-        typedef SegmentationClassifierRandomForest<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryRandomForest<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -1601,10 +1601,10 @@ int nFeatures=2;
     };
     
     template<class ImageType>
-    class SmoothnessClassifierSignedGradient: public SegmentationClassifierGradient<ImageType> {
+    class SmoothnessClassifierSignedGradient: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
     public:
         typedef SmoothnessClassifierSignedGradient            Self;
-        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -1832,10 +1832,10 @@ int nFeatures=2;
     };//class
 
     template<class ImageType>
-    class SmoothnessClassifierFullMultilabelPosterior: public SegmentationClassifierGradient<ImageType> {
+    class SmoothnessClassifierFullMultilabelPosterior: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
     public:
         typedef SmoothnessClassifierFullMultilabelPosterior            Self;
-        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -2095,10 +2095,10 @@ int nFeatures=2;
 
 
     template<class ImageType>
-    class SegmentationGenerativeClassifierGradient: public SegmentationClassifierGradient<ImageType> {
+    class ClassifierSegmentationUnaryGenerativeWithGradient: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
     public:
-        typedef SegmentationGenerativeClassifierGradient            Self;
-        typedef SegmentationClassifierGradient<ImageType> Superclass;
+        typedef ClassifierSegmentationUnaryGenerativeWithGradient            Self;
+        typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
         typedef SmartPointer<Self>        Pointer;
         typedef SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -2107,7 +2107,7 @@ int nFeatures=2;
         typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
     public:
         /** Standard part of every itk Object. */
-        itkTypeMacro(SegmentationGenerativeClassifierGradient, Object);
+        itkTypeMacro(ClassifierSegmentationUnaryGenerativeWithGradient, Object);
         itkNewMacro(Self);
 
         virtual int mapIntensity(float intens){
