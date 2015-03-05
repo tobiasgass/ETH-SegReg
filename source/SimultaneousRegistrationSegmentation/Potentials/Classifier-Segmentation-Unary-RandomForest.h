@@ -19,11 +19,9 @@
 #include "utilities.h"
 #include "hyperparameters.h"
 #include <libconfig.h++>
-//#include "unsupervised.h"
 
 
 
-//#include <boost/numeric/ublas/matrix.hpp>
 #include <iostream>
 #include "itkImageDuplicator.h"
 #include "itkConstNeighborhoodIterator.h"
@@ -40,7 +38,6 @@
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 
-//using namespace boost::numeric::ublas;
 namespace SRS{
 
 using namespace libconfig;

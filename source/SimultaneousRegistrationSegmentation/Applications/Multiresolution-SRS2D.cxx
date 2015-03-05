@@ -1,3 +1,12 @@
+/**
+ * @file   Multiresolution-SRS2D.cxx
+ * @author gasst <gasst@ETHSEGREG>
+ * @date   Thu Mar  5 13:15:31 2015
+ * 
+ * @brief  Example fuer 2D SRS using learned potentials
+ * 
+ * 
+ */
 #include <stdio.h>
 #include <iostream>
 
@@ -16,12 +25,13 @@
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
-#include "NewClassifier.h"
-#include "Classifier.h"
+
+#include "Classifier-Segmentation-Unary-GMM.h"
+#include "Classifier-Segmentation-Pairwise-RandomForest.h"
+
 using namespace std;
 using namespace SRS;
 using namespace itk;
-
 int main(int argc, char ** argv)
 {
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
@@ -49,49 +59,21 @@ int main(int argc, char ** argv)
 
 
     //unary seg
-    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
-    //    typedef SegmentationGenerativeClassifierGradient<ImageType> ClassifierType;
-    //typedef     SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
-    //typedef SegmentationClassifier<ImageType> ClassifierType;
-    //typedef HandcraftedBoneSegmentationClassifierMarcel<ImageType> ClassifierType;
-    //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    // //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-    
-    //typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
-    //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-
-    // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
-    typedef SegmentationGMMClassifier<ImageType> ClassifierType;
+    typedef ClassifierSegmentationUnaryGMM<ImageType> ClassifierType;
     typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     // //pairwise seg
-    typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
+    typedef ClassifierSegmentationPairwiseRandomForestWithGradient<ImageType> SegmentationSmoothnessClassifierType;
     typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-    //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationSSD< ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationCategorical< ImageType > RegistrationUnaryPotentialType;
-    // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     
     typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
     typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
-    //typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
-
-    // //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
-    // //typedef FastRegistrationGraphModel<
-    // //    typedef SortedSubsamplingGraphModel<
+ 
 #define POTENTIALINHERITANCE
 #ifdef POTENTIALINHERITANCE
     typedef FastGraphModel<ImageType>        GraphType;

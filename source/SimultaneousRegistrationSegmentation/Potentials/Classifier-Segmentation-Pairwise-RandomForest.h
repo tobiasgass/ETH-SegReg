@@ -1,13 +1,20 @@
-#pragma once
-#include "Log.h"
-/*
- * Classifier.h
- *
- *  Created on: Feb 14, 2011
- *      Author: gasst
+/**
+ * @file   Classifier-Segmentation-Pairwise-RandomForest.h
+ * @author gasst <gasst@ETHSEGREG>
+ * @date   Thu Mar  5 13:17:53 2015
+ * 
+ * @brief  Several classes that learn pairwise potentials from a labelled image using random forests
+ * 
+ * 
  */
 
+#pragma once
 
+#ifndef WITH_RF
+#error "Compilation without RF library will not work, ERROR!"
+#endif
+
+#include "Log.h"
 #include <vector>
 #include "data.h"
 #include "forest.h"
@@ -35,17 +42,17 @@
 #include "ImageUtils.h"
 
 #include "Classifier-Segmentation-Pairwise.h"
-
 namespace SRS{
   
-  ///\brief random forest classifier which learns pairwise potentials from image intensity and an additional (gradient or other) image
-  template<class ImageType>
+  ///\brief random forest classifier which learns pairwise potentials from image intensity and an additional (gradient or other) image  
+  ///Probabilities are cached by discretizing the intensity space, and storing the associated likelihoods in a table
+  template<class ImageType>  
     class ClassifierSegmentationPairwiseRandomForestWithGradient: public ClassifierSegmentationPairwiseBase<ImageType> {
   public:
     typedef ClassifierSegmentationPairwiseRandomForestWithGradient            Self;
     typedef ClassifierSegmentationPairwiseBase<ImageType> Superclass;
-    typedef SmartPointer<Self>        Pointer;
-    typedef SmartPointer<const Self>  ConstPointer;
+    typedef itk::SmartPointer<Self>        Pointer;
+    typedef itk::SmartPointer<const Self>  ConstPointer;
     typedef typename ImageType::Pointer ImagePointerType;
     typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::IndexType IndexType;
@@ -55,7 +62,7 @@ namespace SRS{
     typedef typename ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;    
     typedef typename FloatImageType::ConstPointer FloatImageConstPointerType;
   protected:
-    
+    int m_nIntensities;
     FileData m_TrainData;
     Forest * m_Forest;
     std::vector<double> m_weights;
@@ -78,10 +85,10 @@ namespace SRS{
       m_conf=matrix<float>(1,2);
       m_labelVector=std::vector<int>(1);
       m_weight=1.0;
-    };
+    }
     virtual void setNIntensities(int n){
-      m_nIntensities=n;
-      m_probs= std::vector<float> (2*m_nIntensities*m_nIntensities,0);
+      this->m_nIntensities=n;
+      m_probs= std::vector<float> (2*this->m_nIntensities*this->m_nIntensities,0);
     }
     virtual void freeMem(){
       delete m_Forest;
@@ -162,7 +169,7 @@ namespace SRS{
       LOG<<"done adding data. "<<std::endl;
       this->m_TrainData.setData(data);
       this->m_TrainData.setLabels(labelVector);
-    };
+    }
 
     virtual void computeProbabilities(){
       this->m_probs= std::vector<float> (2*this->m_nIntensities*this->m_nIntensities,0);
@@ -407,7 +414,7 @@ namespace SRS{
       LOG<<"reading config"<<std::endl;
       string confFile("randomForest.conf");
       HyperParameters hp;
-      Config configFile;
+      libconfig::Config configFile;
 
       configFile.readFile(confFile.c_str());
 
@@ -455,17 +462,18 @@ namespace SRS{
 	}
 	computeProbabilities();
       }
-    };
+    } // train
+  };//class
 
 
-  };
+ 
   template<class ImageType>
-    class ClassifierSegmentationPairwiseRandomforestSignedGradient: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
+    class ClassifierSegmentationPairwiseRandomForestSignedGradient: public ClassifierSegmentationPairwiseRandomForestWithGradient<ImageType> {
   public:
-    typedef ClassifierSegmentationPairwiseRandomforestSignedGradient            Self;
-    typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-    typedef SmartPointer<Self>        Pointer;
-    typedef SmartPointer<const Self>  ConstPointer;
+    typedef ClassifierSegmentationPairwiseRandomForestSignedGradient            Self;
+    typedef ClassifierSegmentationPairwiseRandomForestWithGradient<ImageType> Superclass;
+    typedef itk::SmartPointer<Self>        Pointer;
+    typedef itk::SmartPointer<const Self>  ConstPointer;
     typedef typename ImageType::Pointer ImagePointerType;
     typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -551,7 +559,7 @@ namespace SRS{
       LOG<<"done adding data. "<<std::endl;
       this->m_TrainData.setData(data);
       this->m_TrainData.setLabels(labelVector);
-    };
+    }
 
     virtual void computeProbabilities(){
       this->m_probs= std::vector<float> (3*2*2*this->m_nIntensities*this->m_nIntensities,0);
@@ -652,7 +660,7 @@ namespace SRS{
       LOG<<"reading config"<<std::endl;
       string confFile("randomForest.conf");///home/gasst/work/progs/rf/src/randomForest.conf");
       HyperParameters hp;
-      Config configFile;
+      libconfig::Config configFile;
 
       configFile.readFile(confFile.c_str());
 
@@ -691,15 +699,15 @@ namespace SRS{
   };//class
 
 
-  ///\brief Train a full posterior model of all label combinations given the intensity and gradient images. This contrasts the other classifiers, which only train models of the labels of neighboring nodes being the same (or different)
-  ///This classifier also uses several non-linear combinations of intensity/gradient features to avoid overfitting (too much)
+    ///\brief Train a full posterior model of all label combinations given the intensity and gradient images. This contrasts the other classifiers, which only train models of the labels of neighboring nodes being the same (or different)
+    ///This classifier also uses several non-linear combinations of intensity/gradient features to avoid overfitting (too much)
   template<class ImageType>
-    class ClassifierSegmentationPairwiseRandomforestMultilabelPosterior: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
+    class ClassifierSegmentationPairwiseRandomForestMultilabelPosterior: public ClassifierSegmentationPairwiseRandomForestWithGradient<ImageType> {
   public:
-    typedef ClassifierSegmentationPairwiseRandomforestMultilabelPosterior            Self;
-    typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-    typedef SmartPointer<Self>        Pointer;
-    typedef SmartPointer<const Self>  ConstPointer;
+    typedef ClassifierSegmentationPairwiseRandomForestMultilabelPosterior            Self;
+    typedef ClassifierSegmentationPairwiseRandomForestWithGradient<ImageType> Superclass;
+    typedef itk::SmartPointer<Self>        Pointer;
+    typedef itk::SmartPointer<const Self>  ConstPointer;
     typedef typename ImageType::Pointer ImagePointerType;
     typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -707,7 +715,7 @@ namespace SRS{
     
   public:
     /** Standard part of every itk Object. */
-    itkTypeMacro(ClassifierSegmentationPairwiseRandomforestMultilabelPosterior, Object);
+    itkTypeMacro(ClassifierSegmentationPairwiseRandomForestMultilabelPosterior, Object);
     itkNewMacro(Self);
         
     virtual void setNIntensities(int n){
@@ -789,7 +797,7 @@ namespace SRS{
       LOG<<"done adding data. "<<std::endl;
       this->m_TrainData.setData(data);
       this->m_TrainData.setLabels(labelVector);
-    };
+    }
 
       
     virtual double px_l(float intens1,float intens2, float grad1, float grad2,int label1,int label2){
@@ -835,7 +843,7 @@ namespace SRS{
       LOG<<"reading config"<<std::endl;
       string confFile("randomForest.conf");
       HyperParameters hp;
-      Config configFile;
+      libconfig::Config configFile;
 
       configFile.readFile(confFile.c_str());
 
@@ -869,26 +877,26 @@ namespace SRS{
       LOG<<"training forest"<<std::endl;
       this->m_Forest->train(this->m_TrainData.getData(),this->m_TrainData.getLabels(),this->m_weights);
       LOG<<"done"<<std::endl;
-      computeProbabilities();
+      this->computeProbabilities();
     }
-  };
+  };//class
 
   
   ///\brief train a random forest classifier and estimate class likelihoods in order to convert the posterior probability to a likelihood
   template<class ImageType>
-    class ClassifierSegmentationUnaryGenerativeWithGradient: public ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> {
+    class ClassifierSegmentationPairwiseGenerativeWithGradient: public ClassifierSegmentationPairwiseRandomForestWithGradient<ImageType> {
   public:
-    typedef ClassifierSegmentationUnaryGenerativeWithGradient            Self;
-    typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-    typedef SmartPointer<Self>        Pointer;
-    typedef SmartPointer<const Self>  ConstPointer;
+    typedef ClassifierSegmentationPairwiseGenerativeWithGradient            Self;
+    typedef ClassifierSegmentationPairwiseRandomForestWithGradient<ImageType> Superclass;
+    typedef itk::SmartPointer<Self>        Pointer;
+    typedef itk::SmartPointer<const Self>  ConstPointer;
     typedef typename ImageType::Pointer ImagePointerType;
     typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::ConstPointer ImageConstPointerType;
     typedef typename itk::ImageDuplicator< ImageType > DuplicatorType;
   public:
     /** Standard part of every itk Object. */
-    itkTypeMacro(ClassifierSegmentationUnaryGenerativeWithGradient, Object);
+    itkTypeMacro(ClassifierSegmentationPairwiseGenerativeWithGradient, Object);
     itkNewMacro(Self);
 
     virtual int mapIntensity(float intens){
@@ -976,7 +984,7 @@ namespace SRS{
       LOG<<"done adding data. "<<std::endl;
       this->m_TrainData.setData(data);
       this->m_TrainData.setLabels(labelVector);
-    };
+    }
 
     virtual void computeProbabilities(){
       LOGV(5)<<"Storing probabilities for intensity and gradient based segmentation classifier" << endl;
@@ -1036,7 +1044,7 @@ namespace SRS{
     }
   
 
-  };
+  };//class
 
 
 }//namespace SRS

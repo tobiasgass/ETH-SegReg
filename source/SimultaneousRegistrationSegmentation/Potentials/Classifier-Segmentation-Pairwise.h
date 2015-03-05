@@ -46,8 +46,8 @@ namespace SRS{
   public:
     typedef ClassifierSegmentationUnaryLocalContrast            Self;
     typedef ClassifierSegmentationPairwiseBase<ImageType> Superclass;
-    typedef SmartPointer<Self>        Pointer;
-    typedef SmartPointer<const Self>  ConstPointer;
+    typedef itk::SmartPointer<Self>        Pointer;
+    typedef itk::SmartPointer<const Self>  ConstPointer;
     typedef typename ImageType::Pointer ImagePointerType;
     typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -101,8 +101,8 @@ namespace SRS{
   public:
     typedef ClassifierSegmentationPairwiseUniform            Self;
     typedef ClassifierSegmentationPairwiseBase<ImageType> Superclass;
-    typedef SmartPointer<Self>        Pointer;
-    typedef SmartPointer<const Self>  ConstPointer;
+    typedef itk::SmartPointer<Self>        Pointer;
+    typedef itk::SmartPointer<const Self>  ConstPointer;
     typedef typename ImageType::Pointer ImagePointerType;
     typedef typename ImageType::PixelType PixelType;
     typedef typename ImageType::ConstPointer ImageConstPointerType;

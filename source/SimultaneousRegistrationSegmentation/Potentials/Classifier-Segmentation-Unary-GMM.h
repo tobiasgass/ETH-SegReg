@@ -1,8 +1,11 @@
-/*
- * GMMClassifier.h
- *
- *  Created on: Feb 14, 2011
- *      Author: gasst
+/**
+ * @file   Classifier-Segmentation-Unary-GMM.h
+ * @author gasst <gasst@ETHSEGREG>
+ * @date   Thu Mar  5 13:14:14 2015
+ * 
+ * @brief  Wrappers to use gaussian mixture model (GMM) estimators to calculate unary segmentation potentials
+ * 
+ * 
  */
 #pragma once
 

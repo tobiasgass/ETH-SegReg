@@ -1,12 +1,15 @@
-#pragma once
-#include "Log.h"
-/*
- * Classifier.h
- *
- *  Created on: Feb 14, 2011
- *      Author: gasst
+/**
+ * @file   Classifier-Segmentation-Unary.h
+ * @author gasst <gasst@ETHSEGREG>
+ * @date   Thu Mar  5 15:52:07 2015
+ * 
+ * @brief  Classifier interfaces and some general classes to penalize different segmentation labels of neighboring nodes.
+ * 
+ * 
  */
 
+#pragma once
+#include "Log.h"
 
 #include <vector>
 #include "data.h"
@@ -78,8 +81,8 @@ namespace SRS{
     public:
         typedef ClassifierSegmentationUnaryRandomForest            Self;
         typedef ClassifierSegmentationUnaryBase<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
         typedef typename ImageType::PixelType PixelType;
@@ -300,8 +303,8 @@ namespace SRS{
     public:
         typedef ClassifierSegmentationUnaryRandomforestWithGradient            Self;
         typedef ClassifierSegmentationUnaryRandomForest<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -571,8 +574,8 @@ int nFeatures=2;
     public:
         typedef SegmentationGaussianClassifierGradient            Self;
         typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -749,8 +752,8 @@ int nFeatures=2;
     public:
         typedef HandcraftedBoneClassifierSegmentationUnaryRandomforestWithGradient            Self;
         typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -850,8 +853,8 @@ int nFeatures=2;
     public:
         typedef HandcraftedBoneSegmentationClassifierMarcel            Self;
         typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -961,8 +964,8 @@ int nFeatures=2;
     public:
         typedef SegmentationClassifierProbabilityImage            Self;
         typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -1050,8 +1053,8 @@ int nFeatures=2;
     public:
         typedef SmoothnessClassifierGradient            Self;
         typedef ClassifierSegmentationUnaryRandomForest<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::IndexType IndexType;
@@ -1494,8 +1497,8 @@ int nFeatures=2;
     public:
         typedef SmoothnessClassifierGradientContrast            Self;
         typedef SmoothnessClassifierGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -1558,8 +1561,8 @@ int nFeatures=2;
     public:
         typedef SmoothnessClassifierUniform            Self;
         typedef SmoothnessClassifierGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -1605,8 +1608,8 @@ int nFeatures=2;
     public:
         typedef SmoothnessClassifierSignedGradient            Self;
         typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -1836,8 +1839,8 @@ int nFeatures=2;
     public:
         typedef SmoothnessClassifierFullMultilabelPosterior            Self;
         typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
@@ -2099,8 +2102,8 @@ int nFeatures=2;
     public:
         typedef ClassifierSegmentationUnaryGenerativeWithGradient            Self;
         typedef ClassifierSegmentationUnaryRandomforestWithGradient<ImageType> Superclass;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::PixelType PixelType;
         typedef typename ImageType::ConstPointer ImageConstPointerType;
