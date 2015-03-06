@@ -27,6 +27,7 @@
 #include "TransformationUtils.h"
 
 #include "Classifier-Segmentation-Unary-GMM.h"
+#include "Classifier-Segmentation-Unary-RandomForest.h"
 #include "Classifier-Segmentation-Pairwise-RandomForest.h"
 
 using namespace std;
