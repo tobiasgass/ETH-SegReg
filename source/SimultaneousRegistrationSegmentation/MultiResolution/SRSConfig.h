@@ -19,7 +19,7 @@
 
 #include "ArgumentParser.h"
 
-\namespace SRS{
+namespace SRS{
   
   class SRSConfig{
   public:

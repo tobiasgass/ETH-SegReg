@@ -3,7 +3,7 @@
  * @author Tobias Gass <gass@i6.informatik.rwth-aachen.de>
  * @date   Thu Mar  5 17:20:01 2015
  * 
- * @brief  
+ * @brief  Specialized segmentation pairwise classifiers using random forests
  * 
  * 
  */
@@ -48,7 +48,8 @@ namespace SRS{
 
   using namespace libconfig;
 
-
+///\brief Standard classifier that learns local posterior probabilities from intensities+class labels
+  /// ...
   template<class ImageType>
     class ClassifierSegmentationUnaryRandomForest: public ClassifierSegmentationUnaryBase<ImageType>{
   protected:
@@ -57,7 +58,7 @@ namespace SRS{
     int m_nData;
   public:
     typedef ClassifierSegmentationUnaryRandomForest            Self;
-    typedef ClassifierSegmentationUnaryBase Superclass;
+    typedef ClassifierSegmentationUnaryBase<ImageType> Superclass;
     typedef itk::SmartPointer<Self>        Pointer;
     typedef itk::SmartPointer<const Self>  ConstPointer;
     typedef typename ImageType::Pointer ImagePointerType;
@@ -79,7 +80,7 @@ namespace SRS{
          
     };
      
-        
+         
     virtual void freeMem(){
       delete m_Forest;
       m_data=FileData();
@@ -131,7 +132,7 @@ namespace SRS{
       LOG<<"stored "<<m_nData<<" samples "<<std::endl;
       m_data.setData(data);
       m_data.setLabels(labelVector);
-    };
+    }
 
     virtual std::vector<FloatImagePointerType> evalImage(std::vector<ImageConstPointerType> inputImage){
       LOGV(5)<<"Evaluating intensity based segmentation classifier" << endl;
@@ -139,20 +140,20 @@ namespace SRS{
       setData(inputImage);
       m_Forest->eval(m_data.getData(),m_data.getLabels(),false);
       matrix<float> conf = m_Forest->getConfidences();
-      std::vector<FloatImagePointerType> result(m_nSegmentationLabels);
-      for ( int s=0;s<m_nSegmentationLabels;++s){
+      std::vector<FloatImagePointerType> result(this->m_nSegmentationLabels);
+      for ( int s=0;s<this->m_nSegmentationLabels;++s){
 	result[s]=FilterUtils<ImageType,FloatImageType>::createEmpty(inputImage[0]);
       }
            
           
       std::vector<FloatIteratorType> iterators;
-      for ( int s=0;s<m_nSegmentationLabels;++s){
+      for ( int s=0;s<this->m_nSegmentationLabels;++s){
 	iterators.push_back(FloatIteratorType(result[s],result[s]->GetLargestPossibleRegion()));
 	iterators[s].GoToBegin();
       }
             
       for (int i=0;!iterators[0].IsAtEnd() ; ++i){
-	for ( int s=0;s<m_nSegmentationLabels;++s){
+	for ( int s=0;s<this->m_nSegmentationLabels;++s){
 	  iterators[s].Set((conf(i,s)));
 	  ++iterators[s];
 	}
@@ -164,7 +165,7 @@ namespace SRS{
       if (ImageType::ImageDimension==3){
 	suff=".nii";
       }
-      for ( int s=0;s<m_nSegmentationLabels;++s){
+      for ( int s=0;s<this->m_nSegmentationLabels;++s){
 	ostringstream probabilityfilename;
 	probabilityfilename<<"prob-rf-c"<<s<<suff;
 
@@ -184,7 +185,7 @@ namespace SRS{
 
       // DATA
       hp.numLabeled = m_nData;//configFile.lookup("Data.numLabeled");
-      hp.numClasses = m_nSegmentationLabels;//configFile.lookup("Data.numClasses");
+      hp.numClasses = this->m_nSegmentationLabels;//configFile.lookup("Data.numClasses");
       LOGV(9)<<VAR(hp.numLabeled)<<" "<<VAR(hp.numClasses)<<std::endl;
       // TREE
       hp.maxTreeDepth = configFile.lookup("Tree.maxDepth");
@@ -218,8 +219,8 @@ namespace SRS{
   template<class ImageType>
     class ClassifierSegmentationUnaryRandomForestGenerativeWithGradient: public ClassifierSegmentationUnaryRandomForest<ImageType> {
   public:
-    typedef ClassifierSegmentationUnaryRandoForestGenerativeWithGradient            Self;
-    typedef ClassifierSegmentationUnaryRandomForestWithGradient<ImageType> Superclass;
+    typedef ClassifierSegmentationUnaryRandomForestGenerativeWithGradient            Self;
+    typedef ClassifierSegmentationUnaryRandomForest<ImageType> Superclass;
     typedef itk::SmartPointer<Self>        Pointer;
     typedef itk::SmartPointer<const Self>  ConstPointer;
     typedef typename ImageType::Pointer ImagePointerType;
@@ -378,6 +379,8 @@ namespace SRS{
 
   };//class
 
+
+#if 0
   ///\brief Standard classifier that learns local posterior probabilities from intensities+class labels
   /// ...
      template<class ImageType>
@@ -615,6 +618,8 @@ namespace SRS{
 
 
     };
+#endif
+
     
     template<class ImageType>
     class ClassifierSegmentationUnaryRandomforestWithGradient: public ClassifierSegmentationUnaryRandomForest<ImageType> {

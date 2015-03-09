@@ -2,7 +2,7 @@ include(${ITK_USE_FILE})
 
 
 
-option( USE_GCO "Use GCO optimizer" ON )
+option( USE_GCO "Use GCO optimizer" OFF )
 
 if( ${USE_GCO} MATCHES "ON" )
   add_definitions(-DWITH_GCO -DGCO_ENERGYTYPE=double -DGCO_ENERGYTERMTYPE=float)
@@ -17,7 +17,7 @@ if( ${USE_GCO} MATCHES "ON" )
 
 endif()
 
-option( USE_GC "Use GC optimizer" ON )
+option( USE_GC "Use GC optimizer" OFF )
 if( ${USE_GC} MATCHES "ON" )
   add_definitions(-DWITH_GC )
 
@@ -32,7 +32,7 @@ if( ${USE_GC} MATCHES "ON" )
 
 endif()
 
-option( USE_TRWS "Use TRWS optimizer" ON )
+option( USE_TRWS "Use TRWS optimizer" OFF )
 if( ${USE_TRWS} MATCHES "ON" )
   add_definitions(-DWITH_TRWS)
   #set(DIR_TRWS "${SRS-MRF_SOURCE_DIR}/External/TRWS" CACHE  FILEPATH "Directory for TRWS")

@@ -1,13 +1,15 @@
-#pragma once
-#include "Log.h"
-/*
- * Classifier.h
- *
- *  Created on: Feb 14, 2011
- *      Author: gasst
+/**
+ * @file   Classifier-Segmentation-Pairwise.h
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Fri Mar  6 16:42:44 2015
+ * 
+ * @brief  Base for classifiers to return segmentation pairwise potentials
+ * 
+ * 
  */
 
-
+#pragma once
+#include "Log.h"
 
 #include <iostream>
 

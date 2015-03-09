@@ -3,10 +3,10 @@ set(POTFILES  ExplicitInstantiationsPotentials.cpp
   ExplicitInstantiationsPotentials.h)
 
 if( ${USE_CUGMIX} MATCHES "ON" )
-set(POTFILES ${POTFILES} GMMClassifier.h)
+set(POTFILES ${POTFILES} Classifier-Segmentation-Unary-GMM.h)
 endif()
 if( ${USE_RF} MATCHES "ON" )
-set(POTFILES ${POTFILES} RandomForestClassifier.h)
+set(POTFILES ${POTFILES} Classifier-Segmentation-Unary-RandomForest.h)
 endif()
 
 add_library(SRSPotentials

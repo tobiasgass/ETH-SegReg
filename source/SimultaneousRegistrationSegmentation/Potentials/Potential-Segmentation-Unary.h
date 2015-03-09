@@ -1,10 +1,14 @@
-#include "Log.h"
-/*
- * Potentials.h
- *
- *  Created on: Nov 24, 2010
- *      Author: gasst
+/**
+ * @file   Potential-Segmentation-Unary.h
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Fri Mar  6 16:58:52 2015
+ * 
+ * @brief  Functions for Unary Segmentation Potentials
+ * 
+ * 
  */
+
+#include "Log.h"
 
 #ifndef _SEGMENTATIONPOTENTIALS_H_
 #define _SEGMENTATIONPOTENTIALS_H_

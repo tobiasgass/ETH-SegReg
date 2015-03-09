@@ -19,10 +19,11 @@ private:
 	typedef ClassifierSegmentationUnaryGMMMultilabel<ImageType> segClassMultilabelGMMType;
 #endif
 #ifdef WITH_RF 
-	typedef SegmentationRandomForestClassifier<ImageType> segClassRFType;
+	typedef ClassifierSegmentationUnaryRandomForest<ImageType> segClassRFType;
 #endif
 };
 
 
 
 }//namespace
+ 
