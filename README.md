@@ -59,7 +59,7 @@ The build uses cmake. It is advisable to create a build directory and run CMake 
 
 > cd build
 
-> ccmake ../source
+> ccmake ../
 
 In the GUI of ccmake you can then chose which sub-projects to build. Dependencies vary for the sub-projects:
 
