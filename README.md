@@ -1,32 +1,4 @@
-Copyright (c) 2010-2015, Tobias Gass (tobiasgass@gmail.com)
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer. 
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-The views and conclusions contained in the software and documentation are those
-of the authors and should not be interpreted as representing official policies, 
-either expressed or implied, of the FreeBSD Project.
-
-
-Content
+Overview
 -------
 
 This package contains the source code which was developed during the PHD of Tobias Gass at the Computer Vision Lab at ETH Zurich, Switzerland, from 2010-2015.
@@ -61,10 +33,14 @@ The build uses cmake. It is advisable to create a build directory and run CMake 
 
 > ccmake ../
 
-In the GUI of ccmake you can then chose which sub-projects to build. Dependencies vary for the sub-projects:
+In the GUI of ccmake you can then chose which sub-projects to build, eg BUILD_SRS = ON. 
+
+Dependencies of the framework vary with enabling/disabling individual
+subprojects. For instance, in order to build SRS, only the
+dependencies for SRS are necessary. Some general dependencies are shared for all sub-projects and are listed first:
 
 
-GENERAL DEPENDENCIES
+General Dependencies
 --------------------
 
 * CMAKE 2.8
@@ -72,7 +48,8 @@ GENERAL DEPENDENCIES
 * BOOST is required, 1.49 tested and working. This is mainly used for command line parsing and some formatting, and could probably be removed if need be.
 
 
-SRS DEPENDENCIES
+
+SRS Dependencies
 ----------------
 
 SRS allows for a choice of discrete optimizers. Interfaces for TRW-S, GCO and OpenGM are provided, but those need to be downloaded and installed by the user under their respective license.
@@ -88,20 +65,20 @@ A patch can(will: todo) be applied automatically during the build process. This 
 The same directory can also be used as root for the binary graph-cut (GC) optimizer.
 
 
-MRegFuse DEPENDENCIES
+MRegFuse Dependencies
 ---------------------
 
 * Requires TRW-S, will work with the same patched version as SRS
 * There is some code which requires STATISMO, but that will be made optional in the final build
 
 
-SSSP DEPENDENCIES
+SSSP Dependencies
 -----------------
 
 Nothing special, just ITK should work fine.
 
 
-CBRR DEPENDENCIES
+CBRR Dependencies
 -----------------
 
 CBRR requires a working copy of Matlab. Tested with 2013 and 2014 versions. It also requires minFunc, which can be downloaded from here:
@@ -114,3 +91,34 @@ Make sure to add the path to your MATLABPATH, as well as the directory
 
 which contains some convenience wrappers for minFunc. There is also experimental support for l1 minimization using matlab, which additionally requires 
 http://www.cs.ubc.ca/~schmidtm/Software/L1General.html
+
+
+License
+-------
+
+Copyright (c) 2010-2015, Tobias Gass (tobiasgass@gmail.com)
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer. 
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+The views and conclusions contained in the software and documentation are those
+of the authors and should not be interpreted as representing official policies, 
+either expressed or implied, of the FreeBSD Project.
