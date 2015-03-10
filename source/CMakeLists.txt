@@ -26,7 +26,7 @@ endif()
 
 if( ${USE_TRWS} MATCHES "ON" )
   set(DIR_TRWS "/home/gasst/Downloads/TRW_S-v1.3" CACHE  FILEPATH "Directory for TRWS") 
-  if (1) #NOT EXISTS ${DIR_TRWS}/MRFEnergy.h)
+  if (NOT EXISTS ${DIR_TRWS}/MRFEnergy.h)
     message(SEND_ERROR "TRW-S directory not found or does not appear to contain the TRW-S library")
     set(DIR_TRWS "TRW-S DIR NOTFOUND" CACHE  FILEPATH "Directory for TRWS" FORCE) 
   else()

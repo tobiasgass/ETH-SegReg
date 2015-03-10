@@ -7,44 +7,40 @@ option( USE_GCO "Use GCO optimizer" OFF )
 if( ${USE_GCO} MATCHES "ON" )
   add_definitions(-DWITH_GCO -DGCO_ENERGYTYPE=double -DGCO_ENERGYTERMTYPE=float)
   set(DIR_GCO "${SRS-MRF_SOURCE_DIR}/External/GCO" CACHE  FILEPATH "Directory for GCO")
-  #  option( GCO_DIR "GCO directory" ${SRS-MRF_SOURCE_DIR}/External/GCO )
-  include_directories( ${DIR_GCO} )
-  FILE(GLOB gcoFiles 
-     ${DIR_GCO}/block.h   ${DIR_GCO}/energy.h   ${DIR_GCO}/GCoptimization.cpp   ${DIR_GCO}/GCoptimization.h  ${DIR_GCO}/graph.cpp   ${DIR_GCO}/graph.h   ${DIR_GCO}/LinkedBlockList.cpp   ${DIR_GCO}/LinkedBlockList.h     ${DIR_GCO}/maxflow.cpp )
-  ADD_LIBRARY(GCO
-    ${gcoFiles}
-    ) 
+  if (NOT EXISTS ${DIR_GCO}/GCoptimization.h)
+    message(SEND_ERROR "GCO directory not found or does not appear to contain the GCO library")
+    set(DIR_GCO "maxflow DIR NOTFOUND" CACHE  FILEPATH "Directory for GCO" FORCE) 
+  else()
+
+    include_directories( ${DIR_GCO} )
+    FILE(GLOB gcoFiles 
+      ${DIR_GCO}/block.h   ${DIR_GCO}/energy.h   ${DIR_GCO}/GCoptimization.cpp   ${DIR_GCO}/GCoptimization.h  ${DIR_GCO}/graph.cpp   ${DIR_GCO}/graph.h   ${DIR_GCO}/LinkedBlockList.cpp   ${DIR_GCO}/LinkedBlockList.h     ${DIR_GCO}/maxflow.cpp )
+    ADD_LIBRARY(GCO
+      ${gcoFiles}
+      ) 
+    endif()
 
 endif()
 
 option( USE_GC "Use GC optimizer" OFF )
 if( ${USE_GC} MATCHES "ON" )
-  add_definitions(-DWITH_GC )
-
-  set(DIR_GC "${SRS-MRF_SOURCE_DIR}/External/maxFlow" CACHE  FILEPATH "Directory for GC")
-  include_directories( ${DIR_GC} )
-
-  FILE(GLOB gcFiles ${DIR_GC}/*.h ${DIR_GC}/*.cxx ${DIR_GC}/*.cpp ${DIR_GC}/*.hxx ${DIR_GC}/*.hpp ${DIR_GC}/*.c)
-
-  ADD_LIBRARY(GC
-    ${gcFiles}
-    ) 
+  set(DIR_GC "${SRS-MRF_SOURCE_DIR}/External/maxFlow" CACHE  FILEPATH "Directory for GC") 
+  if (NOT EXISTS ${DIR_GC}/maxflow.cpp)
+    message(SEND_ERROR "maxflow directory not found or does not appear to contain the maxflow library")
+    set(DIR_GC "maxflow DIR NOTFOUND" CACHE  FILEPATH "Directory for GC" FORCE) 
+  else()
+    add_definitions(-DWITH_GC )
+    include_directories( ${DIR_GC} )
+    
+    FILE(GLOB gcFiles ${DIR_GC}/*.h ${DIR_GC}/*.cxx ${DIR_GC}/*.cpp ${DIR_GC}/*.hxx ${DIR_GC}/*.hpp ${DIR_GC}/*.c)
+    
+    ADD_LIBRARY(GC
+      ${gcFiles}
+      ) 
+  endif()
 
 endif()
 
-option( USE_TRWS "Use TRWS optimizer" OFF )
-if( ${USE_TRWS} MATCHES "ON" )
-  add_definitions(-DWITH_TRWS)
-  #set(DIR_TRWS "${SRS-MRF_SOURCE_DIR}/External/TRWS" CACHE  FILEPATH "Directory for TRWS")
-  set(DIR_TRWS "/home/gasst/Downloads/TRW_S-v1.3" CACHE  FILEPATH "Directory for TRWS")
-  include_directories( ${DIR_TRWS} )
-  FILE(GLOB trwsFiles
-    ${DIR_TRWS}/minimize.cpp   ${DIR_TRWS}/MRFEnergy.h   ${DIR_TRWS}/treeProbabilities.cpp  ${DIR_TRWS}/instances.inc
-    ${DIR_TRWS}/instances.h  ${DIR_TRWS}/MRFEnergy.cpp  ${DIR_TRWS}/ordering.cpp  typeBinaryFast.h       ${DIR_TRWS}/typeGeneral.h  
-    )
-  #message("${trwsFiles}")
-  ADD_LIBRARY(TRWS_LIBRARIES  ${trwsFiles}   ) 
-endif()
 
 option( USE_OPENGM "Use OPENGM optimizer" ON )
 if( ${USE_OPENGM} MATCHES "ON" )

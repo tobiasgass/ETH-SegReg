@@ -50,7 +50,11 @@ General Dependencies
 SRS Dependencies
 ----------------
 
-SRS allows for a choice of discrete optimizers. Interfaces for TRW-S, GCO and OpenGM are provided, but those need to be downloaded and installed by the user under their respective license.
+SRS allows for a choice of discrete optimizers. Interfaces for TRW-S,
+GCO and OpenGM are provided, but those need to be downloaded and
+installed by the user under their respective license. Note that the
+optimizers are optional and can be enabled/disabled during cmake
+configuration. The respective dependencies and checks will be automatically added to the build.
 
 * OpenGM can be obtained here: http://hci.iwr.uni-heidelberg.de/opengm2/
 current wrapper utilizes BOOST, so make sure to install opengm with their boost feature enabled
