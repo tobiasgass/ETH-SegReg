@@ -5,7 +5,7 @@ This package contains the source code which was developed during the PHD of Tobi
 
 Contained are four sub-projects that cover the work related to individual publications and an additional project containing general tools. If you use a part of the code for research purposes, please make sure to cite the relevant paper:
 
-1. SimultaneousRegistrationSegmentation (SRS): 
+1. SimultaneousRegistrationSegmentation (SRS):  
 Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Simultaneous Segmentation and Multiresolution Nonrigid Atlas Registration"*,  IEEE Transactions on Image Processing, Vol. 23,  No. 7,  pp. 2931 - 2943, 2014   
 Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Auxiliary Anatomical Labels for Joint Segmentation and Atlas Registration"*,  Proc. SPIE Medical Imaging, February 2014   
 
@@ -94,6 +94,12 @@ http://www.cs.ubc.ca/~schmidtm/Software/L1General.html
 License
 -------
 
+The main part of this project is licensed under the terms of the BSD
+(below). Some included parts of external projects are subject to their
+own license, which is included either within the source code itself or
+supplied in a separate License file.
+
+
 Copyright (c) 2010-2015, Tobias Gass (tobiasgass@gmail.com)
 All rights reserved.
 
@@ -120,3 +126,4 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 The views and conclusions contained in the software and documentation are those
 of the authors and should not be interpreted as representing official policies, 
 either expressed or implied, of the FreeBSD Project.
+
