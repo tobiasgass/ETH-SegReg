@@ -1,3 +1,9 @@
+include_directories (${CMAKE_CURRENT_SOURCE_DIR}/Common) 
+include_directories (${CMAKE_CURRENT_SOURCE_DIR}/Utils) 
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/Utils) 
+
+
+
 option( BUILD_SRS "Build SRS" ON )
 
 if( ${BUILD_SRS} MATCHES "ON" )

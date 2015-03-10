@@ -1,7 +1,5 @@
 include(${ITK_USE_FILE})
 
-
-
 option( USE_GCO "Use GCO optimizer" OFF )
 
 if( ${USE_GCO} MATCHES "ON" )
@@ -50,7 +48,7 @@ endif()
 option( USE_CUGMIX "Use c-ugmix gaussian mixture estimator" ON )
 if( ${USE_CUGMIX} MATCHES "ON" )
   add_definitions(-DWITH_CUGMIX)
-  include_directories(${SRS-MRF_SOURCE_DIR}/External/c-ugmix)
+  include_directories(../External/c-ugmix)
   add_subdirectory(../External/c-ugmix ${CMAKE_BINARY_DIR}/External/c-ugmix)
 
 endif()
@@ -77,4 +75,11 @@ FILE(GLOB potHeaders "Potentials/*.h")
 FILE(GLOB multHeaders "MultiResolution/*.h")
 
 
+include_directories (
+  ${CMAKE_CURRENT_SOURCE_DIR}/Potentials/
+  ${CMAKE_CURRENT_SOURCE_DIR}/Graphs/
+  ${CMAKE_CURRENT_SOURCE_DIR}/MultiResolution/
+  ${CMAKE_CURRENT_SOURCE_DIR}/Optimizers/
+) 
+message(WARNING  ${CMAKE_CURRENT_SOURCE_DIR}/MultiResolution)
 

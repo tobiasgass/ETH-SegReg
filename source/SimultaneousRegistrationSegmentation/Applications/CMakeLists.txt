@@ -1,16 +1,10 @@
-#PROJECT(ImageRegistration)
-INCLUDE_REGULAR_EXPRESSION("^.*$")
 
 include_directories (
-  ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/Potentials
-  ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/Graphs
-  ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/MultiResolution
-  ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/Optimizers
+  ${CMAKE_CURRENT_SOURCE_DIR}/../Potentials/
+  ${CMAKE_CURRENT_SOURCE_DIR}/../Graphs/
+  ${CMAKE_CURRENT_SOURCE_DIR}/../MultiResolution/
+  ${CMAKE_CURRENT_SOURCE_DIR}/../Optimizers/
 ) 
-
-
-
-
 #SRS
 ADD_EXECUTABLE(SRS3D Multiresolution-SRS3D.cxx )
 ADD_EXECUTABLE(SRS2D Multiresolution-SRS2D.cxx )
@@ -19,7 +13,7 @@ ADD_EXECUTABLE(SRS2DMultilabel Multiresolution-SRS2D-Multilabel.cxx )
 
 
 
-LINK_DIRECTORIES( ${LINK_DIRECTORIES} ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/)
+#LINK_DIRECTORIES( ${LINK_DIRECTORIES} ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/)
 
 TARGET_LINK_LIBRARIES(SRS3D Utils SRSPotentials   ${ITK_LIBRARIES}  )
 TARGET_LINK_LIBRARIES(SRS2D Utils SRSPotentials   ${ITK_LIBRARIES}  )

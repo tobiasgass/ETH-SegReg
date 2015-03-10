@@ -2,13 +2,7 @@ PROJECT(ConsitencyBasedRegistrationRectification)
 INCLUDE_REGULAR_EXPRESSION("^.*$")
 
 
-INCLUDE_DIRECTORIES( MATLAB )
 find_package(MATLAB REQUIRED)
-
-include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
-include_directories (${SRS-MRF_SOURCE_DIR}/Utils) 
-
-
 
 option( USE_MIND "Use MIND local similarity functions" ON )
 if( ${USE_MIND} MATCHES "ON" )

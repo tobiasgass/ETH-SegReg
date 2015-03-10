@@ -1,21 +1,6 @@
 PROJECT(ImageRegistration)
-#include_directories (${SRS-MRF_SOURCE_DIR}/SegmentationRegistration) 
-#include_directories (${SRS-MRF_SOURCE_DIR}/Propagation) 
-include_directories (${SRS-MRF_SOURCE_DIR}/)
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/fastPD)
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/TRWS) 
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/RF) 
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/c-ugmix) 
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/maxFlow) 
-#include_directories (${SRS-MRF_SOURCE_DIR}/External/GCO) 
 
-include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
 
-INCLUDE_DIRECTORIES(
-   # /home/gasst/work/include
-   # /usr/local/include
-    /usr/include/libxml2
- ) 
 
 #Tools
 
