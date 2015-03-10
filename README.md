@@ -15,7 +15,7 @@ Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Registration Fusion using Markov
 3. SemiSupervisedSegmentationPropagation (SSSP):    
 Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Semi-supervised Segmentation Using Multiple Segmentation Hypotheses from a Single Atlas"*,  MICCAI Workshop on Medical Computer Vision, October 2012 
 
-4. ConsistencyBasedRegistrationRectification (CBBR): 
+4. ConsistencyBasedRegistrationRectification (CBBR):  
 Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Consisteny-Based Registration Rectification"*, Journal of Medical Imaging, 2015, to appear  
 Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Detection and Correction of Inconsistency-based Errors in Non-Rigid Registration"*,  Proc. SPIE Medical Imaging, February 2014   
 Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Consistent Dense Correspondences from Pairwise Registrations"*,  Proc. Symposium on Statistical Shape Models & Applications, June 2014  
