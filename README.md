@@ -6,19 +6,19 @@ This package contains the source code which was developed during the PHD of Tobi
 Contained are four sub-projects that cover the work related to individual publications and an additional project containing general tools. If you use a part of the code for research purposes, please make sure to cite the relevant paper:
 
 1. SimultaneousRegistrationSegmentation (SRS): 
-Tobias Gass,  Gabor Székely,  Orcun Goksel,  "Simultaneous Segmentation and Multiresolution Nonrigid Atlas Registration",  IEEE Transactions on Image Processing, Vol. 23,  No. 7,  pp. 2931 - 2943, 2014 
-Tobias Gass,  Gabor Székely,  Orcun Goksel,  "Auxiliary Anatomical Labels for Joint Segmentation and Atlas Registration",  Proc. SPIE Medical Imaging, February 2014 
+Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Simultaneous Segmentation and Multiresolution Nonrigid Atlas Registration"*,  IEEE Transactions on Image Processing, Vol. 23,  No. 7,  pp. 2931 - 2943, 2014   
+Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Auxiliary Anatomical Labels for Joint Segmentation and Atlas Registration"*,  Proc. SPIE Medical Imaging, February 2014   
 
-2. MarkovRandomFieldRegistrationFusion (MRegFuse) :  
-Tobias Gass,  Gabor Székely,  Orcun Goksel,  "Registration Fusion using Markov Random Fields",  Workshop on Biomedical Image Registration (WBIR), July 2014 
+2. MarkovRandomFieldRegistrationFusion (MRegFuse):    
+Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Registration Fusion using Markov Random Fields"*,  Workshop on Biomedical Image Registration (WBIR), July 2014 
 
-3. SemiSupervisedSegmentationPropagation (SSSP) :  
-Tobias Gass,  Gabor Székely,  Orcun Goksel,  "Semi-supervised Segmentation Using Multiple Segmentation Hypotheses from a Single Atlas",  MICCAI Workshop on Medical Computer Vision, October 2012 
+3. SemiSupervisedSegmentationPropagation (SSSP):    
+Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Semi-supervised Segmentation Using Multiple Segmentation Hypotheses from a Single Atlas"*,  MICCAI Workshop on Medical Computer Vision, October 2012 
 
 4. ConsistencyBasedRegistrationRectification (CBBR): 
-Tobias Gass,  Gabor Székely,  Orcun Goksel,  "Consisteny-Based Registration Rectification", Journal of Medical Imaging, 2015, to appear
-Tobias Gass,  Gabor Székely,  Orcun Goksel,  "Detection and Correction of Inconsistency-based Errors in Non-Rigid Registration",  Proc. SPIE Medical Imaging, February 2014 
-Tobias Gass,  Gabor Székely,  Orcun Goksel,  "Consistent Dense Correspondences from Pairwise Registrations",  Proc. Symposium on Statistical Shape Models & Applications, June 2014 
+Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Consisteny-Based Registration Rectification"*, Journal of Medical Imaging, 2015, to appear  
+Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Detection and Correction of Inconsistency-based Errors in Non-Rigid Registration"*,  Proc. SPIE Medical Imaging, February 2014   
+Tobias Gass,  Gabor Székely,  Orcun Goksel,  *"Consistent Dense Correspondences from Pairwise Registrations"*,  Proc. Symposium on Statistical Shape Models & Applications, June 2014  
 						     
 
 
@@ -27,11 +27,9 @@ INSTALLATION INSTRUCTIONS
 
 The build uses cmake. It is advisable to create a build directory and run CMake from there. 
 
-> mkdir build
-
-> cd build
-
-> ccmake ../
+    > mkdir build
+    > cd build
+    > ccmake ../
 
 In the GUI of ccmake you can then chose which sub-projects to build, eg BUILD_SRS = ON. 
 
@@ -87,7 +85,7 @@ CBRR requires a working copy of Matlab. Tested with 2013 and 2014 versions. It a
 
 Make sure to add the path to your MATLABPATH, as well as the directory 
 
-> source/ConsistencyBasedRegistrationRectification/Matlab/
+     > source/ConsistencyBasedRegistrationRectification/Matlab/
 
 which contains some convenience wrappers for minFunc. There is also experimental support for l1 minimization using matlab, which additionally requires 
 http://www.cs.ubc.ca/~schmidtm/Software/L1General.html
