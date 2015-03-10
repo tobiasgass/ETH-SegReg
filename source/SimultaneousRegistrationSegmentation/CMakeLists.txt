@@ -63,6 +63,10 @@ if( ${USE_RF} MATCHES "ON" )
   add_subdirectory(../External/RF ${CMAKE_BINARY_DIR}/External/RF)
 endif()
 
+if( NOT ( (${USE_OPENGM} MATCHES "ON") OR ( ${USE_GCO} MATCHES "ON" ) OR ( ${USE_TRWS} MATCHES "ON" )))
+  message(SEND_ERROR "No optimizer was chosen which could hande SRS. Please enable at least one.")
+endif()
+
 
 add_subdirectory(Applications)
 add_subdirectory(Potentials)
