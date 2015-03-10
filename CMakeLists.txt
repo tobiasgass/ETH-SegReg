@@ -8,6 +8,8 @@ include(${ITK_USE_FILE})
 FIND_PACKAGE( Boost 1.40 COMPONENTS system filesystem program_options REQUIRED )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/source/External/CMakeFindModules/")
+
 option(BUILD_SHARED_LIBRARIES "Build (and link to) shared libraries" OFF)
 if( ${BUILD_SHARED_LIBRARIES} MATCHES "ON" )
 SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
