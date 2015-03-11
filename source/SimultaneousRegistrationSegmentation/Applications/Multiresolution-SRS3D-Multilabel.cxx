@@ -1,3 +1,13 @@
+/**
+ * @file   Multiresolution-SRS3D.cxx
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Wed Mar 11 14:55:33 2015
+ * 
+ * @brief  Example for 3D SRS using handcrafted segmentation and multi-label segmentations. 
+ * 
+ * 
+ */
+
 #include <stdio.h>
 #include <iostream>
 
@@ -6,7 +16,6 @@
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
 #include "Graph.h"
-//#include "SubsamplingGraph.h"
 #include "FastGraph.h"
 #include "BaseLabel.h"
 #include "Potential-Registration-Unary.h"
@@ -17,10 +26,12 @@
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
-#include "NewClassifier.h"
+
+
+
 using namespace std;
-using namespace itk;
 using namespace SRS;
+using namespace itk;
 
 int main(int argc, char ** argv)
 {
@@ -48,76 +59,76 @@ int main(int argc, char ** argv)
 
 
 
-    //unary seg
-    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
-    //    typedef SegmentationGenerativeClassifierGradient<ImageType> ClassifierType;
-    //typedef     SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
-    //typedef SegmentationClassifier<ImageType> ClassifierType;
-    //typedef HandcraftedBoneSegmentationClassifierMarcel<ImageType> ClassifierType;
-    //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+   
     typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    // //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-    
-    //typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
-    //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-
-    // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
-    // //typedef SegmentationGMMClassifier<ImageType> ClassifierType;
-    // //typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-
-    // //pairwise seg
-    // typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+   
     typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    
+  
     typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
-    //    typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+    //typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
 
-    // //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
-    // //typedef FastRegistrationGraphModel<
-    // //    typedef SortedSubsamplingGraphModel<
-    typedef FastGraphModel<
-        ImageType,
-        RegistrationUnaryPotentialType,
-        RegistrationPairwisePotentialType,
-        SegmentationUnaryPotentialType,
-        SegmentationPairwisePotentialType,
-        CoherencePairwisePotentialType>        GraphType;
+#define POTENTIALINHERITANCE
+#ifdef POTENTIALINHERITANCE
+    typedef FastGraphModel<ImageType>        GraphType;
+#else
+    typedef FastGraphModel<ImageType,RegistrationUnaryPotentialType,RegistrationPairwisePotentialType,SegmentationUnaryPotentialType,SegmentationPairwisePotentialType,CoherencePairwisePotentialType>        GraphType;
+#endif
     
     typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
     //create filter
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(&filterConfig);
-    logSetStage("IO");
+    
+    logSetStage("Instantiate Potentials");
+    
+
+    RegistrationUnaryPotentialType::Pointer unaryRegistrationPot=RegistrationUnaryPotentialType::New();
+    SegmentationUnaryPotentialType::Pointer unarySegmentationPot=SegmentationUnaryPotentialType::New();
+    RegistrationPairwisePotentialType::Pointer pairwiseRegistrationPot=RegistrationPairwisePotentialType::New();
+    SegmentationPairwisePotentialType::Pointer pairwiseSegmentationPot=SegmentationPairwisePotentialType::New();
+    CoherencePairwisePotentialType::Pointer pairwiseCoherencePot=CoherencePairwisePotentialType::New();
+#ifdef POTENTIALINHERITANCE
+
+    filter->setUnaryRegistrationPotentialFunction(static_cast<typename FastUnaryPotentialRegistrationNCC<ImageType>::Pointer>(unaryRegistrationPot));
+    filter->setPairwiseRegistrationPotentialFunction(static_cast<typename PairwisePotentialRegistration<ImageType>::Pointer>(pairwiseRegistrationPot));
+    filter->setUnarySegmentationPotentialFunction(static_cast<typename UnaryPotentialSegmentation<ImageType>::Pointer>(unarySegmentationPot));
+    filter->setPairwiseCoherencePotentialFunction(static_cast<typename PairwisePotentialCoherence<ImageType>::Pointer>(pairwiseCoherencePot));
+    filter->setPairwiseSegmentationPotentialFunction(static_cast<typename PairwisePotentialSegmentation<ImageType>::Pointer>(pairwiseSegmentationPot));
+#else
+    filter->setUnaryRegistrationPotentialFunction((unaryRegistrationPot));
+    filter->setPairwiseRegistrationPotentialFunction((pairwiseRegistrationPot));
+    filter->setUnarySegmentationPotentialFunction((unarySegmentationPot));
+    filter->setPairwiseCoherencePotentialFunction((pairwiseCoherencePot));
+    filter->setPairwiseSegmentationPotentialFunction((pairwiseSegmentationPot));
+
+#endif
+
+    logUpdateStage("IO");
     logSetVerbosity(filterConfig.verbose);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
+#if 0
     if (filterConfig.normalizeImages){
         targetImage=FilterUtils<ImageType>::normalizeImage(targetImage);
     }
+#endif
+
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage;
     if (filterConfig.atlasFilename!="") {
         atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+#if 0
         if (filterConfig.normalizeImages){
             atlasImage=FilterUtils<ImageType>::normalizeImage(atlasImage);
         }
+#endif
     }
     if (!atlasImage) {LOG<<"Warning: no atlas image loaded!"<<endl;
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
@@ -289,27 +300,27 @@ int main(int argc, char ** argv)
         ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
     }
     
-     if (finalDeformation.IsNotNull() ) {
-            if (filterConfig.linearDeformationInterpolation){
-                finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
-            }else{
-                finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
-            }
-        }
-    
-    if (finalDeformation.IsNotNull() ){
-        LOG<<"Deforming Images.."<<endl;
+    if (finalDeformation.IsNotNull() ) {
+        
         if (filterConfig.defFilename!="")
             ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
-
+        if (filterConfig.linearDeformationInterpolation){
+            finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
+         }else{
+            finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
+        }
+        
+        LOG<<"Deforming Images.."<<endl;
+        ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
+        LOGV(20)<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
+        
         if (originalAtlasSegmentation.IsNotNull()){
             ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
             ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
         }
-        ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
-        LOGV(20)<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
-
+        
+        
     }
     
     OUTPUTTIMER;

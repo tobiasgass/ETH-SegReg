@@ -1,6 +1,17 @@
+/**
+ * @file   Multiresolution-SRS3D.cxx
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Wed Mar 11 14:55:33 2015
+ * 
+ * @brief  Example for 3D SRS using handcrafted segmentation 
+ * 
+ * 
+ */
+
 #include <stdio.h>
 #include <iostream>
 
+#include "ArgumentParser.h"
 
 #include "SRSConfig.h"
 #include "HierarchicalSRSImageToImageFilter.h"
@@ -15,12 +26,8 @@
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
-#ifdef WITH_RF
-#include "RandomForestClassifier.h"
-#endif
-#ifdef WITH_CUGMIX
-#include "GMMClassifier.h"
-#endif
+
+
 
 using namespace std;
 using namespace SRS;
@@ -52,50 +59,21 @@ int main(int argc, char ** argv)
 
 
 
-    //unary seg
-    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
-    //    typedef SegmentationGenerativeClassifierGradient<ImageType> ClassifierType;
-    //typedef     SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
-    //typedef SegmentationClassifier<ImageType> ClassifierType;
-    //typedef HandcraftedBoneSegmentationClassifierMarcel<ImageType> ClassifierType;
-    //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+   
     typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    // //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-    
-    //typedef MultilabelSegmentationGMMClassifier<ImageType> ClassifierType;
-    //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-
-    // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
-    // //typedef SegmentationGMMClassifier<ImageType> ClassifierType;
-    // //typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-
-    // //pairwise seg
-    // typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
-    // //typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
+   
     typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
     typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationSSD< ImageType > RegistrationUnaryPotentialType;
-    //typedef FastUnaryPotentialRegistrationCategorical< ImageType > RegistrationUnaryPotentialType;
-    // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    
+  
     typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
     typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
     //typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
 
-    // //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
-    // //typedef FastRegistrationGraphModel<
-    // //    typedef SortedSubsamplingGraphModel<
+  
 #define POTENTIALINHERITANCE
 #ifdef POTENTIALINHERITANCE
     typedef FastGraphModel<ImageType>        GraphType;
