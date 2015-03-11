@@ -4,7 +4,7 @@
 #include "GCoptimization.h"
 #include <vector>
 #include <map>
-#include <google/heap-profiler.h>
+//#include <google/heap-profiler.h>
 #include <limits.h>
 #include <time.h>
 #include <omp.h>

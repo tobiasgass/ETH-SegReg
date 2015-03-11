@@ -30,7 +30,8 @@ if( ${USE_GC} MATCHES "ON" )
     add_definitions(-DWITH_GC )
     include_directories( ${DIR_GC} )
     
-    FILE(GLOB gcFiles ${DIR_GC}/*.h ${DIR_GC}/*.cxx ${DIR_GC}/*.cpp ${DIR_GC}/*.hxx ${DIR_GC}/*.hpp ${DIR_GC}/*.c)
+    FILE(GLOB gcFiles ${DIR_GC}/block.h   ${DIR_GC}/energy.h   ${DIR_GC}/graph.cpp   ${DIR_GC}/graph.h   ${DIR_GC}/LinkedBlockList.cpp   ${DIR_GC}/LinkedBlockList.h   ${DIR_GC}/maxflow.cpp )
+
     
     ADD_LIBRARY(GC
       ${gcFiles}
