@@ -328,6 +328,7 @@ namespace SRS{
 
     };//class
 
+  ///\brief Segmentation unary classifier with support for more labels (>2) 
     template<class ImageType>
     class ClassifierSegmentationUnaryGMMMultilabel: public ClassifierSegmentationUnaryGMM<ImageType>{
     public:

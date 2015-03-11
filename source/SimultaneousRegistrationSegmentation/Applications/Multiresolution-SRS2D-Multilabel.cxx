@@ -1,3 +1,12 @@
+/**
+ * @file   Multiresolution-SRS2D.cxx
+ * @author gasst <gasst@ETHSEGREG>
+ * @date   Thu Mar  5 13:15:31 2015
+ * 
+ * @brief  Example fuer 2D SRS using learned potentials
+ * 
+ * 
+ */
 #include <stdio.h>
 #include <iostream>
 
@@ -16,13 +25,14 @@
 #include "Log.h"
 #include "Preprocessing.h"
 #include "TransformationUtils.h"
-#include "ExplicitInstantiationsPotentials.h"
 
-#include "SegmentationMapper.hxx"
+#include "Classifier-Segmentation-Unary-GMM.h"
+#include "Classifier-Segmentation-Unary-RandomForest.h"
+#include "Classifier-Segmentation-Pairwise-RandomForest.h"
+
 using namespace std;
-using namespace itk;
 using namespace SRS;
-
+using namespace itk;
 int main(int argc, char ** argv)
 {
 	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
@@ -41,84 +51,91 @@ int main(int argc, char ** argv)
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
 	typedef TransfUtils<ImageType>::DisplacementType DisplacementType;
-    //typedef SparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
+    typedef SparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
     //typedef SemiSparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
-    typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
+    //typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
     typedef TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef DeformationFieldType::Pointer DeformationFieldPointerType;
 
 
 
     //unary seg
-    //typedef SegmentationClassifierGradient<ImageType> ClassifierType;
-    //    typedef SegmentationGenerativeClassifierGradient<ImageType> ClassifierType;
-    //typedef     SegmentationGaussianClassifierGradient<ImageType> ClassifierType;
-    //typedef SegmentationClassifier<ImageType> ClassifierType;
-    //typedef HandcraftedBoneSegmentationClassifierMarcel<ImageType> ClassifierType;
-    //typedef UnaryPotentialSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
-    //typedef     UnaryPotentialSegmentation< ImageType > SegmentationUnaryPotentialType;
-  
-    // //typedef SegmentationRandomForestClassifier<ImageType> ClassifierType;
-    
     typedef ClassifierSegmentationUnaryGMMMultilabel<ImageType> ClassifierType;
-    //typedef UnaryPotentialNewSegmentationMultilabelClassifierNoCaching< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    typedef UnaryPotentialNewSegmentationMultilabelClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
-    //typedef UnaryPotentialSegmentationProbFile< ImageType, ClassifierType > SegmentationUnaryPotentialType;
+    typedef UnaryPotentialNewSegmentationClassifier< ImageType, ClassifierType > SegmentationUnaryPotentialType;
 
     // //pairwise seg
-    //typedef SmoothnessClassifierGradient<ImageType> SegmentationSmoothnessClassifierType;
-    //typedef SmoothnessClassifierGradientContrast<ImageType> SegmentationSmoothnessClassifierType;
-    typedef SmoothnessClassifierFullMultilabelPosterior<ImageType> SegmentationSmoothnessClassifierType;
+    typedef ClassifierSegmentationPairwiseRandomForestWithGradient<ImageType> SegmentationSmoothnessClassifierType;
     typedef CachingPairwisePotentialSegmentationClassifier<ImageType,SegmentationSmoothnessClassifierType> SegmentationPairwisePotentialType;
-    //typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
-    //typedef PairwisePotentialSegmentationContrastWithGradient<ImageType> SegmentationPairwisePotentialType;
-    //typedef PairwisePotentialSegmentationRGBContrast<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
     //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC<  ImageType > RegistrationUnaryPotentialType;
-    // //typedef FastUnaryPotentialRegistrationSSD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    // //typedef UnaryPotentialRegistrationNCCWithBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    // //typedef UnaryPotentialRegistrationNCCWithDistanceBonePrior< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
+    typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
     
-    typedef PairwisePotentialRegistration<  ImageType > RegistrationPairwisePotentialType;
+    typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
-    typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialSigmoidCoherence< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialCoherenceBinary< ImageType > CoherencePairwisePotentialType;
-    // //typedef PairwisePotentialBoneCoherence<  ImageType > CoherencePairwisePotentialType;
-    // //typedef FastRegistrationGraphModel<
-    // //    typedef SortedSubsamplingGraphModel<
-    typedef FastGraphModel<
-        ImageType,
-        RegistrationUnaryPotentialType,
-        RegistrationPairwisePotentialType,
-        SegmentationUnaryPotentialType,
-        SegmentationPairwisePotentialType,
-        CoherencePairwisePotentialType>        GraphType;
+    typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+ 
+#define POTENTIALINHERITANCE
+#ifdef POTENTIALINHERITANCE
+    typedef FastGraphModel<ImageType>        GraphType;
+#else
+    typedef FastGraphModel<ImageType,RegistrationUnaryPotentialType,RegistrationPairwisePotentialType,SegmentationUnaryPotentialType,SegmentationPairwisePotentialType,CoherencePairwisePotentialType>        GraphType;
+#endif
     
     typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
     //create filter
     FilterType::Pointer filter=FilterType::New();
     filter->setConfig(&filterConfig);
-    logSetStage("IO");
+    
+    logSetStage("Instantiate Potentials");
+    
+
+    RegistrationUnaryPotentialType::Pointer unaryRegistrationPot=RegistrationUnaryPotentialType::New();
+    SegmentationUnaryPotentialType::Pointer unarySegmentationPot=SegmentationUnaryPotentialType::New();
+    RegistrationPairwisePotentialType::Pointer pairwiseRegistrationPot=RegistrationPairwisePotentialType::New();
+    SegmentationPairwisePotentialType::Pointer pairwiseSegmentationPot=SegmentationPairwisePotentialType::New();
+    CoherencePairwisePotentialType::Pointer pairwiseCoherencePot=CoherencePairwisePotentialType::New();
+#ifdef POTENTIALINHERITANCE
+
+    filter->setUnaryRegistrationPotentialFunction(static_cast<typename FastUnaryPotentialRegistrationNCC<ImageType>::Pointer>(unaryRegistrationPot));
+    filter->setPairwiseRegistrationPotentialFunction(static_cast<typename PairwisePotentialRegistration<ImageType>::Pointer>(pairwiseRegistrationPot));
+    filter->setUnarySegmentationPotentialFunction(static_cast<typename UnaryPotentialSegmentation<ImageType>::Pointer>(unarySegmentationPot));
+    filter->setPairwiseCoherencePotentialFunction(static_cast<typename PairwisePotentialCoherence<ImageType>::Pointer>(pairwiseCoherencePot));
+    filter->setPairwiseSegmentationPotentialFunction(static_cast<typename PairwisePotentialSegmentation<ImageType>::Pointer>(pairwiseSegmentationPot));
+#else
+    filter->setUnaryRegistrationPotentialFunction((unaryRegistrationPot));
+    filter->setPairwiseRegistrationPotentialFunction((pairwiseRegistrationPot));
+    filter->setUnarySegmentationPotentialFunction((unarySegmentationPot));
+    filter->setPairwiseCoherencePotentialFunction((pairwiseCoherencePot));
+    filter->setPairwiseSegmentationPotentialFunction((pairwiseSegmentationPot));
+
+#endif
+
+    logUpdateStage("IO");
     logSetVerbosity(filterConfig.verbose);
     LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
+#if 0
+    if (filterConfig.normalizeImages){
+        targetImage=FilterUtils<ImageType>::normalizeImage(targetImage);
+    }
+#endif
+
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
     LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
     ImagePointerType atlasImage;
-    if (filterConfig.atlasFilename!="") atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+    if (filterConfig.atlasFilename!="") {
+        atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+#if 0
+        if (filterConfig.normalizeImages){
+            atlasImage=FilterUtils<ImageType>::normalizeImage(atlasImage);
+        }
+#endif
+    }
     if (!atlasImage) {LOG<<"Warning: no atlas image loaded!"<<endl;
         LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation;
-    SegmentationMapper<ImageType> segmentationMapper;
-    if (filterConfig.atlasSegmentationFilename !=""){
-        atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
-        atlasSegmentation=segmentationMapper.FindMapAndApplyMap(atlasSegmentation);
-    }
+    if (filterConfig.atlasSegmentationFilename !="")atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
     if (!atlasSegmentation) {LOG<<"Warning: no atlas segmentation loaded!"<<endl; }
     
     ImagePointerType targetAnatomyPrior;
@@ -132,24 +149,25 @@ int main(int argc, char ** argv)
 
     logResetStage;
     logSetStage("Preprocessing");
+
+    if (filterConfig.histNorm){
+        // Histogram match the images
+        typedef itk::HistogramMatchingImageFilter<ImageType,ImageType> HEFilterType;
+        HEFilterType::Pointer IntensityEqualizeFilter = HEFilterType::New();
+        IntensityEqualizeFilter->SetReferenceImage(targetImage  );
+        IntensityEqualizeFilter->SetInput( atlasImage );
+        IntensityEqualizeFilter->SetNumberOfHistogramLevels( 100);
+        IntensityEqualizeFilter->SetNumberOfMatchPoints( 15);
+        IntensityEqualizeFilter->ThresholdAtMeanIntensityOn();
+        IntensityEqualizeFilter->Update();
+        atlasImage=IntensityEqualizeFilter->GetOutput();
+
+    }
+
     //preprocessing 1: gradients
     ImagePointerType targetGradient, atlasGradient;
     if (filterConfig.segment){
-        if (filterConfig.targetGradientFilename!=""){
-            targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
-        }else{
-            //targetGradient=Preprocessing<ImageType>::computeSheetness(targetImage);
-            //LOGI(8,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));
-           
-        }
-        if (filterConfig.atlasGradientFilename!=""){
-            atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
-        }else{
-            if (atlasImage.IsNotNull()){
-                //atlasGradient=Preprocessing<ImageType>::computeSheetness(atlasImage);
-                //LOGI(8,ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient));
-            }
-        }
+       
   
         if (filterConfig.useTargetAnatomyPrior && ! targetAnatomyPrior.IsNotNull() ){
             //targetAnatomyPrior=Preprocessing<ImageType>::computeSoftTargetAnatomyEstimate(targetImage);
@@ -191,10 +209,9 @@ int main(int argc, char ** argv)
         }
     }
     if (filterConfig.segment){
-        if (atlasGradient.IsNotNull()) {
+        if (atlasGradient.IsNotNull()) 
             LOGI(10,ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient));
-        }
-        if (targetGradient.IsNotNull()) {LOGI(10,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));}
+        LOGI(10,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));
     }
 
 
@@ -213,7 +230,8 @@ int main(int argc, char ** argv)
     if (filterConfig.affineBulkTransform!=""){
         TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig.affineBulkTransform);
         LOGI(8,ImageUtils<ImageType>::writeImage("def.nii",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage)));
-        DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
+        //DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
+        DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,targetImage);
         LOGI(8,ImageUtils<ImageType>::writeImage("def2.nii",TransfUtils<ImageType>::warpImage((ImageType::ConstPointer)originalAtlasImage,transf)));
         filter->setBulkTransform(transf);
     }
@@ -227,7 +245,8 @@ int main(int argc, char ** argv)
        
     }
     logResetStage;//bulk transforms
-
+    originalTargetImage=NULL;
+    originalAtlasImage=NULL;
     // compute SRS
     clock_t FULLstart = clock();
     filter->Init();
@@ -244,56 +263,52 @@ int main(int argc, char ** argv)
     
     //process outputs
     ImagePointerType targetSegmentationEstimate=filter->getTargetSegmentationEstimate();
-    if (targetSegmentationEstimate.IsNotNull()){
-        targetSegmentationEstimate=segmentationMapper.MapInverse(targetSegmentationEstimate);
-    }
-    
-
     DeformationFieldPointerType finalDeformation=filter->getFinalDeformation();
     
     delete filter;
+    if (filterConfig.atlasFilename!="") originalAtlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+    if (filterConfig.targetFilename!="") originalTargetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
 
     //upsample?
     if (filterConfig.downScale<1){
         LOG<<"Upsampling Images.."<<endl;
-        if (finalDeformation.IsNotNull() ) finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
-        //this is more or less f***** up
+       
         //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
         if (targetSegmentationEstimate){
-            targetSegmentationEstimate=FilterUtils<ImageType>::NNResample(targetSegmentationEstimate,originalTargetImage,false);
 #if 0            
-            typedef ImageUtils<ImageType>::FloatImageType FloatImageType;
-            typedef ImageUtils<ImageType>::FloatImagePointerType FloatImagePointerType;
-            LOGI(6,ImageUtils<ImageType>::writeImage("targetSegmentationEstimateLow.nii",targetSegmentationEstimate));
-            FloatImagePointerType distanceMap=FilterUtils<ImageType,FloatImageType>::distanceMapByFastMarcher(FilterUtils<ImageType>::binaryThresholdingLow(targetSegmentationEstimate,1),1);
-            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMapLow.nii",distanceMap));
-            distanceMap=FilterUtils<FloatImageType>::LinearResample(distanceMap,FilterUtils<ImageType,FloatImageType>::cast(originalTargetImage),false);
-            LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMaphigh.nii",distanceMap));
-            targetSegmentationEstimate=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(distanceMap,0.5);
-            //targetSegmentationEstimate=FilterUtils<ImageType>::round(FilterUtils<ImageType>::NNResample((targetSegmentationEstimate),scale));
+            targetSegmentationEstimate=FilterUtils<ImageType>::NNResample(targetSegmentationEstimate,originalTargetImage,false);
+#else
+            targetSegmentationEstimate=FilterUtils<ImageType>::upsampleSegmentation(targetSegmentationEstimate,originalTargetImage);
 #endif
         }
     }
 
-    if (finalDeformation.IsNotNull() ){
-        LOG<<"Deforming Images.."<<endl;
+    if (targetSegmentationEstimate.IsNotNull()){
+
+        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
+    }
+    
+    if (finalDeformation.IsNotNull() ) {
+        
         if (filterConfig.defFilename!="")
             ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
-
+        if (filterConfig.linearDeformationInterpolation){
+            finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
+         }else{
+            finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
+        }
+        
+        LOG<<"Deforming Images.."<<endl;
+        ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
+        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
+        LOGV(20)<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
+        
         if (originalAtlasSegmentation.IsNotNull()){
-            originalAtlasSegmentation=segmentationMapper.MapInverse(originalAtlasSegmentation);
             ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
             ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
         }
-        ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
-        LOG<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
-
-    }
-    
-   
-    if (targetSegmentationEstimate.IsNotNull()){
-        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
+        
+        
     }
     
     OUTPUTTIMER;

@@ -799,8 +799,10 @@ namespace SRS{
       this->m_TrainData.setLabels(labelVector);
     }
 
-      
+    ///likelihood of observing image given the image appearance.
+    ///This function signature is INCOMPATIBLE with current calls
     virtual double px_l(float intens1,float intens2, float grad1, float grad2,int label1,int label2){
+      
       //            LOG<<intensityDiff<<" "<<label<<" "<<gradientDiff<<endl;
       intens1=this->mapIntensity(intens1);
       intens2=this->mapIntensity(intens2); 
