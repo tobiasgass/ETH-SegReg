@@ -1,0 +1,190 @@
+diff -u TRW_S-v1.3/example.cpp TRW_S-v1.3-PATCHED/example.cpp
+--- TRW_S-v1.3/example.cpp	2006-11-18 15:05:18.000000000 +0100
++++ TRW_S-v1.3-PATCHED/example.cpp	2015-02-25 11:16:53.037336000 +0100
+@@ -61,7 +61,7 @@
+ 	delete mrf;
+ }
+ 
+-void main()
++int main()
+ {
+ 	testPotts();
+ }
+Only in TRW_S-v1.3-PATCHED/: .history.gasst
+diff -u TRW_S-v1.3/instances.inc TRW_S-v1.3-PATCHED/instances.inc
+--- TRW_S-v1.3/instances.inc	2005-03-03 10:58:14.000000000 +0100
++++ TRW_S-v1.3-PATCHED/instances.inc	2015-02-25 17:23:58.832716000 +0100
+@@ -1,11 +1,26 @@
++#pragma once
+ 
+ #include "MRFEnergy.h"
++#include  "typeBinaryFast.h"
++#include   "typeBinary.h"
++#include   "typeGeneral.h"
++#include   "typePotts.h"
++#include   "typeTruncatedLinear2D.h"
++#include   "typeTruncatedLinear.h" 
++#include  "typeTruncatedQuadratic2D.h"  
++#include "typeTruncatedQuadratic.h"
+ 
+-template MRFEnergy<TypeBinary>;
+-template MRFEnergy<TypeBinaryFast>;
+-template MRFEnergy<TypePotts>;
+-template MRFEnergy<TypeGeneral>;
+-template MRFEnergy<TypeTruncatedLinear>;
+-template MRFEnergy<TypeTruncatedQuadratic>;
+-template MRFEnergy<TypeTruncatedLinear2D>;
+-template MRFEnergy<TypeTruncatedQuadratic2D>;
++
++/* Modified by Tobias Gass, ETH Zurich, Feb. 2015:
++ * Removed explicit instantiation of any other than 'TypeGeneral'
++ * added 'class' to the instantiation (was not working otherwise)
++ */
++
++//template class  MRFEnergy<TypeBinary>;
++//template class  MRFEnergy<TypeBinaryFast>;
++//template class  MRFEnergy<TypePotts>;
++template class  MRFEnergy<TypeGeneral>;
++//template class  MRFEnergy<TypeTruncatedLinear>;
++//template class  MRFEnergy<TypeTruncatedQuadratic>;
++//template class  MRFEnergy<TypeTruncatedLinear2D>;
++//template class  MRFEnergy<TypeTruncatedQuadratic2D>;
+diff -u TRW_S-v1.3/minimize.cpp TRW_S-v1.3-PATCHED/minimize.cpp
+--- TRW_S-v1.3/minimize.cpp	2006-11-17 16:29:24.000000000 +0100
++++ TRW_S-v1.3-PATCHED/minimize.cpp	2015-02-25 17:23:00.515550000 +0100
+@@ -4,7 +4,9 @@
+ #include <assert.h>
+ #include "MRFEnergy.h"
+ 
+-#include "instances.inc"
++/* Modified by Tobias Gass, ETH Zurich, Feb. 2015:
++ * Moved explicit instantiation to end of source
++ */
+ 
+ template <class T> int MRFEnergy<T>::Minimize_TRW_S(Options& options, REAL& lowerBound, REAL& energy, REAL* min_marginals)
+ {
+@@ -305,3 +307,4 @@
+ 
+ 	return E;
+ }
++#include "instances.inc"
+diff -u TRW_S-v1.3/MRFEnergy.cpp TRW_S-v1.3-PATCHED/MRFEnergy.cpp
+--- TRW_S-v1.3/MRFEnergy.cpp	2006-11-18 15:15:38.000000000 +0100
++++ TRW_S-v1.3-PATCHED/MRFEnergy.cpp	2015-02-25 17:23:11.753700000 +0100
+@@ -4,7 +4,9 @@
+ #include <assert.h>
+ #include "MRFEnergy.h"
+ 
+-#include "instances.inc"
++/* Modified by Tobias Gass, ETH Zurich, Feb. 2015:
++ * Moved explicit instantiation to end of source
++ */
+ 
+ void DefaultErrorFn(char* msg)
+ {
+@@ -82,6 +84,14 @@
+ 	i->m_D.Add(m_Kglobal, i->m_K, data);
+ }
+ 
++template <class T> void MRFEnergy<T>::SetNodeData(NodeId i, NodeData data)
++{
++	i->m_D.Set(m_Kglobal, i->m_K, data);
++}
++
++template <class T>  void  MRFEnergy<T>::SetNodeDataPos(NodeId id, int k, REAL value){
++    id->m_D.SetArrayValue(m_Kglobal, id->m_K,k,value);
++}
+ template <class T> void MRFEnergy<T>::AddEdge(NodeId i, NodeId j, EdgeData data)
+ {
+ 	if (m_isEnergyConstructionCompleted)
+@@ -257,3 +267,5 @@
+ 
+ 	printf("done\n");
+ }
++
++#include "instances.inc"
+diff -u TRW_S-v1.3/MRFEnergy.h TRW_S-v1.3-PATCHED/MRFEnergy.h
+--- TRW_S-v1.3/MRFEnergy.h	2006-11-18 15:14:50.000000000 +0100
++++ TRW_S-v1.3-PATCHED/MRFEnergy.h	2015-02-25 17:23:59.560727000 +0100
+@@ -20,6 +20,13 @@
+ // or GetSolution() may be called. (The last function can be called only after
+ // Minimize_TRW_S() or Minimize_BP()).
+ 
++/* Modified by Tobias Gass, ETH Zurich, Feb. 2015:
++ * Added Functions 
++ * void SetNodeDataPos(NodeId id, int k, REAL value);
++ * void SetNodeData(NodeId i, NodeData data);
++ * to modify already existing unary potentials
++ */
++
+ 
+ template <class T> class MRFEnergy
+ {
+@@ -52,6 +59,8 @@
+ 	// Note: information in data is copied into internal memory.
+ 	// Cannot be called after energy construction is completed.
+ 	NodeId AddNode(LocalSize K, NodeData data);
++    void SetNodeDataPos(NodeId id, int k, REAL value);
++    void SetNodeData(NodeId i, NodeData data);
+ 
+ 	// Modifies node parameter for existing node (namely, add information
+ 	// in data to existing parameter). May be called at any time.
+diff -u TRW_S-v1.3/treeProbabilities.cpp TRW_S-v1.3-PATCHED/treeProbabilities.cpp
+--- TRW_S-v1.3/treeProbabilities.cpp	2005-08-18 08:10:02.000000000 +0200
++++ TRW_S-v1.3-PATCHED/treeProbabilities.cpp	2015-02-25 17:23:32.473876000 +0100
+@@ -5,7 +5,10 @@
+ #include <assert.h>
+ #include "MRFEnergy.h"
+ 
+-#include "instances.inc"
++/* Modified by Tobias Gass, ETH Zurich, Feb. 2015:
++ * Moved explicit instantiation to end of source
++ */
++
+ 
+ ///////////////////////////////////////////////////////////////////////////
+ ///////////////////////////////////////////////////////////////////////////
+@@ -48,3 +51,4 @@
+ 	}
+ }
+ 
++#include "instances.inc"
+diff -u TRW_S-v1.3/typeGeneral.h TRW_S-v1.3-PATCHED/typeGeneral.h
+--- TRW_S-v1.3/typeGeneral.h	2006-11-18 14:49:14.000000000 +0100
++++ TRW_S-v1.3-PATCHED/typeGeneral.h	2015-02-25 17:23:50.785490000 +0100
+@@ -110,6 +110,12 @@
+ #include <string.h>
+ #include <assert.h>
+ 
++/* Modified by Tobias Gass, ETH Zurich, Feb. 2015:
++ * Added Function 
++ * void Set(GlobalSize Kglobal, LocalSize K, NodeData data); // called once when user calls MRFEnergy::SetNodeData()
++ * to modify already existing values
++ */
++
+ 
+ template <class T> class MRFEnergy;
+ 
+@@ -195,6 +201,7 @@
+ 		static int GetSizeInBytes(GlobalSize Kglobal, LocalSize K); // returns -1 if invalid K's
+ 		void Initialize(GlobalSize Kglobal, LocalSize K, NodeData data);  // called once when user adds a node
+ 		void Add(GlobalSize Kglobal, LocalSize K, NodeData data); // called once when user calls MRFEnergy::AddNodeData()
++        void Set(GlobalSize Kglobal, LocalSize K, NodeData data); // called once when user calls MRFEnergy::SetNodeData()
+ 
+ 		void SetZero(GlobalSize Kglobal, LocalSize K);                            // set this[k] = 0
+ 		void Copy(GlobalSize Kglobal, LocalSize K, Vector* V);                    // set this[k] = V[k]
+@@ -334,7 +341,13 @@
+ 		m_data[k] += data.m_data[k];
+ 	}
+ }
+-
++inline void TypeGeneral::Vector::Set(GlobalSize Kglobal, LocalSize K, NodeData data)
++{
++	for (int k=0; k<K.m_K; k++)
++        {
++            m_data[k] = data.m_data[k];
++        }
++}
+ inline void TypeGeneral::Vector::SetZero(GlobalSize Kglobal, LocalSize K)
+ {
+ 	memset(m_data, 0, K.m_K*sizeof(REAL));

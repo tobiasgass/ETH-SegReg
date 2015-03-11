@@ -36,8 +36,19 @@ if( ${USE_TRWS} MATCHES "ON" )
     message(SEND_ERROR "TRW-S directory not found or does not appear to contain the TRW-S library")
     set(DIR_TRWS "TRW-S DIR NOTFOUND" CACHE  FILEPATH "Directory for TRWS" FORCE) 
   else()
+
+    #patch it!
+    SET( PATCH_BATCH_FILE patch_trws.sh )
+    FILE( WRITE ${PATCH_BATCH_FILE} "${PATCH_EXECUTABLE} -p0 -i 
+${LIB_DIR}.patch" )
+    EXECUTE_PROCESS( COMMAND cmake -E chdir ${PROJECT_SOURCE_DIR} 
+      ${PATCH_BATCH_FILE}
+      RESULT_VARIABLE RESULT_PATCH )
+    MESSAGE( STATUS "Patch result: ${RESULT_PATCH}, PROF SOURCE DIR: 
+${PROJECT_SOURCE_DIR}" )
+    FILE( REMOVE ${PATCH_BATCH_FILE} )
+    
     add_definitions(-DWITH_TRWS)
-  
     include_directories( ${DIR_TRWS} )
     FILE(GLOB trwsFiles
       ${DIR_TRWS}/minimize.cpp   ${DIR_TRWS}/MRFEnergy.h   ${DIR_TRWS}/treeProbabilities.cpp  ${DIR_TRWS}/instances.inc
