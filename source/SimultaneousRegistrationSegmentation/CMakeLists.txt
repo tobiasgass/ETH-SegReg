@@ -81,5 +81,5 @@ include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/MultiResolution/
   ${CMAKE_CURRENT_SOURCE_DIR}/Optimizers/
 ) 
-message(WARNING  ${CMAKE_CURRENT_SOURCE_DIR}/MultiResolution)
+
 

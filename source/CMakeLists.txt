@@ -31,22 +31,20 @@ endif()
 
 
 if( ${USE_TRWS} MATCHES "ON" )
-  set(DIR_TRWS "/home/gasst/Downloads/TRW_S-v1.3" CACHE  FILEPATH "Directory for TRWS") 
+  set(DIR_TRWS "/home/gasst/Downloads/TRW_S-v1.3/" CACHE  FILEPATH "Directory for TRWS") 
   if (NOT EXISTS ${DIR_TRWS}/MRFEnergy.h)
     message(SEND_ERROR "TRW-S directory not found or does not appear to contain the TRW-S library")
     set(DIR_TRWS "TRW-S DIR NOTFOUND" CACHE  FILEPATH "Directory for TRWS" FORCE) 
   else()
 
     #patch it!
-    SET( PATCH_BATCH_FILE patch_trws.sh )
-    FILE( WRITE ${PATCH_BATCH_FILE} "${PATCH_EXECUTABLE} -p0 -i 
-${LIB_DIR}.patch" )
-    EXECUTE_PROCESS( COMMAND cmake -E chdir ${PROJECT_SOURCE_DIR} 
-      ${PATCH_BATCH_FILE}
-      RESULT_VARIABLE RESULT_PATCH )
-    MESSAGE( STATUS "Patch result: ${RESULT_PATCH}, PROF SOURCE DIR: 
-${PROJECT_SOURCE_DIR}" )
-    FILE( REMOVE ${PATCH_BATCH_FILE} )
+    MESSAGE( STATUS "Patching TRWS")
+    EXECUTE_PROCESS( COMMAND cmake -E chdir ${DIR_TRWS} patch -r - -N -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/External/Patches/TRWS.patch  RESULT_VARIABLE RESULT_PATCH OUTPUT_QUIET)
+    MESSAGE( STATUS "Patch result: ${RESULT_PATCH}, PROF SOURCE DIR: ${DIR_TRWS}" )
+    if (  ${RESULT_PATCH} MATCHES "2")
+      MESSAGE(WARNING "Patching TRWS failed, see log for details, returned ${RESULT_PATCH}")
+    endif()
+    
     
     add_definitions(-DWITH_TRWS)
     include_directories( ${DIR_TRWS} )
