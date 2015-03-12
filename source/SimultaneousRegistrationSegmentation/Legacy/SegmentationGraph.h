@@ -13,12 +13,12 @@
 #include <assert.h>
 #include "itkConstNeighborhoodIterator.h"
 #include "itkImageRegionIterator.h"
-using namespace std;
+
 /*
  * Isotropic Graph
  * Returns current/next position in a grid based on size and resolution
  */
-namespace itk{
+namespace SRS{
     template<class TImage, 
              class TUnarySegmentationFunction,
              class TPairwiseSegmentationFunction,
@@ -26,8 +26,8 @@ namespace itk{
     class SegmentationGraphModel: public itk::Object{
     public:
         typedef SegmentationGraphModel Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         itkNewMacro(Self);
 
        

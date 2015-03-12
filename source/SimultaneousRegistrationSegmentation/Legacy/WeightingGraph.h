@@ -17,8 +17,8 @@
 #include "Graph-ITKStyle.h"
 #include <vnl/vnl_bignum.h>
 
-using namespace std;
-namespace itk{
+
+namespace SRS{
     template<class TImage, 
              class TUnaryRegistrationFunction, 
              class TPairwiseRegistrationFunction, 
@@ -37,8 +37,8 @@ namespace itk{
     {
     public:
         typedef WeightedGraphModel Self;
-        typedef SmartPointer<Self>        Pointer;
-        typedef SmartPointer<const Self>  ConstPointer;
+        typedef itk::SmartPointer<Self>        Pointer;
+        typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef GraphModel<TImage,
                            TUnaryRegistrationFunction,
                            TPairwiseRegistrationFunction,
