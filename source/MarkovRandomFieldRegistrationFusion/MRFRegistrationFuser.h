@@ -4,6 +4,7 @@
  * @date   Thu Mar 12 11:56:13 2015
  * 
  * @brief  This class implements the actual MRF fusion
+ *
  * It needs as inputs a set of (lowres) deformations, and additionally a set of images in the same resolution which contain the local weights (potentials)
  * TRWS(required) is used to combine the hypotheses
  */
@@ -18,8 +19,7 @@
 #include "TransformationUtils.h"
 #include "itkGaussianImage.h"
 
-//#ifndef WITH_TRWS
-#if 0
+#ifndef WITH_TRWS
 #error "TRWS required, but not found"
 #else
 #include "typeGeneral.h"
@@ -32,7 +32,12 @@
 #include "itkGaussianImage.h"
 
 namespace MRegFuse{
-
+  /**
+   * @brief  This class implements the actual MRF fusion
+   *
+   * It needs as inputs a set of (lowres) deformations, and additionally a set of images in the same resolution which contain the local weights (potentials)
+   * TRWS(required) is used to combine the hypotheses
+   */
   template<class ImageType,class FloatPrecision=float>
     class MRFRegistrationFuser : public GaussianEstimatorVectorImage<ImageType>{
 

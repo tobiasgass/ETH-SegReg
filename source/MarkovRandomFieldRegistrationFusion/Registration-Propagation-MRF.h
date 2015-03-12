@@ -42,6 +42,10 @@
 
 
 namespace MRegFuse{
+
+/**
+ * @brief  Registration propagation using MRF and optionally LWA fusion
+ */
 template <class ImageType>
 class RegistrationPropagationMRF{
 public:

@@ -43,6 +43,10 @@
 #include "itkHistogramMatchingImageFilter.h"
 
 namespace MRegFuse{
+
+  /**
+   * @brief  Registration fusion using MRF and optionally LWA fusion
+   */
   template <class ImageType>
     class RegistrationFusionMRF{
   public:

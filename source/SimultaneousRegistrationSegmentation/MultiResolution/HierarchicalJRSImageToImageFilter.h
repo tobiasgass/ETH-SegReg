@@ -1,10 +1,15 @@
-#include "Log.h"
-/*less
- * HierarchicalSRSImageToImageFilter.h
- *
- *  Created on: Apr 12, 2011
- *      Author: gasst
+/**
+ * @file   HierarchicalJRSImageToImageFilter.h
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 13:16:00 2015
+ * 
+ * @brief  Alternating/Joint Registration and Segmentation Method (ARS/JRS, same thing)
+ * 
+ * 
  */
+
+#include "Log.h"
+
 
 #ifndef HIERARCHICALSRSIMAGETOIMAGEFILTER_H_
 #define HIERARCHICALSRSIMAGETOIMAGEFILTER_H_
@@ -577,7 +582,6 @@ namespace SRS{
                                                          m_config.verbose);
 #else
             typedef  GC_MRFSolver<SegGraphType> MRFSolverType;
-            //typedef NewFastPDMRFSolver<SegGraphType> MRFSolverType;
             MRFSolverType * mrfSolver= new MRFSolverType(&graph,
                                                          m_config.rfWeight,
                                                          m_config.pairwiseSegmentationWeight, 
