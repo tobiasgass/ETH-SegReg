@@ -1,3 +1,14 @@
+/**
+ * @file   SegmentationPropagation-3D.cxx
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 14:30:35 2015
+ * 
+ * @brief  2D semi-supervised segmentation propagation
+ * 
+ * 
+ */
+
+
 #include <stdio.h>
 #include <iostream>
 //#include "Segmentation-Propagation.h"
@@ -6,7 +17,7 @@
 
 
 
-using namespace std;
+using namespace SSSP;
 
 
 

@@ -1,10 +1,19 @@
+/**
+ * @file   SegmentationNetwork.h
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 14:56:36 2015
+ * 
+ * @brief  
+ * 
+ * 
+ */
 
 #pragma once
 
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -12,17 +21,27 @@
 #include "TransformationUtils.h"
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
-#include "bgraph.h"
+
+#ifndef WITH_GC
+#error "GC library required"
+#else
+#include "graph.h"
+#endif
+
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "itkConstNeighborhoodIterator.h"
 #include "itkLabelOverlapMeasuresImageFilter.h"
 
-using namespace std;
+namespace SSSP{
 
+  /**
+   * \brief method which solves for segmentation labels in multiple images by constructing a graph based on pairwise registrations
+   * 
+   */
 template <class ImageType>
 class SegmentationNetwork{
 public:
@@ -189,7 +208,7 @@ public:
     {
         feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
-        argstream * as=new argstream(argc,argv);
+        ArgumentParser * as=new ArgumentParser(argc,argv);
         string groundTruthList="",atlasSegmentationFilename,deformationFileList,imageFileList,atlasID="",supportSamplesListFileName="",outputDir=".",outputSuffix="";
         int verbose=0;
         int nImages=-1;
@@ -204,29 +223,29 @@ public:
         bool evalAtlas=false;
         int nRandomSupportSamples=0;
         double confidenceThreshold=2.0;
-        (*as) >> parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
-        (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-        (*as) >> parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
-        (*as) >> parameter ("gt", groundTruthList, " list of  ground-truth segmentations", false);
-        (*as) >> parameter ("N", nImages,"number of target images", false);
-        (*as) >> parameter ("a", atlasID,"atlas ID. if not set, first image in imageFileList is assumed to be the atlas",false);
-        (*as) >> parameter ("w", pWeight,"inter-image pairwise potential weight",false);
-        (*as) >> parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight",false);
-        (*as) >> parameter ("s", sigma,"sigma",false);
-        (*as) >> parameter ("conf", confidenceThreshold,"confidence threshold (0..1]. Only pixels with a 1hop confidence <ct are included in the MRF optimization. Will speedup things, but likely loose accuracy.",false);
-        (*as) >> parameter ("O", outputDir,"outputdirectory",false);
-        (*as) >> option ("NCC", NCC," use NCC as weighting function");
-        (*as) >> option ("SSD", SSD," use SSD as weighing function");
-        (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
-        (*as) >> parameter ("thresh", edgeThreshold,"threshold for edge pruning (0=off)",false);
-        (*as) >> parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges (0 to disable)",false);
-        (*as) >> option ("evalAtlas", evalAtlas,"also segment the atlas within the network");
+        as->parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", true);
+        as->parameter ("T", deformationFileList, " list of deformations", true);
+        as->parameter ("i", imageFileList, " list of  images, first image is assumed to be atlas image", true);
+        as->parameter ("gt", groundTruthList, " list of  ground-truth segmentations", false);
+        as->parameter ("N", nImages,"number of target images", false);
+        as->parameter ("a", atlasID,"atlas ID. if not set, first image in imageFileList is assumed to be the atlas",false);
+        as->parameter ("w", pWeight,"inter-image pairwise potential weight",false);
+        as->parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight",false);
+        as->parameter ("s", sigma,"sigma",false);
+        as->parameter ("conf", confidenceThreshold,"confidence threshold (0..1]. Only pixels with a 1hop confidence <ct are included in the MRF optimization. Will speedup things, but likely loose accuracy.",false);
+        as->parameter ("O", outputDir,"outputdirectory",false);
+        as->option ("NCC", NCC," use NCC as weighting function");
+        as->option ("SSD", SSD," use SSD as weighing function");
+        as->parameter ("radius", radius,"patch radius for NCC",false);
+        as->parameter ("thresh", edgeThreshold,"threshold for edge pruning (0=off)",false);
+        as->parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges (0 to disable)",false);
+        as->option ("evalAtlas", evalAtlas,"also segment the atlas within the network");
 
-        (*as) >> parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
-        (*as) >> parameter ("nRandomSupportSamples",nRandomSupportSamples,"draw random target images as support samples.",false);
-        (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-        (*as) >> help();
-        as->defaultErrorHandling();
+        as->parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
+        as->parameter ("nRandomSupportSamples",nRandomSupportSamples,"draw random target images as support samples.",false);
+        as->parameter ("verbose", verbose,"get verbose output",false);
+        as->help();
+        as->parse();
         string suffix;
         if (D==2)
             suffix=".png";
@@ -383,7 +402,8 @@ public:
 
         unsigned int nNodes=totalNumberOfPixels;
  
-        typedef BGraph<float,float,float> MRFType;
+	//construct MRF
+	typedef Graph<float,float,double> MRFType;
         typedef MRFType::node_id NodeType;
         MRFType* optimizer;
     
@@ -706,3 +726,4 @@ public:
         return 1;
     }
 };//class
+}//namespace

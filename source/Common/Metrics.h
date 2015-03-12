@@ -1,3 +1,13 @@
+/**
+ * @file   Metrics.h
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 14:26:25 2015
+ * 
+ * @brief  Collection of image comparison metrics as static functions
+ * 
+ * 
+ */
+
 #pragma once
 
 
@@ -235,7 +245,7 @@ public:
         filter->SetInput(i1Cast);
         filter->Update();
         return (filter->GetOutput()); 
-#elif 0
+#elif 1
         typedef typename itk::BoxMeanImageFilter< InternalImage, InternalImage > FilterType;
         typename FilterType::Pointer filter=FilterType::New();
         typename FilterType::RadiusType r;

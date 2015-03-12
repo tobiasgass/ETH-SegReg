@@ -1,3 +1,13 @@
+/**
+ * @file   SegmentationFusion-2D.cxx
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 14:24:07 2015
+ * 
+ * @brief  Simple wrapper for segmentation fusion.
+ * 
+ * 
+ */
+
 #include <stdio.h>
 #include <iostream>
 
@@ -5,7 +15,7 @@
 
 
 
-using namespace std;
+using namespace SSSP;
 
 
 

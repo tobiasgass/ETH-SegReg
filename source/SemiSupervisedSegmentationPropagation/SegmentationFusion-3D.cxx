@@ -1,3 +1,13 @@
+/**
+ * @file   SegmentationFusion-3D.cxx
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 14:29:39 2015
+ * 
+ * @brief  3D Modular Segmentation Fusion
+ * 
+ * 
+ */
+
 #include <stdio.h>
 #include <iostream>
 
@@ -5,7 +15,8 @@
 
 
 
-using namespace std;
+
+using namespace SSSP;
 
 
 

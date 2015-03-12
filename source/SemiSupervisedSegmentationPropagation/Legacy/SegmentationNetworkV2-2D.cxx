@@ -38,7 +38,7 @@ typedef itk::ConstNeighborhoodIterator<ImageType> ImageNeighborhoodIteratorType;
 typedef ImageNeighborhoodIteratorType * ImageNeighborhoodIteratorPointerType;
 typedef ImageNeighborhoodIteratorType::RadiusType RadiusType;
 
-using namespace std;
+
 
 struct ImageInformation{
     ImagePointerType img;

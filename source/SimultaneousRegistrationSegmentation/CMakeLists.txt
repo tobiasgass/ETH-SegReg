@@ -1,44 +1,4 @@
-include(${ITK_USE_FILE})
-
-option( USE_GCO "Use GCO optimizer" OFF )
-
-if( ${USE_GCO} MATCHES "ON" )
-  add_definitions(-DWITH_GCO -DGCO_ENERGYTYPE=double -DGCO_ENERGYTERMTYPE=float)
-  set(DIR_GCO "${SRS-MRF_SOURCE_DIR}/External/GCO" CACHE  FILEPATH "Directory for GCO")
-  if (NOT EXISTS ${DIR_GCO}/GCoptimization.h)
-    message(SEND_ERROR "GCO directory not found or does not appear to contain the GCO library")
-    set(DIR_GCO "maxflow DIR NOTFOUND" CACHE  FILEPATH "Directory for GCO" FORCE) 
-  else()
-
-    include_directories( ${DIR_GCO} )
-    FILE(GLOB gcoFiles 
-      ${DIR_GCO}/block.h   ${DIR_GCO}/energy.h   ${DIR_GCO}/GCoptimization.cpp   ${DIR_GCO}/GCoptimization.h  ${DIR_GCO}/graph.cpp   ${DIR_GCO}/graph.h   ${DIR_GCO}/LinkedBlockList.cpp   ${DIR_GCO}/LinkedBlockList.h     ${DIR_GCO}/maxflow.cpp )
-    ADD_LIBRARY(GCO
-      ${gcoFiles}
-      ) 
-    endif()
-
-endif()
-
-option( USE_GC "Use GC optimizer" OFF )
-if( ${USE_GC} MATCHES "ON" )
-  set(DIR_GC "${SRS-MRF_SOURCE_DIR}/External/maxFlow" CACHE  FILEPATH "Directory for GC") 
-  if (NOT EXISTS ${DIR_GC}/maxflow.cpp)
-    message(SEND_ERROR "maxflow directory not found or does not appear to contain the maxflow library")
-    set(DIR_GC "maxflow DIR NOTFOUND" CACHE  FILEPATH "Directory for GC" FORCE) 
-  else()
-    add_definitions(-DWITH_GC )
-    include_directories( ${DIR_GC} )
-    
-    FILE(GLOB gcFiles ${DIR_GC}/block.h   ${DIR_GC}/energy.h   ${DIR_GC}/graph.cpp   ${DIR_GC}/graph.h   ${DIR_GC}/LinkedBlockList.cpp   ${DIR_GC}/LinkedBlockList.h   ${DIR_GC}/maxflow.cpp )
-
-    
-    ADD_LIBRARY(GC
-      ${gcFiles}
-      ) 
-  endif()
-
-endif()
+PROJECT(SimultaneousRegistrationAndSegmentation)
 
 
 option( USE_OPENGM "Use OPENGM optimizer" ON )

@@ -1,9 +1,22 @@
+/**
+ * @file   Segmentation-Propagation-efficient1Hop.h
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 14:31:22 2015
+ * 
+ * @brief  SSSP as described in the paper. 1hop is efficient
+ * 
+ * 
+ */
 #pragma once
 
 #include <stdio.h>
 #include <iostream>
+
+#ifdef WITH_GCO
 #include "GCoptimization.h"
-#include "argstream.h"
+#endif
+
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -11,9 +24,8 @@
 #include "TransformationUtils.h"
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
-#include "bgraph.h"
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -27,8 +39,12 @@
 #include <itkLabelOverlapMeasuresImageFilter.h>
 #include "Metrics.h"
 #include "SegmentationMapper.hxx"
-using namespace std;
 
+namespace SSSP{
+  /**
+   * \brief  SSSP as described in the paper. 1hop is efficient.
+   * 
+   */
 template <class ImageType, int nSegmentationLabels>
 class SegmentationPropagationModular{
 public:
@@ -70,7 +86,7 @@ protected:
 public:
     int run(int argc, char ** argv){
         feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-        argstream * as=new argstream(argc,argv);
+        ArgumentParser * as=new ArgumentParser(argc,argv);
         string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="", imageFileListAtlas="";
         int verbose=0;
         double pWeight=1.0;
@@ -90,31 +106,31 @@ public:
         bool AREG= false;
         string singleTarget="";
         m_sigma=30;
-        (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
-        (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-        (*as) >> parameter ("i", imageFileList, " list of target images", true);
-        (*as) >> parameter ("iAtlas", imageFileListAtlas, " list of atlas images (if not set, target image filelist is assumed to contain both atlas and target images)", false);
-        (*as) >> parameter ("W", weightListFilename,"list of weights for deformations",false);
-        (*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
-        (*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
-        (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
-        (*as) >> parameter ("sigmaGC", m_graphCutSigma,"sigma for exp(- contrast/sigma) for graphcut smoothness",false);
-        (*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
-        (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-        (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
-        (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-        (*as) >> parameter ("useNAtlases", useNAtlases,"use the first N atlases from the list",false);
-        (*as) >> parameter ("useNTargets", useNTargets,"use the first N targets as intermediate images",false);
-        (*as) >> parameter ("globalOneHopWeight", globalOneHopWeight,"global weight for one hop segmentations (vs. zero hop)",false);
-        (*as) >> parameter ("singleTarget", singleTarget,"only compute propagated segmentations for a specific target (maxhops = 1)",false);
-        (*as) >> option ("AREG", AREG,"use AREG to select intermediate targets");
-        (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
-        (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
-        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
-        (*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-        (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-        (*as) >> help();
-        as->defaultErrorHandling();
+        as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+        as->parameter ("T", deformationFileList, " list of deformations", true);
+        as->parameter ("i", imageFileList, " list of target images", true);
+        as->parameter ("iAtlas", imageFileListAtlas, " list of atlas images (if not set, target image filelist is assumed to contain both atlas and target images)", false);
+        as->parameter ("W", weightListFilename,"list of weights for deformations",false);
+        as->parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
+        as->parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
+        as->parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+        as->parameter ("sigmaGC", m_graphCutSigma,"sigma for exp(- contrast/sigma) for graphcut smoothness",false);
+        as->parameter ("radius", radius,"patch radius for local metrics",false);
+        as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
+        as->parameter ("radius", radius,"patch radius for NCC",false);
+        as->parameter ("maxHops", maxHops,"maximum number of hops",false);
+        as->parameter ("useNAtlases", useNAtlases,"use the first N atlases from the list",false);
+        as->parameter ("useNTargets", useNTargets,"use the first N targets as intermediate images",false);
+        as->parameter ("globalOneHopWeight", globalOneHopWeight,"global weight for one hop segmentations (vs. zero hop)",false);
+        as->parameter ("singleTarget", singleTarget,"only compute propagated segmentations for a specific target (maxhops = 1)",false);
+        as->option ("AREG", AREG,"use AREG to select intermediate targets");
+        as->option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
+        as->option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
+        as->option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
+        as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
+        as->parameter ("verbose", verbose,"get verbose output",false);
+        as->help();
+        as->parse();
         string suffix;
         if (D==2)
             suffix=".png";
@@ -589,13 +605,15 @@ protected:
     }
 
     ImagePointerType probSegmentationToSegmentationGraphcut( ProbabilisticVectorImagePointerType img, double smooth){
+
         ImagePointerType result=ImageType::New();
         result->SetOrigin(img->GetOrigin());
         result->SetSpacing(img->GetSpacing());
         result->SetDirection(img->GetDirection());
         result->SetRegions(img->GetLargestPossibleRegion());
         result->Allocate();
-        typedef BGraph<float,float,float> MRFType;
+#ifdef WITH_GCO
+        typedef Graph<float,float,double> MRFType;
         typedef MRFType::node_id NodeType;
         MRFType* optimizer;
         SizeType size=img->GetLargestPossibleRegion().GetSize();
@@ -644,6 +662,9 @@ protected:
                 imgIt.Set(maxLabel);
             }
         }
+#else
+	LOG<<"GCO not available, result will be empty (and broken)."<<endl;
+#endif
         return result;
     }
     ProbabilisticVectorImagePointerType normalizeProbs(ProbabilisticVectorImagePointerType img){
@@ -1075,3 +1096,4 @@ protected:
         return filter->GetDiceCoefficient(1);
     }
 };//class
+}//namespace

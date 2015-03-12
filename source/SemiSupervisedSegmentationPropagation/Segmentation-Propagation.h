@@ -1,10 +1,19 @@
+/**
+ * @file   Segmentation-Propagation.h
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 14:31:25 2015
+ * 
+ * @brief  deprecated SSSP method
+ * 
+ * 
+ */
 
 #pragma once
 
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -12,16 +21,21 @@
 #include "TransformationUtils.h"
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
-#include "bgraph.h"
+
 #include <sstream>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "itkConstNeighborhoodIterator.h"
 
-using namespace std;
 
+namespace SSSP{
+
+  /**
+   * @brief  deprecated SSSP method
+   * 
+   */
 template <class ImageType>
 class SegmentationPropagation{
 public:
@@ -172,7 +186,7 @@ public:
     
 
   
-        argstream * as=new argstream(argc,argv);
+        ArgumentParser * as=new ArgumentParser(argc,argv);
         string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="";
         int verbose=0;
         int nImages=-1;
@@ -188,28 +202,28 @@ public:
         int nRandomSupportSamples=0;        
         int maxHops=10;
         int nSegmentationLabels=2;
-        (*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
-        (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-        (*as) >> parameter ("i", imageFileList, " list of  images", true);
-        (*as) >> parameter ("N", nImages,"number of target images", false);
-        (*as) >> parameter ("w", pWeight,"inter-image pairwise potential weight",false);
-        (*as) >> parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight",false);
-        (*as) >> parameter ("s", sigma,"sigma",false);
-        (*as) >> parameter ("O", outputDir,"outputdirectory",false);
-        (*as) >> option ("NCC", NCC," use NCC as weighting function");
-        (*as) >> option ("SSD", SSD," use SSD as weighing function");
-        (*as) >> parameter ("radius", radius,"patch radius for NCC",false);
-        (*as) >> parameter ("thresh", edgeThreshold,"threshold for edge pruning (0=off)",false);
-        (*as) >> parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges (0 to disable)",false);
-        (*as) >> option ("evalAtlas", evalAtlas,"also segment the atlas within the network");
-        (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-        (*as) >> parameter ("nSegmentationLabels", nSegmentationLabels,"number of segmentation labels",false);
+        as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+        as->parameter ("T", deformationFileList, " list of deformations", true);
+        as->parameter ("i", imageFileList, " list of  images", true);
+        as->parameter ("N", nImages,"number of target images", false);
+        as->parameter ("w", pWeight,"inter-image pairwise potential weight",false);
+        as->parameter ("sp", segPairwiseWeight,"intra-image pairwise potential weight",false);
+        as->parameter ("s", sigma,"sigma",false);
+        as->parameter ("O", outputDir,"outputdirectory",false);
+        as->option ("NCC", NCC," use NCC as weighting function");
+        as->option ("SSD", SSD," use SSD as weighing function");
+        as->parameter ("radius", radius,"patch radius for NCC",false);
+        as->parameter ("thresh", edgeThreshold,"threshold for edge pruning (0=off)",false);
+        as->parameter ("edgeCountPenaltyWeight", edgeCountPenaltyWeight,"penalize foreground label of pixels having less outgoing edges (0 to disable)",false);
+        as->option ("evalAtlas", evalAtlas,"also segment the atlas within the network");
+        as->parameter ("maxHops", maxHops,"maximum number of hops",false);
+        as->parameter ("nSegmentationLabels", nSegmentationLabels,"number of segmentation labels",false);
 
-        (*as) >> parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
-        (*as) >> parameter ("nRandomSupportSamples",nRandomSupportSamples,"draw random target images as support samples.",false);
-        (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-        (*as) >> help();
-        as->defaultErrorHandling();
+        as->parameter ("supportSamples",supportSamplesListFileName,"filename with a list of support sample IDs. if not set, all images will be used.",false);
+        as->parameter ("nRandomSupportSamples",nRandomSupportSamples,"draw random target images as support samples.",false);
+        as->parameter ("verbose", verbose,"get verbose output",false);
+        as->help();
+        as->parse();
         string suffix;
         if (D==2)
             suffix=".png";
@@ -584,3 +598,5 @@ public:
         return 1;
     }//run
 };//class
+
+}//namespace

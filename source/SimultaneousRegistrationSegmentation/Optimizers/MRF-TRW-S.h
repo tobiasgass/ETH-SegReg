@@ -15,11 +15,8 @@
 //#include "minimize.cpp"
 //#include "treeProbabilities.cpp"
 #include <vector>
-#include <google/heap-profiler.h>
-//#include "ordering.cpp"
 #include <limits.h>
 
-using namespace TRWS;
 
 namespace SRS{
 /** \brief
