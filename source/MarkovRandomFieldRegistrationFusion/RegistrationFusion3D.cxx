@@ -1,3 +1,13 @@
+/**
+ * @file   RegistrationFusion3D.cxx
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 11:25:56 2015
+ * 
+ * @brief  Call to registration fusion, which typically combines n registration hypotheses between two images to generate a new one
+ * 
+ * 
+ */
+
 #include <stdio.h>
 #include <iostream>
 //#include "Registration-Propagation-Modular.h"
@@ -11,7 +21,7 @@
 
 //using namespace std;
 
-
+using namespace MRegFuse;
 
 int main(int argc, char ** argv)
 {

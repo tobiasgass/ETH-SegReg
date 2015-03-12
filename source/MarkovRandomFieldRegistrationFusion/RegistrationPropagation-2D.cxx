@@ -1,3 +1,13 @@
+/**
+ * @file   RegistrationPropagation-2D.cxx
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 11:22:56 2015
+ * 
+ * @brief  Example call to one of the RegistrationPropagation classes
+ * Registration propagation will update a set of n*(n-1) pairwise registrations between n images. Some functionality exists to update only subsets of such sets.
+ * 
+ */
+
 #include <stdio.h>
 #include <iostream>
 //#include "Registration-Propagation-Modular.h"
@@ -11,7 +21,7 @@
 
 //using namespace std;
 
-
+using namespace MRegFuse;
 
 int main(int argc, char ** argv)
 {
