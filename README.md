@@ -30,6 +30,8 @@ The build uses cmake. It is advisable to create a build directory and run CMake 
     > mkdir build
     > cd build
     > ccmake ../
+    > make
+    > make doc (optional)
 
 In the GUI of ccmake you can then chose which sub-projects to build, eg BUILD_SRS = ON. 
 

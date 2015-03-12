@@ -1,8 +1,6 @@
 PROJECT(SemiSupervisedSegmentationPropagatiob)
 
 
-include_directories (${SRS-MRF_SOURCE_DIR}/Common) 
-
 
 
 #########################
