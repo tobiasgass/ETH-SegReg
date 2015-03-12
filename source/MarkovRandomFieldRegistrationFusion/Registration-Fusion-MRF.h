@@ -110,44 +110,43 @@ namespace MRegFuse{
       int nKernels=20;
       double smoothIncrease=1.2;
       bool useMaskForSSR=false;
-      //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
-      (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
-      (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
-      (*as) >> parameter ("T", inputDeformationFilenames, "list of deformations (comma separated)", true);
-      (*as) >> parameter ("t", targetFileName, " target image filename", true);
-      (*as) >> parameter ("s", sourceFileName, " source image filename", true);
-      (*as) >> parameter ("true", trueDefFilename, "  TRUE deformation filename", false);
-      (*as) >> parameter ("o", outputFilename , "output filename prefix ", false);
+      //as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+      as->option ("MRF", estimateMRF, "use MRF fusion");
+      as->option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
+      as->parameter ("T", inputDeformationFilenames, "list of deformations (comma separated)", true);
+      as->parameter ("t", targetFileName, " target image filename", true);
+      as->parameter ("s", sourceFileName, " source image filename", true);
+      as->parameter ("true", trueDefFilename, "  TRUE deformation filename", false);
+      as->parameter ("o", outputFilename , "output filename prefix ", false);
 
-      (*as) >> parameter ("st",targetSegmentationFilename , "target segmentation filename", false);
-      (*as) >> parameter ("ss",sourceSegmentationFilename , "source segmentation filename", false);
-      (*as) >> parameter ("lt",targetLandmarkFilename , " target landmark filename", false);       
-      (*as) >> parameter ("ls",sourceLandmarkFilename , " source landmark filename", false);       
+      as->parameter ("st",targetSegmentationFilename , "target segmentation filename", false);
+      as->parameter ("ss",sourceSegmentationFilename , "source segmentation filename", false);
+      as->parameter ("lt",targetLandmarkFilename , " target landmark filename", false);       
+      as->parameter ("ls",sourceLandmarkFilename , " source landmark filename", false);       
 
-      //(*as) >> parameter ("W", weightListFilename,"list of weights for deformations",false);
-      (*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
-      (*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
-      (*as) >> parameter ("g", m_gamma,"gamma for exp(- metric/gamma)",false);
-      (*as) >> parameter ("w", m_pairwiseWeight,"pairwise weight for MRF",false);
-      (*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
-      (*as) >> parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
-      (*as) >> option ("hardConstraints", useHardConstraints,"Use hard constraints in the MRF to prevent folding.");
-      (*as) >> parameter ("refineIter", refineIter,"refine MRF solution by adding the result as new labels to the MRF and re-solving until convergence.",false);
-      (*as) >> parameter ("refineSeamIter", refineSeamIter,"refine MRF solution at seams by smoothing the result and fusing it with the original solution.",false);
-      (*as) >> parameter ("smoothIncrease", smoothIncrease,"factor to increase smoothing with per iteration for SSR.",false);
-      (*as) >> option ("useMask", useMaskForSSR,"only update pixels with negative jac dets (or in the vincinity of those) when using SSR.");
-      (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-      (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-      (*as) >> parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
-      (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
-      (*as) >> option ("histNorm", histNorm,"Match source histogram to target histogram!");
-      (*as) >> option ("anisoSmooth", anisoSmoothing,"Anisotropically penalize unsmooth deformations, using statistics from the input");
+      //as->parameter ("W", weightListFilename,"list of weights for deformations",false);
+      as->parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
+      as->parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
+      as->parameter ("g", m_gamma,"gamma for exp(- metric/gamma)",false);
+      as->parameter ("w", m_pairwiseWeight,"pairwise weight for MRF",false);
+      as->parameter ("radius", radius,"patch radius for local metrics",false);
+      as->parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
+      as->option ("hardConstraints", useHardConstraints,"Use hard constraints in the MRF to prevent folding.");
+      as->parameter ("refineIter", refineIter,"refine MRF solution by adding the result as new labels to the MRF and re-solving until convergence.",false);
+      as->parameter ("refineSeamIter", refineSeamIter,"refine MRF solution at seams by smoothing the result and fusing it with the original solution.",false);
+      as->parameter ("smoothIncrease", smoothIncrease,"factor to increase smoothing with per iteration for SSR.",false);
+      as->option ("useMask", useMaskForSSR,"only update pixels with negative jac dets (or in the vincinity of those) when using SSR.");
+      as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
+      as->parameter ("maxHops", maxHops,"maximum number of hops",false);
+      as->parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
+      as->option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
+      as->option ("histNorm", histNorm,"Match source histogram to target histogram!");
+      as->option ("anisoSmooth", anisoSmoothing,"Anisotropically penalize unsmooth deformations, using statistics from the input");
       
-      //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
-      //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-      (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-      (*as) >> help();
-      as->defaultErrorHandling();
+      //        as->option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
+      //as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
+      as->parameter ("verbose", verbose,"get verbose output",false);
+      as->help();
        
 
       if (!estimateMRF && !estimateMean){

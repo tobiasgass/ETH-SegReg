@@ -1,3 +1,12 @@
+/**
+ * @file   Registration-Propagation-MRF.h
+ * @author Tobias Gass <tobiasgass@gmail.com>
+ * @date   Thu Mar 12 12:26:30 2015
+ * 
+ * @brief  Registration propagation using MRF and optionally LWA fusion
+ * 
+ * 
+ */
 
 #pragma once
 
@@ -31,8 +40,8 @@
 #include <itkDisplacementFieldJacobianDeterminantFilter.h>
 #include "SegmentationMapper.hxx"
 
-using namespace std;
 
+namespace MRegFuse{
 template <class ImageType>
 class RegistrationPropagationMRF{
 public:
@@ -99,40 +108,40 @@ public:
         int refineSeamIter=0;
         double smoothIncrease=1.2;
         bool useMaskForSSR=false;
-        //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
-        (*as) >> option ("MRF", estimateMRF, "use MRF fusion");
-        (*as) >> option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
-        (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-        (*as) >> parameter ("i", imageFileList, " list of  images", true);
-        (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
-        //(*as) >> parameter ("W", weightListFilename,"list of weights for deformations",false);
-        (*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
-        (*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
-        (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
-        (*as) >> parameter ("w", m_pairwiseWeight,"pairwise weight for MRF",false);
-        (*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
-        (*as) >> parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
-        (*as) >> option ("hardConstraints", useHardConstraints,"Use hard constraints in the MRF to prevent folding.");
-        (*as) >> parameter ("refineIter", refineIter,"refine MRF solution by adding the result as new labels to the MRF and re-solving until convergence.",false);
-        (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-        (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-        (*as) >> parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
-        //  (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
-        (*as) >> parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file>", false);
-        (*as) >> parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);       
-        (*as) >> parameter ("source",source , "source ID, will only compute updated registrations for <source>", false);       
-        (*as) >> parameter ("target",target , "target ID, will only compute updated registrations for <source>", false);       
-        (*as) >> option ("noCaching", dontCacheDeformations, "do not cache Deformations. will yield a higher IO load as some deformations need to be read multiple times.");
-        (*as) >> option ("runEndless", runEndless, "do not check for convergence.");
-        (*as) >> option ("indivCompare", indivCompare, "individually compare pre- and post registration similarity, and only update if sim has improved or stayed the same.");
-        (*as) >> parameter ("refineSeamIter", refineSeamIter,"refine MRF solution at seams by smoothing the result and fusing it with the original solution.",false);
-        (*as) >> parameter ("smoothIncrease", smoothIncrease,"factor to increase smoothing with per iteration for SSR.",false);
-        (*as) >> option ("useMask", useMaskForSSR,"only update pixels with negative jac dets (or in the vincinity of those) when using SSR.");
-        //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
-        //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-        (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-        (*as) >> help();
-        as->defaultErrorHandling();
+        //as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+        as->option ("MRF", estimateMRF, "use MRF fusion");
+        as->option ("mean", estimateMean, "use (local) mean fusion. Can be used in addition to MRF or stand-alone.");
+        as->parameter ("T", deformationFileList, " list of deformations", true);
+        as->parameter ("i", imageFileList, " list of  images", true);
+        as->parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
+        //as->parameter ("W", weightListFilename,"list of weights for deformations",false);
+        as->parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
+        as->parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
+        as->parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+        as->parameter ("w", m_pairwiseWeight,"pairwise weight for MRF",false);
+        as->parameter ("radius", radius,"patch radius for local metrics",false);
+        as->parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
+        as->option ("hardConstraints", useHardConstraints,"Use hard constraints in the MRF to prevent folding.");
+        as->parameter ("refineIter", refineIter,"refine MRF solution by adding the result as new labels to the MRF and re-solving until convergence.",false);
+        as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
+        as->parameter ("maxHops", maxHops,"maximum number of hops",false);
+        as->parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
+        //  as->option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
+        as->parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file>", false);
+        as->parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);       
+        as->parameter ("source",source , "source ID, will only compute updated registrations for <source>", false);       
+        as->parameter ("target",target , "target ID, will only compute updated registrations for <source>", false);       
+        as->option ("noCaching", dontCacheDeformations, "do not cache Deformations. will yield a higher IO load as some deformations need to be read multiple times.");
+        as->option ("runEndless", runEndless, "do not check for convergence.");
+        as->option ("indivCompare", indivCompare, "individually compare pre- and post registration similarity, and only update if sim has improved or stayed the same.");
+        as->parameter ("refineSeamIter", refineSeamIter,"refine MRF solution at seams by smoothing the result and fusing it with the original solution.",false);
+        as->parameter ("smoothIncrease", smoothIncrease,"factor to increase smoothing with per iteration for SSR.",false);
+        as->option ("useMask", useMaskForSSR,"only update pixels with negative jac dets (or in the vincinity of those) when using SSR.");
+        //        as->option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
+        //as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
+        as->parameter ("verbose", verbose,"get verbose output",false);
+        as->help();
+        as->parse();
        
         if (!estimateMRF && !estimateMean){
             LOG<<"Neither MRF nor mean estimation activated, will compute metrics for original deformations and exit"<<endl;
@@ -822,3 +831,5 @@ protected:
     }
    
 };//class
+
+}//namespace

@@ -100,27 +100,27 @@ public:
         double alpha=0.5;
         m_sigma=30;
         bool gaussianReweight=false;
-        //(*as) >> parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
-        (*as) >> parameter ("T", deformationFileList, " list of deformations", true);
-        (*as) >> parameter ("i", imageFileList, " list of  images", true);
-        (*as) >> parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
-        //(*as) >> parameter ("W", weightListFilename,"list of weights for deformations",false);
-        //(*as) >> parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
-        //(*as) >> parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
-        (*as) >> parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
-        //(*as) >> parameter ("radius", radius,"patch radius for local metrics",false);
-        (*as) >> parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
-        //(*as) >> parameter ("radius", radius,"patch radius for NCC",false);
-        (*as) >> parameter ("maxHops", maxHops,"maximum number of hops",false);
-        (*as) >> parameter ("alpha", alpha,"update rate",false);
-        (*as) >> option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
-        (*as) >> option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
-        (*as) >> option ("gaussianReweight", gaussianReweight,"Use reweighted mean for reconstruction");
-        //        (*as) >> option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
-        //(*as) >> parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
-        (*as) >> parameter ("verbose", verbose,"get verbose output",false);
-        (*as) >> help();
-        as->defaultErrorHandling();
+        //as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
+        as->parameter ("T", deformationFileList, " list of deformations", true);
+        as->parameter ("i", imageFileList, " list of  images", true);
+        as->parameter ("true", trueDefListFilename, " list of TRUE deformations", false);
+        //as->parameter ("W", weightListFilename,"list of weights for deformations",false);
+        //as->parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
+        //as->parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
+        as->parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+        //as->parameter ("radius", radius,"patch radius for local metrics",false);
+        as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
+        //as->parameter ("radius", radius,"patch radius for NCC",false);
+        as->parameter ("maxHops", maxHops,"maximum number of hops",false);
+        as->parameter ("alpha", alpha,"update rate",false);
+        as->option ("lateFusion", lateFusion,"fuse segmentations late. maxHops=1");
+        as->option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
+        as->option ("gaussianReweight", gaussianReweight,"Use reweighted mean for reconstruction");
+        //        as->option ("graphCut", graphCut,"use graph cuts to generate final segmentations instead of locally maximizing");
+        //as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
+        as->parameter ("verbose", verbose,"get verbose output",false);
+        as->help();
+        as->parse();
        
 
         //late fusion is only well defined for maximal 1 hop.
