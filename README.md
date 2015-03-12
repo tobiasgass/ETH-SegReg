@@ -31,7 +31,7 @@ The build uses cmake. It is advisable to create a build directory and run CMake 
     > cd build
     > ccmake ../
     > make
-    > make doc (optional)
+    > make doc #optional
 
 In the GUI of ccmake you can then chose which sub-projects to build, eg BUILD_SRS = ON. 
 
@@ -63,7 +63,7 @@ current wrapper utilizes BOOST, so make sure to install opengm with their boost 
 Note that openGM comes with a wide variety of discrete optimizers and wrappers, but may be less efficient than using the direct wrappers provided by SRS directly (TRW-S, GCO)
 
 * TRW-S can be downloaded here: http://research.microsoft.com/en-us/downloads/dad6c31e-2c04-471f-b724-ded18bf70fe3/
-A patch can(will: todo) be applied automatically during the build process. This will disable all energyTypes except typeGeneral from the downloaded library because the extended functionality was not implemented for those.
+A patch will be applied automatically during the build process. This will disable all energyTypes except typeGeneral from the downloaded library because the extended functionality was not implemented for those.
 
 * GCO can be downloaded here: http://vision.csd.uwo.ca/code/
 The same directory can also be used as root for the binary graph-cut (GC) optimizer.
