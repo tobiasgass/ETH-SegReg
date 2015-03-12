@@ -147,7 +147,7 @@ namespace MRegFuse{
       //as->parameter ("smoothness", smoothness,"smoothness parameter of graph cut optimizer",false);
       as->parameter ("verbose", verbose,"get verbose output",false);
       as->help();
-       
+      as->parse(); 
 
       if (!estimateMRF && !estimateMean){
 	LOG<<"Neither MRF nor mean estimation activated, will compute metrics for original deformations and exit"<<endl;
