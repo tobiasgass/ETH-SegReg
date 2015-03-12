@@ -18,10 +18,20 @@
 #include <sstream>
 #include "itkHistogramMatchingImageFilter.h"
 #include "Graph.h"
-#include "SegmentationGraph.h"
 #include "BaseLabel.h"
+
+#ifdef WITH_TRWS
 #include "MRF-TRW-S.h"
+#endif
+#ifdef WITH_GCO
+#include "MRF-GCO.h"
+#endif
+#ifdef WITH_OPENGM
+#include "MRF-opengm.h"
+#endif
+#ifdef WITH_GC
 #include "MRF-GC.h"
+#endif
 #include <itkNearestNeighborInterpolateImageFunction.h>
 #include <itkLinearInterpolateImageFunction.h>
 #include <itkVectorResampleImageFilter.h>
@@ -57,8 +67,9 @@
 #include "ChamferDistanceTransform.h"
 #include "itkCastImageFilter.h"
 #include "Potential-SegmentationRegistration-Pairwise.h"
-#include "MRF-FAST-PD.h"
-namespace itk{
+
+
+namespace SRS{
     template<class TImage, 
              class TLabelMapper,
              class TUnaryRegistrationPotential, 
@@ -69,7 +80,7 @@ namespace itk{
     public:
         typedef HierarchicalJRSImageToImageFilter Self;
         typedef ImageToImageFilter< TImage, TImage > Superclass;
-        typedef SmartPointer< Self >        Pointer;
+        typedef itk::SmartPointer< Self >        Pointer;
     
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
