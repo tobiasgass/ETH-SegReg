@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include "Log.h"
 #include <vector>
 #include <map>
@@ -23,7 +23,7 @@
 #include "FilterUtils.hpp"
 #include <sstream>
 #include <string>
-#include "argstream.h"
+#include "ArgumentParser.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -81,7 +81,7 @@ namespace MRegFuse{
   public:
     int run(int argc, char ** argv){
       feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-      argstream * as=new argstream(argc,argv);
+      ArgumentParser * as=new ArgumentParser(argc,argv);
       string inputDeformationFilenames,targetFileName,sourceFileName,trueDefFilename="",targetSegmentationFilename="",sourceSegmentationFilename="",targetLandmarkFilename="",sourceLandmarkFilename="";
       int verbose=0;
       double pWeight=1.0;
