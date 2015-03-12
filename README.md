@@ -79,7 +79,8 @@ MRegFuse Dependencies
 SSSP Dependencies
 -----------------
 
-Nothing special, just ITK should work fine.
+Nothing special, just ITK should work fine.  
+Some experimental features/methods (not published) need or can optionally utilize graph cut optimization. This will require GCO as discussed under the SRS dependencies. If not present, this features/methods will be disabled.
 
 
 CBRR Dependencies
