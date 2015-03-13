@@ -34,23 +34,17 @@ typedef LabelImage::PointType Point;
 int main(int argc, char * argv [])
 {
 
-    int multiplier=1;
-    if (D==2){
-        multiplier=127;
-    }
-    int valToReplace=multiplier;
-    if (D==2){
-        valToReplace=255;
-    }
+  
 #if 1
     //dilute groundtruth and substract it from estimate before joining
     LabelImage::Pointer groundTruthImage = ImageUtils<LabelImage>::readImage(argv[1]);
+    int maxLabel=FilterUtils<LabelImage>::getMax(groundTruthImage);
     //FilterUtils<LabelImage>::dilation(
     LabelImage::Pointer segmentedImage =ImageUtils<LabelImage>::readImage(argv[2]);
         //  (FilterUtils<LabelImage>::erosion(,4,valToReplace));
 
     
-    LabelImage::Pointer extendedGT =  FilterUtils<LabelImage>::dilation(groundTruthImage,3,valToReplace);
+    LabelImage::Pointer extendedGT =  FilterUtils<LabelImage>::dilation(FilterUtils<LabelImage>::binaryThresholdingLow(groundTruthImage,1),3,1);
     LabelImage::Pointer newImage=ImageUtils<LabelImage>::createEmpty(segmentedImage);
     ImageUtils<LabelImage>::writeImage("eroded.nii",(LabelImage::ConstPointer)segmentedImage);
     typedef itk::ImageRegionIterator<LabelImage> IteratorType;
@@ -62,16 +56,16 @@ int main(int argc, char * argv [])
     for (gEIt.GoToBegin(),gIt.GoToBegin(),sIt.GoToBegin(),nIt.GoToBegin();!gIt.IsAtEnd();++nIt,++gIt,++sIt,++gEIt){
         short int label=sIt.Get();
          if (gIt.Get()){
-             label=2;
+	   label=gIt.Get();
          }else if (label && ! gEIt.Get()) {
-             label=1;
+	   label=maxLabel+1;
          }else{
-             label=0;
+	   label=0;
          }
-         nIt.Set(label*multiplier);
+         nIt.Set(label);
 
     }
-    ImageUtils<LabelImage>::writeImage("joined.nii",(LabelImage::ConstPointer)newImage);
+    //ImageUtils<LabelImage>::writeImage("joined.nii",(LabelImage::ConstPointer)newImage);
 
     typedef LabelImage::ConstPointer LConstPointer;
     typedef RealImage::ConstPointer RConstPointer;
