@@ -27,6 +27,7 @@ namespace SRS{
     std::string segmentationProbsFilename, pairWiseProbsFilename, targetAnatomyPriorFilename,affineBulkTransform,bulkTransformationField,ROIFilename,groundTruthSegmentationFilename;
     std::string targetRGBImageFilename,atlasRGBImageFilename;
     std::string logFileName,segmentationUnaryProbFilename;
+    int auxiliaryLabel;/// Label to tell SRS that this is not a target anatomy label.
     double pairwiseRegistrationWeight;
     double pairwiseSegmentationWeight;
     int displacementSampling;
@@ -84,6 +85,7 @@ namespace SRS{
     ArgumentParser * as;
   public:
     SRSConfig(){
+      auxiliaryLabel=1;
       atlasLandmarkFilename="";
       targetLandmarkFilename="";
       useLowResBSpline=false;
@@ -281,7 +283,8 @@ namespace SRS{
       as->option ("normalizeImages",normalizeImages ,"Normalize images to zero mean and unit variance. NO CHECK IF PIXELTYPE IS INTEGER!");
       as->option ("useLowResBSpline",useLowResBSpline ,"Only upsample deformation field to the resolution used in registration unary computation. Speeds up the process a bit, looses some accuracy. DOES NOT WORK/HAVE ANY EFFECT WHEN SRS IS USED!");
 
-        
+      as->parameter ("auxLabel", auxiliaryLabel,"label of auxiliary anatomy in atlas segmentation. less adherence is enforced in SRS to this label in comparison to other foreground labels. When unset (default), is assumed to be 1 in case their are more than 2 labels in total.", false);
+
 
       //thresholds
       as->parameter ("tru", thresh_UnaryReg,"threshold for unary registration potential.", false);

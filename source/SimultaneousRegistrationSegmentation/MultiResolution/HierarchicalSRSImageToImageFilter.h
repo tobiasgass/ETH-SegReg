@@ -368,8 +368,10 @@ namespace SRS{
             ImagePointerType segmentation=NULL;
             if (regist || coherence){
                 deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage(m_atlasSegmentationImage,previousFullDeformation,true);
-                if (coherence)
+                if (coherence){
                     m_pairwiseCoherencePot->SetNumberOfSegmentationLabels(m_config->nSegmentations);
+		    m_pairwiseCoherencePot->SetAuxLabel(m_config->auxiliaryLabel);
+		}
                 //m_pairwiseCoherencePot->SetAtlasSegmentation((ConstImagePointerType)deformedAtlasSegmentation);
             }
 

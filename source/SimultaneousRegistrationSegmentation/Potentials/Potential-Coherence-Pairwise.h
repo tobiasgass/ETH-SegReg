@@ -287,9 +287,10 @@ namespace SRS{
                 result=max(0.0,dist);
             }
 
-            bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
-            bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
-
+            //bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
+            //bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
+	    bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel);
+	    
             if (auxiliarySegmentation){
                 result=min(result,1.0);
                 LOGV(16)<<VAR(result)<<endl;
@@ -383,6 +384,11 @@ namespace SRS{
                 result=max(0.0,dist);
             }
 
+	    bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel);
+	    if (auxiliarySegmentation){
+                result=min(result,1.0);
+                LOGV(16)<<VAR(result)<<endl;
+            }
             result=0.5*result*result;//exp(result)-1;
            
             result=min(999999.0,result);
@@ -702,9 +708,8 @@ namespace SRS{
                 result=1;
             }
 
-            bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
-            bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
-
+            bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel);
+	    bool targetSegmentation = ! auxiliarySegmentation;
             if (targetSegmentation){
                 result*=2;//1.0+exp(max(1.0,40.0/this->m_tolerance)-1.0);
             }
