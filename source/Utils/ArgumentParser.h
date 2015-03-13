@@ -14,15 +14,16 @@ class ArgumentParser{
 public:
     ArgumentParser(int argc, char** argv);
     ArgumentParser();
+    ~ArgumentParser(){delete m_desc; delete m_optional;}
     
     template<typename T>
       void parameter(const char * opt, T& variable, const char * descr, bool required,bool optional=false){
       std::stringstream ss;
       po::options_description * optionsObjectPointer;
       if (!optional){
-	optionsObjectPointer=&this->m_desc;
+	optionsObjectPointer=this->m_desc;
       }else{
-	optionsObjectPointer=&this->m_optional;
+	optionsObjectPointer=this->m_optional;
       }
       if (required){
             ss<<descr<<" (REQUIRED)";
@@ -43,7 +44,7 @@ public:
     void help();
 
 private:
-    po::options_description m_desc,m_optional; 
+    po::options_description * m_desc, * m_optional; 
     std::string m_brief;
     int m_argc;
     char ** m_argv;
