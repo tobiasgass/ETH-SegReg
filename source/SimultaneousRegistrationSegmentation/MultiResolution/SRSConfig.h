@@ -230,6 +230,7 @@ namespace SRS{
       //parse();
     }
     void parse(){
+      bool optionalParameter=true;
       std::string filename="";
       as->parameter ("configFile", filename, "read config from file, additional command line parameters overwrite config file settings. (filename)", false);
       if (filename!=""){
@@ -245,8 +246,8 @@ namespace SRS{
       as->parameter ("a", atlasFilename, "atlas image (file name)", false);
       as->parameter ("sa", atlasSegmentationFilename, "atlas segmentation image (file name)", false);
 
-      as->parameter ("rgbt", targetRGBImageFilename, "RGB version of targetImage for segmentation unaries", false);
-      as->parameter ("rgba", atlasRGBImageFilename, "RGB version of atlas image for segmentation unaries ", false);
+      as->parameter ("rgbt", targetRGBImageFilename, "RGB version of targetImage for segmentation unaries", false,optionalParameter);
+      as->parameter ("rgba", atlasRGBImageFilename, "RGB version of atlas image for segmentation unaries ", false,optionalParameter);
 
       //optional
       as->parameter ("ma", atlasMaskFilename, "atlas mask image for masking the registration unary potential (file name)", false);
@@ -254,9 +255,9 @@ namespace SRS{
       as->parameter ("lma", atlasLandmarkFilename, "atlas landmark file name", false);
       as->parameter ("lmt", targetLandmarkFilename, "target landmark file name", false);
 
-      as->parameter ("gt", targetGradientFilename, "target gradient image (file name)", false);
-      as->parameter ("ga", atlasGradientFilename, "atlas gradient image (file name)", false);
-      as->parameter ("targetAnatomyPriorFilename", targetAnatomyPriorFilename, "targetAnatomy prior image (file name)", false);
+      as->parameter ("gt", targetGradientFilename, "target gradient image (file name)", false,optionalParameter);
+      as->parameter ("ga", atlasGradientFilename, "atlas gradient image (file name)", false,optionalParameter);
+      as->parameter ("targetAnatomyPriorFilename", targetAnatomyPriorFilename, "targetAnatomy prior image (file name)", false,optionalParameter);
       as->parameter ("affineBulkTransform", affineBulkTransform, "affine bulk transfomr", false);
       as->parameter ("bulkTransformationFiled", bulkTransformationField, "bulk transformation field", false);
       as->option ("moments", initWithMoments, "initialize deformation with moments ");
@@ -274,24 +275,24 @@ namespace SRS{
 
 
       as->parameter ("ru", unaryRegistrationWeight,"weight for registration unary", false);
-      as->option ("dontNormRegUn", dontNormalizeRegUnaries,"deactivate normalization of registration unary potentials across multiresolution hirarchies");
+      as->option ("dontNormRegUn", dontNormalizeRegUnaries,"deactivate normalization of registration unary potentials across multiresolution hirarchies",optionalParameter);
       as->parameter ("su", unarySegmentationWeight,"weight for segmentation unary", false);
       as->option ("fullRegistrationSmoothing",fullRegPairwise ,"Regularise composed deformation instead of regularizing just the current update. Leads to non-submodular function, and is thus not usable with GC optimization.");
-      as->option ("penalizeOutside",penalizeOutside ,"Penalize registrations falling outside of moving image.");
-      as->option ("normalizePotentials",normalizePotentials ,"divide all potentials by the total number of the respective potential. This balances forces in the two-layer SRS graph (somewhat).");
-      as->option ("cachePotentials"  ,cachePotentials,"Cache all potential function values before calling the optimizer. requires more memory, but will speed up things!.");
-      as->option ("normalizeImages",normalizeImages ,"Normalize images to zero mean and unit variance. NO CHECK IF PIXELTYPE IS INTEGER!");
-      as->option ("useLowResBSpline",useLowResBSpline ,"Only upsample deformation field to the resolution used in registration unary computation. Speeds up the process a bit, looses some accuracy. DOES NOT WORK/HAVE ANY EFFECT WHEN SRS IS USED!");
+      as->option ("penalizeOutside",penalizeOutside ,"Penalize registrations falling outside of moving image.",optionalParameter);
+      as->option ("normalizePotentials",normalizePotentials ,"divide all potentials by the total number of the respective potential. This balances forces in the two-layer SRS graph (somewhat).",optionalParameter);
+      as->option ("cachePotentials"  ,cachePotentials,"Cache all potential function values before calling the optimizer. requires more memory, but will speed up things!.",optionalParameter);
+      as->option ("normalizeImages",normalizeImages ,"Normalize images to zero mean and unit variance. NO CHECK IF PIXELTYPE IS INTEGER!",optionalParameter);
+      as->option ("useLowResBSpline",useLowResBSpline ,"Only upsample deformation field to the resolution used in registration unary computation. Speeds up the process a bit, looses some accuracy. DOES NOT WORK/HAVE ANY EFFECT WHEN SRS IS USED!",optionalParameter);
 
       as->parameter ("auxLabel", auxiliaryLabel,"label of auxiliary anatomy in atlas segmentation. less adherence is enforced in SRS to this label in comparison to other foreground labels. When unset (default), is assumed to be 1 in case their are more than 2 labels in total.", false);
 
 
       //thresholds
-      as->parameter ("tru", thresh_UnaryReg,"threshold for unary registration potential.", false);
-      as->parameter ("trp", thresh_PairwiseReg,"threshold for pairwise registration potential (factor of max distance).", false);
-      as->parameter ("lru", log_UnaryReg,"negative log metric unary registration potential.", false);
-      as->parameter ("lrp", log_PairwiseReg,"negative log metric for pairwise registration potential.", false);
-      as->parameter ("tsc", segDistThresh,"if the distance to target segmentation label is greater than this threshold, the node is excluded from the segmentation graph. Only works in SRS, not in seg only currently.", false);
+      as->parameter ("tru", thresh_UnaryReg,"threshold for unary registration potential.", false,optionalParameter);
+      as->parameter ("trp", thresh_PairwiseReg,"threshold for pairwise registration potential (factor of max distance).", false,optionalParameter);
+      as->parameter ("lru", log_UnaryReg,"negative log metric unary registration potential.", false,optionalParameter);
+      as->parameter ("lrp", log_PairwiseReg,"negative log metric for pairwise registration potential.", false,optionalParameter);
+      as->parameter ("tsc", segDistThresh,"if the distance to target segmentation label is greater than this threshold, the node is excluded from the segmentation graph. Only works in SRS, not in seg only currently.", false,optionalParameter);
 
       //other params
       as->parameter ("max", maxDisplacement,"number of displacement samples per axis", false);
@@ -304,44 +305,44 @@ namespace SRS{
       as->parameter ("iterationsPerLevel", iterationsPerLevel,"iterationsPerLevel", false);
       as->parameter ("optIter", optIter,"max iterations of optimizer", false);
       as->parameter ("r",displacementRescalingFactor,"displacementRescalingFactor", false);
-      as->parameter ("asymmetry",asymmetry,"asymmetry in segreg potential", false);
-      as->parameter ("displacementScaling",displacementScaling,"Scaling of displacement labels relative to image spacing. WARNING: if set larger than 1, diffeomorphic registrations are no longer guaranteed!", false);
-      as->parameter ("toleranceBase",toleranceBase,"Base for computing the coherence tolerance at different l evels of the grid pyramid.", false);
+      as->parameter ("asymmetry",asymmetry,"asymmetry in segreg potential", false,optionalParameter);
+      as->parameter ("displacementScaling",displacementScaling,"Scaling of displacement labels relative to image spacing. WARNING: if set larger than 1, diffeomorphic registrations are no longer guaranteed!", false,optionalParameter);
+      as->parameter ("toleranceBase",toleranceBase,"Base for computing the coherence tolerance at different l evels of the grid pyramid.", false,optionalParameter);
 
-      as->parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename (legacy?)", false);
+      as->parameter ("segmentationProbs", segmentationProbsFilename,"segmentation probabilities  filename (legacy?)", false,optionalParameter);
 
-      as->parameter ("segmentationUnaryProbs", segmentationUnaryProbFilename,"segmentation unaries probabilities  filename", false);
+      as->parameter ("segmentationUnaryProbs", segmentationUnaryProbFilename,"segmentation unaries probabilities  filename", false,optionalParameter);
 
         
-      as->parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false);
+      as->parameter ("pairwiseProbs", pairWiseProbsFilename,"pairwise segmentation probabilities filename", false,optionalParameter);
       as->option ("train", train,"train classifier (and save), if not set data will be read from the given files");
-      as->option ("useTargetAnatomyPrior", useTargetAnatomyPrior,"compute and use a targetAnatomy prior. Currently only works with bone CT images.");
+      as->option ("useTargetAnatomyPrior", useTargetAnatomyPrior,"compute and use a targetAnatomy prior. Currently only works with bone CT images.",optionalParameter);
 
       std::vector<int> tmp_levels(6,-1);
-      as->parameter ("l0", tmp_levels[0],"divisor for level 0", false);
-      as->parameter ("l1", tmp_levels[1],"divisor for level 1", false);
-      as->parameter ("l2", tmp_levels[2],"divisor for level 2", false);
-      as->parameter ("l3", tmp_levels[3],"divisor for level 3", false);
-      as->parameter ("l4", tmp_levels[4],"divisor for level 4", false);
-      as->parameter ("l5", tmp_levels[5],"divisor for level 5", false);
+      as->parameter ("l0", tmp_levels[0],"divisor for level 0", false,optionalParameter);
+      as->parameter ("l1", tmp_levels[1],"divisor for level 1", false,optionalParameter);
+      as->parameter ("l2", tmp_levels[2],"divisor for level 2", false,optionalParameter);
+      as->parameter ("l3", tmp_levels[3],"divisor for level 3", false,optionalParameter);
+      as->parameter ("l4", tmp_levels[4],"divisor for level 4", false,optionalParameter);
+      as->parameter ("l5", tmp_levels[5],"divisor for level 5", false,optionalParameter);
       as->parameter ("scale", scale,"downscaling factor for images in the registration multiresolution pyramid ", false);
       as->parameter ("segmentationScalingFactor", segmentationScalingFactor,"downsampling factor for segmentation multiresolution pyramid", false);
       as->parameter ("downScale", downScale,"downSample ALL  images by an isotropic factor",false);
       as->parameter ("nSegmentations",nSegmentations ,"number of segmentation labels (>=2)", false);
-      as->option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.");
+      as->option ("computeMultilabelAtlasSegmentation",computeMultilabelAtlasSegmentation ,"compute multilabel atlas segmentation from original atlas segmentation. will overwrite nSegmentations.",optionalParameter);
 
-      as->option ("evalContinuously",evalContinuously ,"evaluate optimization at each step. slower, but also returns actual energy and changes in labellings during each iteration.");
+      as->option ("evalContinuously",evalContinuously ,"evaluate optimization at each step. slower, but also returns actual energy and changes in labellings during each iteration.,optionalParamete");
       //as->option ("GCO",GCO ,"Use (alpha expansion) graph cuts instead of TRW-S for optimization.");
       as->parameter ("solver",solver ,"choose solver for optimization (TRWS,GCO,OPENGM).",false);
       as->option ("linearDeformationInterpolation",linearDeformationInterpolation ,"Use linear interpolation for deformation field upsampling.");
       as->option ("histNorm",histNorm ,"Use histogram normalization to adapt the atlas intensity distribution to the target.");
          
-      as->parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false);
-      as->parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false);
+      as->parameter ("nSubsamples",nSubsamples ,"number of subsampled registration labels per node (default=1)", false,optionalParameter);
+      as->parameter ("pairwiseContrast",pairwiseContrastWeight ,"weight of contrast in pairwise segmentation potential (if not trained) (>=1)", false,optionalParameter);
       as->parameter ("alpha",alpha ,"generic weight (0)", false);
-      as->parameter ("theta",theta ,"theta (offset) for segmentation pairwise potential", false);
+      as->parameter ("theta",theta ,"theta (offset) for segmentation pairwise potential", false,optionalParameter);
       as->parameter ("log",logFileName ,"cache output and flush to file at the end of the program", false);
-      as->parameter ("groundTruth", groundTruthSegmentationFilename, "groundtruth segmentation of target, allows evaluation of result(file name)", false);
+      as->parameter ("groundTruth", groundTruthSegmentationFilename, "groundtruth segmentation of target, allows evaluation of result(file name)", false,optionalParameter);
 
       as->parameter ("verbose", verbose,"get verbose output",false);
       std::list<int> bla;
