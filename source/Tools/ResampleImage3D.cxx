@@ -41,7 +41,7 @@ int main(int argc, char ** argv)
     as->option ("noSmoothing", noSmoothing, " do not smooth image when linearly downsampling..");
     as->option ("rectify", rectifyAlignment, " set origin to zero and direction matrix to identity.");
     as->parameter ("f", factor, "resample image by factor", false,true);
-    as->parameter ("s", spacing, "resample image to uniform spacing", false);
+    as->parameter ("spacing,s", spacing, "resample image to uniform spacing", false);
 
     as->parse();
     

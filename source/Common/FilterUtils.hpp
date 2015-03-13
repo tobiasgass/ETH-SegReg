@@ -424,9 +424,9 @@ public:
         for (uint d=0;d<InputImage::ImageDimension;++d){
             spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
             //calculate new image size
-            size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
+            size[d]=int(inputSpacing[d]/newSpacing * (inputSize[d]-1))+1;
             //finalize spacing as a function of the new size
-            spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
+            //spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
             //size[d]=int(inputSpacing[d]/spacing[d]*(inputSize[d]));
             origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
