@@ -25,10 +25,10 @@ ArgumentParser::ArgumentParser(){
 void ArgumentParser::option(const char * opt, bool & variable, const char * descr, bool optional){
   if (!optional){
     m_desc->add_options() 
-      (opt,po::value<bool>(&variable) ,descr) ;
+      (opt,po::bool_switch(&variable) ,descr) ;
   }else{
     m_optional->add_options() 
-      (opt,po::value<bool>(&variable) ,descr) ;
+      (opt,po::bool_switch(&variable) ,descr) ;
   }
 }
 

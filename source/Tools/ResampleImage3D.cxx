@@ -40,7 +40,7 @@ int main(int argc, char ** argv)
     as->option ("NN", nnResampling, " use NN resampling instead of linear resampling");
     as->option ("noSmoothing", noSmoothing, " do not smooth image when linearly downsampling..");
     as->option ("rectify", rectifyAlignment, " set origin to zero and direction matrix to identity.");
-    as->parameter ("f", factor, "resample image by factor", false);
+    as->parameter ("f", factor, "resample image by factor", false,true);
     as->parameter ("s", spacing, "resample image to uniform spacing", false);
 
     as->parse();
