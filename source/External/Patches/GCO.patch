@@ -1,0 +1,25 @@
+diff -au GCO-original/GCoptimization.cpp GCO/GCoptimization.cpp
+--- GCO-original/GCoptimization.cpp	2014-10-10 11:33:28.000000000 -0400
++++ GCO/GCoptimization.cpp	2015-03-16 14:54:58.982001038 -0400
+@@ -7,6 +7,9 @@
+ #include <stdlib.h>
+ #include <vector>
+ #include <algorithm>
++#include <limits>
++
++
+ 
+ // will leave this one just for the laughs :)
+ //#define olga_assert(expr) assert(!(expr))
+@@ -302,7 +305,8 @@
+ 		handleError("Smoothness weight was larger than GCO_MAX_ENERGYTERM; danger of integer overflow.");
+ 	// Inside energy/maxflow code the submodularity check is performed as an assertion,
+ 	// but is optimized out. We check it in release builds as well.
+-	if ( e00+e11 > e01+e10 )
++	// Change by Tobias Gass: The original check has numerical instabilities when floating point energies are used. Therefore, use limits<>::epsilon
++	if ( e00+e11 - e01 - e10 > std::numeric_limits<EnergyTermType>::epsilon() )
+ 		handleError("Non-submodular expansion term detected; smooth costs must be a metric for expansion");
+ 	m_beforeExpansionEnergy += e11*w;
+ 	e->add_term2(i,j,e00*w,e01*w,e10*w,e11*w);
+Only in GCO/: GCoptimization.cpp~
+Common subdirectories: GCO-original/matlab and GCO/matlab

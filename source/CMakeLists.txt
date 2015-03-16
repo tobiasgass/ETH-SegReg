@@ -74,7 +74,16 @@ if( ${USE_GCO} MATCHES "ON" )
     message(SEND_ERROR "GCO directory not found or does not appear to contain the GCO library")
     set(DIR_GCO "maxflow DIR NOTFOUND" CACHE  FILEPATH "Directory for GCO" FORCE) 
   else()
-
+    
+      #patch it!
+    MESSAGE( STATUS "Patching GCO")
+    EXECUTE_PROCESS( COMMAND cmake -E chdir ${DIR_GCO} patch -r - -N -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/External/Patches/GCO.patch  RESULT_VARIABLE RESULT_PATCH OUTPUT_QUIET)
+    MESSAGE( STATUS "Patch result: ${RESULT_PATCH}, PROF SOURCE DIR: ${DIR_GCO}" )
+    if (  ${RESULT_PATCH} MATCHES "2")
+      MESSAGE(WARNING "Patching GCO failed, see log for details, returned ${RESULT_PATCH}")
+    endif()
+  
+    
     include_directories( ${DIR_GCO} )
     FILE(GLOB gcoFiles 
       ${DIR_GCO}/block.h   ${DIR_GCO}/energy.h   ${DIR_GCO}/GCoptimization.cpp   ${DIR_GCO}/GCoptimization.h  ${DIR_GCO}/graph.cpp   ${DIR_GCO}/graph.h   ${DIR_GCO}/LinkedBlockList.cpp   ${DIR_GCO}/LinkedBlockList.h     ${DIR_GCO}/maxflow.cpp )
