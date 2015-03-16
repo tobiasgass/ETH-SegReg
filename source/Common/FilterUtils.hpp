@@ -1,19 +1,3 @@
-/*=========================================================================
-
-  Program: Automatic Segmentation Of Bones In 3D-CT Images
-
-  Author:  Marcel Krcah <marcel.krcah@gmail.com>
-  Computer Vision Laboratory
-  ETH Zurich
-  Switzerland
-
-  Date:    2010-09-01
-
-  Version: 1.0
-
-  =========================================================================*/
-
-
 
 
 #pragma once
