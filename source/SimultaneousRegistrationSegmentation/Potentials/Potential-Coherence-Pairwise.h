@@ -383,8 +383,8 @@ namespace SRS{
                 //double dist2=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->EvaluateAtContinuousIndex(idx2);
                 result=max(0.0,dist);
             }
-
-	    bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel);
+	    ///do not penalize confusion of background and auxiliary label that strongly?
+	    bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel && deformedAtlasSegmentation == 0 ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel && segmentationLabel == 0);
 	    if (auxiliarySegmentation){
                 result=min(result,1.0);
                 LOGV(16)<<VAR(result)<<endl;
