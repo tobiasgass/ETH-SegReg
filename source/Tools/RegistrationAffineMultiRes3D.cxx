@@ -5,8 +5,11 @@
   Language:  C++
   Date:      $Date: 2010/02/28 20:19:51 $
   Version:   $Revision: 1.1.1.1 $
+  
+  Modified: Christine Tanner & Valeria de Luca, Computer Vision Lab, ETH Zurich, 2014
+  All modifications (c) Christine Tanner, Valeria de Luca 2014
 
-  Copyright (c) Insight Software Consortium. All rights reserved.
+  Copyright for the original file: (c) Insight Software Consortium. All rights reserved.
   See ITKCopyright.txt or http://www.itk.org/HTML/Copyright.htm for details.
 
   This software is distributed WITHOUT ANY WARRANTY; without even 

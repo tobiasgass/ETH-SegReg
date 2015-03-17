@@ -31,10 +31,11 @@ int main(int argc, char ** argv)
     ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile;
     double dilutesize=0.0;
+    
     as->parameter ("in", inFile, " filename...", true);
     as->parameter ("out", outFile, " filename...", true);
     as->parameter ("d", dilutesize, "amount of dilation", true);
-
+    
     as->parse();
     
 
