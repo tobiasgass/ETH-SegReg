@@ -292,7 +292,7 @@ namespace SRS{
 	    bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel);
 	    
             if (auxiliarySegmentation){
-                result=min(result,1.0);
+	      result=min(result,1.0);
                 LOGV(16)<<VAR(result)<<endl;
             }
             result=0.5*result*result;//exp(result)-1;
@@ -386,8 +386,8 @@ namespace SRS{
 	    ///do not penalize confusion of background and auxiliary label that strongly?
 	    bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel && deformedAtlasSegmentation == 0 ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel && segmentationLabel == 0);
 	    if (auxiliarySegmentation){
-                result=min(result,1.0);
-                LOGV(16)<<VAR(result)<<endl;
+	      result=min(result,1.0);
+	      LOGV(16)<<VAR(result)<<endl;
             }
             result=0.5*result*result;//exp(result)-1;
            

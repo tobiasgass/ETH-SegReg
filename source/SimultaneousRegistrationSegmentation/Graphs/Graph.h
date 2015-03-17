@@ -351,12 +351,13 @@ namespace SRS{
                     
       }
     }
+    LOGI(6,ImageUtils<ImageType>::writeImage("ROI.nii",m_borderOfSegmentationROI));
     ///erode/dilate mask such that only the 1-pixel border remains
     ///this allows for clamping the segmentation labels of that border to the atlas segmentation
     ///erosion can give strange results, fixing by thresholding
     m_borderOfSegmentationROI=FilterUtils<ImageType>::substract(m_borderOfSegmentationROI,FilterUtils<ImageType>::binaryThresholding(FilterUtils<ImageType>::erosion(m_borderOfSegmentationROI,1),1,1));
 
-    LOGI(6,ImageUtils<ImageType>::writeImage("ROI.nii",m_borderOfSegmentationROI));
+    LOGI(6,ImageUtils<ImageType>::writeImage("BorderOfSegmentationROI.nii",m_borderOfSegmentationROI));
     m_nSegmentationNodes=concurrentIdx;
     LOG<<"Reduced number of segmentation nodes to "<<100.0*concurrentIdx/actualIdx<<"%; "<<actualIdx<<"->"<<concurrentIdx<<endl;
     m_mapIdx1Rev.resize(concurrentIdx);
