@@ -40,8 +40,9 @@
 #include "itkSignedMaurerDistanceMapImageFilter.h"
 #include <itkMinimumMaximumImageCalculator.h>
 
-using namespace std;
 
+///\brief This class provides static functions which are mostly wrappers around ITK routines.
+///Its main purpose is to alleviate the inclusion of common methods such as resampling, thresholding,...
 template<class InputImage, class OutputImage = InputImage>
 class FilterUtils {
 public:
