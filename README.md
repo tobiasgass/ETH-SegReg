@@ -118,7 +118,8 @@ own license, which is included either within the source code itself or
 supplied in a separate License file.
 
 
-Copyright (c) 2010-2015, Tobias Gass (tobiasgass@gmail.com)
+Copyright (c) 2010-2015, Tobias Gass (tobiasgass@gmail.com) unless
+explicitly stated otherwise
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

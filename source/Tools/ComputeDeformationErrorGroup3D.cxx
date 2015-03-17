@@ -77,7 +77,7 @@ int main(int argc, char ** argv){
 
     double m_sigma;
     RadiusType m_patchRadius;
-    feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+    feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     ArgumentParser * as=new ArgumentParser(argc,argv);
     string maskFileList="",groundTruthSegmentationFileList="",landmarkFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="",trueDefListFilename="",ROIFilename="";
     int verbose=0;
