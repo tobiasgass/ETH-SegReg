@@ -68,6 +68,7 @@
 #include "itkCastImageFilter.h"
 #include "itkHausdorffDistanceImageFilter.h"
 #include <float.h>
+#include "TransformationUtils.h"    
 
 namespace SRS{
     template<class TGraph>

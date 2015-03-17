@@ -35,7 +35,7 @@ template<class TImage, class TLabel>
   typedef typename TImage::SpacingType SpacingType;
  protected:
   int m_nLabels,m_nDisplacements,m_nSegmentations,m_nDisplacementSamplesPerAxis,k;
-  string descr;
+  std::string descr;
  public:
   BaseLabelMapper(){}
 
@@ -46,7 +46,7 @@ template<class TImage, class TLabel>
     this->m_nDisplacements=pow(double(2*this->m_nDisplacementSamplesPerAxis+1),TImage::ImageDimension);
     this->m_nLabels=this->m_nSegmentations*this->m_nDisplacements;
     k=TImage::ImageDimension+1;
-    LOGV(1)<<"Constructed base labelmapper (product label space), using "<<this->m_nLabels<< " total labels"<<endl;
+    LOGV(1)<<"Constructed base labelmapper (product label space), using "<<this->m_nLabels<< " total labels"<<std::endl;
     descr="BLM";
   }
 
@@ -58,7 +58,7 @@ template<class TImage, class TLabel>
     this->m_nLabels=this->m_nSegmentations*this->m_nDisplacements;
   }
 
-  virtual int getNumberOfDisplacementLabels(){LOGV(3)<<VAR(this->descr)<<", returning "<<VAR(this->m_nDisplacements)<<endl;return this->m_nDisplacements;}
+  virtual int getNumberOfDisplacementLabels(){LOGV(3)<<VAR(this->descr)<<", returning "<<VAR(this->m_nDisplacements)<<std::endl;return this->m_nDisplacements;}
   ///return discrete label which corresponds to the (0,0,0) displacement vector
   virtual inline int getZeroDisplacementIndex(){return this->m_nDisplacements/2;}
 
@@ -146,9 +146,9 @@ template<class TImage, class TLabel>
   }
 };
 
-
+#if 0
 template<class TLabel>
-struct comp:  binary_function <TLabel,TLabel,bool>{
+    struct comp:  itk::binary_function <TLabel,TLabel,bool>{
   bool operator() (const TLabel &l1, const TLabel &l2) const{
     bool z1=true,z2=true;
     for (int i=0 ; i< TLabel::Dimension; ++i){
@@ -163,6 +163,7 @@ struct comp:  binary_function <TLabel,TLabel,bool>{
     return false;
   }
 };
+#endif
 
 ///\brief A LabelMapper which implements the sparse sampling scheme for displacement vector labels
 ///Displacment vectors are only sampled from the 2/3 principal axes of the image space, greatly reducing the number of displacement samples
@@ -286,7 +287,7 @@ template<class TImage, class TLabel>
       this->m_nDisplacements=pow(double(2*this->m_nDisplacementSamplesPerAxis+1),TImage::ImageDimension);
       this->m_nLabels=this->m_nSegmentations*this->m_nDisplacements;
       this->k=TImage::ImageDimension;
-      LOGV(1)<<"Constructed Dense Label Mapper with "<<this->m_nDisplacements<<" registration labels"<<endl;
+      LOGV(1)<<"Constructed Dense Label Mapper with "<<this->m_nDisplacements<<" registration labels"<<std::endl;
     }
     void setDisplacementSamples(int nSamples){
       this->m_nDisplacementSamplesPerAxis=nSamples;
@@ -360,7 +361,7 @@ template<class TImage, class TLabel>
       this->m_nDisplacements=(double(2*this->m_nDisplacementSamplesPerAxis+1)*TImage::ImageDimension);
       this->m_nLabels=this->m_nSegmentations+this->m_nDisplacements;
       this->k=TImage::ImageDimension;
-      LOGV(1)<<"Constructed Sparse Label Mapper with "<<this->m_nDisplacements<<" registration labels"<<endl;
+      LOGV(1)<<"Constructed Sparse Label Mapper with "<<this->m_nDisplacements<<" registration labels"<<std::endl;
       this->descr="SLRM";
     }
     

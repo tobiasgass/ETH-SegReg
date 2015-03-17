@@ -7,7 +7,7 @@
 //#include <google/heap-profiler.h>
 #include <limits.h>
 #include <time.h>
-#include <omp.h>
+
 
 
 namespace SRS{
@@ -190,7 +190,7 @@ public:
 	~GCO_SRSMRFSolver()
     { 
 
-        LOGV(1)<<"Deleting GCO_MRF Sovler " << endl;
+        LOGV(1)<<"Deleting GCO_MRF Sovler " << std::endl;
         if (m_register) delete regPairwise;
         if (m_segment) delete segPairwise;
         if (m_coherence) delete srsPairwise;
@@ -263,7 +263,7 @@ public:
         GLOBALnSegNodes= m_segment*nSegNodes;
         GLOBALnRegLabels=m_register*nRegLabels;
         GLOBALnSegLabels=m_segment*nSegLabels;
-        LOGV(5)<<VAR(GLOBALnRegNodes)<<" "<<VAR(GLOBALnRegLabels)<<" "<<VAR(GLOBALnSegNodes)<<" "<<VAR(GLOBALnSegLabels)<<endl;
+        LOGV(5)<<VAR(GLOBALnRegNodes)<<" "<<VAR(GLOBALnRegLabels)<<" "<<VAR(GLOBALnSegNodes)<<" "<<VAR(GLOBALnSegLabels)<<std::endl;
         
         if (m_optimizer) delete m_optimizer;
         m_optimizer= new MRFType(GLOBALnSegNodes+GLOBALnRegNodes,GLOBALnRegLabels+GLOBALnSegLabels);
@@ -288,7 +288,7 @@ public:
         
         if (m_register){
             int nNeighbors=2*D+m_coherence*this->m_GraphModel->getMaxRegSegNeighbors();
-            LOGV(6)<<VAR(nNeighbors)<<" max neighbors per registration node" <<endl;
+            LOGV(6)<<VAR(nNeighbors)<<" max neighbors per registration node" <<std::endl;
             if (nNeighbors<10){
                 m_regNeighbors = new int[GLOBALnRegNodes*nNeighbors];      
                 memset(m_regNeighbors,0,GLOBALnRegNodes*nNeighbors*(sizeof(int)));
@@ -299,9 +299,9 @@ public:
                     m_neighbourArray[i]=&m_regNeighbors[i*nNeighbors];
                     m_weights[i]=&m_regWeights[i*nNeighbors];
                 }
-                LOGV(6)<<"memory for reg neighbors primary structure : "<<1.0*GLOBALnRegNodes*nNeighbors*sizeof(int*)/1024/1024 <<"MB"<<endl;
+                LOGV(6)<<"memory for reg neighbors primary structure : "<<1.0*GLOBALnRegNodes*nNeighbors*sizeof(int*)/1024/1024 <<"MB"<<std::endl;
             }else{
-                LOGV(6)<<"allocating memory for registration node adjacency matrix individually.."<<endl;
+                LOGV(6)<<"allocating memory for registration node adjacency matrix individually.."<<std::endl;
                 for (int i=0;i<GLOBALnRegNodes;++i){
                     int nLocalNeighbors=2*D+this->m_GraphModel->getRegSegNeighbors(i).size();
                     m_neighbourArray[i]=new int[nLocalNeighbors];
@@ -322,7 +322,7 @@ public:
                 m_neighbourArray[i+GLOBALnRegNodes]=&m_segNeighbors[i*nNeighbors];
                 m_weights[i+GLOBALnRegNodes]=&m_segWeights[i*nNeighbors];
             }
-            LOGV(6)<<"memory for seg neighbors primary structure : "<<1.0*GLOBALnSegNodes*nNeighbors*sizeof(int*)/1024/1024 <<"MB"<<endl;
+            LOGV(6)<<"memory for seg neighbors primary structure : "<<1.0*GLOBALnSegNodes*nNeighbors*sizeof(int*)/1024/1024 <<"MB"<<std::endl;
         }
 
 #endif
@@ -354,7 +354,7 @@ public:
                                 if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
                                 for (int i=0;i<nNeighbours;++i){
                                     double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],regLabel,0);
-                                    LOGV(8)<<VAR(d)<<" "<<VAR(i)<<" "<<VAR(coherencePot)<<" "<<VAR(m_pairwiseSegmentationRegistrationWeight)<<endl;
+                                    LOGV(8)<<VAR(d)<<" "<<VAR(i)<<" "<<VAR(coherencePot)<<" "<<VAR(m_pairwiseSegmentationRegistrationWeight)<<std::endl;
                                     costs[d].cost+=coherencePot;
                                 }
                             }
@@ -366,7 +366,7 @@ public:
          
             clock_t endUnary = clock();
             double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
-            LOGV(1)<<"Registration Unaries took "<<t<<" seconds."<<endl;
+            LOGV(1)<<"Registration Unaries took "<<t<<" seconds."<<std::endl;
             tUnary+=t;
             // Pairwise potentials
             if (m_cachePotentials)
@@ -401,8 +401,8 @@ public:
             clock_t endPairwise = clock();
          
             t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
-            LOGV(1)<<"Registration pairwise took "<<t<<" seconds."<<endl;
-            LOGV(1)<<"Approximate size of reg pairwise: "<<1.0/(1024*1024)*nRegNodes*nRegLabels*nRegLabels*sizeof(double)*m_cachePotentials<<" mb."<<endl;
+            LOGV(1)<<"Registration pairwise took "<<t<<" seconds."<<std::endl;
+            LOGV(1)<<"Approximate size of reg pairwise: "<<1.0/(1024*1024)*nRegNodes*nRegLabels*nRegLabels*sizeof(double)*m_cachePotentials<<" mb."<<std::endl;
 
             tPairwise+=t;
         }
@@ -412,32 +412,32 @@ public:
             for (int l1=0;l1<nSegLabels;++l1)
                 {
 
-                    //LOGV(4)<<"Allocating seg unaries for label "<<l1<<", using "<<1.0*nSegNodes*sizeof( GCoptimization::SparseDataCost ) /(1024*1024)<<" mb memory"<<std::endl;
+                    //LOGV(4)<<"Allocating seg unaries for label "<<l1<<", using "<<1.0*nSegNodes*sizeof( GCoptimization::SparseDataCost ) /(1024*1024)<<" mb memory"<<std::std::endl;
                     std::vector<GCoptimization::SparseDataCost> costas(nSegNodes);
                     int c=0;
                     for (int d=0;d<nSegNodes;++d){
                         double unarySegCost=this->m_GraphModel->getUnarySegmentationPotential(d,l1);
                         if ( unarySegCost<1000){
                             costas[c].cost=m_unarySegmentationWeight*unarySegCost;
-                            LOGV(10)<<"node "<<d<<"; seg unary label: "<<l1<<" "<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)<<endl;
+                            LOGV(10)<<"node "<<d<<"; seg unary label: "<<l1<<" "<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)<<std::endl;
                             costas[c].site=d+GLOBALnRegNodes;
                             if (m_coherence && !m_register){
                                 double coherenceCost=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,0,l1);
-                                LOGV(8)<<VAR(d)<<" "<<VAR(coherenceCost)<<" "<<VAR(m_pairwiseSegmentationRegistrationWeight)<<endl;
+                                LOGV(8)<<VAR(d)<<" "<<VAR(coherenceCost)<<" "<<VAR(m_pairwiseSegmentationRegistrationWeight)<<std::endl;
                                 costas[c].cost+=coherenceCost;
                             }
                             ++c;
                         }
                     }
                     costas.resize(c);
-                    LOGV(2)<<"Number of nodes with segmentation label "<<l1<<": :"<<c<<endl;
+                    LOGV(2)<<"Number of nodes with segmentation label "<<l1<<": :"<<c<<std::endl;
                     m_optimizer->setDataCost(l1+GLOBALnRegLabels,&costas[0],c);
                 }
           
             clock_t endUnary = clock();
             double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
-            LOGV(1)<<"Segmentation Unaries took "<<t<<" seconds."<<endl;
-            LOGV(1)<<"Approximate size of seg unaries: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*sizeof(double)<<" mb."<<endl;
+            LOGV(1)<<"Segmentation Unaries took "<<t<<" seconds."<<std::endl;
+            LOGV(1)<<"Approximate size of seg unaries: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*sizeof(double)<<" mb."<<std::endl;
 
             int nSegEdges=0,nSegRegEdges=0;
             //Segmentation smoothness cache
@@ -463,7 +463,7 @@ public:
                     if (m_cachePotentials){
                         for (int l1=0;l1<nSegLabels;++l1){
                             for (int l2=0;l2<nSegLabels;++l2){
-                                LOGV(25)<<VAR(d)<<" "<<VAR(l1)<<" "<<VAR(neighbours[i])<<" "<<l2<<endl;
+                                LOGV(25)<<VAR(d)<<" "<<VAR(l1)<<" "<<VAR(neighbours[i])<<" "<<l2<<std::endl;
                                 if (m_pairwiseSegmentationWeight>0){
                                     (*segPairwise)[l1][l2][d][i] = m_pairwiseSegmentationWeight*this->m_GraphModel->getPairwiseSegmentationPotential(d,neighbours[i],l1,l2);
                                 }else{
@@ -491,7 +491,7 @@ public:
                             for (int l1=0;l1<nSegLabels;++l1){
                                 for (int l2=0;l2<nRegLabels;++l2){
                                     //forward
-                                    LOGV(25)<<VAR(d)<<" "<<VAR(l1)<<" "<<VAR(segRegNeighbors[i])<<" "<<VAR(l2)<<endl;
+                                    LOGV(25)<<VAR(d)<<" "<<VAR(l1)<<" "<<VAR(segRegNeighbors[i])<<" "<<VAR(l2)<<std::endl;
                                     if (m_pairwiseSegmentationRegistrationWeight>0){
                                         (*srsPairwise)[l1][l2][d]=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(segRegNeighbors[i],d,l2,l1);
                                     }else{
@@ -507,9 +507,9 @@ public:
             }
             clock_t endPairwise = clock();
             t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
-            LOGV(1)<<"Segmentation + SRS pairwise took "<<t<<" seconds."<<endl;
-            LOGV(1)<<"Approximate size of seg pairwise: "<<1.0/(1024*1024)*nSegEdges*nSegLabels*nSegLabels*sizeof(double)*m_cachePotentials<<" mb."<<endl;
-            LOGV(1)<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegRegEdges*nSegLabels*nRegLabels*sizeof(double)*m_cachePotentials<<" mb."<<endl;
+            LOGV(1)<<"Segmentation + SRS pairwise took "<<t<<" seconds."<<std::endl;
+            LOGV(1)<<"Approximate size of seg pairwise: "<<1.0/(1024*1024)*nSegEdges*nSegLabels*nSegLabels*sizeof(double)*m_cachePotentials<<" mb."<<std::endl;
+            LOGV(1)<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegRegEdges*nSegLabels*nRegLabels*sizeof(double)*m_cachePotentials<<" mb."<<std::endl;
             
         }
         m_optimizer->setSmoothCost(&GLOBALsmoothFunction);
@@ -547,7 +547,7 @@ public:
 
         clock_t opt_start=clock();
         double energy;//=m_optimizer->compute_energy();
-        //LOGV(2)<<VAR(energy)<<endl;
+        //LOGV(2)<<VAR(energy)<<std::endl;
         try{
             m_optimizer->expansion(maxIter==0?-1:maxIter);
             //m_optimizer->swap(maxIter);
@@ -566,7 +566,7 @@ public:
     virtual double optimizeOneStep(int currentIter , bool & converged){
         clock_t opt_start=clock();
         double energy;//=
-        //LOGV(2)<<VAR(energy)<<endl;
+        //LOGV(2)<<VAR(energy)<<std::endl;
         try{
             m_optimizer->expansion(1);
             //m_optimizer->swap(maxIter);
@@ -591,7 +591,7 @@ public:
         if (m_register){
             for (int i=0;i<nRegNodes;++i){
                 Labels[i]=m_optimizer->whatLabel(i);
-                LOGV(20)<<"DEF "<<VAR(i)<<" "<<VAR(Labels[i])<<endl;
+                LOGV(20)<<"DEF "<<VAR(i)<<" "<<VAR(Labels[i])<<std::endl;
             }
         }
         return Labels;
@@ -600,8 +600,9 @@ public:
         std::vector<int> Labels(nSegNodes,0);
         if (m_segment){
             for (int i=0;i<nSegNodes;++i){
-                Labels[i]=max(0,m_optimizer->whatLabel(i+GLOBALnRegNodes)-GLOBALnRegLabels);
-                LOGV(20)<<"SEG "<<VAR(i)<<" "<<VAR(Labels[i])<<endl;
+                Labels[i]=m_optimizer->whatLabel(i+GLOBALnRegNodes)-GLOBALnRegLabels;
+                Labels[i]=Labels[i]>0?Labels[i]:0;
+                LOGV(20)<<"SEG "<<VAR(i)<<" "<<VAR(Labels[i])<<std::endl;
             }
         }
         return Labels;
@@ -613,7 +614,7 @@ public:
 
     void addNeighbor(int id1, int id2, int * neighbCount, int **neighbors, EnergyType ** weights){
         
-        LOGV(15)<<"Adding neighbors "<<id1<<" "<<id2<<" with counts "<<VAR(neighbCount[id1])<< " "<<VAR(neighbCount[id2])<<endl;
+        LOGV(15)<<"Adding neighbors "<<id1<<" "<<id2<<" with counts "<<VAR(neighbCount[id1])<< " "<<VAR(neighbCount[id2])<<std::endl;
         //allocate memory if not yet allocated
 #ifdef ALLOCINDIVIDUAL
         if (neighbCount[id1] == 0){
@@ -625,7 +626,7 @@ public:
             }
             neighbors[id1]=new int[nNeighbors];
             weights[id1]=new EnergyType[nNeighbors];
-            LOGV(15)<<"allocated id1"<<endl;
+            LOGV(15)<<"allocated id1"<<std::endl;
 
         }
         if (neighbCount[id2] == 0){
@@ -637,17 +638,17 @@ public:
             }
             neighbors[id2]=new int[nNeighbors];
             weights[id2]=new EnergyType[nNeighbors];
-            LOGV(15)<<"allocated id2"<<endl;
+            LOGV(15)<<"allocated id2"<<std::endl;
         }
 #endif
         neighbors[id1][neighbCount[id1]]=id2;
         weights[id1][neighbCount[id1]]=1;
         neighbCount[id1]++;                       
-        LOGV(15)<<"added id1->id2"<<endl;
+        LOGV(15)<<"added id1->id2"<<std::endl;
         neighbors[id2][neighbCount[id2]]=id1;
         weights[id2][neighbCount[id2]]=1;
         neighbCount[id2]++;                       
-        LOGV(15)<<"added id2->id1"<<endl;
+        LOGV(15)<<"added id2->id1"<<std::endl;
 
     }
 };
