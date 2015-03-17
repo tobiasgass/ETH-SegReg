@@ -150,7 +150,7 @@ ImagePointerType probSegmentationToSegmentationGraphcutMultiLabel( Probabilistic
 
 
 int main(int argc, char ** argv){
-    feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+    feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     ArgumentParser * as=new ArgumentParser(argc,argv);
     string probImageFilename="",imageFilename="",outImageFilename="";
     double smoothness=1.0;

@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
 	as.parse();
 	
     logSetVerbosity(verbose);
-	feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+	feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     typedef unsigned char PixelType;
     const unsigned int D=2;
     typedef Image<PixelType,D> ImageType;

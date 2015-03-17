@@ -43,8 +43,13 @@ dependencies for SRS are necessary. Some general dependencies are shared for all
 General Dependencies
 --------------------
 
+Build was tested on Debian wheezy and OSX 10.10. In OSX, the
+RandomForest library will not build easily since OpenMP is not
+included in clang, but this is an optional feature.
+
 * CMAKE 2.8
-* ITK is required, versions tested and working are 4.5-4.8. Turn USE_REVIEW on.
+* ITK is required, versions tested and working are 4.5-4.8. Turn
+  USE_REVIEW and ITKv3Compatibility on.
 * BOOST is required, 1.49 tested and working. This is mainly used for command line parsing and some formatting, and could probably be removed if need be.
 
 
@@ -66,7 +71,13 @@ Note that openGM comes with a wide variety of discrete optimizers and wrappers, 
 A patch will be applied automatically during the build process. This will disable all energyTypes except typeGeneral from the downloaded library because the extended functionality was not implemented for those.
 
 * GCO can be downloaded here: http://vision.csd.uwo.ca/code/
-The same directory can also be used as root for the binary graph-cut (GC) optimizer.
+The same directory can also be used as root for the binary graph-cut
+(GC) optimizer.
+
+A choice of classifiers is available which can be optionally
+enabled/disabled. C-UGMIX is a Gaussian mixture model estimator, and RF a
+random forest library. Both are included under their own licenses in
+this package. Note that the RF library depends on both Boost and OpenMP.
 
 
 MRegFuse Dependencies
@@ -107,7 +118,8 @@ own license, which is included either within the source code itself or
 supplied in a separate License file.
 
 
-Copyright (c) 2010-2015, Tobias Gass (tobiasgass@gmail.com)
+Copyright (c) 2010-2015, Tobias Gass (tobiasgass@gmail.com) unless
+explicitly stated otherwise
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
