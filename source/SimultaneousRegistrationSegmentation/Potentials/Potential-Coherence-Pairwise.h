@@ -388,6 +388,7 @@ namespace SRS{
 	    if (auxiliarySegmentation){
 	      result=min(result,1.0);
 	      LOGV(16)<<VAR(result)<<endl;
+
             }
             result=0.5*result*result;//exp(result)-1;
            
