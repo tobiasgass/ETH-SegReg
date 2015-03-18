@@ -417,7 +417,7 @@ public:
                     int c=0;
                     for (int d=0;d<nSegNodes;++d){
                         double unarySegCost=this->m_GraphModel->getUnarySegmentationPotential(d,l1);
-                        if ( unarySegCost<1000){
+                        if ( unarySegCost<10000){
                             costas[c].cost=m_unarySegmentationWeight*unarySegCost;
                             LOGV(10)<<"node "<<d<<"; seg unary label: "<<l1<<" "<<m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1)<<std::endl;
                             costas[c].site=d+GLOBALnRegNodes;

@@ -317,7 +317,7 @@ namespace SRS{
                         minPot=pot;
                     }
                 }
-
+ 
             }
             return minPot;
         }

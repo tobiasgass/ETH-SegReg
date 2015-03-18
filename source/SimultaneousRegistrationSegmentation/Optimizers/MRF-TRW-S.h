@@ -210,10 +210,12 @@ namespace SRS{
 	//SegUnaries
 	clock_t startUnary = clock();
 	TRWType::REAL D2[nSegLabels];
+
 	for (int d=0;d<nSegNodes;++d){
 	  std::vector<int> segRegNeighbors=this->m_GraphModel->getSegRegNeighbors(d);
 	  for (int l1=0;l1<nSegLabels;++l1)
 	    {
+	      
 	      D2[l1]=m_unarySegmentationWeight*this->m_GraphModel->getUnarySegmentationPotential(d,l1);
 	      //in case of coherence weight, but no direct registration optimization, add coherence potential to registration unaries
 	      if (m_coherence && !m_register){

@@ -61,6 +61,11 @@ template<class TImage, class TLabel>
   virtual int getNumberOfDisplacementLabels(){LOGV(3)<<VAR(this->descr)<<", returning "<<VAR(this->m_nDisplacements)<<std::endl;return this->m_nDisplacements;}
   ///return discrete label which corresponds to the (0,0,0) displacement vector
   virtual inline int getZeroDisplacementIndex(){return this->m_nDisplacements/2;}
+   inline LabelType getZeroDisplacement(){
+     LabelType zeroDisp;
+     zeroDisp.Fill(0.0);
+     return zeroDisp;
+   }
 
   virtual void setNumberOfSegmentationLabels(int labels){
     this->m_nSegmentations=labels;

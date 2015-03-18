@@ -482,15 +482,20 @@ namespace SRS{
     IndexType imageIndex=getImageIndex(nodeIndex);
              
     /// use labelIndex from provided segmentation image if it is set, overwriting the input labelIndex
+    /// this is needed for ARS, where a segmentation estimate of the target image is availble
     if (m_targetSegmentationImage.IsNotNull()){
       labelIndex=m_targetSegmentationImage->GetPixel(imageIndex);
     }
 
     /// return a large potential if segmentation nodes are reduced and the current node/label combination has a coherence potential larger than m_coherenceThresh
     if ( m_reducedSegNodes ){
-      //if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),this->m_labelMapper->getLabel(0),labelIndex))>m_coherenceThresh)
-      if (m_borderOfSegmentationROI->GetPixel(imageIndex))
-	return 10000;
+      if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),this->m_labelMapper->getZeroDisplacement(),labelIndex))>m_coherenceThresh)
+	//inelegant solution! This returns a large magic number to the optimizer in case the pixel is _outside_ of the ROI, and a slightly smaller if inside.
+	if (this->m_borderOfSegmentationROI->GetPixel(imageIndex)){
+	  return 9999;
+	}else{
+	  return 10000;
+	}
     }
                     
 
