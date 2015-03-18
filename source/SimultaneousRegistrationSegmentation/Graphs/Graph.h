@@ -488,8 +488,9 @@ namespace SRS{
 
     /// return a large potential if segmentation nodes are reduced and the current node/label combination has a coherence potential larger than m_coherenceThresh
     if ( m_reducedSegNodes ){
-      if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),this->m_labelMapper->getLabel(0),labelIndex))>m_coherenceThresh)
-	return 1000;
+      //if (sqrt(2*m_pairwiseSegRegFunction->getPotential(imageIndex,IndexType(),this->m_labelMapper->getLabel(0),labelIndex))>m_coherenceThresh)
+      if (m_borderOfSegmentationROI->GetPixel(imageIndex))
+	return 10000;
     }
                     
 

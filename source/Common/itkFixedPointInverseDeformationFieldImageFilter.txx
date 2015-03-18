@@ -146,7 +146,7 @@ namespace itk {
                     ++c;
                 }
             }
-            std::cout<<"Iteration "<<i<<"; avgerror: "<<residualError/c<<endl;
+            std::cout<<"Iteration "<<i<<"; avgerror: "<<residualError/c<<std::endl;
         }
     }
 

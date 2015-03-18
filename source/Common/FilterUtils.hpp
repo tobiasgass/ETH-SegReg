@@ -39,7 +39,7 @@
 #include <itkGrayscaleFillholeImageFilter.h>
 #include "itkSignedMaurerDistanceMapImageFilter.h"
 #include <itkMinimumMaximumImageCalculator.h>
-
+#include <algorithm>
 
 ///\brief This class provides static functions which are mostly wrappers around ITK routines.
 ///Its main purpose is to alleviate the inclusion of common methods such as resampling, thresholding,...
@@ -143,8 +143,8 @@ public:
         px=1.3;
         double test=1.3;
         if ( (test-px) > std::numeric_limits<float>::epsilon ()){
-            LOG<<VAR(px)<<" "<<VAR(test)<<" "<<VAR(test-px)<<endl;
-            LOG<<"WARNING: normalizing integer image type to zero mean/unit variance will probably not work well!"<<endl;
+            LOG<<VAR(px)<<" "<<VAR(test)<<" "<<VAR(test-px)<<std::endl;
+            LOG<<"WARNING: normalizing integer image type to zero mean/unit variance will probably not work well!"<<std::endl;
         }
         NormalizeImageFilterPointerType filter=NormalizeImageFilterType::New();
         filter->SetInput(input);
@@ -185,9 +185,9 @@ public:
         
         statistics->SetInput(gradient);
         statistics->Update();
-        double maxim=statistics->GetMaximum();
-        double minim=statistics->GetMinimum();
-        double absMax=max(fabs(maxim),fabs(minim));
+        double maxim=fabs(statistics->GetMaximum());
+        double minim=fabs(statistics->GetMinimum());
+        double absMax=maxim>minim?maxim:minim;
         double mean=statistics->GetMean();
 
         typename ImageUtils<OutputImage>::ImageIteratorType gradientIt(gradient,gradient->GetLargestPossibleRegion());
@@ -319,7 +319,7 @@ public:
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
-        LOGV(5)<<VAR(smooth)<<" "<<VAR(nnResample)<<endl;
+        LOGV(5)<<VAR(smooth)<<" "<<VAR(nnResample)<<std::endl;
         if (nnResample)
             resampler->SetInterpolator(interpolNN);
         else
@@ -335,14 +335,14 @@ public:
             if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
         }
         double newSpacing=minSpacing/scale;
-        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
+        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<std::endl;
         for (uint d=0;d<InputImage::ImageDimension;++d){
             //determine new spacing
             //never increase resolution!
             if (scale>1.0){
                 spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
             }else{
-                spacing[d]=max(inputSpacing[d],newSpacing);//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
+	      spacing[d]=inputSpacing[d]>newSpacing?inputSpacing[d]:newSpacing;
             }
             //calculate new image size
             size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
@@ -352,8 +352,8 @@ public:
 
             origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
-        LOGV(7)<<"full parameters : "<<spacing<<" "<<size<<" "<<origin<<endl;
-        LOGV(3)<<"Resampling to isotropic  spacing "<<spacing<<" with resolution "<<size<<endl;
+        LOGV(7)<<"full parameters : "<<spacing<<" "<<size<<" "<<origin<<std::endl;
+        LOGV(3)<<"Resampling to isotropic  spacing "<<spacing<<" with resolution "<<size<<std::endl;
         resampler->SetOutputOrigin(origin);
 		resampler->SetOutputSpacing ( spacing );
 		resampler->SetOutputDirection ( input->GetDirection() );
@@ -390,7 +390,7 @@ public:
         LinearInterpolatorPointerType interpol=LinearInterpolatorType::New();
         NNInterpolatorPointerType interpolNN=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();
-        LOGV(5)<<VAR(smooth)<<" "<<VAR(nnResample)<<endl;
+        LOGV(5)<<VAR(smooth)<<" "<<VAR(nnResample)<<std::endl;
         if (nnResample){
             resampler->SetInterpolator(interpolNN);
             smooth=false;
@@ -405,7 +405,7 @@ public:
         inputSpacing=input->GetSpacing();
       
         double newSpacing=isoSpacing;
-        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
+        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<std::endl;
         for (uint d=0;d<InputImage::ImageDimension;++d){
             spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
             //calculate new image size
@@ -415,8 +415,8 @@ public:
             //size[d]=int(inputSpacing[d]/spacing[d]*(inputSize[d]));
             origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
         }
-        LOGV(7)<<"full parameters : "<<spacing<<" "<<size<<" "<<origin<<endl;
-        LOGV(3)<<"Resampling to isotropic  spacing "<<spacing<<" with resolution "<<size<<endl;
+        LOGV(7)<<"full parameters : "<<spacing<<" "<<size<<" "<<origin<<std::endl;
+        LOGV(3)<<"Resampling to isotropic  spacing "<<spacing<<" with resolution "<<size<<std::endl;
         resampler->SetOutputOrigin(origin);
 		resampler->SetOutputSpacing ( spacing );
 		resampler->SetOutputDirection ( input->GetDirection() );
@@ -447,14 +447,15 @@ public:
             if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
         }
         double newSpacing=minSpacing/scale;
-        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<endl;
+        LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<std::endl;
         for (uint d=0;d<InputImage::ImageDimension;++d){
             //determine new spacing
             //never increase resolution!
             if (scale>1.0){
                 spacing[d]=newSpacing;
             }else{
-                spacing[d]=max(inputSpacing[d],newSpacing);
+
+	      spacing[d]=inputSpacing[d]>newSpacing?inputSpacing[d]:newSpacing;
             }
             //calculate new image size
             size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
@@ -480,7 +481,7 @@ public:
         NNInterpolatorPointerType interpol=NNInterpolatorType::New();
         ResampleFilterPointerType resampler=ResampleFilterType::New();  
         if (smooth){
-            LOG<<"NN resampling with gaussian filter, DOES NOT MAKE SENSE, does it? "<<endl;
+            LOG<<"NN resampling with gaussian filter, DOES NOT MAKE SENSE, does it? "<<std::endl;
             InputImagePointer smoothedInput = gaussian(input,reference->GetSpacing());
             resampler->SetInput(smoothedInput);
         }else{
@@ -711,7 +712,7 @@ public:
 
         DiscreteGaussianImageFilterPointer filter =
             DiscreteGaussianImageFilterType::New();
-        LOGV(4)<<"gaussian smoothing with "<<VAR(spacing)<<endl;
+        LOGV(4)<<"gaussian smoothing with "<<VAR(spacing)<<std::endl;
         filter->SetInput(image);
 #ifdef RECURSIVEGAUSSIAN
         filter->SetSigmaArray(spacing);
@@ -719,7 +720,7 @@ public:
         
 #endif       
         filter->Update();
-        LOGV(4)<<"success"<<endl;
+        LOGV(4)<<"success"<<std::endl;
         return filter->GetOutput();
     }
 
@@ -1313,17 +1314,17 @@ public:
         typedef typename ImageUtils<InputImage>::FloatImagePointerType FloatImagePointerType;
         for (int l=1;l<=maxLabel;++l){
 
-            LOGV(2)<<"Upsampling segmentation for label "<<l<<endl;
-            LOGV(2)<<"Computing distance map"<<endl;
+            LOGV(2)<<"Upsampling segmentation for label "<<l<<std::endl;
+            LOGV(2)<<"Computing distance map"<<std::endl;
             FloatImagePointerType distanceMap=FilterUtils<InputImage,FloatImageType>::distanceMapByFastMarcher(FilterUtils<InputImage>::select(seg,l),1);
             LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMapLow.nii",distanceMap));
-            LOGV(2)<<"Resampling and smoothing distance map..."<<endl;
+            LOGV(2)<<"Resampling and smoothing distance map..."<<std::endl;
             distanceMap=FilterUtils<FloatImageType>::LinearResample(distanceMap,FilterUtils<InputImage,FloatImageType>::cast(ref),false);
             distanceMap=FilterUtils<FloatImageType>::gaussian(distanceMap,(seg->GetSpacing()-ref->GetSpacing())*0.5);
             LOGI(6,ImageUtils<FloatImageType>::writeImage("distnaceMaphigh.nii",distanceMap));
-            LOGV(2)<<"Thresholding distance map to get segmentation"<<endl;
+            LOGV(2)<<"Thresholding distance map to get segmentation"<<std::endl;
             OutputImagePointer partResult=FilterUtils<FloatImageType,OutputImage>::binaryThresholdingHigh(distanceMap,0.5);
-            LOGV(2)<<"Mapping segmentation labels..."<<endl;
+            LOGV(2)<<"Mapping segmentation labels..."<<std::endl;
             combineSegmentations(result,partResult,l);
         }
         return result;

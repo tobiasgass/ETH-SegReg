@@ -1,4 +1,3 @@
-#include "Log.h"
 /*
  * HierarchicalSRSImageToImageFilter.h
  *
@@ -20,6 +19,7 @@
 #include "Graph.h"
 #include "BaseLabel.h"
 #include "BaseMRF.h"
+#include "Log.h"
 
 #ifdef WITH_TRWS
 #include "MRF-TRW-S.h"
@@ -69,6 +69,7 @@
 #include "itkHausdorffDistanceImageFilter.h"
 #include <float.h>
 #include "TransformationUtils.h"    
+#include <algorithm>
 
 namespace SRS{
     template<class TGraph>
@@ -332,7 +333,7 @@ namespace SRS{
             DeformationFieldPointerType fullDeformation,previousFullDeformation;
             if (regist || coherence){
                 if (m_useBulkTransform){
-                    LOGV(1)<<"Initializing with bulk transform." <<endl;
+                    LOGV(1)<<"Initializing with bulk transform." <<std::endl;
                     previousFullDeformation=m_bulkTransform;
                 }else{
                     //allocate memory
@@ -341,14 +342,14 @@ namespace SRS{
                     previousFullDeformation->SetOrigin(m_targetImage->GetOrigin());
                     previousFullDeformation->SetSpacing(m_targetImage->GetSpacing());
                     previousFullDeformation->SetDirection(m_targetImage->GetDirection());
-                    LOGV(1)<<"Initializing registration with identity transform." <<endl;
+                    LOGV(1)<<"Initializing registration with identity transform." <<std::endl;
                     previousFullDeformation->Allocate();
                     itk::Vector<float, D> tmpVox(0.0);
                     previousFullDeformation->FillBuffer(tmpVox);
                 }
                 deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_atlasImage,previousFullDeformation);
                 if (m_atlasMaskImage.IsNotNull()){
-                    LOGV(6)<<"Deforming moving mask.."<<endl;
+                    LOGV(6)<<"Deforming moving mask.."<<std::endl;
                     deformedAtlasMaskImage=TransfUtils<ImageType>::warpImage(m_atlasMaskImage,previousFullDeformation);
                 }
                 else
@@ -359,7 +360,7 @@ namespace SRS{
             ConstImagePointerType m_inputTargetImage=m_targetImage;
             
             SparseLabelMapperType * labelmapper=new SparseLabelMapperType(m_config->nSegmentations,m_config->nRegSamples[0]);
-            LOGV(5)<<VAR(m_config->nSegmentations)<<" "<<VAR(labelmapper->getNumberOfSegmentationLabels())<<endl;
+            LOGV(5)<<VAR(m_config->nSegmentations)<<" "<<VAR(labelmapper->getNumberOfSegmentationLabels())<<std::endl;
             int iterationCount=0; 
             int level;
 
@@ -381,7 +382,7 @@ namespace SRS{
                 m_config->iterationsPerLevel=1;
             }
             bool computeLowResolutionBsplineIfPossible=m_config->useLowResBSpline;
-            LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<endl;
+            LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<std::endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
             graph->setConfig(*m_config);
              //register images and potentials
@@ -418,7 +419,7 @@ namespace SRS{
 
                 scaling=m_config->resamplingFactors[max(0,m_config->imageLevels-l-1)];
 
-                LOGV(1)<<"Image downsampling factor for registration unary computation : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<endl;
+                LOGV(1)<<"Image downsampling factor for registration unary computation : "<<scaling<<" "<<mantisse<<" "<<exponent<<" "<<reductionFactor<<std::endl;
 
                 level=m_config->levels[l];
                 double labelScalingFactor=m_config->displacementScaling;
@@ -429,10 +430,10 @@ namespace SRS{
                 if (m_config->segmentationScalingFactor != 0.0 && m_config->nSegmentationLevels>1){
                     segmentationScalingFactor=pow(m_config->segmentationScalingFactor,m_config->nSegmentationLevels-l-1);
                     //segmentationScalingFactor=max(m_config->segmentationScalingFactor,m_config->resamplingFactors[max(0,m_config->nSegmentationLevels-l-1)]);
-                    LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
+                    LOGV(4)<<VAR(segmentationScalingFactor)<<std::endl;
                     m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor,true);
                 }else if (m_config->segmentationScalingFactor == 0.0){
-                    LOG<<"Using same grid control point resolution for both registration and segmentation sub-graph!"<<endl;
+                    LOG<<"Using same grid control point resolution for both registration and segmentation sub-graph!"<<std::endl;
                     logSetStage("segmentation grid size estimation");
                     //use same level of detail as used for the graph
                     //first set up dummy graph from original target image
@@ -441,14 +442,14 @@ namespace SRS{
                     graph->setDisplacementFactor(labelScalingFactor);
                     graph->initGraph(level);
                     //use coarse graph image for resampling..
-                    LOGV(4)<<VAR(graph->getCoarseGraphImage()->GetSpacing())<<endl;
+                    LOGV(4)<<VAR(graph->getCoarseGraphImage()->GetSpacing())<<std::endl;
                     //quite crude method ;)
                     segmentationScalingFactor = 1.0*graph->getCoarseGraphImage()->GetLargestPossibleRegion().GetSize()[0]/m_inputTargetImage->GetLargestPossibleRegion().GetSize()[0];
-                    LOGV(4)<<VAR(segmentationScalingFactor)<<endl;
+                    LOGV(4)<<VAR(segmentationScalingFactor)<<std::endl;
 
                     m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,(ConstImagePointerType)graph->getCoarseGraphImage(),true);
                     LOGV(4)<<"downsampled image" << endl;
-                    LOGV(4)<<VAR(graph->getCoarseGraphImage()->GetSpacing())<<endl;
+                    LOGV(4)<<VAR(graph->getCoarseGraphImage()->GetSpacing())<<std::endl;
                     logResetStage;
                 } else{
                     m_targetImage = m_inputTargetImage;
@@ -469,7 +470,7 @@ namespace SRS{
                     //do not continue after this iteration if the grid resolution is equal to the input resolution
                     pixelGrid=true;
                     LOG<<"Last iteration, since control grid resolution equals target image resolution" << endl;
-                    LOG<<VAR(graph->getCoarseGraphImage()->GetLargestPossibleRegion().GetSize())<<" "<<VAR( m_inputTargetImage->GetLargestPossibleRegion().GetSize())<<endl;
+                    LOG<<VAR(graph->getCoarseGraphImage()->GetLargestPossibleRegion().GetSize())<<" "<<VAR( m_inputTargetImage->GetLargestPossibleRegion().GetSize())<<std::endl;
                 }
 
                 if (regist||coherence){
@@ -478,7 +479,7 @@ namespace SRS{
                   
                     m_unaryRegistrationPot->SetAtlasMaskImage(m_atlasMaskImage);
                     if (m_config->alpha > 0 && segment){
-                        LOG<<"WARNING, alpha used for both seg and reg potentials, this will likely break stuff"<<endl;
+                        LOG<<"WARNING, alpha used for both seg and reg potentials, this will likely break stuff"<<std::endl;
                     }
                     m_unaryRegistrationPot->SetAlpha(m_config->alpha);
 #if 0
@@ -558,7 +559,7 @@ namespace SRS{
                 std::vector<int> defLabels,segLabels, oldDefLabels,oldSegLabels;
                 if (labelmapper->getNumberOfDisplacementSamplesPerAxis() == 0 ) i=m_config->iterationsPerLevel-1;
                 double tol=tolerance<4.0?2.0:sqrt(tolerance);
-                LOGV(4)<<"tolerance :"<<tol<<" "<<VAR(oldtolerance)<<endl;
+                LOGV(4)<<"tolerance :"<<tol<<" "<<VAR(oldtolerance)<<std::endl;
                 //tolerance gets set only at levels to avoid that the energy changes during inner iterations. if tolerance would change within the inner iterations, convergence criteria based on energy would not be well-defined any more
                 m_pairwiseCoherencePot->SetTolerance(tol);
 
@@ -569,11 +570,11 @@ namespace SRS{
                     logSetStage(":InitIter");
                     LOGV(7)<<"Multiresolution optimization at level "<<l<<" in iteration "<<i<<std::endl;
                     // displacementfactor decreases with iterations
-                    LOGV(2)<<VAR(labelScalingFactor)<<endl;
+                    LOGV(2)<<VAR(labelScalingFactor)<<std::endl;
                     graph->setDisplacementFactor(labelScalingFactor);
 
 
-                    LOGV(2)<<VAR(graph->getMaxDisplacementFactor())<<endl;
+                    LOGV(2)<<VAR(graph->getMaxDisplacementFactor())<<std::endl;
                     //register deformation from previous iteration
                     if (regist){
 
@@ -610,7 +611,7 @@ namespace SRS{
                     //	ok what now: create graph! solve graph! save result!Z
                  
                     //#define TRUNC
-                    LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<endl;
+                    LOGV(5)<<VAR(coherence)<<" "<<VAR(segment)<<" "<<VAR(regist)<<std::endl;
                     logUpdateStage(":Optimization");
                     if (m_config->solver=="GC" && m_config->nSegmentations == 2 && segment && !coherence && !regist){
 #ifdef WITH_GC
@@ -624,7 +625,7 @@ namespace SRS{
                         segmentation=graph->getSegmentationImage(mrfSolverGC->getLabels());
                         delete mrfSolverGC;
 #else
-                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<endl;
+                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<std::endl;
 #endif
 
                     }else{
@@ -644,7 +645,7 @@ namespace SRS{
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
 #else
-                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<endl;
+                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<std::endl;
 #endif
                         }else if (m_config->GCO){
 #ifdef WITH_GCO
@@ -658,7 +659,7 @@ namespace SRS{
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
 #else
-                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<endl;
+                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<std::endl;
 #endif
                         }else if (m_config->OPENGM){
 #ifdef WITH_OPENGM
@@ -672,7 +673,7 @@ namespace SRS{
                                                           m_config->pairwiseCoherenceWeight,//*pow( m_config->coherenceMultiplier,l),
                                                           m_config->verbose);
 #else
-                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<endl;
+                            LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<std::endl;
 #endif
 
 
@@ -704,7 +705,7 @@ namespace SRS{
                                         LOGV(2)<<" Segmentation labels changed :"<<computeLabelChange(oldSegLabels,segLabels)<<" ";
                                     }
                                 }
-                                LOGV(3)<<endl;
+                                LOGV(3)<<std::endl;
                             }
                         }
                         lastEnergy=newEnergy;
@@ -745,7 +746,7 @@ namespace SRS{
                     }
                     //else converge if energy difference is lower than the threshold
                     converged=(i>0) && (fabs(oldEnergy-newEnergy)/(oldEnergy+DBL_EPSILON) < 1e-4 ); 
-                    LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<endl;
+                    LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<std::endl;
 
                     oldEnergy=newEnergy;
                     //initialise interpolator
@@ -766,7 +767,7 @@ namespace SRS{
                     previousFullDeformation=composedDeformation;
                     labelScalingFactor*=m_config->displacementRescalingFactor;
                     if (segmentation.IsNotNull()&& segmentationScalingFactor<1.0){
-                        LOGV(6)<<VAR(segmentation->GetLargestPossibleRegion().GetSize())<<endl;
+                        LOGV(6)<<VAR(segmentation->GetLargestPossibleRegion().GetSize())<<std::endl;
                         segmentation = FilterUtils<ImageType>::BSplineResampleSegmentation(segmentation,m_targetImage);
                     }
                  
@@ -783,7 +784,7 @@ namespace SRS{
                         deformedAtlasImage=TransfUtils<ImageType>::warpImage(m_unaryRegistrationPot->GetAtlasImage(),lowResDef);
                       
                         if (m_atlasMaskImage.IsNotNull()){
-                            LOGV(6)<<"Deforming moving mask.."<<endl;
+                            LOGV(6)<<"Deforming moving mask.."<<std::endl;
                             deformedAtlasMaskImage=TransfUtils<ImageType>::warpImage(m_atlasMaskImage,previousFullDeformation);
                         }
                        
@@ -858,7 +859,7 @@ namespace SRS{
             }
 
             for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                //LOG<<imageIt.Get()*multiplier<<" "<<multiplier<<endl;
+                //LOG<<imageIt.Get()*multiplier<<" "<<multiplier<<std::endl;
                 imageIt2.Set(imageIt.Get()*multiplier);
             }
             return newImage;
@@ -884,7 +885,7 @@ namespace SRS{
             int countDiff=0;
             if (ref.size()==0 || comp.size()!=ref.size()){
                 bool notEq=(comp.size()!=ref.size());
-                LOG<<VAR(ref.size())<<" "<<VAR(notEq)<<endl;
+                LOG<<VAR(ref.size())<<" "<<VAR(notEq)<<std::endl;
                 exit(0);
             }
                 
