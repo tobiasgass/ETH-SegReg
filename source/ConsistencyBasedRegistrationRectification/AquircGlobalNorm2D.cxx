@@ -27,8 +27,8 @@
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
 #include "SolverAQUIRCGlobal.h"
 
+using namespace CBRR;
 
-//using namespace std;
 typedef unsigned char PixelType;
 static const unsigned int D=2 ;
 typedef itk::Image<PixelType,D> ImageType;

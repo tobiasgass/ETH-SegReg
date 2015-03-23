@@ -28,7 +28,8 @@
 #include "SolveAquircLocalComposedError.h"
 #include "SolveAquircLocalInterpolatedError.h"
 
-//using namespace std;
+using namespace CBRR;
+
 typedef unsigned char PixelType;
 static const unsigned int D=2 ;
 typedef itk::Image<PixelType,D> ImageType;
