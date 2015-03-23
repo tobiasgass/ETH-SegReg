@@ -24,12 +24,15 @@
 #include <itkAddImageFilter.h>
 #include <itkSubtractImageFilter.h>
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
-#include "CLERCIndependentDimensions.h"
 #include "itkMemoryProbesCollectorBase.h"
 
+#include "ConsistencySolverCBRR.h"
+
+using namespace CBRR;
+
 //using namespace std;
-typedef short PixelType; 
-static const unsigned int D=3 ;
+typedef unsigned char PixelType; 
+static const unsigned int D=2 ;
 typedef itk::Image<PixelType,D> ImageType;
 typedef   ImageType::Pointer ImagePointerType;
 typedef   ImageType::IndexType IndexType;
@@ -67,15 +70,6 @@ typedef map<string, map< string, string> > FileListCacheType;
 typedef  map<string,ImagePointerType> ImageCacheType;
 typedef  map<string, ImagePointerType>::iterator ImageListIteratorType;
 typedef map< string, map <string, DeformationFieldPointerType> > DeformationCacheType;
-
-double computeError( map< string, map <string, DeformationFieldPointerType> >  & defs,  map< string, map <string, DeformationFieldPointerType> > & trueDefs){
-    
-    return 0.0;
-
-}
-  
-
-
 
 
 
@@ -121,7 +115,6 @@ int main(int argc, char ** argv){
     bool filterMetricWithGradient=false;
     bool lineSearch=false;
     bool useConstraints=false;
-    double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
     string optimizer="csd:100";
     double tolerance=1e-2;
@@ -152,7 +145,6 @@ int main(int argc, char ** argv){
     as->parameter ("s", m_sigma," kernel width for lncc",false);
     as->parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
 
-    as->parameter ("cTol",convergenceTolerance ,"stopping criterion for absolute change in inconsistency",false);
 
     as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     as->parameter ("maxHops", maxHops,"maximum number of hops per level",false);
@@ -301,7 +293,7 @@ int main(int argc, char ** argv){
     }else{
         ROI=origReference;
     }
-    //resample ROI ? should/could be done within CLERC?
+    //resample ROI ? should/could be done within CBRR?
     if (resamplingFactor>1.0){
         ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/imageResamplingFactor,false);
 	
@@ -324,12 +316,12 @@ int main(int argc, char ** argv){
     }
 
     //create solver
-    CLERCIndependentDimensions<ImageType> * solver;
+    ConsistencySolverCBRR<ImageType> * solver;
     
     switch(solverType){
     case LOCALDEFORMATIONANDERROR:
         //solver= new AquircLocalDeformationAndErrorSolver<ImageType>;
-        solver= new CLERCIndependentDimensions<ImageType>;
+        solver= new ConsistencySolverCBRR<ImageType>;
         break;
     }
     
@@ -398,14 +390,14 @@ int main(int argc, char ** argv){
 
             solver->createSystem();
             solver->solve();
-            //compute and store results. For efficiency reasons, CLERC computes all metrics in one go within this routine.
+            //compute and store results. For efficiency reasons, CBRR computes all metrics in one go within this routine.
             solver->storeResult("");
             if (roiShift){
                 //shift ROI by half spacing to get different sampling in next iteration
                 ROI->SetOrigin(ROI->GetOrigin()+ pow(-1.0,1.0*(iter-1))*0.5*ROI->GetSpacing());
                 LOGV(1)<<VAR(ROI->GetOrigin())<<endl;
             }
-            solver->DoALot(outputDir);
+            solver->ComputeAndEvaluateResults(outputDir);
             //memorymeter.Stop( "CBRR complete" );
             //memorymeter.Report( std::cout );
             error=solver->getADE();
@@ -426,7 +418,7 @@ int main(int argc, char ** argv){
             if (iter == maxHops){
                 //double resolution
             }
-            if (iter >1 && (oldInconsistency-inconsistency<-0.01)){
+            if (iter >1 && (tolerance*(oldInconsistency-inconsistency)<-0.1)){
                 LOG<<"inconsistency increased("<<inconsistency<<" , stopping refinement."<<endl;
                 break;
             }
@@ -449,7 +441,7 @@ int main(int argc, char ** argv){
             solver->setROI(ROI);
             solver->setGrid(grid);
             solver->Initialize();
-            solver->DoALot();
+            solver->ComputeAndEvaluateResults();
         }
 
     }//levels

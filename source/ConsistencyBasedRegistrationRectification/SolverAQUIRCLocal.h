@@ -162,6 +162,8 @@ public:
                                     v[c++]=weights[2];
                                     LOGV(8)<<VAR(def)<<endl;
                                     //set rhs
+				    //add small constant to avoid floating point exception.
+				    //constant should be insignificant in terms of expected registration quality (in mm)
                                     b[eq-1]=log(fabs(def)+0.0067);
                                     ++eq;
 

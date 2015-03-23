@@ -62,7 +62,6 @@ typedef  itk::FixedPointInverseDeformationFieldImageFilter<DeformationFieldType,
 typedef  InverseDeformationFieldFilterType::Pointer InverseDeformationFieldFilterPointerType;
 enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
 enum WeightingType {UNIFORM,GLOBAL,LOCAL};
-enum SolverType {LOCALERROR,LOCALCOMPOSEDERROR,LOCALCOMPOSEDINTERPOLATEDERROR};
 
 
 
@@ -132,7 +131,7 @@ int main(int argc, char ** argv){
     as->parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
 
     as->parameter ("i", imageFileList, " list of  images", true);
-    as->parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
+
     as->parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
     //as->parameter ("radius", radius,"patch radius for local metrics",false);
     as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
@@ -164,15 +163,6 @@ int main(int argc, char ** argv){
         
     MetricType metric;
   
-    SolverType solverType;
-    if (solverName=="localerror"){
-        solverType=LOCALERROR;
-    }  else if (solverName=="localcomposederror"){
-        solverType=LOCALCOMPOSEDERROR;
-    }else if (solverName=="localcomposedinterpolatederror"){
-        solverType=LOCALCOMPOSEDINTERPOLATEDERROR;
-    }
-
    
 
     map<string,ImagePointerType> *inputImages;
@@ -298,21 +288,11 @@ int main(int argc, char ** argv){
         ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor);
     }
     
-    AquircLocalErrorSolver<ImageType> * solver;
-    switch(solverType){
-    case LOCALERROR:
-        solver= new AquircLocalErrorSolver<ImageType>;
-        break;
-    case LOCALCOMPOSEDERROR:
-        solver = new AquircLocalComposedErrorSolver<ImageType> ;
-        break;
-    case LOCALCOMPOSEDINTERPOLATEDERROR:
-        solver = new AquircLocalInterpolatedErrorSolver<ImageType> ;
-        break;
-        
-    }
+    SolverAQUIRCLocal<ImageType> * solver;
+    solver= new SolverAQUIRCLocal<ImageType>;
+   
     solver->setCircleWeights(w1,w3);
-   for (int h=0;h<maxHops;++h){
+    for (int h=0;h<maxHops;++h){
         solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
         solver->SetRegularization(lambda);
         solver->createSystem();

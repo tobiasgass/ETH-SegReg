@@ -25,14 +25,8 @@
 #include <itkAddImageFilter.h>
 #include <itkSubtractImageFilter.h>
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
-#include "SolveAquircGlobalDeformationNorm.h"
-#include "SolveAquircGlobalDeformationNormCVariables.h"
-#include "SolveAquircLocalDeformationNorms.h"
-#include "SolveAquircLocalDeformationAndError.h"
-#include "SolveAquircLocalError.h"
-#include "SolveAquircLocalComposedError.h"
-#include "SolveAquircLocalInterpolatedError.h"
-#include "SolveAquircLocalErrorAndResidual.h"
+#include "SolverAQUIRCGlobal.h"
+
 
 //using namespace std;
 typedef unsigned char PixelType;
@@ -68,7 +62,7 @@ typedef  itk::FixedPointInverseDeformationFieldImageFilter<DeformationFieldType,
 typedef  InverseDeformationFieldFilterType::Pointer InverseDeformationFieldFilterPointerType;
 enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
 enum WeightingType {UNIFORM,GLOBAL,LOCAL};
-enum SolverType {GLOBALNORM,LOCALNORM,LOCALERROR,LOCALCOMPOSEDERROR,LOCALCOMPOSEDINTERPOLATEDERROR,LOCALCOMPOSEDNORM,LOCALDEFORMATIONANDERROR};
+
 
 
 
@@ -134,7 +128,6 @@ int main(int argc, char ** argv){
     double alpha=0.5;
     double resamplingFactor=1.0;
     m_sigma=30;
-    string solverName="localnorm";
     double w1=1.0,w3=1.0;
     //as->parameter ("A",atlasSegmentationFileList , "list of atlas segmentations <id> <file>", true);
     as->parameter ("T", deformationFileList, " list of deformations", true);
@@ -142,7 +135,6 @@ int main(int argc, char ** argv){
     as->parameter ("ROI", ROIFilename, "file containing a ROI on which to perform erstimation", false);
 
     as->parameter ("i", imageFileList, " list of  images", true);
-    as->parameter ("solver", solverName,"solver used {globalnorm,localnorm,localerror,localcomposederror,localdeformationanderror}",false);
     as->parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
     //as->parameter ("radius", radius,"patch radius for local metrics",false);
     as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",true);
@@ -174,21 +166,6 @@ int main(int argc, char ** argv){
         
     MetricType metric;
   
-    SolverType solverType;
-    if (solverName=="globalnorm" ){
-        solverType=GLOBALNORM;}
-    else if (solverName=="localnorm")
-        solverType=LOCALNORM;
-    else if (solverName=="localerror"){
-        solverType=LOCALERROR;
-    }  else if (solverName=="localcomposederror"){
-        solverType=LOCALCOMPOSEDERROR;
-    }else if (solverName=="localdeformationanderror"){
-        solverType=LOCALDEFORMATIONANDERROR;
-    }else if (solverName=="localcomposedinterpolatederror"){
-        solverType=LOCALCOMPOSEDINTERPOLATEDERROR;
-    }
-
    
 
     map<string,ImagePointerType> *inputImages;
@@ -308,29 +285,9 @@ int main(int argc, char ** argv){
         ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/resamplingFactor,false);
     }
     
-    AquircGlobalDeformationNormSolverCVariables<ImageType> * solver;
-    switch(solverType){
-    case GLOBALNORM:
-        solver=new AquircGlobalDeformationNormSolverCVariables<ImageType> ;
-        break;
-    case LOCALNORM:
-        solver=new AquircLocalDeformationNormSolver<ImageType>;
-        break;
-
-    case LOCALERROR:
-        solver= new AquircLocalErrorSolver<ImageType>;
-        break;
-    case LOCALCOMPOSEDERROR:
-        solver = new AquircLocalComposedErrorSolver<ImageType> ;
-        break;
-    case LOCALDEFORMATIONANDERROR:
-        solver = new AquircLocalDeformationAndErrorSolver<ImageType> ;
-        break;
-    case LOCALCOMPOSEDINTERPOLATEDERROR:
-        solver = new AquircLocalInterpolatedErrorSolver<ImageType> ;
-        break;
-        
-    }
+    SolverAQUIRCGlobal<ImageType> * solver;
+    solver=new SolverAQUIRCGlobal<ImageType> ;
+   
     solver->setCircleWeights(w1,w3);
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
     solver->createSystem();
@@ -338,6 +295,7 @@ int main(int argc, char ** argv){
     solver->storeResult(outputDir);
     solver->getResult();
     
+    delete solver;
     
     return 1;
 }//main

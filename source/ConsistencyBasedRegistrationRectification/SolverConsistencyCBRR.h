@@ -1,12 +1,12 @@
 #pragma once
 #include "matrix.h"
-#include "BaseLinearSolver.h"
+
 #include "TransformationUtils.h"
 #include "Log.h"
 #include "ImageUtils.h"
 #include <vector>
 #include <sstream>
-#include "SolveAquircGlobalDeformationNormCVariables.h"
+
 #include "Metrics.h"
 #include "TemporalMedianImageFilter.h"
 #include "itkGaussianImage.h"
@@ -26,10 +26,12 @@
 #include "RegistrationMethods.h"
 #include "mat.h"
 
+#include "SolverAQUIRCGlobal.h"
+
+namespace CBRR{
+
 template<class ImageType >
-//template<class ImageType, class MetricType=itk::NormalizedCorrelationImageToImageMetric<ImageType,ImageType> >
-//template<class ImageType, class MetricType=itk::MeanSquaresImageToImageMetric<ImageType,ImageType> >
-class CLERCIndependentDimensions: public AquircGlobalDeformationNormSolverCVariables< ImageType>{
+class SolverConsistencyCBRR: public SolverAQUIRCGlobal< ImageType>{
 public:
     typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename  TransfUtils<ImageType>::DisplacementType DisplacementType;
@@ -61,8 +63,7 @@ public:
     
     typedef map<string,ImagePointerType> ImageCacheType;
     typedef map<string,FloatImagePointerType> FloatImageCacheType;
-
-    typedef map<string, map< string, string> > FileListCacheType;
+ map<string, map< string, string> > FileListCacheType;
     
 
 protected:
@@ -401,7 +402,7 @@ public:
 
         m_firstInit=false;
         //compute errors, weights, and so on and so forth?
-        DoALot();
+        ComputeAndEvaluateResults();
 
     }
     
@@ -1959,7 +1960,7 @@ public:
    
 
 
-    void DoALot(string directory=""){
+    void ComputeAndEvaluateResults(string directory=""){
         typedef typename itk::LabelOverlapMeasuresImageFilter<ImageType> OverlapMeasureFilterType;
         m_spacingBasedSmoothnessReduction=1.0/this->m_grid->GetSpacing()[0];
         //initialize ADE with zero if it is going to be computed.
@@ -2340,7 +2341,7 @@ public:
             LOGV(3)<<VAR(m_ADE)<<" "<<VAR(m_averageLNCC)<<" "<<VAR(m_minSim)<<" "<<VAR(m_maxSim)<<endl;
             m_Inconsistency=TransfUtils<ImageType>::computeInconsistency(&m_previousDeformationCache,&m_imageIDList, &m_trueDeformations,m_maskList);
         
-        }//DoALot
+        }//ComputeAndEvaluateResults
     
     
     
@@ -2901,6 +2902,7 @@ public:
                       
                                 
     }
+}//namespace
 #endif
 
 #endif
