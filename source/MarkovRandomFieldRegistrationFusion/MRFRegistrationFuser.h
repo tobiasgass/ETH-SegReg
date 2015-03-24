@@ -282,7 +282,7 @@ namespace MRegFuse{
 	off[i]=1;
 	IndexType neighborIndex=idx+off;
 	//LOGV(2)<<m_mask->GetLargestPossibleRegion().GetSize()<<" "<<VAR(neighborIndex)<<" "<<(m_mask->GetPixel(neighborIndex)>0)<<" "<<m_mask->GetPixel(neighborIndex)<<" "<<m_mask->GetPixel(idx)<<" "<<VAR((m_mask->GetPixel(idx)>0))<<endl;
-	if (!m_mask->GetPixel(neighborIndex)>0){
+	if (!(m_mask->GetPixel(neighborIndex)>0)){
 	  //skip edges where neighbor pixel is outside mask, if mask is available
 	  continue;
 	}

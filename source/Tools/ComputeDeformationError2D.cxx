@@ -74,8 +74,8 @@ int main(int argc, char ** argv)
     FloatImagePointerType diff2=TransfUtils<ImageType>::computeLocalDeformationNorm(difference,1,&ade, mask);
     double maxErr=FilterUtils<FloatImageType>::getMax(diff2);
     double minErr=FilterUtils<FloatImageType>::getMin(diff2);
-    typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;
-    typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+    typedef  itk::DisplacementFieldJacobianDeterminantFilter<DeformationFieldType,float> DisplacementFieldJacobianDeterminantFilterType;
+     DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
     jacobianFilter->SetInput(difference);
     jacobianFilter->SetUseImageSpacingOff();
     jacobianFilter->Update();

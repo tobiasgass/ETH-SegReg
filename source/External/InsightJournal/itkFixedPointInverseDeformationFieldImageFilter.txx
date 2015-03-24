@@ -127,6 +127,7 @@ namespace itk {
         OutputImageIndexType index;
         OutputImagePixelType displacement;
 
+	
         for (unsigned int i = 0; i <= m_NumberOfIterations; i++) {
             double residualError=0.0;
             int c=0;
@@ -147,6 +148,8 @@ namespace itk {
                 }
             }
             std::cout<<"Iteration "<<i<<"; avgerror: "<<residualError/c<<std::endl;
+	    if ((residualError/c)<1e-5)
+	       break;
         }
     }
 

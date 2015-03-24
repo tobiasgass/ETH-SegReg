@@ -84,7 +84,7 @@ namespace SSSP{
     RadiusType m_patchRadius;
   public:
     int run(int argc, char ** argv){
-      feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+      feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
       ArgumentParser * as=new ArgumentParser(argc,argv);
       std::string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="", imageFileListAtlas="";
       int verbose=0;
@@ -138,7 +138,7 @@ namespace SSSP{
       //it requires to explicitly compute all n!/(n-nHops) deformation paths to each image and is therefore infeasible for nHops>1
       //also strange to implement
       if (lateFusion)
-	maxHops==min(maxHops,1);
+	maxHops=min(maxHops,1);
 
       for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
 

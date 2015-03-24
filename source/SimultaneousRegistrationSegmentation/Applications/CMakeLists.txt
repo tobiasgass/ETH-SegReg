@@ -8,7 +8,7 @@ include_directories (
 #SRS
 ADD_EXECUTABLE(SRS3D-Bone SRS3D-Bone.cxx )
 ADD_EXECUTABLE(SRS3D-Bone-Multilabel SRS3D-Bone-Multilabel.cxx )
-#ADD_EXECUTABLE(SRS2D-Bone SRS2D-Bone.cxx )
+ADD_EXECUTABLE(SRS2D-Bone SRS2D-Bone.cxx )
 
 
 if( ${USE_RF} MATCHES "ON" )
@@ -25,7 +25,7 @@ endif()
 TARGET_LINK_LIBRARIES(SRS3D-Bone Utils SRSPotentials   ${ITK_LIBRARIES}  )
 TARGET_LINK_LIBRARIES(SRS3D-Bone-Multilabel Utils SRSPotentials
 ${ITK_LIBRARIES}  )
-#TARGET_LINK_LIBRARIES(SRS2D-Bone Utils SRSPotentials   ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS2D-Bone Utils SRSPotentials   ${ITK_LIBRARIES}  )
 
 if( ${USE_RF} MATCHES "ON" )
 TARGET_LINK_LIBRARIES(SRS2D-Classifier Utils SRSPotentials   ${ITK_LIBRARIES}  )
@@ -33,7 +33,8 @@ TARGET_LINK_LIBRARIES(SRS2D-Classifier-Multilabel Utils SRSPotentials     ${ITK_
 endif()
 #optional linking
 if( ${USE_TRWS} MATCHES "ON" )
-  TARGET_LINK_LIBRARIES(SRS3D-Bone  TRWS_LIBRARIES     )
+    TARGET_LINK_LIBRARIES(SRS2D-Bone  TRWS_LIBRARIES     )
+TARGET_LINK_LIBRARIES(SRS3D-Bone  TRWS_LIBRARIES     )
   TARGET_LINK_LIBRARIES(SRS3D-Bone-Multilabel  TRWS_LIBRARIES     )
   if( ${USE_RF} MATCHES "ON" )
 
@@ -62,7 +63,7 @@ if( ${USE_GCO} MATCHES "ON" )
 
 
 endif()
-  #TARGET_LINK_LIBRARIES(SRS2D-Bone  GCO     )
+  TARGET_LINK_LIBRARIES(SRS2D-Bone  GCO     )
 
 endif()
 

@@ -84,7 +84,7 @@ namespace MRegFuse{
     RadiusType m_patchRadius;
   public:
     int run(int argc, char ** argv){
-      feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+      feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
       ArgumentParser * as=new ArgumentParser(argc,argv);
       string inputDeformationFilenames,targetFileName,sourceFileName,trueDefFilename="",targetSegmentationFilename="",sourceSegmentationFilename="",targetLandmarkFilename="",sourceLandmarkFilename="";
       int verbose=0;

@@ -12,7 +12,7 @@ for n in `seq  2 $N`
 do
     $binDir/GenerateDeformation2D --target Images/img-1.png --out DeformationFields/def-1-$n.mha  --linear
     #invert deformation
-    $binDir/InvertDeformation2D  DeformationFields/def-1-$n.mha  DeformationFields/def-$n-1.mha &>dev/null
+    $binDir/InvertDeformation2D  DeformationFields/def-1-$n.mha  DeformationFields/def-$n-1.mha 
 done
 
 
@@ -39,6 +39,7 @@ done
 #Create file lists
 echo -n "" > List.IDs
 echo -n "" >List.Segmentations
+echo -n "" >List.Images
 echo -n "" >List.DeformationFields
 
 for n in `seq 1 $N`

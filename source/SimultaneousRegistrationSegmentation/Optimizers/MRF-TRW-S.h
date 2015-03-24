@@ -118,7 +118,7 @@ namespace SRS{
       m_register=((m_pairwiseSegmentationRegistrationWeight>0 || m_unaryRegistrationWeight>0 || m_pairwiseRegistrationWeight>0) && nRegLabels>1);
       m_segment=((m_pairwiseSegmentationRegistrationWeight>0 || m_unarySegmentationWeight>0 || m_pairwiseSegmentationWeight)  && nSegLabels>1);
       m_coherence=m_pairwiseSegmentationRegistrationWeight>0;
-      LOGV(6)<<VAR(m_register)<<" "<<VAR(m_segment)<<" "<<VAR(m_coherence)<<endl;
+      LOGV(6)<<VAR(m_register)<<" "<<VAR(m_segment)<<" "<<VAR(m_coherence)<<std::endl;
       logSetStage("Potential functions caching");
       //		traverse grid
       if (m_register){
@@ -149,7 +149,7 @@ namespace SRS{
 		if (nNeighbours==0) {LOG<<"ERROR: node "<<d<<" seems to have no neighbors."<<std::endl;}
 		for (int i=0;i<nNeighbours;++i){
 		  double coherencePot=m_pairwiseSegmentationRegistrationWeight*this->m_GraphModel->getPairwiseRegSegPotential(d,regSegNeighbors[i],regLabel,0);
-		  //LOGV(10)<<VAR(d)<<" "<<VAR(regLabel)<<" "<<VAR(pot)<<" "<<VAR(coherencePot)<<endl;
+		  //LOGV(10)<<VAR(d)<<" "<<VAR(regLabel)<<" "<<VAR(pot)<<" "<<VAR(coherencePot)<<std::endl;
 		  pot+=coherencePot;
                                 
 		}
@@ -168,7 +168,7 @@ namespace SRS{
 	}
 	clock_t endUnary = clock();
 	double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
-	LOGV(1)<<"Registration Unaries took "<<t<<" seconds."<<endl;
+	LOGV(1)<<"Registration Unaries took "<<t<<" seconds."<<std::endl;
 	tUnary+=t;
 	/// Pairwise potentials
 	/// pure Registration
@@ -202,7 +202,7 @@ namespace SRS{
 	clock_t endPairwise = clock();
          
 	t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
-	LOGV(1)<<"Registration pairwise took "<<t<<" seconds."<<endl;
+	LOGV(1)<<"Registration pairwise took "<<t<<" seconds."<<std::endl;
 
 	tPairwise+=t;
       }
@@ -232,8 +232,8 @@ namespace SRS{
 	}
 	clock_t endUnary = clock();
 	double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
-	LOGV(1)<<"Segmentation Unaries took "<<t<<" seconds."<<endl;
-	LOGV(1)<<"Approximate size of seg unaries: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*sizeof(double)<<" mb."<<endl;
+	LOGV(1)<<"Segmentation Unaries took "<<t<<" seconds."<<std::endl;
+	LOGV(1)<<"Approximate size of seg unaries: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*sizeof(double)<<" mb."<<std::endl;
 
 	TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
 	int nSegEdges=0,nSegRegEdges=0;
@@ -276,9 +276,9 @@ namespace SRS{
 	}
 	clock_t endPairwise = clock();
 	t = (float) ((double)(endPairwise-endUnary ) / CLOCKS_PER_SEC);
-	LOGV(1)<<"Segmentation + SRS pairwise took "<<t<<" seconds."<<endl;
-	LOGV(1)<<"Approximate size of seg pairwise: "<<1.0/(1024*1024)*nSegEdges*nSegLabels*nSegLabels*sizeof(double)<<" mb."<<endl;
-	LOGV(1)<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegRegEdges*nSegLabels*nRegLabels*sizeof(double)<<" mb."<<endl;
+	LOGV(1)<<"Segmentation + SRS pairwise took "<<t<<" seconds."<<std::endl;
+	LOGV(1)<<"Approximate size of seg pairwise: "<<1.0/(1024*1024)*nSegEdges*nSegLabels*nSegLabels*sizeof(double)<<" mb."<<std::endl;
+	LOGV(1)<<"Approximate size of SRS pairwise: "<<1.0/(1024*1024)*nSegRegEdges*nSegLabels*nRegLabels*sizeof(double)<<" mb."<<std::endl;
             
       }
       clock_t finish = clock();
@@ -291,7 +291,7 @@ namespace SRS{
     
 
     virtual double optimize(int maxIter=20){
-      LOGV(5)<<"Total number of MRF edges: " <<nEdges<<endl;
+      LOGV(5)<<"Total number of MRF edges: " <<nEdges<<std::endl;
       //m_optimizer.SetAutomaticOrdering();
 
       MRFEnergy<TRWType>::Options options;
@@ -313,7 +313,7 @@ namespace SRS{
 
     }
     virtual double optimizeOneStep(int currentIter , bool & converged){
-      LOGV(1)<<"Total number of MRF edges: " <<nEdges<<endl;
+      LOGV(1)<<"Total number of MRF edges: " <<nEdges<<std::endl;
       //m_optimizer.SetAutomaticOrdering();
       MRFEnergy<TRWType>::Options options;
       TRWType::REAL energy=-1, lowerBound=-1;
@@ -335,7 +335,7 @@ namespace SRS{
 	converged= (converged || (fabs(lowerBound-m_lastLowerBound) < 1e-6 * m_lastLowerBound ));
       }
       if ( 0.0 < (m_lastLowerBound - lowerBound) )  {
-	LOGV(2)<<"something might be strange, "<<VAR(m_lastLowerBound)<<" greater than " << VAR(lowerBound)<< " " <<VAR(m_lastLowerBound - lowerBound )<<endl;
+	LOGV(2)<<"something might be strange, "<<VAR(m_lastLowerBound)<<" greater than " << VAR(lowerBound)<< " " <<VAR(m_lastLowerBound - lowerBound )<<std::endl;
       }
       m_lastLowerBound=lowerBound;
       return energy;
@@ -389,10 +389,10 @@ namespace SRS{
 
 	}   
       }
-      LOG<<"RegU :\t\t"<<sumUReg<<endl
-	 <<"SegU :\t\t"<<sumUSeg<<endl
-	 <<"SegP :\t\t"<<sumPSeg<<endl
-	 <<"SegRegP :\t"<<sumPSegReg<<endl;
+      LOG<<"RegU :\t\t"<<sumUReg<<std::endl
+	 <<"SegU :\t\t"<<sumUSeg<<std::endl
+	 <<"SegP :\t\t"<<sumPSeg<<std::endl
+	 <<"SegRegP :\t"<<sumPSegReg<<std::endl;
       clock_t finish = clock();
       double t = (float) ((double)(finish - start) / CLOCKS_PER_SEC);
       LOGV(1)<<"Finished init after "<<t<<" seconds"<<std::endl;

@@ -22,8 +22,8 @@
 #include "ImageUtils.h"
 #include "FilterUtils.hpp"
 
-#ifndef WITH_GC
-#error "GC library required"
+#ifndef WITH_GCO
+#error "GCO library required"
 #else
 #include "graph.h"
 #endif
@@ -206,7 +206,7 @@ private:
 public:
     int run(int argc, char ** argv)
     {
-        feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+        feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 
         ArgumentParser * as=new ArgumentParser(argc,argv);
         string groundTruthList="",atlasSegmentationFilename,deformationFileList,imageFileList,atlasID="",supportSamplesListFileName="",outputDir=".",outputSuffix="";
