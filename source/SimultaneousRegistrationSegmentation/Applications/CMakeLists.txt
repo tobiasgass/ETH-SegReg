@@ -8,12 +8,14 @@ include_directories (
 #SRS
 ADD_EXECUTABLE(SRS3D-Bone SRS3D-Bone.cxx )
 ADD_EXECUTABLE(SRS3D-Bone-Multilabel SRS3D-Bone-Multilabel.cxx )
+#ADD_EXECUTABLE(SRS2D-Bone SRS2D-Bone.cxx )
+
+
 if( ${USE_RF} MATCHES "ON" )
 
 ADD_EXECUTABLE(SRS2D-Classifier SRS2D-Classifier.cxx )
 ADD_EXECUTABLE(SRS2D-Classifier-Multilabel
 SRS2D-Classifier-Multilabel.cxx )
-ADD_EXECUTABLE(SRS2D-Bone SRS2D-Bone.cxx )
 
 endif()
 
@@ -23,6 +25,8 @@ endif()
 TARGET_LINK_LIBRARIES(SRS3D-Bone Utils SRSPotentials   ${ITK_LIBRARIES}  )
 TARGET_LINK_LIBRARIES(SRS3D-Bone-Multilabel Utils SRSPotentials
 ${ITK_LIBRARIES}  )
+#TARGET_LINK_LIBRARIES(SRS2D-Bone Utils SRSPotentials   ${ITK_LIBRARIES}  )
+
 if( ${USE_RF} MATCHES "ON" )
 TARGET_LINK_LIBRARIES(SRS2D-Classifier Utils SRSPotentials   ${ITK_LIBRARIES}  )
 TARGET_LINK_LIBRARIES(SRS2D-Classifier-Multilabel Utils SRSPotentials     ${ITK_LIBRARIES}  )
@@ -56,9 +60,10 @@ if( ${USE_GCO} MATCHES "ON" )
   TARGET_LINK_LIBRARIES(SRS2D-Classifier  GCO     )
   TARGET_LINK_LIBRARIES(SRS2D-Classifier-Multilabel  GCO     )
 
-  TARGET_LINK_LIBRARIES(SRS2D-Bone  GCO     )
 
 endif()
+  #TARGET_LINK_LIBRARIES(SRS2D-Bone  GCO     )
+
 endif()
 
 #optional linking
@@ -68,8 +73,9 @@ if( ${USE_OPENGM} MATCHES "ON" )
   if( ${USE_RF} MATCHES "ON" )
  TARGET_LINK_LIBRARIES(SRS2D-Classifier    ${Boost_LIBRARIES}   )
   TARGET_LINK_LIBRARIES(SRS2D-Classifier-Multilabel    ${Boost_LIBRARIES}   )
-  TARGET_LINK_LIBRARIES(SRS2D-Bone    ${Boost_LIBRARIES}   )
   endif()
+    TARGET_LINK_LIBRARIES(SRS2D-Bone    ${Boost_LIBRARIES}   )
+
 endif()
 
 

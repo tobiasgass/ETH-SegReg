@@ -437,128 +437,20 @@ namespace SRS{
       
   };
 
-#if 0
 
-  template<class TImage, class TClassifier>
-    class UnaryPotentialSegmentationClassifierWithPrior: 
-  public UnaryPotentialSegmentationClassifier<TImage,TClassifier>  
-    {
-    public:
-      //itk declarations
-      typedef UnaryPotentialSegmentationClassifierWithPrior            Self;
-      typedef UnaryPotentialSegmentationClassifier<TImage,TClassifier> UnarySuperclass;
-
-
-        
-        
-      typedef itk::SmartPointer<Self>        Pointer;
-      typedef itk::SmartPointer<const Self>  ConstPointer;
-        
-      typedef TImage ImageType;
-      typedef typename ImageType::IndexType IndexType;
-      typedef typename ImageType::ConstPointer ImageConstPointerType;
-      typedef TClassifier ClassifierType;
-      typedef typename ClassifierType::Pointer ClassifierPointerType;
-
-      typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
-      typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
-        
-    protected:
-      double m_alpha;
-      SRSPotentialPointerType m_srsPotential;
-      itk::Vector<float,ImageType::ImageDimension> zeroDisplacement;
-    public:
-      /** Method for creation through the object factory. */
-      itkNewMacro(Self);
-      /** Standard part of every itk Object. */
-      itkTypeMacro(UnaryPotentialSegmentationClassifier, Object);
-
-      UnaryPotentialSegmentationClassifierWithPrior(){
-	zeroDisplacement.Fill(0.0);
-      }
-      void SetAlpha(double alpha){this->m_alpha=alpha;}     
-      void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
-      virtual double getPotential(IndexType targetIndex, int segmentationLabel){
-	double origPotential=UnarySuperclass::getPotential(targetIndex,segmentationLabel);
-            
-	double priorPotential=m_srsPotential->getPotential(targetIndex,targetIndex,zeroDisplacement,segmentationLabel);
-	return origPotential+m_alpha*priorPotential;
-      }
-    };//class
-#endif
     
   ///\brief This class implements a handcrafted unary segmentation potential for bone
   ///The implementation was first described in 
   ///Furnstahl, P., Fuchs, T., Schweizer, A., Nagy, L., Székely, G., & Harders, M. (2008). Automatic and robust forearm segmentation using graph cuts. In Proc IEEE International Symposium on Biomedical Imaging (pp. 77–80). Retrieved from http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=4540936
   ///Krcah, M., Székely, G., & Blanc, R. (2011). Fully automatic and fast segmentation of the femur bone from 3D-CT images with no shape prior. In Proc IEEE International Symposium on Biomedical Imaging (pp. 2087–2090). IEEE. Retrieved from http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=5872823
   template<class TImage>
-    class UnaryPotentialSegmentationUnsignedBoneMarcel: public UnaryPotentialSegmentation<TImage> {
-  public:
-    //itk declarations
-    typedef UnaryPotentialSegmentationUnsignedBoneMarcel           Self;
-    typedef UnaryPotentialSegmentation<TImage> Superclass;
-    typedef itk::SmartPointer<Self>        Pointer;
-    typedef itk::SmartPointer<const Self>  ConstPointer;
-        
-    typedef TImage ImageType;
-    typedef typename ImageType::IndexType IndexType;
-    typedef typename TImage::ConstPointer ImageConstPointerType;
-  public:       
-    /** Method for creation through the object factory. */
-    itkNewMacro(Self);
-    /** Standard part of every itk Object. */
-    itkTypeMacro(UnaryPotentialSegmentationUnsignedBone, Object);
-        
-        
-    UnaryPotentialSegmentationUnsignedBoneMarcel(){
-      this->m_useTargetAnatomyPrior=false;//true;
-    }
-      
-    virtual double getPotential(IndexType targetIndex, int segmentationLabel){
-      int s=this->m_scaledTargetGradient->GetPixel(targetIndex);
-      int bone=(200+1000);//*255.0/2000;
-      int tissue=900;//(-500+1000);//*255.0/2000;
-      double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
-      double totalCost=1;
-      bool targetAnatomyPrior=false;
-      //#define USEPRIOR
-      if (this->m_useTargetAnatomyPrior){
-	targetAnatomyPrior = (this->m_targetAnatomyPrior->GetPixel(targetIndex))>0;
-      }
-
-      switch (segmentationLabel) {
-      case 0:
-#ifdef USEPRIOR
-	//if (this->m_targetAnatomyPrior->GetPixel(targetIndex)>0.8) return 100;
-	totalCost = ( ((  imageIntensity > bone) && ( s > 0 ) ) )? 1 : 0;
-#else
-	totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
-	//LOG<<totalCost<<" "<<imageIntensity<<endl;
-#endif
-	break;
-      default  :
-#ifdef USEPRIOR
-	//if (this->m_targetAnatomyPrior->GetPixel(targetIndex)<0.1) return 100;
-	totalCost = ( bonePrior || imageIntensity < tissue) ? 1 : 0;
-#else
-	totalCost = (imageIntensity < tissue) ? 1 : 0;
-#endif
-	break;
-      }
-      //            LOG<<imageIntensity<<" "<<segmentationLabel<<" "<<totalCost<<" "<<bone<<" "<<tissue<<" "<<s<<std::endl;
-      return totalCost;
-    }
-  };//class
-
-
-  template<class TImage>
     class UnaryPotentialSegmentationBoneMarcel: 
-  public UnaryPotentialSegmentationUnsignedBoneMarcel<TImage>  
+  public UnaryPotentialSegmentation<TImage>  
   {
   public:
     //itk declarations
     typedef UnaryPotentialSegmentationBoneMarcel            Self;
-    typedef UnaryPotentialSegmentationUnsignedBoneMarcel<TImage> UnarySuperclass;
+    typedef UnaryPotentialSegmentation<TImage> UnarySuperclass;
         
     typedef itk::SmartPointer<Self>        Pointer;
     typedef itk::SmartPointer<const Self>  ConstPointer;
@@ -588,24 +480,7 @@ namespace SRS{
 	targetAnatomyPrior = (this->m_scaledTargetAnatomyPrior->GetPixel(targetIndex));
 	LOGV(9)<<VAR((this->m_scaledTargetAnatomyPrior->GetLargestPossibleRegion().GetSize()))<<" "<<VAR((this->m_scaledTargetGradient->GetLargestPossibleRegion().GetSize()))<<endl;
       }
-#if 0            
-      switch (segmentationLabel) {
-      case 0:
-                
-	if (this->m_useTargetAnatomyPrior && targetAnatomyPrior){
-	  totalCost = 1;
-	}else
-	  totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
-                
-	    break;
-      default  :
-	if (false && this->m_useTargetAnatomyPrior && ! targetAnatomyPrior ){
-	  totalCost = 1;
-	}else
-	  totalCost = ( imageIntensity < tissue) ? 1 : 0;
-	    break;
-      }
-#else
+
       switch (segmentationLabel) {
       case 0:
                 
@@ -624,54 +499,62 @@ namespace SRS{
 	  totalCost+=1000*(segmentationLabel==2); //penalize labelling as target anatomy if prior clearly saus "NOT target anatomy"
       }
             
-#endif
       return totalCost;
     }
   };//class
 
-#if 0
+
+  
+  ///\brief variant of the handcrafted bone-from-ct potentials adapted for unsigned char images
+  ///This is usefull for 2D images stored as pngs
   template<class TImage>
-    class UnaryPotentialSegmentationMarcelWithPrior: 
-  public UnaryPotentialSegmentationUnsignedBoneMarcel<TImage>  
-  {
+    class UnaryPotentialSegmentationUnsignedBoneMarcel: public UnaryPotentialSegmentation<TImage> {
   public:
     //itk declarations
-    typedef UnaryPotentialSegmentationMarcelWithPrior            Self;
-    typedef UnaryPotentialSegmentationUnsignedBoneMarcel<TImage> UnarySuperclass;
-        
+    typedef UnaryPotentialSegmentationUnsignedBoneMarcel           Self;
+    typedef UnaryPotentialSegmentation<TImage> Superclass;
     typedef itk::SmartPointer<Self>        Pointer;
     typedef itk::SmartPointer<const Self>  ConstPointer;
         
     typedef TImage ImageType;
     typedef typename ImageType::IndexType IndexType;
-    typedef typename ImageType::ConstPointer ImageConstPointerType;
-
-    typedef PairwisePotentialSegmentationRegistration<TImage> SRSPotentialType;
-    typedef typename SRSPotentialType::Pointer SRSPotentialPointerType;
-        
-  protected:
-    double m_alpha;
-    SRSPotentialPointerType m_srsPotential;
-    itk::Vector<float,ImageType::ImageDimension> zeroDisplacement;
-  public:
+    typedef typename TImage::ConstPointer ImageConstPointerType;
+  public:       
     /** Method for creation through the object factory. */
     itkNewMacro(Self);
     /** Standard part of every itk Object. */
-    itkTypeMacro(UnaryPotentialSegmentationMarcelWithPrior, Object);
-
-    UnaryPotentialSegmentationMarcelWithPrior(){
-      zeroDisplacement.Fill(0.0);
-      this->SetUseTargetAnatomyPrior(false);
+    itkTypeMacro(UnaryPotentialSegmentationUnsignedBone, Object);
+        
+        
+    UnaryPotentialSegmentationUnsignedBoneMarcel(){
+      this->m_useTargetAnatomyPrior=false;//true;
     }
-    void SetAlpha(double alpha){this->m_alpha=alpha;}     
-    void SetSRSPotential(SRSPotentialPointerType pot){m_srsPotential=pot;}
+      
     virtual double getPotential(IndexType targetIndex, int segmentationLabel){
-      double origPotential=UnarySuperclass::getPotential(targetIndex,segmentationLabel);
-      double priorPotential=m_srsPotential->getPotential(targetIndex,targetIndex,zeroDisplacement,segmentationLabel);
-      return origPotential+m_alpha*priorPotential;
+      int s=this->m_scaledTargetGradient->GetPixel(targetIndex);
+      int bone=(200+1000)*255.0/2000;
+      int tissue=(-500+1000)*255.0/2000;
+      double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
+      double totalCost=1;
+      bool targetAnatomyPrior=false;
+      //#define USEPRIOR
+      if (this->m_useTargetAnatomyPrior){
+	targetAnatomyPrior = (this->m_targetAnatomyPrior->GetPixel(targetIndex))>0;
+      }
+
+      switch (segmentationLabel) {
+      case 0:
+	totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
+	break;
+      default  :
+
+	totalCost = (imageIntensity < tissue) ? 1 : 0;
+	break;
+      }
+      return totalCost;
     }
   };//class
-#endif
+
 
   template<class TImage, class TClassifier>
     class UnaryPotentialNewSegmentationClassifier: public UnaryPotentialSegmentation<TImage> {
@@ -734,7 +617,7 @@ namespace SRS{
     }
   };
 
-
+  ///\brief Unary potential which uses a multilabel classifier trained on the atlas to compute label potentials
   template<class TImage, class TClassifier>
     class UnaryPotentialNewSegmentationMultilabelClassifier: public UnaryPotentialSegmentation<TImage> {
   public:
@@ -815,6 +698,7 @@ namespace SRS{
     }
   };
 
+    ///\brief Unary potential which uses a multilabel classifier trained on the atlas to compute label potentials, will not cache pototentials but instead evaluate on  demand.
   template<class TImage, class TClassifier>
     class UnaryPotentialNewSegmentationMultilabelClassifierNoCaching: public UnaryPotentialSegmentation<TImage> {
   public:
@@ -883,7 +767,7 @@ namespace SRS{
     }
   };
 
-
+  ///\brief Unary potential which loads some probabilities from an image and computes potentials from that
   template<class TImage, class TClassifier>
     class UnaryPotentialSegmentationProbFile: public UnaryPotentialNewSegmentationMultilabelClassifier<TImage,TClassifier> {
   public:

@@ -88,7 +88,6 @@ private:
 
 
 
-using namespace std;
 
 MemoryEfficientObjectnessFilter::MemoryEfficientObjectnessFilter()
 {

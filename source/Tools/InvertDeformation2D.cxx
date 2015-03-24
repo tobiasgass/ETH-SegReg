@@ -18,9 +18,12 @@ using namespace itk;
 
 int main(int argc, char ** argv)
 {
-    LOG<<CLOCKS_PER_SEC<<endl;
 
-	feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+    feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+    if (argc<3){
+      LOG<<"USAGE: cmd inputDef outputDef"<<endl;
+      exit(0);
+    }
     typedef unsigned char PixelType;
     const unsigned int D=2;
     typedef Image<PixelType,D> ImageType;

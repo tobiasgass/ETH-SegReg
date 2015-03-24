@@ -41,6 +41,7 @@ int main(int argc, char ** argv)
     double scale=1.0;
     double length=-1.0;
     double freq=1.0;
+    bool linear=false;
     as->parameter ("target", target, " filename of target image", false);
     as->parameter ("out", output, " output filename", true);
     as->parameter ("prev", previousDef, "optional previous deformation. the new def is composed to the previous one, and the result is scaled such that the total magnitude of the def. does not change", false);
@@ -48,6 +49,7 @@ int main(int argc, char ** argv)
     as->parameter ("s", scale, "std dev relative to grid spacing", false);
     as->parameter ("l", length, "maximum error (overrides scale)", false);
     as->parameter ("f", freq, "probability of error at each grid point", false);
+    as->option ("linear", linear, "Linearly interpolate the deformation field.", false);
 
     as->parse();
     
@@ -97,11 +99,16 @@ int main(int argc, char ** argv)
         }
 
     }
-    DisplacementFieldPointerType interpolatedDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(coarseDef,image);
+    DisplacementFieldPointerType interpolatedDef;
+    if (linear)
+      interpolatedDef=TransfUtils<ImageType>::linearInterpolateDeformationField(coarseDef,image);
+    else
+      interpolatedDef=TransfUtils<ImageType>::bSplineInterpolateDeformationField(coarseDef,image);
+    
     double ade=TransfUtils<ImageType>::computeDeformationNorm(interpolatedDef);
     //LOG<<"Average deformation error: "<<newMag<<endl;
-    typedef typename itk::DisplacementFieldJacobianDeterminantFilter<DisplacementFieldType,double> DisplacementFieldJacobianDeterminantFilterType;
-    typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+    typedef  itk::DisplacementFieldJacobianDeterminantFilter<DisplacementFieldType,double> DisplacementFieldJacobianDeterminantFilterType;
+     DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
     jacobianFilter->SetInput(interpolatedDef);
     jacobianFilter->SetUseImageSpacingOff();
     jacobianFilter->Update();
