@@ -18,7 +18,7 @@ using namespace itk;
 
 int main(int argc, char ** argv)
 {
-    LOG<<CLOCKS_PER_SEC<<endl;
+    
 
 	feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     typedef unsigned short PixelType;
