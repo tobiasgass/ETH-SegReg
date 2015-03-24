@@ -65,7 +65,7 @@ bool ArgumentParser::parse(){
     { 
       //rad::OptionPrinter::formatRequiredOptionError(e); 
       std::cerr << "ERROR: " << e.what() << std::endl ;
-      std::cout<<m_desc<<std::endl; 
+      std::cout<<*m_desc<<std::endl; 
       //rad::OptionPrinter::printStandardAppDesc(appName, 
       //                                         std::cout, 
       //                                        m_desc                                               ); 
@@ -74,8 +74,9 @@ bool ArgumentParser::parse(){
   catch(po::error& e) 
     { 
       std::cerr << "ERROR: " << e.what() << std::endl << std::endl; 
-      std::cout << m_desc << std::endl; 
+      std::cout <<* m_desc << std::endl; 
       exit(0);
-    } 
+    }
+  return 1;
 }
 void ArgumentParser::help(){}
