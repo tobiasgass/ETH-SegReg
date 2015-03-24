@@ -40,8 +40,8 @@ int main(int argc, char ** argv)
     double norm;
     FloatImagePointerType diff2=TransfUtils<ImageType>::computeLocalDeformationNorm(deformation1,1,&norm);
 
-    typedef typename itk::DisplacementFieldJacobianDeterminantFilter<LabelImageType,float> DisplacementFieldJacobianDeterminantFilterType;
-    typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
+    typedef  itk::DisplacementFieldJacobianDeterminantFilter<LabelImageType,float> DisplacementFieldJacobianDeterminantFilterType;
+     DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
     jacobianFilter->SetInput(deformation1);
     jacobianFilter->SetUseImageSpacingOff();
     jacobianFilter->Update();

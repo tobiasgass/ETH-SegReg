@@ -36,12 +36,12 @@ int main(int argc, char ** argv)
 
     //typedef  itk::RGBPixel<unsigned char> RGBPixelType;
     typedef  itk::Vector<unsigned char,3> RGBPixelType;
-    typedef typename itk::Image<RGBPixelType,D > RGBImageType;
-    typedef typename RGBImageType::Pointer RGBImagePointerType;
+    typedef  itk::Image<RGBPixelType,D > RGBImageType;
+    typedef  RGBImageType::Pointer RGBImagePointerType;
 
     typedef VariableLengthVector< unsigned char > VectorPixelType;
-    typedef typename itk::Image<VectorPixelType,D > VectorImageType;
-    typedef typename VectorImageType::Pointer VectorImagePointerType;
+    typedef  itk::Image<VectorPixelType,D > VectorImageType;
+    typedef  VectorImageType::Pointer VectorImagePointerType;
 
     
 

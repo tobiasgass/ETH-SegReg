@@ -53,8 +53,8 @@ int main( int argc, char * argv [] )
      
       int marginInPix=marginInMM/img->GetSpacing()[d];
       std::cout<<upperCropSize[d]<<" "<<marginInPix<<std::endl;
-      upperCropSize[d]=max(0,int(upperCropSize[d]-marginInPix));
-      lowerCropSize[d]=max(0,int(lowerCropSize[d]-marginInPix));;
+      upperCropSize[d]=std::max(0,int(upperCropSize[d]-marginInPix));
+      lowerCropSize[d]=std::max(0,int(lowerCropSize[d]-marginInPix));;
       
   }
   typedef itk::CropImageFilter <ImageType, ImageType>

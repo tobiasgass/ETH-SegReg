@@ -46,7 +46,7 @@ public:
         m_map=MapType();
         for (int n=0;n<m_nLabels;++n){
             m_map.insert(MapValueType(labelList[n],n));
-            LOGV(5)<<"Mapping label "<<labelList[n]<<" to "<<n<<endl;
+            LOGV(5)<<"Mapping label "<<labelList[n]<<" to "<<n<<std::endl;
 
 
         }
@@ -54,7 +54,7 @@ public:
         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++ resultIt){
             int l=resultIt.Get();
             if (m_map.left.find(l)==m_map.left.end()){
-                LOGV(4)<<"could not find map for label "<<l<<endl;
+                LOGV(4)<<"could not find map for label "<<l<<std::endl;
                 resultIt.Set(0);
             }else{
                 resultIt.Set(m_map.left.find(l)->second);
@@ -87,7 +87,7 @@ public:
         m_map=MapType();
         for (int n=0;n<m_nLabels;++n){
             m_map.insert(MapValueType(labelList[n],n));
-            LOGV(5)<<"Mapping label "<<labelList[n]<<" to "<<n<<endl;
+            LOGV(5)<<"Mapping label "<<labelList[n]<<" to "<<n<<std::endl;
 
 
         }
@@ -106,7 +106,7 @@ public:
         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++ resultIt){
             int l=resultIt.Get();
              if (m_map.left.find(l)==m_map.left.end()){
-                LOG<<"could not find map for label "<<l<<endl;
+                LOG<<"could not find map for label "<<l<<std::endl;
                 resultIt.Set(0);
             }else{
                 resultIt.Set(m_map.left.find(l)->second);
@@ -116,7 +116,7 @@ public:
 
     int GetInverseMappedLabel(int l){
          if (m_map.right.find(l)==m_map.right.end()){
-                LOG<<"could not find map for label "<<l<<endl;
+                LOG<<"could not find map for label "<<l<<std::endl;
          }
         return m_map.right.find(l)->second;
     }
@@ -127,7 +127,7 @@ public:
         for (resultIt.GoToBegin();!resultIt.IsAtEnd();++ resultIt){
             int l=resultIt.Get();
             if (m_map.right.find(l)==m_map.right.end()){
-                LOGV(3)<<"could not find map for label "<<l<<endl;
+                LOGV(3)<<"could not find map for label "<<l<<std::endl;
                 resultIt.Set(0);
             }else{
                 resultIt.Set(m_map.right.find(l)->second);

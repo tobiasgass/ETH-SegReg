@@ -125,7 +125,7 @@ int main(int argc, char ** argv){
     //it requires to explicitly compute all n!/(n-nHops) deformation paths to each image and is therefore infeasible for nHops>1
     //also strange to implement
     if (lateFusion)
-        maxHops==min(maxHops,1);
+        maxHops=min(maxHops,1);
 
     for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
 

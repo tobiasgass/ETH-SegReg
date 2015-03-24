@@ -939,8 +939,8 @@ public:
         nccMetric->SetTransform(iTrans);
         //nccMetric->SetSubtractMean(true);
 
-
-        for (resultIt.Begin();!resultIt.IsAtEnd();++resultIt){
+	resultIt.GoToBegin();
+        for (;!resultIt.IsAtEnd();++resultIt){
             
             typename InputImage::IndexType idx = resultIt.GetIndex(), newIndex;
             bool fullInside=true;
@@ -1039,8 +1039,8 @@ public:
         nccMetric->SetTransform(iTrans);
         nccMetric->SetSubtractMean(true);
 
-
-        for (resultIt.Begin();!resultIt.IsAtEnd();++resultIt){
+	resultIt.GoToBegin();
+        for (;!resultIt.IsAtEnd();++resultIt){
             
             typename InputImage::IndexType idx = resultIt.GetIndex(), newIndex;
             bool fullInside=true;

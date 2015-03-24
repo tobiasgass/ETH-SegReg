@@ -211,7 +211,18 @@ TARGET_LINK_LIBRARIES(AntialiasImage3D Utils    ${ITK_LIBRARIES}   Utils    Util
 ADD_EXECUTABLE(GetBoundingBox3D GetBoundingBox3D.cxx )
 TARGET_LINK_LIBRARIES(GetBoundingBox3D     ${ITK_LIBRARIES}   Utils  )
 
+
+
+
+
+ADD_EXECUTABLE(GenerateDeformation2D GenerateDeformation2D.cxx )
+TARGET_LINK_LIBRARIES(GenerateDeformation2D      ${ITK_LIBRARIES}   Utils  )
+ADD_EXECUTABLE(GenerateDeformation3D GenerateDeformation3D.cxx )
+TARGET_LINK_LIBRARIES(GenerateDeformation3D      ${ITK_LIBRARIES}
+Utils  )
+
 #tests
+
 #tests
 
 
@@ -233,11 +244,6 @@ TARGET_LINK_LIBRARIES(CreateSegmentationPriorFromAnnotatedImage3D     ${ITK_LIBR
 ADD_EXECUTABLE(DeformationToBSplineTest2D DeformationToBSplineTest2D.cxx )
 TARGET_LINK_LIBRARIES(DeformationToBSplineTest2D     ${ITK_LIBRARIES}   Utils  )
 
-
-ADD_EXECUTABLE(GenerateDeformation2D GenerateDeformation2D.cxx )
-TARGET_LINK_LIBRARIES(GenerateDeformation2D      ${ITK_LIBRARIES}   Utils  )
-ADD_EXECUTABLE(GenerateDeformation3D GenerateDeformation3D.cxx )
-TARGET_LINK_LIBRARIES(GenerateDeformation3D      ${ITK_LIBRARIES}   Utils  )
 ADD_EXECUTABLE(GradientDescentRegistration2D GradientDescentRegistration2D.cxx )
 TARGET_LINK_LIBRARIES(GradientDescentRegistration2D     ${ITK_LIBRARIES}   Utils  )
 

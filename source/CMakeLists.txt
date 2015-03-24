@@ -6,6 +6,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/Common) 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/Utils) 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/Utils) 
+include_directories (${CMAKE_CURRENT_SOURCE_DIR}/External/InsightJournal) 
 
 
 ####Options

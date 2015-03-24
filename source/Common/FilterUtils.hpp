@@ -26,7 +26,7 @@
 #include <itkResampleImageFilter.h>
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkBSplineInterpolateImageFunction.h"
-#include "ImageUtils.cxx"
+#include "ImageUtils.h"
 #include <algorithm> //max,min
 #include "Log.h"
 #include "itkStatisticsImageFilter.h"
