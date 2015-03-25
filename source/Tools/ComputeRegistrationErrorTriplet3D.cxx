@@ -47,8 +47,6 @@ int main(int argc, char ** argv)
 
     ArgumentParser * as=new ArgumentParser(argc,argv);
     string sourceLandmarks,targetLandmarks,target="",def,output="",intLandmarks="", defST,defIT,defSI;
-    bool linear=false;
-    bool snap=false;
 
     as->parameter ("sourceLandmarks", sourceLandmarks, " filename...", false);
     as->parameter ("intLandmarks", intLandmarks, " filename...", false);

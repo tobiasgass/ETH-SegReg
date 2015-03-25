@@ -89,10 +89,8 @@ public:
         ArgumentParser * as=new ArgumentParser(argc,argv);
         string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="", imageFileListAtlas="";
         int verbose=0;
-        double pWeight=1.0;
         double radius=3;
         int maxHops=1;
-        bool uniformUpdate=true;
         string metricName="NCC";
         string weightingName="uniform";
         bool lateFusion=false;
@@ -303,7 +301,6 @@ public:
         if (AREG){
             LOG<<"Resorting intermediate targets based on ARE-G"<<endl;
             //re-sort target images to yield improving atlas reconstruction error
-            double areG=1000000.0;
             int i=0;
             map<string,ProbabilisticVectorImagePointerType> probabilisticAtlasSelfSegmentations;
             int atlasN = 0;
@@ -363,7 +360,6 @@ public:
                 LOGV(2)<<"Swapping.. "<<endl;
                 //swap in best sample at position
                 string oldID=targetImageIterator->first;
-                int oldIdx=0;
                 ImagePointerType tmp=targetImageIterator->second;
                 (*targetImages)[i]=(*targetImages)[bestIdx];
                 (*targetImages)[bestIdx].first=oldID;

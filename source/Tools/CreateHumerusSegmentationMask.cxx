@@ -30,7 +30,6 @@ int main(int argc, char ** argv)
     ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile;
     double thresh=0.0;
-    bool lcc=false;
     as->parameter ("in", inFile, " filename...", true);
     as->parameter ("out", outFile, " filename...", true);
     as->parameter ("thresh", thresh, "fraction of pixels for inside", true);

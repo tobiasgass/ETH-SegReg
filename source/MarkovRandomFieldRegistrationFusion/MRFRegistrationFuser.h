@@ -158,6 +158,7 @@ namespace MRegFuse{
     m_lowResResult=ImageUtils<DeformationFieldType>::duplicate(m_lowResDeformations[0]);
     m_labelImage=FilterUtils<FloatImageType,ImageType>::createEmptyFrom(m_gridImage);
     m_labelImage->FillBuffer(0);
+      return 0.0;
 
   }
   double solve(){
@@ -357,7 +358,6 @@ namespace MRegFuse{
           
     DeformationImageIteratorType resIt(m_lowResResult, m_lowResResult->GetLargestPossibleRegion());
     resIt.GoToBegin();
-    int countAuxLabel=0;
     maskIt.GoToBegin();
     for (;!resIt.IsAtEnd();++resIt){
       IndexType idx=resIt.GetIndex();
@@ -670,7 +670,6 @@ namespace MRegFuse{
             
       PointType point,neighborPoint;
       m_gridImage->TransformIndexToPhysicalPoint(idx,point);
-      double normalizer=-1.0;
       DeformationType disp=gridIt.Get();
       for (int i=0;i<D;++i){
 	OffsetType off;
@@ -680,12 +679,9 @@ namespace MRegFuse{
 	if (m_gridImage->GetLargestPossibleRegion().IsInside(neighborIndex)){
 	  DeformationType neighborDisplacement=m_lowResResult->GetPixel(neighborIndex);
 	  m_gridImage->TransformIndexToPhysicalPoint(neighborIndex,neighborPoint);
-	  double distanceNormalizer=(point-neighborPoint).GetNorm();
 	  DeformationType displacementDifference=(disp-neighborDisplacement);
 	  //fessler penalty 
-	  bool checkFolding=false;
 	  double k=1.0/D+0.0000001;
-	  double K=0.0;//0.5;
 	  for (int d2=0;d2<D;++d2){
 	    double dispDiff=-displacementDifference[d2] ;
 	    if ( dispDiff < -1.0*k*m_gridSpacings[d2] ){

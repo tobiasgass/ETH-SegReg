@@ -35,8 +35,7 @@ int main(int argc, char ** argv)
 
     ArgumentParser * as=new ArgumentParser(argc,argv);
     string moving,target="",def,output,previousDef="";
-    bool NN=false;
-    int nFrames=1;
+
     int nPoints=5;
     double scale=1.0;
     double length=-1.0;
@@ -121,7 +120,7 @@ int main(int argc, char ** argv)
         DisplacementFieldPointerType previous=ImageUtils<DisplacementFieldType>::readImage(previousDef);
         double mag=TransfUtils<ImageType>::computeDeformationNorm(previous);
         interpolatedDef=TransfUtils<ImageType>::composeDeformations(interpolatedDef,previous);
-        double newMag=TransfUtils<ImageType>::computeDeformationNorm(interpolatedDef);
+
         LOG<<VAR(mag)<< " " <<VAR(ade)<<endl;
         if (mag>0.0)
             ImageUtils<DisplacementFieldType>::multiplyImage(interpolatedDef,(mag/ade));

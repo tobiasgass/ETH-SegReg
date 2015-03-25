@@ -7,7 +7,6 @@
 #include <itkWarpImageFilter.h>
 
 #include "TransformationUtils.h"
-#include <itkInverseDeformationFieldImageFilter.h>
 
 
 using namespace std;

@@ -28,7 +28,6 @@ int main(int argc, char ** argv)
     typedef FloatImageType::Pointer FloatImagePointerType;
     typedef ImageType::IndexType IndexType;
     string inFile, outFile;
-    double variance=1.0,mean=0.0;
   
     if (argc<4){
         LOG<<"Usage: FuseSegmentationsMaxVote3D <outputFile>  <input1>  <input2> ..."<<endl;

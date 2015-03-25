@@ -178,7 +178,6 @@ public:
             itk::ImageRegionIterator<InternalImage> it(diffSquare,diffSquare->GetLargestPossibleRegion());
             itk::ImageRegionIterator<InternalImage> it2(i1Cast,diffSquare->GetLargestPossibleRegion());
             it.GoToBegin();it2.GoToBegin();
-            InternalPrecision minVal=FilterUtils<InternalImage>::getMin(i1Cast);
             InternalPrecision maxVal=FilterUtils<InternalImage>::getMax(diffSquare);
             sigmaNorm=-0.005*maxVal/log(0.1);
             LOGV(6)<<VAR(sqrt(sigmaNorm))<<endl;

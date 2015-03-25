@@ -45,8 +45,6 @@ int main(int argc, char * argv [])
 	string segmentationFilename,outputFilename="";
     int verbose=0;
     string labelList="";
-    int targetLabel=-1;
-    bool binary=false;
 	as.parameter ("i", segmentationFilename, "segmentation image (file name)", true);
 	as.parameter ("v", verbose, "verbosity level", false);
 

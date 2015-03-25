@@ -151,19 +151,12 @@ int main(int argc, char * argv [])
         --labelsToEvaluate;
     }
  
-    unsigned totalPixels = 0;
     
   
     TRealImage::Pointer distancesOutsideTruthBone;
     TRealImage::Pointer distancesInsideTruthBone;
     TRealImage::Pointer distanceMap;
     float maxAbsDistance = 0;
-    float maxDistance = -std::numeric_limits<float>::max();
-    double minSum=0,maxSum=0;
-    int minDistance = std::numeric_limits<int>::max();
-    double minCount=0, maxCount=0;
-    int sum = 0;
-    unsigned totalEdges = 0;
     float mean=0;
     if (labelsToEvaluate<0 && (labelList == "")){
         labelsToEvaluate=segmentationMapper.getNumberOfLabels()-1;

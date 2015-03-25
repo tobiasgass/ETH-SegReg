@@ -33,8 +33,7 @@ int main(int argc, char ** argv)
 
     ArgumentParser * as=new ArgumentParser(argc,argv);
     string moving,target="",def,output,previousDef="";
-    bool NN=false;
-    int nFrames=1;
+
     int nPoints=5;
     double scale=1.0;
     double freq=1.0;

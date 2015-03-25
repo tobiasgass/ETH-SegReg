@@ -88,10 +88,8 @@ namespace SSSP{
       ArgumentParser * as=new ArgumentParser(argc,argv);
       std::string deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir=".",outputSuffix="",weightListFilename="", imageFileListAtlas="";
       int verbose=0;
-      double pWeight=1.0;
       double radius=3;
       int maxHops=1;
-      bool uniformUpdate=true;
       std::string metricName="NCC";
       std::string weightingName="uniform";
       bool lateFusion=false;

@@ -87,22 +87,17 @@ public:
         ArgumentParser * as=new ArgumentParser(argc,argv);
         string trueDefListFilename="",landmarkFileList="",groundTruthSegmentationFileList="",deformationFileList,imageFileList,atlasSegmentationFileList,supportSamplesListFileName="",outputDir="",outputSuffix="",weightListFilename="";
         int verbose=0;
-        double pWeight=1.0;
         int radius=3;
         double controlGridSpacingFactor=4;
         int maxHops=1;
-        bool uniformUpdate=true;
         string metricName="NCC";
         string weightingName="local";
         bool lateFusion=false;
         bool dontCacheDeformations=false;
-        bool graphCut=false;
-        double smoothness=1.0;
         double alpha=0;
         m_gamma=10;
         double m_pairwiseWeight=1.0;
         bool useHardConstraints=false;
-        bool m_refineSolution=false;
         bool estimateMRF=false,estimateMean=false;
         int refineIter=0;
         string source="",target="";
@@ -199,7 +194,6 @@ public:
         std::vector<string> imageIDs;
      
         inputImages = ImageUtils<ImageType>::readImageList( imageFileList , imageIDs);
-        int nImages = inputImages.size();
         
         LOGV(2)<<VAR(metric)<<" "<<VAR(weighting)<<endl;
         LOGV(2)<<VAR(m_gamma)<<" "<<VAR(lateFusion)<<" "<<VAR(m_patchRadius)<<endl;
@@ -308,9 +302,6 @@ public:
         LOGV(1)<<"Computing"<<std::endl;
         for (iter=1;iter<maxHops+1;++iter){
             map< string, map <string, DeformationFieldPointerType> > TMPdeformationCache;
-            int circles=0,count=0;
-            double globalResidual=0.0;
-            double trueResidual=0.0;
             double m_dice=0.0;
             double m_volumeWeightedDice=0.0;
             double m_TRE=0.0;
@@ -318,7 +309,7 @@ public:
             double m_similarity=0.0;
             double m_averageMinJac=0;
             double m_minMinJacobian=100000000;
-
+            int count=0;
             for (ImageListIteratorType sourceImageIterator=inputImages.begin();sourceImageIterator!=inputImages.end();++sourceImageIterator){           
                 //iterate over sources
                 string sourceID= sourceImageIterator->first;
@@ -677,7 +668,7 @@ public:
         for (ImageListIteratorType targetImageIterator=inputImages.begin();targetImageIterator!=inputImages.end();++targetImageIterator){
             string id= targetImageIterator->first;
         }
-        // return 1;
+         return 1;
     }//run
 protected:
     map<string,ImagePointerType> * readImageList(string filename){

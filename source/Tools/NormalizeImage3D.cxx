@@ -29,9 +29,6 @@ int main(int argc, char ** argv)
  
     ArgumentParser * as=new ArgumentParser(argc,argv);
     string inFile, outFile,refFile="";
-    double factor=-1;
-    bool noSmoothing=false;
-    bool nnResampling=false;
     as->parameter ("in", inFile, " filename...", true);
     as->parameter ("out", outFile, " filename...", true);
     as->parse();

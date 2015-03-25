@@ -47,7 +47,7 @@ int main(int argc, char ** argv)
     AffineTransformPointerType affine2=TransfUtils<ImageType>::readAffine(def2);
  
     AffineTransformPointerType inverse2 = AffineTransformType::New();;
-    bool success=affine1->GetInverse(inverse2);
+    affine1->GetInverse(inverse2);
  
 
     affine2->Compose(inverse2);

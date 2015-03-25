@@ -29,7 +29,6 @@ int main(int argc, char ** argv)
     typedef FloatImageType::Pointer FloatImagePointerType;
     typedef ImageType::IndexType IndexType;
     string inFile, outFile;
-    double variance=1.0,mean=0.0;
   
     if (argc<5){
         LOG<<"Usage: AverageImages3D <outputMean> <outputVariance> <input1> <input2> ..."<<endl;

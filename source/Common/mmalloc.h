@@ -25,7 +25,6 @@ public:
         while (m_mallocBlockFirst)
             {
                 MallocBlock* next = m_mallocBlockFirst->m_next;
-                long int s= m_mallocBlockFirst->size;
                 free(m_mallocBlockFirst);
                 m_mallocBlockFirst = next;
             }

@@ -1153,7 +1153,7 @@ int main( int argc, char *argv[] )
   
     try 
         { 
-            registration->StartRegistration(); 
+            registration->Update();
         } 
     catch( itk::ExceptionObject & err ) 
         { 
