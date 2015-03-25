@@ -49,7 +49,7 @@ template<class TImage, class TLabel>
     LOGV(1)<<"Constructed base labelmapper (product label space), using "<<this->m_nLabels<< " total labels"<<std::endl;
     descr="BLM";
   }
-
+      virtual ~BaseLabelMapper(){}
   virtual int getNumberOfDisplacementSamplesPerAxis(){return this->m_nDisplacementSamplesPerAxis;}
 
   virtual void setNumberOfDisplacementSamplesPerAxis(int nSamples){

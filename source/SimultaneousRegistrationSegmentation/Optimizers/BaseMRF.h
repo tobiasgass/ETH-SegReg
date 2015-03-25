@@ -25,6 +25,8 @@ namespace SRS{
     typedef typename GraphModelType::Pointer GraphModelPointerType;
   public:
     BaseMRFSolver(){};
+   // virtual ~BaseMRFSolver(){};
+
     // the constructor only sets member variables
     BaseMRFSolver(GraphModelPointerType  graphModel,
 		  double unaryRegWeight=1.0, 
@@ -32,14 +34,13 @@ namespace SRS{
 		  double unarySegWeight=1.0, 
 		  double pairwiseSegWeight=1.0, 
 		  double pairwiseSegRegWeight=1.0,
-                  int vverbose=false){};
-
-    ///pure virtual functions have to be implemented by derived classes
+          int vverbose=false){};
+            ///pure virtual functions have to be implemented by derived classes
 
     ///create MRF graph, implementatiuon depends on the used optimisation library
-    virtual void createGraph()=0;
+        virtual void createGraph()=0;
     ///finalize initialization and call the optimisation
-    virtual double optimize(int maxIter)=0;
+        virtual double optimize(int maxIter)=0;
     ///store MRF result in vectors of int(labels)
     virtual std::vector<int> getDeformationLabels()=0;
     virtual std::vector<int> getSegmentationLabels()=0;

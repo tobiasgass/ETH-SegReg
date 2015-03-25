@@ -163,33 +163,24 @@ public:
         logSetVerbosity(verbose);
         
         MetricType metric;
-        if (metricName=="NONE")
-            metric=NONE;
-        else if (metricName=="MSD")
+        if (metricName=="MSD")
             metric=MSD;
         else if (metricName=="MAD")
             metric=MAD;
         else if (metricName=="NCC")
             metric=NCC;
-        else if (metricName=="NMI")
-            metric=NMI;
-        else if (metricName=="MI")
-            metric=MI;
         else{
-            LOG<<"don't understand "<<metricName<<", defaulting to NONE"<<endl;
-            metric=NONE;
+            LOG<<"don't understand "<<metricName<<", aborting"<<endl;
+	    exit(0);
         }
         WeightingType weighting;
-        if (weightingName=="uniform" || metric==NONE){
+        if (weightingName=="uniform" ){
             weighting=UNIFORM;}
         else if (weightingName=="global")
             weighting=GLOBAL;
         else if (weightingName=="local"){
             weighting=LOCAL;
-            if (metric==NMI || metric == MI ){
-                LOG<<VAR(metric)<<" incompatibel with local weighing, aborting"<<endl;
-                exit(0);
-            }
+           
         }
         else{
             LOG<<"don't understand "<<VAR(weightingName)<<", defaulting to uniform."<<endl;
@@ -199,7 +190,6 @@ public:
         if (metric==MAD || metric==MSD){
             if (m_gamma ==0.0){
                 weighting=UNIFORM;
-                metric=NONE;
             }
         }
 

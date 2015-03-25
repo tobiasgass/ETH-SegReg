@@ -198,7 +198,6 @@ int main(int argc, char ** argv)
     //preprocessing 3: downscaling
 
     if (filterConfig.downScale<1){
-        double sigma=1;
         double scale=filterConfig.downScale;
         LOG<<"Resampling images from "<< targetImage->GetLargestPossibleRegion().GetSize()<<" by a factor of"<<scale<<endl;
         targetImage=FilterUtils<ImageType>::LinearResample(targetImage,scale,true);

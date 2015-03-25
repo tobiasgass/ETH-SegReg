@@ -657,7 +657,6 @@ public:
         LOGV(6)<<"From: "<<labelImg->GetLargestPossibleRegion().GetSize()<<" to: "<<reference->GetLargestPossibleRegion().GetSize()<<std::endl;
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         DeformationFieldPointerType fullDeformationField;
-        const unsigned int SplineOrder = 3;
         typedef typename itk::Image<CDisplacementPrecision,ImageType::ImageDimension> ParamImageType;
         typedef typename ParamImageType::Pointer ParamImagePointerType;
         //interpolate deformation
@@ -1351,8 +1350,6 @@ public:
     static DeformationFieldPointerType locallyScaleDeformation(DeformationFieldPointerType def, FloatImagePointerType weights){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<FloatImageType> ImageIterator;
-        double norm=0.0;
-        int count=0;
         DeformationFieldPointerType scaledDeformation=ImageUtils<DeformationFieldType>::createEmpty(def);
         LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
         LabelIterator scaledDeformationIt(scaledDeformation,def->GetLargestPossibleRegion());
@@ -1397,8 +1394,6 @@ public:
     static DeformationFieldPointerType locallyInvertScaleDeformation(DeformationFieldPointerType def, ImagePointerType weights){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-        double norm=0.0;
-        int count=0;
         DeformationFieldPointerType scaledDeformation=ImageUtils<DeformationFieldType>::createEmpty(def);
         LabelIterator deformationIt(def,def->GetLargestPossibleRegion());
         LabelIterator scaledDeformationIt(scaledDeformation,def->GetLargestPossibleRegion());
@@ -1415,9 +1410,7 @@ public:
 
     static DeformationFieldPointerType multiplyOutOfPlace(DeformationFieldPointerType def1, DeformationFieldPointerType def2){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
-        double norm=0.0;
-        int count=0;
-        DeformationFieldPointerType multDef=ImageUtils<DeformationFieldType>::createEmpty(def1);
+         DeformationFieldPointerType multDef=ImageUtils<DeformationFieldType>::createEmpty(def1);
         LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
         LabelIterator def2It(def2,def2->GetLargestPossibleRegion());
         LabelIterator multDefIt(multDef,multDef->GetLargestPossibleRegion());
@@ -1434,8 +1427,6 @@ public:
     static void multiply(DeformationFieldPointerType def1, ImagePointerType weights){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-        double norm=0.0;
-        int count=0;
         LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
         ImageIterator imgIt(weights,weights->GetLargestPossibleRegion());
         imgIt.GoToBegin();
@@ -1450,9 +1441,7 @@ public:
     static void divide(DeformationFieldPointerType def1, ImagePointerType weights){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
         typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-        double norm=0.0;
-        int count=0;
-        LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
+         LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
         ImageIterator imgIt(weights,weights->GetLargestPossibleRegion());
         imgIt.GoToBegin();
         for (def1It.GoToBegin();!def1It.IsAtEnd();++def1It,++imgIt){
@@ -1470,8 +1459,6 @@ public:
 
     static DeformationFieldPointerType multiplyOutOfPlace(DeformationFieldPointerType def1, double scalar){
         typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIterator;
-        double norm=0.0;
-        int count=0;
         DeformationFieldPointerType multDef=ImageUtils<DeformationFieldType>::createEmpty(def1);
         LabelIterator def1It(def1,def1->GetLargestPossibleRegion());
         LabelIterator multDefIt(multDef,multDef->GetLargestPossibleRegion());

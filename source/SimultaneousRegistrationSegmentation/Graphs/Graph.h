@@ -318,7 +318,6 @@ namespace SRS{
   ///reduces the nodes for which segmentation labels are computed, based on the coherence potential
   void ReduceSegmentationNodesByCoherencePotential(double thresh){
     m_coherenceThresh=thresh;
-    int maxLabel=this->m_nSegmentationLabels-1;
     LOGV(1)<<"Removing all segmentation nodes with coherence potential larger "<<thresh<<" for all non-aux labels."<<endl;
 
     //get distance transform potential for neutral deformation

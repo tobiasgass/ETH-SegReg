@@ -323,7 +323,6 @@ namespace SRS{
         }
         virtual double GetOverlapRatio(IndexType targetIndex){
             double result=0;
-            IndexType idx1=targetIndex;
             for (short unsigned int d=0; d<ImageType::ImageDimension;++d){
                 targetIndex[d]*=m_scale;
                 if (targetIndex[d]>=(int)m_scaledAtlasImage->GetLargestPossibleRegion().GetSize()[d]) targetIndex[d]--;
@@ -1045,7 +1044,6 @@ namespace SRS{
             m_metric->SetInterpolator(nnInt);
             m_potentials=std::vector<FloatImagePointerType>(m_displacements.size(),NULL);
 #ifdef NMI
-            double fixedEntropy=computeEntropy(this->m_scaledTargetImage);
 #else
             //m_metric->SetNumberOfSpatialSamples();
             m_metric->SetNumberOfHistogramBins(64);
@@ -1066,7 +1064,6 @@ namespace SRS{
                 m_metric->SetMovingImage(deformedAtlas);
                 nnInt->SetInputImage(deformedAtlas);
 #ifdef NMI
-                double movingEntropy=computeEntropy((ConstImagePointerType)deformedAtlas);
                 typename HistogramType::SizeType histSize(2);
                 histSize.Fill(100); 
                 m_metric->SetHistogramSize(histSize);

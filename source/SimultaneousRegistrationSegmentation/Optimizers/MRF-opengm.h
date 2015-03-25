@@ -10,7 +10,6 @@
 
 #include <limits.h>
 #include <time.h>
-#include <omp.h>
 #include <map>
 #include <opengm/graphicalmodel/graphicalmodel.hxx>
 #include <opengm/graphicalmodel/space/discretespace.hxx>

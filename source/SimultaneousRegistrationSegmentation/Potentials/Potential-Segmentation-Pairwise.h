@@ -216,24 +216,11 @@ namespace SRS{
                     //LOG<<getPotential(idx1,idx2,0,1)<<" iterator:"<<verIt.Get()<<" "<<verIt.GetIndex()<<" "<<vert->GetPixel(verIt.GetIndex())<<endl;
                 }
             }
-            if (ImageType::ImageDimension == 2){
-                typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
-                //typedef itk::CastImageFilter<ImageType,ImageType> CasterType;
-                typename CasterType::Pointer caster=CasterType::New();
-                caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
-                caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
-                caster->SetInput(horiz);
-                caster->Update();
-                LOGI(10,ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput()););
-                caster->SetInput(vert);
-                caster->Update();
-                LOGI(10,ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput()););
-            }else{
+          
                 LOGI(8,ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz));
                 LOGI(8,ImageUtils<FloatImageType>::writeImage("smooth-vertical.nii",(FloatImageConstPointerType)vert));
                 LOGI(8,ImageUtils<FloatImageType>::writeImage("smooth-sum.nii",(FloatImageConstPointerType)sum) );
-                //                 
-            }
+         
         }
 
     };//class

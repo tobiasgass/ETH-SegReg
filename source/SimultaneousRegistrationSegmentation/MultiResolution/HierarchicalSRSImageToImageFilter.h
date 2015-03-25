@@ -319,7 +319,7 @@ namespace SRS{
             //suffixes for temporary images
             std::string suff;
             if (ImageType::ImageDimension==2){
-                suff=".png";
+                suff=".nii";
             }
             if (ImageType::ImageDimension==3){
                 suff=".nii";
@@ -674,9 +674,14 @@ namespace SRS{
                                                           m_config->verbose);
 #else
                             LOG<<"OPTIMIZER NOT INCLUDED, ABORTING"<<std::endl;
+                            exit(0);
 #endif
 
 
+                        }else{
+                            
+                            LOG<<"No valid optimizer was chosen, aborting"<<std::endl;
+                            exit(0);
                         }
 
                         mrfSolver->setPotentialCaching(m_config->cachePotentials);

@@ -185,9 +185,6 @@ public:
         
         statistics->SetInput(gradient);
         statistics->Update();
-        double maxim=fabs(statistics->GetMaximum());
-        double minim=fabs(statistics->GetMinimum());
-        double absMax=maxim>minim?maxim:minim;
         double mean=statistics->GetMean();
 
         typename ImageUtils<OutputImage>::ImageIteratorType gradientIt(gradient,gradient->GetLargestPossibleRegion());

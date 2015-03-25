@@ -305,7 +305,6 @@ namespace SRS{
         //Return minimum potential for segmentation node index given a zero displacement
         inline virtual double getMinZeroPotential(PointType pt){
             double minPot=std::numeric_limits<double>::max();
-            IndexType bufferIdx;
             LabelType disp; disp.Fill(0.0);
             IndexType idx;
             GetDistanceTransform(0)->TransformPhysicalPointToIndex(pt,idx);

@@ -87,7 +87,6 @@ namespace SRS{
             //LOG<<VAR(targetIndex1)<<" "<<m_baseDisplacementMap->GetLargestPossibleRegion().GetSize()<<endl;
 			DisplacementType oldl1=m_baseDisplacementMap->GetPixel((targetIndex1));
 			DisplacementType oldl2=m_baseDisplacementMap->GetPixel((targetIndex2));
-			double d1,d2;
 			//double delta;
             //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
             //LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
@@ -144,7 +143,6 @@ namespace SRS{
 			DisplacementType oldl1=m_baseDisplacementMap->GetPixel((targetIndex1));
 			DisplacementType oldl2=m_baseDisplacementMap->GetPixel((targetIndex2));
 			double d1,d2;
-			double delta;
             LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
             LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
 
@@ -270,7 +268,6 @@ namespace SRS{
             //LOG<<VAR(targetIndex1)<<" "<<this->m_baseDisplacementMap->GetLargestPossibleRegion().GetSize()<<endl;
 			DisplacementType oldl1=this->m_baseDisplacementMap->GetPixel((targetIndex1));
 			DisplacementType oldl2=this->m_baseDisplacementMap->GetPixel((targetIndex2));
-			double d1,d2;
 			//double delta;
             //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
             //LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
