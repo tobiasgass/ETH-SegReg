@@ -45,7 +45,7 @@
 namespace MRegFuse{
 
   /**
-   * @brief  Registration fusion using MRF and optionally LWA fusion
+   * @brief  Registration fusion of multiple registration hypotheses between two images,  using MRF and optionally LWA fusion
    */
   template <class ImageType>
     class RegistrationFusionMRF{
@@ -99,8 +99,8 @@ namespace MRegFuse{
       bool dontCacheDeformations=false;
       bool graphCut=false;
       double smoothness=1.0;
-      double alpha=0.5;
-      m_gamma=30;
+      double alpha=0;
+      m_gamma=10;
       double m_pairwiseWeight=1.0;
       bool useHardConstraints=false;
       bool m_refineSolution=false;
@@ -131,7 +131,7 @@ namespace MRegFuse{
       //as->parameter ("W", weightListFilename,"list of weights for deformations",false);
       as->parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
       as->parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
-      as->parameter ("g", m_gamma,"gamma for exp(- metric/gamma)",false);
+      as->parameter ("g", m_gamma,"gamma for exp(- metric/gamma)[SSD,SAD,..] or metric^gamma [NCC]",false);
       as->parameter ("w", m_pairwiseWeight,"pairwise weight for MRF",false);
       as->parameter ("radius", radius,"patch radius for local metrics",false);
       as->parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
@@ -142,7 +142,7 @@ namespace MRegFuse{
       as->option ("useMask", useMaskForSSR,"only update pixels with negative jac dets (or in the vincinity of those) when using SSR.");
       as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
       as->parameter ("maxHops", maxHops,"maximum number of hops",false);
-      as->parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
+      as->parameter ("alpha", alpha,"pairwise balancing weight (deformation (alpha=0) vs label smoothness (alpha=1))",false);
       as->option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
       as->option ("histNorm", histNorm,"Match source histogram to target histogram!");
       as->option ("anisoSmooth", anisoSmoothing,"Anisotropically penalize unsmooth deformations, using statistics from the input");

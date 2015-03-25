@@ -33,7 +33,7 @@ done
 ##run MRegFuse
 #parameters:
 w=0.1 #smoothness of the fused registration, larger value -> smoother result
-s=10  #gamma in the paper, exponent for the metric, eg NCC^s
+r=10  #gamma in the paper, exponent for the metric, eg NCC^s
 refineSeamIter=10 #number of iterations of folding removal procedure. set to 0 to disable (folding may then occur).
 $binDir/RegProp2D --i $dataDir/List.Images\
 		       --true $dataDir/List.DeformationFields\
@@ -41,5 +41,5 @@ $binDir/RegProp2D --i $dataDir/List.Images\
 		       --O MRegFuseData/outputDeformations/ \
 		       --groundTruthSegmentations $dataDir/List.Segmentations \
 		       --MRF \
-		       --s $s --w $w --refineSeamIter $refineSeamIter \
+		       --r $r --w $w --refineSeamIter $refineSeamIter \
 		       --maxHops 10  --runEndless | grep error

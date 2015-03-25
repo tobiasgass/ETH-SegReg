@@ -44,7 +44,7 @@
 namespace MRegFuse{
 
 /**
- * @brief  Registration propagation using MRF and optionally LWA fusion
+ * @brief  Registration propagation in a set of N images using MRF and optionally LWA fusion
  */
 template <class ImageType>
 class RegistrationPropagationMRF{
@@ -99,7 +99,7 @@ public:
         bool graphCut=false;
         double smoothness=1.0;
         double alpha=0;
-        m_sigma=30;
+        m_gamma=30;
         double m_pairwiseWeight=1.0;
         bool useHardConstraints=false;
         bool m_refineSolution=false;
@@ -121,7 +121,7 @@ public:
         //as->parameter ("W", weightListFilename,"list of weights for deformations",false);
         as->parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
         as->parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
-        as->parameter ("s", m_sigma,"sigma for exp(- metric/sigma)",false);
+        as->parameter ("g", m_gamma,"gamma for exp(- metric/gamma)",false);
         as->parameter ("w", m_pairwiseWeight,"pairwise weight for MRF",false);
         as->parameter ("radius", radius,"patch radius for local metrics",false);
         as->parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
@@ -197,7 +197,7 @@ public:
         }
 
         if (metric==MAD || metric==MSD){
-            if (m_sigma ==0.0){
+            if (m_gamma ==0.0){
                 weighting=UNIFORM;
                 metric=NONE;
             }
@@ -212,7 +212,7 @@ public:
         int nImages = inputImages.size();
         
         LOGV(2)<<VAR(metric)<<" "<<VAR(weighting)<<endl;
-        LOGV(2)<<VAR(m_sigma)<<" "<<VAR(lateFusion)<<" "<<VAR(m_patchRadius)<<endl;
+        LOGV(2)<<VAR(m_gamma)<<" "<<VAR(lateFusion)<<" "<<VAR(m_patchRadius)<<endl;
 
         if (dontCacheDeformations){
             LOG<<"Reading deformation file names."<<endl;
@@ -374,7 +374,7 @@ public:
                             estimator.setHardConstraints(useHardConstraints);
                        
                             GaussianEstimatorVectorImage<ImageType,double> meanEstimator;
-                            FloatImagePointerType weightImage=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,deformationSourceTarget,estimateMean,estimateMRF,radius,m_sigma);
+                            FloatImagePointerType weightImage=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,deformationSourceTarget,estimateMean,estimateMRF,radius,m_gamma);
                             if (weightImage.IsNotNull() && outputDir!=""){
                                 ostringstream oss;
                                 oss<<outputDir<<"/lncc-"<<sourceID<<"-TO-"<<targetID<<".mha";
@@ -395,7 +395,7 @@ public:
                                     }
                                     LOGV(3)<<"Adding "<<VAR(sourceID)<<" "<<VAR(targetID)<<" "<<VAR(intermediateID)<<endl;
                                     DeformationFieldPointerType indirectDef = TransfUtils<ImageType>::composeDeformations(deformationIntermedTarget,deformationSourceIntermed);
-                                    FloatImagePointerType weightImage=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,indirectDef,estimateMean,estimateMRF,radius,m_sigma);
+                                    FloatImagePointerType weightImage=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,indirectDef,estimateMean,estimateMRF,radius,m_gamma);
                                     if (weightImage.IsNotNull() && outputDir!=""){
                                         ostringstream oss;
                                         oss<<outputDir<<"/lncc-"<<sourceID<<"-TO-"<<targetID<<"-via-"<<intermediateID<<".mha";
@@ -416,7 +416,7 @@ public:
 
                                 if (estimateMean){
                                     DeformationFieldPointerType meanDef=meanEstimator.getMean();
-                                    addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,meanDef,estimateMean,estimateMRF,radius,m_sigma);
+                                    addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,meanDef,estimateMean,estimateMRF,radius,m_gamma);
 
                                 }
                                 
@@ -455,48 +455,48 @@ public:
                                     //seamEstimator.setAlpha(pow(2.0,1.0*iter)*alpha);
                                     
                                     //hacky shit to avoid oversmoothing
-                                    FloatImagePointerType weights=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,originalFusionResult,false,estimateMRF,radius,m_sigma);
+                                    FloatImagePointerType weights=addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,originalFusionResult,false,estimateMRF,radius,m_gamma);
                                     seamEstimator.addImage(estimator.getLowResResult(),weights);
 
-                                    //kernelSigmas= kernelBaseWidth/4,kbw/2,kbw,2*kbw,4*kbw
+                                    //kernelGammas= kernelBaseWidth/4,kbw/2,kbw,2*kbw,4*kbw
                                     int k=0;
                                     DeformationFieldPointerType smoothedResult=result;
                                     kernelBaseWidth=0.5;
                                     double exp=2;
-                                    double previousSigma=0.0;
-                                    double kernelSigma;
-#ifdef USELOCALSIGMASFORDILATION
+                                    double previousGamma=0.0;
+                                    double kernelGamma;
+#ifdef USELOCALGAMMASFORDILATION
                                     ImagePointerType negJacMaskPrevious=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
                                     FloatImagePointerType localKernelWidths=ImageUtils<FloatImageType>::createEmpty(jac);
                                     localKernelWidths->FillBuffer(0.0);
 #endif
                                     for (;k<nKernels;++k){
-                                        //double kernelSigma=kernelBaseWidth*(k+1);//pow(2.0,1.0*(k));
+                                        //double kernelGamma=kernelBaseWidth*(k+1);//pow(2.0,1.0*(k));
                                         LOGV(3)<<VAR(k)<<endl;
-                                        kernelSigma=kernelBaseWidth*pow(exp,1.0*(k));
-                                        LOGV(3)<<VAR(kernelSigma)<<endl;
+                                        kernelGamma=kernelBaseWidth*pow(exp,1.0*(k));
+                                        LOGV(3)<<VAR(kernelGamma)<<endl;
 
-                                        double actualSigma=sqrt(pow(kernelSigma,2.0)-pow(previousSigma,2.0));
-                                        LOGV(3)<<VAR(actualSigma)<<endl;
-                                        smoothedResult=TransfUtils<ImageType>::gaussian(smoothedResult,actualSigma);
-                                        previousSigma=actualSigma;
+                                        double actualGamma=sqrt(pow(kernelGamma,2.0)-pow(previousGamma,2.0));
+                                        LOGV(3)<<VAR(actualGamma)<<endl;
+                                        smoothedResult=TransfUtils<ImageType>::gaussian(smoothedResult,actualGamma);
+                                        previousGamma=actualGamma;
                                         LOGV(3)<<"Smoothed result with gaussian.."<<endl;
-                                        addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,smoothedResult,false,estimateMRF,radius,m_sigma);
+                                        addImage(weightingName,metric,seamEstimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,smoothedResult,false,estimateMRF,radius,m_gamma);
                                         typename DisplacementFieldJacobianDeterminantFilterType::Pointer jacobianFilter = DisplacementFieldJacobianDeterminantFilterType::New();
                                         jacobianFilter->SetInput(smoothedResult);
                                         jacobianFilter->Update();
                                         FloatImagePointerType jac=jacobianFilter->GetOutput();
                                         double minJac2 = FilterUtils<FloatImageType>::getMin(jac);
                                         LOGV(3)<<VAR(minJac2)<<endl;
-#ifdef USELOCALSIGMASFORDILATION
+#ifdef USELOCALGAMMASFORDILATION
                                         //get negative jacobian value locations
                                         ImagePointerType negJacMask=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
                                         //subtract and invert to get locations of removed negative JDs
                                         //ImagePointerType removedNegJacMask=FilterUtils<ImageType>::substract(negJacMaskPrevious,negJacMask));
                                         ImagePointerType removedNegJacMask=FilterUtils<ImageType>::binaryThresholding(FilterUtils<ImageType>::add(negJacMaskPrevious,negJacMask),1,1);
-                                        //create image with sigma at locations where nJDs were removed
+                                        //create image with gamma at locations where nJDs were removed
                                         FloatImagePointerType kernelWidthForRemovednJDs=ImageUtils<FloatImageType>::createEmpty(jac);
-                                        kernelWidthForRemovednJDs->FillBuffer(3.0*kernelSigma);
+                                        kernelWidthForRemovednJDs->FillBuffer(3.0*kernelGamma);
                                         kernelWidthForRemovednJDs=ImageUtils<FloatImageType>::multiplyImageOutOfPlace(kernelWidthForRemovednJDs,FilterUtils<ImageType,FloatImageType>::cast(removedNegJacMask));
                                         //add to localKernelWidths image
                                         LOGI(3,ImageUtils<FloatImageType>::writeImage("localKernelWidths-New.nii",kernelWidthForRemovednJDs));
@@ -511,11 +511,11 @@ public:
                                     }
                                     //LOGI(3,ImageUtils<FloatImageType>::writeImage("localKernelWidths.nii",localKernelWidths));
 
-                                    LOGV(3)<<VAR(minJac/kernelSigma)<<endl;
+                                    LOGV(3)<<VAR(minJac/kernelGamma)<<endl;
                                     LOGV(1)<<"Actual number of kernels: "<<VAR(k)<<endl;
                                     seamEstimator.setPairwiseWeight(m_pairwiseWeight);
                                     seamEstimator.finalize();
-#ifdef USELOCALSIGMASFORDILATION
+#ifdef USELOCALGAMMASFORDILATION
                                     energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,localKernelWidths);
 #else
                                     energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,50);
@@ -528,7 +528,7 @@ public:
 
                                 for (int iter=0;iter<refineIter;++iter){
                                     //estimator.setAlpha(pow(2.0,1.0*iter)*alpha);
-                                    addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,result,false,estimateMRF,radius,m_sigma);
+                                    addImage(weightingName,metric,estimator,meanEstimator,targetImageIterator->second,sourceImageIterator->second,result,false,estimateMRF,radius,m_gamma);
                                     estimator.finalize();
                                     double newEnergy=estimator.solve();
                                     LOGV(1)<<VAR(iter)<<" "<<VAR(newEnergy)<<" "<<(energy-newEnergy)/energy<<endl;
@@ -718,7 +718,7 @@ protected:
         return result;
     }        
   
-    FloatImagePointerType addImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType,double> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_sigma){
+    FloatImagePointerType addImage(string weighting, MetricType metric,RegistrationFuserType & estimator,  GaussianEstimatorVectorImage<ImageType,double> & meanEstimator, ImagePointerType targetImage, ImagePointerType sourceImage, DeformationFieldPointerType def, bool estimateMean, bool estimateMRF, double radius, double m_gamma){
         FloatImagePointerType metricImage;
 
         if (weighting=="global" || weighting=="local" || weighting=="globallocal"){
@@ -726,16 +726,16 @@ protected:
             if (weighting=="local" || weighting=="globallocal"){
                 switch(metric){
                 case NCC:
-                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_sigma);
+                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_gamma);
                     break;
                 case MSD:
-                    metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImage,radius,m_sigma);
+                    metricImage=Metrics<ImageType,FloatImageType>::LSSDNorm(warpedSourceImage,targetImage,radius,m_gamma);
                     break;
                 case MAD:
-                    metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImage,radius,m_sigma);
+                    metricImage=Metrics<ImageType,FloatImageType>::LSADNorm(warpedSourceImage,targetImage,radius,m_gamma);
                     break;
                 default:
-                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_sigma);
+                    metricImage=Metrics<ImageType,FloatImageType>::efficientLNCC(warpedSourceImage,targetImage,radius,m_gamma);
                 }
             }else{
                 metricImage=FilterUtils<ImageType,FloatImageType>::createEmpty(targetImage);
@@ -756,8 +756,8 @@ protected:
                 default:
                     globalWeight=Metrics<ImageType,FloatImageType>::nCC(warpedSourceImage,targetImage);
                 }
-                LOGV(2)<<VAR(globalWeight)<<" "<<VAR(pow(globalWeight,m_sigma))<<endl;
-                globalWeight=pow(globalWeight,m_sigma); 
+                LOGV(2)<<VAR(globalWeight)<<" "<<VAR(pow(globalWeight,m_gamma))<<endl;
+                globalWeight=pow(globalWeight,m_gamma); 
                 ImageUtils<FloatImageType>::multiplyImage(metricImage,globalWeight);
             }
             FilterUtils<FloatImageType>::lowerThresholding(metricImage,std::numeric_limits<float>::epsilon());
