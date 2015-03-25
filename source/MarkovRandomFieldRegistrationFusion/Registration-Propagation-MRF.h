@@ -98,7 +98,7 @@ public:
         bool dontCacheDeformations=false;
         bool graphCut=false;
         double smoothness=1.0;
-        double alpha=0.5;
+        double alpha=0;
         m_sigma=30;
         double m_pairwiseWeight=1.0;
         bool useHardConstraints=false;
@@ -129,7 +129,7 @@ public:
         as->parameter ("refineIter", refineIter,"refine MRF solution by adding the result as new labels to the MRF and re-solving until convergence.",false);
         as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
         as->parameter ("maxHops", maxHops,"maximum number of hops",false);
-        as->parameter ("alpha", alpha,"pairwise balancing weight (spatial vs label smoothness)",false);
+        as->parameter ("alpha", alpha,"pairwise balancing weight (deformation (alpha=0) vs label smoothness (alpha=1))",false);
         //  as->option ("dontCacheDeformations", dontCacheDeformations,"read deformations only when needed to save memory. higher IO load!");
         as->parameter ("groundTruthSegmentations",groundTruthSegmentationFileList , "list of groundTruth segmentations <id> <file>", false);
         as->parameter ("landmarks",landmarkFileList , "list of landmark files <id> <file>", false);       

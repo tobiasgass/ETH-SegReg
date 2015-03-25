@@ -311,7 +311,7 @@ namespace MRegFuse{
 		{
                                   
            
-		  weight=(displacementDifference.GetSquaredNorm()/(distanceNormalizer));//+ (m_alpha)*(label1!=label2);
+		  weight=(1.0-m_alpha)*(displacementDifference.GetSquaredNorm()/(distanceNormalizer)) + (m_alpha)*(label1!=label2);
                                 
 		
 		}
