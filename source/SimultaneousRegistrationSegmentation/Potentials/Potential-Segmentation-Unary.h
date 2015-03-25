@@ -529,8 +529,8 @@ namespace SRS{
       
     virtual double getPotential(IndexType targetIndex, int segmentationLabel){
       int s=this->m_scaledTargetGradient->GetPixel(targetIndex);
-      int bone=(200+1000)*255.0/2000;
-      int tissue=(-500+1000)*255.0/2000;
+      const int bone=(400+1000)*255.0/2000;
+      const int tissue=(-300+1000)*255.0/2000;
       double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
       double totalCost=1;
       bool targetAnatomyPrior=false;
@@ -538,7 +538,6 @@ namespace SRS{
       if (this->m_useTargetAnatomyPrior && this->m_scaledTargetAnatomyPrior.IsNotNull()){
 	targetAnatomyPrior = (this->m_targetAnatomyPrior->GetPixel(targetIndex))>0;
       }
-
       switch (segmentationLabel) {
       case 0:
 	totalCost = ( imageIntensity > bone) && ( s > 0 ) ? 1 : 0;
@@ -548,6 +547,8 @@ namespace SRS{
 	totalCost = (imageIntensity < tissue) ? 1 : 0;
 	break;
       }
+      //LOGV(15)<<VAR(s)<<" "<<VAR(imageIntensity)<<" "<<VAR(bone)<<" "<<VAR(tissue)<<" "<<VAR(totalCost)<<std::endl;
+
       return totalCost;
     }
   };//class

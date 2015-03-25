@@ -64,7 +64,7 @@ int main(int argc, char ** argv)
 
    
    
-  typedef UnaryPotentialSegmentationBoneMarcel< ImageType > SegmentationUnaryPotentialType;
+  typedef UnaryPotentialSegmentationUnsignedBoneMarcel< ImageType > SegmentationUnaryPotentialType;
    
   typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
