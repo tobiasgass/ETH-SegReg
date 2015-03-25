@@ -76,10 +76,10 @@ public:
     typedef typename itk::AddImageFilter<DeformationFieldType,DeformationFieldType,DeformationFieldType> DeformationAddFilterType;
     typedef map<string,ImagePointerType> ImageCacheType;
     typedef map<string, map< string, string> > FileListCacheType;
-    enum MetricType {NONE,MAD,NCC,MI,NMI,MSD};
+    enum MetricType {MAD,NCC,MSD};
     enum WeightingType {UNIFORM,GLOBAL,LOCAL};
 protected:
-    double m_sigma;
+    double m_gamma;
     RadiusType m_patchRadius;
 public:
     int run(int argc, char ** argv){
@@ -99,7 +99,7 @@ public:
         bool graphCut=false;
         double smoothness=1.0;
         double alpha=0;
-        m_gamma=30;
+        m_gamma=10;
         double m_pairwiseWeight=1.0;
         bool useHardConstraints=false;
         bool m_refineSolution=false;
@@ -121,7 +121,7 @@ public:
         //as->parameter ("W", weightListFilename,"list of weights for deformations",false);
         as->parameter ("metric", metricName,"metric to be used for global or local weighting, valid: NONE,SAD,MSD,NCC,MI,NMI",false);
         as->parameter ("weighting", weightingName,"internal weighting scheme {uniform,local,global}. non-uniform will only work with metric != NONE",false);
-        as->parameter ("g", m_gamma,"gamma for exp(- metric/gamma)",false);
+        as->parameter ("g", m_gamma,"gamma for exp(- metric/gamma)[SSD,SAD,..] or metric^gamma [NCC] ",false);
         as->parameter ("w", m_pairwiseWeight,"pairwise weight for MRF",false);
         as->parameter ("radius", radius,"patch radius for local metrics",false);
         as->parameter ("controlGridSpacing", controlGridSpacingFactor,"Resolution of the MRF control grid, obtained by dividing the input image resolution by this factor.",false);
@@ -465,7 +465,7 @@ public:
                                     double exp=2;
                                     double previousGamma=0.0;
                                     double kernelGamma;
-#ifdef USELOCALGAMMASFORDILATION
+#ifdef USELOCALSIGMASFORDILATION
                                     ImagePointerType negJacMaskPrevious=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
                                     FloatImagePointerType localKernelWidths=ImageUtils<FloatImageType>::createEmpty(jac);
                                     localKernelWidths->FillBuffer(0.0);
@@ -488,7 +488,7 @@ public:
                                         FloatImagePointerType jac=jacobianFilter->GetOutput();
                                         double minJac2 = FilterUtils<FloatImageType>::getMin(jac);
                                         LOGV(3)<<VAR(minJac2)<<endl;
-#ifdef USELOCALGAMMASFORDILATION
+#ifdef USELOCALSIGMASFORDILATION
                                         //get negative jacobian value locations
                                         ImagePointerType negJacMask=FilterUtils<FloatImageType,ImageType>::binaryThresholdingHigh(jac,0.0);
                                         //subtract and invert to get locations of removed negative JDs
@@ -515,7 +515,7 @@ public:
                                     LOGV(1)<<"Actual number of kernels: "<<VAR(k)<<endl;
                                     seamEstimator.setPairwiseWeight(m_pairwiseWeight);
                                     seamEstimator.finalize();
-#ifdef USELOCALGAMMASFORDILATION
+#ifdef USELOCALSIGMASFORDILATION
                                     energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,localKernelWidths);
 #else
                                     energy=seamEstimator.solveUntilPosJacDet(refineSeamIter,smoothIncrease,useMaskForSSR,50);
@@ -549,11 +549,11 @@ public:
 
                             if (outputDir!=""){
                                 ostringstream oss;
-                                oss<<outputDir<<"/avgDeformation-"<<sourceID<<"-TO-"<<targetID<<".mha";
+                                oss<<outputDir<<"/propagatedDeformation-"<<sourceID<<"-TO-"<<targetID<<".mha";
                                 ImageUtils<DeformationFieldType>::writeImage(oss.str(),result);
                                 if (estimateMRF && labelImage.IsNotNull()){
                                     ostringstream oss2;
-                                    oss2<<outputDir<<"/labelImage-"<<sourceID<<"-TO-"<<targetID<<".nii";
+                                    oss2<<outputDir<<"/fusionLabelImage-"<<sourceID<<"-TO-"<<targetID<<".nii";
                                     ImageUtils<ImageType>::writeImage(oss2.str(),labelImage);
                                 }
 

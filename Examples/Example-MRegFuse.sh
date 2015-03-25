@@ -10,24 +10,33 @@ fi
 
 N=`wc -l $dataDir/List.IDs | awk '{print $1}'`
 
-mkdir -p MRegFuseData/inputDeformations
-mkdir -p MRegFuseData/outputDeformations
+pairwiseRegistrationsDir=PairwiseRegistrations/
 
-##generate random pairwise registrations
-echo -n "" >MRegFuseData/pairwiseDeformations.List
-for n1 in `seq  1 $N`
-do
-    for n2 in `seq  1 $N | grep -v $n1`
+mkdir -p $pairwiseRegistrationsDir
+
+MRegFuseOutputDir=Results-MRegFuse/
+
+mkdir -p $MRegFuseOutputDir
+
+##generate random pairwise registrations if they don't exist yet
+if [ ! -e $pairwiseRegistrationsDir/pairwiseDeformations.List ]
+then
+    echo "Computing pairwise registrations using MRF-registration"
+    echo -n "" >$pairwiseRegistrationsDir/pairwiseDeformations.List
+    for n1 in `seq  1 $N`
     do
-	#random, doesnt work well
-	#$binDir/GenerateDeformation2D --target $dataDir/Images/img-$n2.png --out MRegFuseData/inputDeformations/def-$n1-$n2.mha --linear
-	##use SRS to register images. The segmentation  &coherece utility of SRS is not used, therefore it is plain MRF-based registration
-	$binDir/SRS2D-Bone --t $dataDir/Images/img-$n2.png --a $dataDir/Images/img-$n1.png --sa $dataDir/Segmentations/seg-$n1.png --ta MRegFuseData/inputDeformations/deformedAtlasImage-$n1-$n2.png --tsa MRegFuseData/inputDeformations/deformedAtlasSegmentation-$n1-$n2.png --T MRegFuseData/inputDeformations/def-$n1-$n2.mha --cp 0 --sp 0 --su 0
-
-	##store registration result in file list for later access
-	echo "$n1 $n2 `pwd`/MRegFuseData/inputDeformations/def-$n1-$n2.mha" >>MRegFuseData/pairwiseDeformations.List
+	for n2 in `seq  1 $N | grep -v $n1`
+	do
+	    #random, doesnt work well
+	    #$binDir/GenerateDeformation2D --target $dataDir/Images/img-$n2.png --out $pairwiseRegistrationsDir/def-$n1-$n2.mha --linear
+	    ##use SRS to register images. The segmentation  &coherece utility of SRS is not used, therefore it is plain MRF-based registration
+	    $binDir/SRS2D-Bone --t $dataDir/Images/img-$n2.png --a $dataDir/Images/img-$n1.png --sa $dataDir/Segmentations/seg-$n1.png --ta $pairwiseRegistrationsDir/deformedAtlasImage-$n1-$n2.png --tsa $pairwiseRegistrationsDir/deformedAtlasSegmentation-$n1-$n2.png --T $pairwiseRegistrationsDir/def-$n1-$n2.mha --cp 0 --sp 0 --su 0
+	    
+	    ##store registration result in file list for later access
+	    echo "$n1 $n2 `pwd`/$pairwiseRegistrationsDir/def-$n1-$n2.mha" >>$pairwiseRegistrationsDir/pairwiseDeformations.List
+	done
     done
-done
+fi
 
 
 ##run MRegFuse
@@ -37,9 +46,9 @@ r=10  #gamma in the paper, exponent for the metric, eg NCC^s
 refineSeamIter=10 #number of iterations of folding removal procedure. set to 0 to disable (folding may then occur).
 $binDir/RegProp2D --i $dataDir/List.Images\
 		       --true $dataDir/List.DeformationFields\
-		       --T MRegFuseData/pairwiseDeformations.List \
-		       --O MRegFuseData/outputDeformations/ \
+		       --T $pairwiseRegistrationsDir/pairwiseDeformations.List \
+		       --O $MRegFuseOutputDir/ \
 		       --groundTruthSegmentations $dataDir/List.Segmentations \
 		       --MRF \
-		       --r $r --w $w --refineSeamIter $refineSeamIter \
+		       --g $r --w $w --refineSeamIter $refineSeamIter \
 		       --maxHops 10  --runEndless | grep error
