@@ -218,8 +218,8 @@ namespace SRS{
       }
       if (false){
 	if (ImageType::ImageDimension==2){
-	  ImageUtils<ImageType>::writeImage("p0-marcel.png",result0);
-	  ImageUtils<ImageType>::writeImage("p1-marcel.png",result1);
+	  ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
+	  ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
 	}else{
 	  ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
 	  ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
@@ -328,8 +328,8 @@ namespace SRS{
       }
       if (false){
 	if (ImageType::ImageDimension==2){
-	  ImageUtils<ImageType>::writeImage("p0-marcel.png",result0);
-	  ImageUtils<ImageType>::writeImage("p1-marcel.png",result1);
+	  ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
+	  ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
 	}else{
 	  ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
 	  ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
@@ -418,8 +418,8 @@ namespace SRS{
       }
       if (false){
 	if (ImageType::ImageDimension==2){
-	  ImageUtils<ImageType>::writeImage("p0-marcel.png",result0);
-	  ImageUtils<ImageType>::writeImage("p1-marcel.png",result1);
+	  ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
+	  ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
 	}else{
 	  ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
 	  ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);

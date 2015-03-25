@@ -294,7 +294,7 @@ namespace SRS{
 	ostringstream smoothFilename;
 	smoothFilename<<"smoothRF-d"<<d;
 	if (ImageType::ImageDimension == 2){
-	  smoothFilename<<".png";}
+	  smoothFilename<<".nii";}
 	else{
 	  smoothFilename<<".nii";}
 	//ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput());
@@ -372,7 +372,7 @@ namespace SRS{
 	ostringstream smoothFilename;
 	smoothFilename<<"smoothRF-d"<<d;
 	if (ImageType::ImageDimension == 2){
-	  smoothFilename<<".png";}
+	  smoothFilename<<".nii";}
 	else{
 	  smoothFilename<<".nii";}
 	LOGI(10,ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput()));
@@ -629,8 +629,8 @@ namespace SRS{
       }
       if(true){
 	if (ImageType::ImageDimension ==2 ){
-	  LOGI(10,ImageUtils<ImageType>::writeImage("p0-rfGradient.png",result0));
-	  LOGI(10,ImageUtils<ImageType>::writeImage("p1-rfGradient.png",result1));
+	  LOGI(10,ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0));
+	  LOGI(10,ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1));
 	}else{
 	  LOGI(10,ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0));
 	  LOGI(10,ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1));

@@ -151,7 +151,7 @@ namespace itk{
             ImagePointerType output=caster->GetOutput();
             if (false){    
                 if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));    
                 }
                 if (ImageType::ImageDimension==3){
                     ImageUtils<ImageType>::writeImage("dt1.nii",(output));
@@ -188,7 +188,7 @@ namespace itk{
                 ImagePointerType output=caster->GetOutput();
                 if (false){
                     if (ImageType::ImageDimension==2){
-                        ImageUtils<ImageType>::writeImage("dt2.png",(output));    
+                        ImageUtils<ImageType>::writeImage("dt2.nii",(output));    
                     }
                     if (ImageType::ImageDimension==3){
                         ImageUtils<ImageType>::writeImage("dt2.nii",(output));
@@ -449,7 +449,7 @@ namespace itk{
             ImagePointerType output=caster->GetOutput();
             if (false){
                 if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));    
                 }
                 if (ImageType::ImageDimension==3){
                     ImageUtils<ImageType>::writeImage("dt1.nii",(output));

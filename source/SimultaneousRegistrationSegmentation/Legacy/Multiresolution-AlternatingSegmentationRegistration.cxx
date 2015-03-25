@@ -244,7 +244,7 @@ int main(int argc, char ** argv)
 //	ImagePointerType classified;
 //	classified=unaryPot->trainClassifiers();
 	//	if (classified)
-	//		ImageUtils<ImageType>::writeImage("classified.png",classified);
+	//		ImageUtils<ImageType>::writeImage("classified.nii",classified);
 
 	typedef ImageType::SpacingType SpacingType;
 	LabelImagePointerType segmentation,deformation;
@@ -449,12 +449,12 @@ int main(int argc, char ** argv)
 		}//end registration
 #if 0
 		ostringstream deformedFilename;
-		deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".png";
+		deformedFilename<<outputDeformedFilename<<"-l"<<l<<"-i"<<i<<".nii";
 		ostringstream deformedSegmentationFilename;
-		deformedSegmentationFilename<<outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".png";
+		deformedSegmentationFilename<<outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<".nii";
 		ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedImage);
 		ostringstream tmpSegmentationFilename;
-		tmpSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".png";
+		tmpSegmentationFilename<<segmentationOutputFilename<<"-l"<<l<<"-i"<<i<<".nii";
 		ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(), segmentationImage);
 		ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(), deformedSegmentationImage);
 		//deformation

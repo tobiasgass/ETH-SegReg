@@ -336,7 +336,7 @@ namespace itk{
 #if 1
                         std::string suff;
                         if (ImageType::ImageDimension==2){
-                            suff=".png";
+                            suff=".nii";
                         }
                         if (ImageType::ImageDimension==3){
                             suff=".nii";

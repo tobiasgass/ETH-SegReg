@@ -834,8 +834,8 @@ int nFeatures=2;
             }
             if (false){
                 if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("p0-marcel.png",result0);
-                    ImageUtils<ImageType>::writeImage("p1-marcel.png",result1);
+                    ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
+                    ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
                 }else{
                     ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
                     ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
@@ -944,8 +944,8 @@ int nFeatures=2;
             }
             if (false){
                 if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("p0-marcel.png",result0);
-                    ImageUtils<ImageType>::writeImage("p1-marcel.png",result1);
+                    ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
+                    ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
                 }else{
                     ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
                     ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
@@ -1034,8 +1034,8 @@ int nFeatures=2;
             }
             if (false){
                 if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("p0-marcel.png",result0);
-                    ImageUtils<ImageType>::writeImage("p1-marcel.png",result1);
+                    ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
+                    ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
                 }else{
                     ImageUtils<ImageType>::writeImage("p0-marcel.nii",result0);
                     ImageUtils<ImageType>::writeImage("p1-marcel.nii",result1);
@@ -1237,8 +1237,8 @@ int nFeatures=2;
             }
             if(false){
                 if (ImageType::ImageDimension ==2 ){
-                    ImageUtils<ImageType>::writeImage("p0-rfGradient.png",result0);
-                    ImageUtils<ImageType>::writeImage("p1-rfGradient.png",result1);
+                    ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0);
+                    ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1);
                 }else{
                     ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0);
                     ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1);
@@ -1319,7 +1319,7 @@ int nFeatures=2;
                       ostringstream smoothFilename;
                       smoothFilename<<"smoothRF-d"<<d;
                       if (ImageType::ImageDimension == 2){
-                          smoothFilename<<".png";}
+                          smoothFilename<<".nii";}
                       else{
                           smoothFilename<<".nii";}
                       //ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput());
@@ -1396,7 +1396,7 @@ int nFeatures=2;
                       ostringstream smoothFilename;
                       smoothFilename<<"smoothRF-d"<<d;
                       if (ImageType::ImageDimension == 2){
-                          smoothFilename<<".png";}
+                          smoothFilename<<".nii";}
                       else{
                           smoothFilename<<".nii";}
                       LOGI(10,ImageUtils<ImageType>::writeImage(smoothFilename.str(),(ImageConstPointerType)caster->GetOutput()));
@@ -1762,8 +1762,8 @@ int nFeatures=2;
             }
             if(true){
                 if (ImageType::ImageDimension ==2 ){
-                    LOGI(10,ImageUtils<ImageType>::writeImage("p0-rfGradient.png",result0));
-                    LOGI(10,ImageUtils<ImageType>::writeImage("p1-rfGradient.png",result1));
+                    LOGI(10,ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0));
+                    LOGI(10,ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1));
                 }else{
                     LOGI(10,ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0));
                     LOGI(10,ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1));
@@ -2024,8 +2024,8 @@ int nFeatures=2;
             }
             if(false){
                 if (ImageType::ImageDimension ==2 ){
-                    ImageUtils<ImageType>::writeImage("p0-rfGradient.png",result0);
-                    ImageUtils<ImageType>::writeImage("p1-rfGradient.png",result1);
+                    ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0);
+                    ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1);
                 }else{
                     ImageUtils<ImageType>::writeImage("p0-rfGradient.nii",result0);
                     ImageUtils<ImageType>::writeImage("p1-rfGradient.nii",result1);

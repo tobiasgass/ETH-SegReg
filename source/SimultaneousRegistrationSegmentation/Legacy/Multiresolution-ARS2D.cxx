@@ -122,13 +122,13 @@ int main(int argc, char ** argv)
             targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
          }else{
             targetGradient=targetImage;
-            //ImageUtils<ImageType>::writeImage("targetsheetness.png",targetGradient);
+            //ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient);
         }
         if (filterConfig.atlasGradientFilename!=""){
             atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
         }else{
             atlasGradient=atlasImage;
-            //ImageUtils<ImageType>::writeImage("atlassheetness.png",atlasGradient);
+            //ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient);
         }
         
         if (filterConfig.useTissuePrior){
@@ -176,9 +176,9 @@ int main(int argc, char ** argv)
     DeformationFieldPointerType transf=NULL;
     if (filterConfig.affineBulkTransform!=""){
         TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig.affineBulkTransform);
-        ImageUtils<ImageType>::writeImage("def.png",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage));
+        ImageUtils<ImageType>::writeImage("def.nii",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage));
         transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
-        ImageUtils<ImageType>::writeImage("def2.png",TransfUtils<ImageType>::warpImage((ImageType::ConstPointer)originalAtlasImage,transf));
+        ImageUtils<ImageType>::writeImage("def2.nii",TransfUtils<ImageType>::warpImage((ImageType::ConstPointer)originalAtlasImage,transf));
         filter->setBulkTransform(transf);
     }
     else if (filterConfig.bulkTransformationField!=""){
@@ -261,7 +261,7 @@ int main(int argc, char ** argv)
             //store intermediate results
             std::string suff;
             if (ImageType::ImageDimension==2){
-                suff=".png";
+                suff=".nii";
             }
             if (ImageType::ImageDimension==3){
                 suff=".nii";

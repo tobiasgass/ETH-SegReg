@@ -319,10 +319,10 @@ namespace SRS{
                 caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
                 caster->SetInput(horiz);
                 caster->Update();
-                //ImageUtils<ImageType>::writeImage("smooth-horizontal.png",(ConstImagePointerType)caster->GetOutput());
+                //ImageUtils<ImageType>::writeImage("smooth-horizontal.nii",(ConstImagePointerType)caster->GetOutput());
                 caster->SetInput(vert);
                 caster->Update();
-                //ImageUtils<ImageType>::writeImage("smooth-vertical.png",(ConstImagePointerType)caster->GetOutput());
+                //ImageUtils<ImageType>::writeImage("smooth-vertical.nii",(ConstImagePointerType)caster->GetOutput());
             }else{
                 if (false){
                     //ImageUtils<FloatImageType>::writeImage("smooth-horizontal.nii",(FloatImageConstPointerType)horiz);

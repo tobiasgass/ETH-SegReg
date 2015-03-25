@@ -193,8 +193,8 @@ namespace SRS{
                         caster->SetInput(probImage);//thresholdFilter->GetOutput());
                         caster->Update();
                         ImagePointerType out=caster->GetOutput();
-                        //                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(probImage,255))));
-                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.png",out));
+                        //                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.nii",FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(probImage,255))));
+                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.nii",out));
 
 
                     }
@@ -529,7 +529,7 @@ namespace SRS{
             ImagePointerType output=caster->GetOutput();
             if (false){
                 if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("dt1.png",(output));    
+                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));    
                 }
                 if (ImageType::ImageDimension==3){
                     ImageUtils<ImageType>::writeImage("dt1.nii",(output));

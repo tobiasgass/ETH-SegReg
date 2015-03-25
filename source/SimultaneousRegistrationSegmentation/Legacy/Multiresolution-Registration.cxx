@@ -287,7 +287,7 @@ int main(int argc, char ** argv)
 			}
 			labelScalingFactor*=0.7;
 			ostringstream deformedFilename;
-			deformedFilename<<outputFilename<<"-l"<<l<<"-i"<<i<<".png";
+			deformedFilename<<outputFilename<<"-l"<<l<<"-i"<<i<<".nii";
 			//			ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedSegmentationImage);
 
 		}
@@ -306,19 +306,19 @@ int main(int argc, char ** argv)
 #if 0
 	//deformed image
 	ostringstream deformedFilename;
-	deformedFilename<<outputFilename<<"-p"<<p<<".png";
+	deformedFilename<<outputFilename<<"-p"<<p<<".nii";
 	ImagePointerType deformedSegmentationImage;
 	//	deformedSegmentationImage=RLC->transformImage(movingSegmentationImage,mrfSolver.getLabelImage());
 	deformedSegmentationImage=RLC->transformImage(movingImage,mrfSolver.getLabelImage());
 	//	ImageUtils<ImageType>::writeImage(deformedFilename.str().c_str(), deformedSegmentationImage);
 	ImageUtils<ImageType>::writeImage(outputFilename, deformedSegmentationImage);
 	deformedSegmentationImage=RLC->transformImage(movingSegmentationImage,mrfSolver.getLabelImage());
-	ImageUtils<ImageType>::writeImage("deformedSegmentation.png", deformedSegmentationImage);
+	ImageUtils<ImageType>::writeImage("deformedSegmentation.nii", deformedSegmentationImage);
 
 
 	//segmentation
 	ostringstream segmentedFilename;
-	segmentedFilename<<segmentationOutputFilename<<"-p"<<p<<".png";
+	segmentedFilename<<segmentationOutputFilename<<"-p"<<p<<".nii";
 
 
 	ImagePointerType segmentedImage;

@@ -210,7 +210,7 @@ namespace SRS{
             std::string suff;
             if (true){
                 if (ImageType::ImageDimension==2){
-                    suff=".png";
+                    suff=".nii";
                     for ( int s=0;s<m_nSegmentationLabels;++s){
                         ostringstream probabilityfilename;
                         probabilityfilename<<"prob-gauss-c"<<s<<suff;
@@ -251,17 +251,17 @@ namespace SRS{
                  resultIt.Set(defIt.Get()[0]);
              }
              
-             ImageUtils<ImageType>::writeImage("comp1.png",comp1);
+             ImageUtils<ImageType>::writeImage("comp1.nii",comp1);
              for (defIt.GoToBegin(),resultIt.GoToBegin();!defIt.IsAtEnd();++defIt,++resultIt){
                  resultIt.Set(defIt.Get()[1]);
              }
              
-             ImageUtils<ImageType>::writeImage("comp2.png",comp1);
+             ImageUtils<ImageType>::writeImage("comp2.nii",comp1);
              for (defIt.GoToBegin(),resultIt.GoToBegin();!defIt.IsAtEnd();++defIt,++resultIt){
                  resultIt.Set(defIt.Get()[2]);
              }
              
-             ImageUtils<ImageType>::writeImage("comp3.png",comp1);
+             ImageUtils<ImageType>::writeImage("comp3.nii",comp1);
              
             std::vector<FloatImagePointerType> result(m_nSegmentationLabels);
             for ( int s=0;s<m_nSegmentationLabels;++s){
@@ -305,7 +305,7 @@ namespace SRS{
             std::string suff;
             if (true){
                 if (false && ImageType::ImageDimension==2){
-                    suff=".png";
+                    suff=".nii";
                     for ( int s=0;s<m_nSegmentationLabels;++s){
                         ostringstream probabilityfilename;
                         probabilityfilename<<"prob-gauss-c"<<s<<suff;
