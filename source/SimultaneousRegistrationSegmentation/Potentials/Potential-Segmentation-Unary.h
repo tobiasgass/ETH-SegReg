@@ -473,7 +473,7 @@ namespace SRS{
       double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
       double totalCost=1;
       int targetAnatomyPrior=0;
-      if (this->m_useTargetAnatomyPrior){
+      if (this->m_useTargetAnatomyPrior && this->m_scaledTargetAnatomyPrior.IsNotNull()){
 	targetAnatomyPrior = (this->m_scaledTargetAnatomyPrior->GetPixel(targetIndex));
 	LOGV(9)<<VAR((this->m_scaledTargetAnatomyPrior->GetLargestPossibleRegion().GetSize()))<<" "<<VAR((this->m_scaledTargetGradient->GetLargestPossibleRegion().GetSize()))<<endl;
       }
@@ -489,7 +489,7 @@ namespace SRS{
 	break;
       }
 
-      if  (this->m_useTargetAnatomyPrior){
+      if  (this->m_useTargetAnatomyPrior  && this->m_scaledTargetAnatomyPrior.IsNotNull()){
 	if (targetAnatomyPrior == 2 )
 	  totalCost+=1000*(segmentationLabel!=2); //penalize NOT labelling as target anatomy if prior says "target anatomy"
 	else if (targetAnatomyPrior == 1)
@@ -535,7 +535,7 @@ namespace SRS{
       double totalCost=1;
       bool targetAnatomyPrior=false;
       //#define USEPRIOR
-      if (this->m_useTargetAnatomyPrior){
+      if (this->m_useTargetAnatomyPrior && this->m_scaledTargetAnatomyPrior.IsNotNull()){
 	targetAnatomyPrior = (this->m_targetAnatomyPrior->GetPixel(targetIndex))>0;
       }
 
