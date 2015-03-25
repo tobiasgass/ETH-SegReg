@@ -104,9 +104,11 @@ namespace MRegFuse{
       }
       //initialize
       m_highResGridImage=ImageUtils<FloatImageType>::createEmpty(weights);//TransfUtils<FloatImageType>::createEmptyImage(img);
+      LOGV(7)<<"Initializing MRF Grid by downsampling the input grid of size "<<m_highResGridImage->GetLargestPossibleRegion().GetSize()<<" by a factor of "<<1.0/m_gridSpacing<<std::endl;
       m_gridImage=FilterUtils<FloatImageType>::NNResample(m_highResGridImage,
 							  1.0/m_gridSpacing,
 							  false);
+      LOGV(7)<<"Resulting grid size is "<<m_gridImage->GetLargestPossibleRegion().GetSize()<< "with a spacing of "<<m_gridImage->GetSpacing()<<"mm."<<std::endl;
       m_gridImage->FillBuffer(0.0);
       m_highResGridImage->FillBuffer(0.0);
       m_gridSpacings=m_gridImage->GetSpacing();
@@ -306,89 +308,12 @@ namespace MRegFuse{
 	      if (label1<m_count && label2<m_count){
                                 
                          
-		if (m_hardConstraints){
-		  //fessler penalty 
-		  bool checkFolding=false;
-		  double k=1;//1.0/D-0.0000001;
-		  double K=3;
-#if 0
-
-#if 0
-		  for (int d2=0;d2<D;++d2){
-		    double dispDiff=-displacementDifference[d2] ;
-		    if ( dispDiff < -1.0*k*m_gridSpacings[d2] ){
-		      //double pen=(dispDiff + 1.0*k*m_gridSpacings[d2] );
-		      weight+=100000.0;//0.5*pen*pen;
-		    }
-		    if (dispDiff > K*m_gridSpacings[d2]){
-		      //double pen=(displacementDifference[d2] - 1.0*K*m_gridSpacings[d2] );
-		      weight+=100000.0;//fabs(0.5*pen);
-		    }
-		  }
-#else
-
-		  //fucking fessler :D
-		  for (int d2=0;d2<D;++d2){
-		    //this should now be 
-		    double dispDiff=-displacementDifference[d2] ;
-		    if (d2==i){
-		      if ( dispDiff < -1.0*k*m_gridSpacings[d2] ){
-			//double pen=(dispDiff + 1.0*k*m_gridSpacings[d2] );
-			weight+=100000.0;//0.5*pen*pen;
-		      }
-		      if (dispDiff > K*m_gridSpacings[d2]){
-			//double pen=(displacementDifference[d2] - 1.0*K*m_gridSpacings[d2] );
-			weight+=100000.0;//fabs(0.5*pen);
-		      }
-		    }else{
-		      if (fabs(dispDiff)>1.0*k*m_gridSpacings[d2]){
-			weight+=100000.0;
-		      }
-		    }
-
-		  }
-
-
-#endif
-#else
-                                    
-		  DeformationType displacementDifference2=(neighborDisplacement-displacements[label1]);
-		  for (int d2=0;d2<D;++d2){
-		    double dispDiff=displacementDifference2[d2] ;
-		    if (d2==i){
-		      if ( dispDiff < -0 ){
-			if (dispDiff<=-m_gridSpacings[d2]){
-			  weight+=100000.0;//0.5*pen*pen;
-			}
-			else{
-			  double pen=(1.0+dispDiff/m_gridSpacings[d2] );
-			  weight+=1.0/(pen*pen);
-                                                    
-			}
-
-		      }else{
-			weight+=dispDiff*dispDiff;
-		      }
-		    }else{
-		      weight+=dispDiff*dispDiff;
-		    }
-		  }
-		  weight=weight/distanceNormalizer;
-#endif
-		}
-		else{
+		{
                                   
-                                    
-		  //weight=(displacementDifference-(point-neighborPoint)).GetSquaredNorm();///(distanceNormalizer)) ;//+ (m_alpha)*(label1!=label2);
+           
 		  weight=(displacementDifference.GetSquaredNorm()/(distanceNormalizer));//+ (m_alpha)*(label1!=label2);
                                 
-		  //for (int d2=0;d2<D;++d2){
-		  //weight+=fabs(displacementDifference[d2])/sqrt(distanceNormalizer);
-		  //}
-
-		  //student-t; fusion flow paper
-		  //weight=m_pairwiseWeight*(log(1.0+1.0/(2*pow(m_alpha,2.0))*displacementDifference.GetSquaredNorm()/(distanceNormalizer*distanceNormalizer)));
-		  //weight=m_pairwiseWeight*(label1!=label2);
+		
 		}
                          
 	      }else if (label1<m_count || label2<m_count){

@@ -21,7 +21,7 @@ do
     do
 	#random, doesnt work well
 	#$binDir/GenerateDeformation2D --target $dataDir/Images/img-$n2.png --out MRegFuseData/inputDeformations/def-$n1-$n2.mha --linear
-	$binDir/SRS2D-Bone --t $dataDir/Images/img-$n2.png --a $dataDir/Images/img-$n1.png --sa $dataDir/Segmentations/seg-$n1.png --ta /dev/null/tmp.nii --tsa /dev/null/tno.nii --T MRegFuseData/inputDeformations/def-$n1-$n2.mha 
+	$binDir/SRS2D-Bone --t $dataDir/Images/img-$n2.png --a $dataDir/Images/img-$n1.png --sa $dataDir/Segmentations/seg-$n1.png --ta MRegFuseData/inputDeformations/deformedAtlasImage-$n1-$n2.png --tsa MRegFuseData/inputDeformations/deformedAtlasSegmentation-$n1-$n2.png --T MRegFuseData/inputDeformations/def-$n1-$n2.mha 
 	
 	echo "$n1 $n2 `pwd`/MRegFuseData/inputDeformations/def-$n1-$n2.mha" >>MRegFuseData/pairwiseDeformations.List
     done

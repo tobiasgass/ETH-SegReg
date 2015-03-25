@@ -836,7 +836,8 @@ namespace SRS{
                 segmentation=FilterUtils<ImageType>::fillHoles(segmentation);
             }
             m_finalSegmentation=(segmentation);
-            m_finalDeformation=previousFullDeformation;
+
+	    m_finalDeformation=previousFullDeformation;
 
             delete labelmapper;
         }//run
