@@ -30,7 +30,7 @@
 
 
 using namespace std;
-using namespace SRS;
+Pousing namespace SRS;
 using namespace itk;
 
 int main(int argc, char ** argv)
@@ -74,7 +74,7 @@ int main(int argc, char ** argv)
     
   typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
-  typedef PairwisePotentialCoherence< ImageType > CoherencePairwisePotentialType;
+  typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
  
 #define POTENTIALINHERITANCE
 #ifdef POTENTIALINHERITANCE
