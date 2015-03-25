@@ -289,7 +289,7 @@ namespace SRS{
 
             //bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
             //bool auxiliarySegmentation=!targetSegmentation && (segmentationLabel || deformedAtlasSegmentation);
-	    bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel);
+	    bool auxiliarySegmentation=this->m_nSegmentationLabels>2 && ((segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel));
 	    
             if (auxiliarySegmentation){
 	      result=min(result,1.0);
@@ -309,7 +309,7 @@ namespace SRS{
             IndexType idx;
             GetDistanceTransform(0)->TransformPhysicalPointToIndex(pt,idx);
             for (int i=1;i<this->m_nSegmentationLabels;++i){
-                if (i!=this->m_auxiliaryLabel){
+                if (i!=this->m_auxiliaryLabel || this->m_nSegmentationLabels<=2){
                     //double pot=sqrt(this->getPotential(idx,bufferIdx,disp,i));
                     double pot=fabs(GetDistanceTransform(i)->GetPixel(idx));
                     if (pot<minPot){
@@ -318,6 +318,7 @@ namespace SRS{
                 }
  
             }
+	    LOGV(17)<<VAR(minPot)<<" "<<VAR(this->m_auxiliaryLabel)<<" "<<VAR(this->m_nSegmentationLabels)<<std::endl;
             return minPot;
         }
     };//class
@@ -383,7 +384,7 @@ namespace SRS{
                 result=max(0.0,dist);
             }
 	    ///do not penalize confusion of background and auxiliary label that strongly?
-	    bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel && deformedAtlasSegmentation == 0 ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel && segmentationLabel == 0);
+	    bool auxiliarySegmentation=(this->m_nSegmentationLabels>2) && ((segmentationLabel == this->m_auxiliaryLabel && deformedAtlasSegmentation == 0 ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel && segmentationLabel == 0));
 	    if (auxiliarySegmentation){
 	      result=min(result,1.0);
 	      LOGV(16)<<VAR(result)<<endl;
@@ -708,7 +709,7 @@ namespace SRS{
                 result=1;
             }
 
-            bool auxiliarySegmentation=(segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel);
+            bool auxiliarySegmentation=(this->m_nSegmentationLabels>2) && ((segmentationLabel == this->m_auxiliaryLabel ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel));
 	    bool targetSegmentation = ! auxiliarySegmentation;
             if (targetSegmentation){
                 result*=2;//1.0+exp(max(1.0,40.0/this->m_tolerance)-1.0);

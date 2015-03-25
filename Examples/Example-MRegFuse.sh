@@ -28,9 +28,9 @@ then
 	for n2 in `seq  1 $N | grep -v $n1`
 	do
 	    #random, doesnt work well
-	    #$binDir/GenerateDeformation2D --target $dataDir/Images/img-$n2.png --out $pairwiseRegistrationsDir/def-$n1-$n2.mha --linear
+	    #$binDir/GenerateDeformation2D --target $dataDir/Images/img-$n2.nii --out $pairwiseRegistrationsDir/def-$n1-$n2.mha --linear
 	    ##use SRS to register images. The segmentation  &coherece utility of SRS is not used, therefore it is plain MRF-based registration
-	    $binDir/SRS2D-Bone --t $dataDir/Images/img-$n2.png --a $dataDir/Images/img-$n1.png --sa $dataDir/Segmentations/seg-$n1.png --ta $pairwiseRegistrationsDir/deformedAtlasImage-$n1-$n2.png --tsa $pairwiseRegistrationsDir/deformedAtlasSegmentation-$n1-$n2.png --T $pairwiseRegistrationsDir/def-$n1-$n2.mha --cp 0 --sp 0 --su 0
+	    $binDir/SRS2D-Bone --t $dataDir/Images/img-$n2.nii --a $dataDir/Images/img-$n1.nii --sa $dataDir/Segmentations/seg-$n1.nii --ta $pairwiseRegistrationsDir/deformedAtlasImage-$n1-$n2.nii --tsa $pairwiseRegistrationsDir/deformedAtlasSegmentation-$n1-$n2.nii --T $pairwiseRegistrationsDir/def-$n1-$n2.mha --cp 0 --sp 0 --su 0
 	    
 	    ##store registration result in file list for later access
 	    echo "$n1 $n2 `pwd`/$pairwiseRegistrationsDir/def-$n1-$n2.mha" >>$pairwiseRegistrationsDir/pairwiseDeformations.List

@@ -8,7 +8,9 @@ ADD_EXECUTABLE(RegistrationAffineMultiRes3D RegistrationAffineMultiRes3D.cxx )
 TARGET_LINK_LIBRARIES(RegistrationAffineMultiRes3D     ${ITK_LIBRARIES}   Utils  )
 
 ADD_EXECUTABLE(CreateMultiLabelAtlasSegmentation3D CreateMultiLabelAtlasSegmentation3D.cxx )
-TARGET_LINK_LIBRARIES(CreateMultiLabelAtlasSegmentation3D     ${ITK_LIBRARIES}   Utils  )
+TARGET_LINK_LIBRARIES(CreateMultiLabelAtlasSegmentation3D     ${ITK_LIBRARIES}   Utils  ) 
+ADD_EXECUTABLE(CreateMultiLabelAtlasSegmentation2D CreateMultiLabelAtlasSegmentation2D.cxx )
+TARGET_LINK_LIBRARIES(CreateMultiLabelAtlasSegmentation2D     ${ITK_LIBRARIES}   Utils  )
 
 
 ADD_EXECUTABLE(PrintImageContent2D PrintImageContent2D.cxx )

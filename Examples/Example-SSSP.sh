@@ -65,10 +65,10 @@ echo;
 	do
 	    groundTruthSegmentation=`cat $dataDir/List.Segmentations | grep "$n2 " | awk '{print $2}'`
 	    ##Compare Segmentation before SSSP with groundtruth
-	    echo -n " $n1 to $n2 : Dice "`$binDir/CompareSegmentations2D --g $groundTruthSegmentation --s $pairwiseRegistrationsDir/deformedAtlasSegmentation-$n1-$n2.png | awk '{print $NF}'`" "
+	    echo -n " $n1 to $n2 : Dice "`$binDir/CompareSegmentations2D --g $groundTruthSegmentation --s $pairwiseRegistrationsDir/deformedAtlasSegmentation-$n1-$n2.nii | awk '{print $NF}'`" "
 
 	    ##CompareSegmentation after SSSP
-	    echo `$binDir/CompareSegmentations2D --g $groundTruthSegmentation --s $SSSPOutputDir/segmentation-weightinglocal-metricNCC-target$n2-hop1.png | awk '{print $NF}'`
+	    echo `$binDir/CompareSegmentations2D --g $groundTruthSegmentation --s $SSSPOutputDir/segmentation-weightinglocal-metricNCC-target$n2-hop1.nii | awk '{print $NF}'`
 	    
 	done
  done | awk 'BEGIN{avg1=0;avg2=0;count=0}{print $0; avg1+=$6; avg2+=$7; count+=1}END{print "Average dice before SSSP: "avg1/count", average dice after SSSP: "avg2/count}'
