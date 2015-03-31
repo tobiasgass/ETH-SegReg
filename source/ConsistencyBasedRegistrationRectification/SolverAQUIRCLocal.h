@@ -1,16 +1,16 @@
 #pragma once
 #include "matrix.h"
-#include "BaseLinearSolver.h"
 #include "TransformationUtils.h"
 #include "Log.h"
 #include "ImageUtils.h"
 #include <vector>
 #include <sstream>
 
-#include "SolveAquircGlobalDeformationNormCVariables.h"
+#include "SolverAQUIRCGlobal.h"
 
+namespace CBRR{
 template<class ImageType>
-class AquircLocalErrorSolver: public AquircGlobalDeformationNormSolverCVariables< ImageType>{
+class SolverAQUIRCLocal: public SolverAQUIRCGlobal< ImageType>{
 public:
     typedef typename  TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
     typedef typename  DeformationFieldType::Pointer DeformationFieldPointerType;
@@ -344,3 +344,5 @@ protected:
 
     
 };
+
+}//namespace

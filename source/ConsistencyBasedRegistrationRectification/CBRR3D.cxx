@@ -24,8 +24,11 @@
 #include <itkAddImageFilter.h>
 #include <itkSubtractImageFilter.h>
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
-#include "ConsistencySolverCBRR.h"
 #include "itkMemoryProbesCollectorBase.h"
+
+#include "SolverConsistencyCBRR.h"
+
+using namespace CBRR;
 
 //using namespace std;
 typedef short PixelType; 
@@ -70,9 +73,6 @@ typedef map< string, map <string, DeformationFieldPointerType> > DeformationCach
 
 
 
-
-using namespace CBRR;
-
 int main(int argc, char ** argv){
 
   
@@ -115,7 +115,6 @@ int main(int argc, char ** argv){
     bool filterMetricWithGradient=false;
     bool lineSearch=false;
     bool useConstraints=false;
-    double convergenceTolerance=1e-2;
     bool updateDeformationsGlobalWeight=false;
     string optimizer="csd:100";
     double tolerance=1e-2;
@@ -146,7 +145,6 @@ int main(int argc, char ** argv){
     as->parameter ("s", m_sigma," kernel width for lncc",false);
     as->parameter ("exp",m_exponent ,"exponent for local similarity weights",false);
 
-    as->parameter ("cTol",convergenceTolerance ,"stopping criterion for absolute change in inconsistency",false);
 
     as->parameter ("O", outputDir,"outputdirectory (will be created + no overwrite checks!)",false);
     as->parameter ("maxHops", maxHops,"maximum number of hops per level",false);
@@ -208,11 +206,6 @@ int main(int argc, char ** argv){
         
     MetricType metric;
   
-    //only one solver
-    SolverType solverType=LOCALDEFORMATIONANDERROR;
-    if (solverName=="localdeformationanderror"){
-        solverType=LOCALDEFORMATIONANDERROR;
-    } 
 
     
     //read images and image IDs
@@ -295,7 +288,7 @@ int main(int argc, char ** argv){
     }else{
         ROI=origReference;
     }
-    //resample ROI ? should/could be done within CLERC?
+    //resample ROI ? should/could be done within CBRR?
     if (resamplingFactor>1.0){
         ROI=FilterUtils<ImageType>::LinearResample(ROI,1.0/imageResamplingFactor,false);
 	
@@ -318,14 +311,8 @@ int main(int argc, char ** argv){
     }
 
     //create solver
-    ConsistencySolverCBRR<ImageType> * solver;
-    
-    switch(solverType){
-    case LOCALDEFORMATIONANDERROR:
-        //solver= new AquircLocalDeformationAndErrorSolver<ImageType>;
-        solver= new ConsistencySolverCBRR<ImageType>;
-        break;
-    }
+    SolverConsistencyCBRR<ImageType> * solver;
+    solver= new SolverConsistencyCBRR<ImageType>;
     
     solver->setOracle(oracle);
     solver->setWeightFullCircleEnergy(wwd);
@@ -392,7 +379,7 @@ int main(int argc, char ** argv){
 
             solver->createSystem();
             solver->solve();
-            //compute and store results. For efficiency reasons, CLERC computes all metrics in one go within this routine.
+            //compute and store results. For efficiency reasons, CBRR computes all metrics in one go within this routine.
             solver->storeResult("");
             if (roiShift){
                 //shift ROI by half spacing to get different sampling in next iteration
@@ -420,7 +407,7 @@ int main(int argc, char ** argv){
             if (iter == maxHops){
                 //double resolution
             }
-            if (iter >1 && (oldInconsistency-inconsistency<-0.01)){
+            if (iter >1 && (tolerance*(oldInconsistency-inconsistency)<-0.1)){
                 LOG<<"inconsistency increased("<<inconsistency<<" , stopping refinement."<<endl;
                 break;
             }

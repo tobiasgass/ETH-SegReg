@@ -26,7 +26,7 @@
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
 #include "itkMemoryProbesCollectorBase.h"
 
-#include "ConsistencySolverCBRR.h"
+#include "SolverConsistencyCBRR.h"
 
 using namespace CBRR;
 
@@ -74,10 +74,6 @@ typedef map< string, map <string, DeformationFieldPointerType> > DeformationCach
 
 
 int main(int argc, char ** argv){
-
-  
-
-
     double m_sigma;
     RadiusType m_patchRadius;
     feenableexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
@@ -199,18 +195,13 @@ int main(int argc, char ** argv){
 
     for (unsigned int i = 0; i < ImageType::ImageDimension; ++i) m_patchRadius[i] = radius;
 
-     if (updateDeformationsGlobalWeight) updateDeformations=true;
+    if (updateDeformationsGlobalWeight) updateDeformations=true;
 
     logSetStage("IO");
     logSetVerbosity(verbose);
         
     MetricType metric;
   
-    //only one solver
-    SolverType solverType=LOCALDEFORMATIONANDERROR;
-    if (solverName=="localdeformationanderror"){
-        solverType=LOCALDEFORMATIONANDERROR;
-    } 
 
     
     //read images and image IDs
@@ -316,14 +307,8 @@ int main(int argc, char ** argv){
     }
 
     //create solver
-    ConsistencySolverCBRR<ImageType> * solver;
-    
-    switch(solverType){
-    case LOCALDEFORMATIONANDERROR:
-        //solver= new AquircLocalDeformationAndErrorSolver<ImageType>;
-        solver= new ConsistencySolverCBRR<ImageType>;
-        break;
-    }
+    SolverConsistencyCBRR<ImageType> * solver;
+    solver= new SolverConsistencyCBRR<ImageType>;
     
     solver->setOracle(oracle);
     solver->setWeightFullCircleEnergy(wwd);

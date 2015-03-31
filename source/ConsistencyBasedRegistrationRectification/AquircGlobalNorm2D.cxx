@@ -292,7 +292,7 @@ int main(int argc, char ** argv){
     solver->SetVariables(&imageIDs,&deformationCache,&trueDeformations,ROI);
     solver->createSystem();
     solver->solve();
-    solver->storeResult(outputDir);
+    //solver->storeResult(outputDir);
     solver->getResult();
     
     delete solver;

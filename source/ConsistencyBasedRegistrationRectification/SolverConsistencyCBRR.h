@@ -18,12 +18,10 @@
 #include "itkRegistrationParameterScalesFromJacobian.h"
 #include "itkRegistrationParameterScalesFromPhysicalShift.h"
 #include "itkLabelOverlapMeasuresImageFilter.h"
-#include "SegmentationFusion.h"
 #include <itkGradientMagnitudeImageFilter.h>
 #include <itkGradientMagnitudeRecursiveGaussianImageFilter.h>
 #include <itkDisplacementFieldJacobianDeterminantFilter.h>
 #include "SegmentationTools.hxx"
-#include "RegistrationMethods.h"
 #include "mat.h"
 
 #include "SolverAQUIRCGlobal.h"
@@ -63,7 +61,7 @@ public:
     
     typedef map<string,ImagePointerType> ImageCacheType;
     typedef map<string,FloatImagePointerType> FloatImageCacheType;
- map<string, map< string, string> > FileListCacheType;
+    typedef map<string, map< string, string> > FileListCacheType;
     
 
 protected:
@@ -175,7 +173,7 @@ private:
     bool m_normalizeForces;
     int m_maxTripletOcc;
 public:
-    CLERCIndependentDimensions(){
+    SolverConsistencyCBRR(){
         m_wTransformationSimilarity=1.0;
         m_wDeformationSmootheness=1.0;
         m_wCircleNorm=1.0;
@@ -2763,6 +2761,7 @@ public:
     };
 
 #if 0
+    // this is some VERY experimental code, which was part of some methods above. its goal was to allow for actually registering images somehow using CBRR
 #ifdef ITKGRADIENT
     double value;
     //computeMetricAndDerivative(targetImage, m_imageList[sourceID] ,updatedDeform ,   (m_pairwiseGradients)[sourceID][targetID] ,  value);
@@ -2902,7 +2901,7 @@ public:
                       
                                 
     }
-}//namespace
 #endif
 
 #endif
+}//namespace

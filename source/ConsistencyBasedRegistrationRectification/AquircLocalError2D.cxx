@@ -24,9 +24,8 @@
 #include <itkAddImageFilter.h>
 #include <itkSubtractImageFilter.h>
 #include "itkFixedPointInverseDeformationFieldImageFilter.h"
-#include "SolveAquircLocalError.h"
-#include "SolveAquircLocalComposedError.h"
-#include "SolveAquircLocalInterpolatedError.h"
+#include "SolverAQUIRCLocal.h"
+
 
 using namespace CBRR;
 
