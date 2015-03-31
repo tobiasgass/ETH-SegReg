@@ -2681,7 +2681,7 @@ public:
         FloatImagePointerType localWeightImage;
           if (m_metric == "lncc"){
                                 //localWeightImage= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
-                                localWeightImage= Metrics<ImageType,FloatImageType,long double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
+                                localWeightImage= Metrics<ImageType,FloatImageType,double>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                             }else if (m_metric == "none"){
                                 //localWeightImage= Metrics<ImageType,FloatImageType>::efficientLNCC(warpedImage,targetImage,m_sigma,m_exponent);
                                 localWeightImage= FilterUtils<ImageType,FloatImageType>::createEmpty(targetImage);
