@@ -1,4 +1,9 @@
 
+##this should include "random" for some tools, but seems to compile&link without it, and CMake can't find boost_random ...
+FIND_PACKAGE( Boost 1.40 COMPONENTS  system filesystem program_options REQUIRED )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)

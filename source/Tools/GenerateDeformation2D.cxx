@@ -8,7 +8,12 @@
 #include <itkWarpImageFilter.h>
 #include <itkDisplacementFieldJacobianDeterminantFilter.h>
 
+#if __cplusplus > 199711L
+#define CPLUSPLUS_ELEVEN
 #include <random>
+#else
+#include "boost/random/uniform_real.hpp"
+#endif
 
 using namespace std;
 using namespace itk;
@@ -51,7 +56,8 @@ int main(int argc, char ** argv)
     as->option ("linear", linear, "Linearly interpolate the deformation field.", false);
 
     as->parse();
-    
+   
+   
     ImagePointerType image = ImageUtils<ImageType>::readImage(target);
     
     ImagePointerType coarseImg=FilterUtils<ImageType>::NNResample(image,1.0*nPoints/image->GetLargestPossibleRegion().GetSize()[0],false);
@@ -61,8 +67,7 @@ int main(int argc, char ** argv)
 
     ImageType::SpacingType space=coarseDef->GetSpacing();
     ImageType::SizeType size=coarseDef->GetLargestPossibleRegion().GetSize();
-    std::random_device rd;
-    std::default_random_engine generator(rd());
+    
     double maxErr=0.4*scale*space[0];
     if (length>=0){
         if (length>maxErr){
@@ -70,9 +75,31 @@ int main(int argc, char ** argv)
         }
         maxErr=length;
     }
+
+
+#ifdef  CPLUSPLUS_ELEVEN
+
+    std::random_device rd;
+    std::default_random_engine generator(rd());
     std::uniform_real_distribution<float> distribution(-maxErr,maxErr);
     //std::normal_distribution<float> distribution(0.0,0.4*scale*space[0]);
     std::uniform_real_distribution<float> chanceDistribution(0.0,1.0);
+#else
+   
+    boost::mt19937 rng;  
+
+    
+    //boost::uniform_real<> distribution(-maxErr,maxErr);
+    //boost::uniform_real<> chanceDistribution(0,1.0);
+    //boost::variate_generator<boost::mt19937&, boost::uniform_real<> > uniformError;
+    //boost::variate_generator<boost::mt19937&, boost::uniform_real<> > uniformChance;
+
+    typedef boost::uniform_real<> DistributionType;
+    boost::variate_generator<boost::mt19937&, DistributionType > uniformError(rng,DistributionType(-maxErr,maxErr));
+    boost::variate_generator<boost::mt19937&, DistributionType > uniformChance(rng,DistributionType(0,1.0));
+           
+#endif
+   
 
     itk::ImageRegionIteratorWithIndex<DisplacementFieldType> it(coarseDef,coarseDef->GetLargestPossibleRegion());
     it.GoToBegin();
@@ -88,9 +115,21 @@ int main(int argc, char ** argv)
         if (!testBorder){
             DisplacementType l;
             l.Fill(0.0);
-            if (chanceDistribution(generator)<freq){
+            float test;
+#ifdef  CPLUSPLUS_ELEVEN
+            test=chanceDistribution(generator);
+#else
+            test=uniformChance();
+#endif
+            if (test<freq){
             for (int d=0;d<D;++d){
-                l[d] = distribution(generator);  // generates number in the range 1..6 
+#ifdef  CPLUSPLUS_ELEVEN
+                l[d] = distribution(generator); 
+#else
+                l[d] = uniformError(); 
+
+#endif
+      
 
             }
             }

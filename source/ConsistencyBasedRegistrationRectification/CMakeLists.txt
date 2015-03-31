@@ -2,13 +2,21 @@ PROJECT(ConsitencyBasedRegistrationRectification)
 INCLUDE_REGULAR_EXPRESSION("^.*$")
 
 
-find_package(MATLAB REQUIRED)
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/Matlab/")
+#set(MATLAB_ROOT "/usr/pack/matlab-8.3r2014a-fg/bin/glnxa64" CACHE  FILEPATH "Matlab root directory" FORCE)  
+#find_package(MATLAB REQUIRED)
 
-option( USE_MIND "Use MIND local similarity functions" ON )
+if ( ${MATLAB_ENG_LIBRARY} MATCHES "NOTFOUND" )
+  message(SEND_ERROR "MATLAB not found, please enter MATLAB_ROOT and try again")  
+  #set(MATLAB_ROOT "NOTFOUND" CACHE  FILEPATH "Matlab root directory" FORCE) 
+ 
+endif()
+
+option( USE_MIND "Use MIND local similarity functions" OFF )
 if( ${USE_MIND} MATCHES "ON" )
   add_definitions(-DWITH_MIND)
-  set(DIR_MIND "${SRS-MRF_SOURCE_DIR}/External/MIND" CACHE  FILEPATH "Directory for MIND")
-  include_directories( ${DIR_MIND} )
+  set(DIR_MIND "../External/MIND" CACHE  FILEPATH "Directory for MIND")
+  include_directories( ${DIR_MIND} ) 
 endif()
 
 #Aquirc like stuff
