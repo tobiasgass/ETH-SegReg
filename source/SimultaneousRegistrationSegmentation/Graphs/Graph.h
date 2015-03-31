@@ -1,14 +1,14 @@
-#include "Log.h"
 /*
- * Grid.h
+ * Graph.h
  *
  *  Created on: Nov 25, 2010
  *      Author: gasst
  */
 
-#ifndef GRAPH_H
-#define GRAPH_H
- 
+#pragma once
+
+#include "Log.h"
+
 #include <vector>
 #include <assert.h>
 #include "itkConstNeighborhoodIterator.h"
@@ -354,7 +354,7 @@ namespace SRS{
     ///erode/dilate mask such that only the 1-pixel border remains
     ///this allows for clamping the segmentation labels of that border to the atlas segmentation
     ///erosion can give strange results, fixing by thresholding
-    m_borderOfSegmentationROI=FilterUtils<ImageType>::substract(m_borderOfSegmentationROI,FilterUtils<ImageType>::binaryThresholding(FilterUtils<ImageType>::erosion(m_borderOfSegmentationROI,1),1,1));
+    m_borderOfSegmentationROI=FilterUtils<ImageType>::substract(m_borderOfSegmentationROI,FilterUtils<ImageType>::binaryThresholding(FilterUtils<ImageType>::erosion(m_borderOfSegmentationROI,2),1,1));
 
     LOGI(6,ImageUtils<ImageType>::writeImage("BorderOfSegmentationROI.nii",m_borderOfSegmentationROI));
     m_nSegmentationNodes=concurrentIdx;
@@ -568,8 +568,8 @@ namespace SRS{
     }
     //compute distance between center index and patch index
     double weight=1.0;
-    //#ifdef MULTISEGREGNEIGHBORS
-#if 1
+    // #ifdef MULTISEGREGNEIGHBORS
+#if 0
     PointType imagePoint,graphPoint;
     this->m_targetImage->TransformIndexToPhysicalPoint(imageIndex,imagePoint);
     IndexType graphIndex=getGraphIndex(nodeIndex1);
@@ -603,8 +603,8 @@ namespace SRS{
     }
     //compute distance between center index and patch index
     double weight=1.0;
-    //#ifdef MULTISEGREGNEIGHBORS
-#if 1
+    //    #ifdef MULTISEGREGNEIGHBORS
+#if 0
     PointType imagePoint,graphPoint;
     this->m_targetImage->TransformIndexToPhysicalPoint(imageIndex,imagePoint);
     IndexType graphIndex=getClosestGraphIndex(imageIndex);
@@ -911,4 +911,4 @@ namespace SRS{
     
 }//namespace
 
-#endif /* GRIm_dim_H_ */
+

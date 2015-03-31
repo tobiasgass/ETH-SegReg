@@ -30,7 +30,7 @@
 
 
 using namespace std;
-Pousing namespace SRS;
+using namespace SRS;
 using namespace itk;
 
 int main(int argc, char ** argv)
@@ -355,7 +355,7 @@ int main(int argc, char ** argv)
 
     ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
   }
-    
+     
   if (finalDeformation.IsNotNull() ) {
         
        

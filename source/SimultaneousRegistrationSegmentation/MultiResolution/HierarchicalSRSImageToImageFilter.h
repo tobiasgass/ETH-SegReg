@@ -595,12 +595,9 @@ namespace SRS{
                         if (m_config->verbose>6){
                             ostringstream deformedSegmentationFilename;
                             deformedSegmentationFilename<<m_config->outputDeformedSegmentationFilename<<"-l"<<l<<"-i"<<i<<suff;
-                            if (ImageType::ImageDimension==2){
-                                if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation, labelmapper->getNumberOfSegmentationLabels()));
-                            }
-                            if (ImageType::ImageDimension==3){
+                          
                                 if (regist) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
-                            }
+                            
                         }
                     }
                  
@@ -809,14 +806,10 @@ namespace SRS{
                         if (segment || coherence){
                             segmentation=FilterUtils<ImageType>::fillHoles(segmentation);
                         }
-                        if (ImageType::ImageDimension==2){
-                            if (segment && segmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)segmentation,labelmapper->getNumberOfSegmentationLabels()));
-                            if (regist && deformedAtlasSegmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),makePngFromLabelImage((ConstImagePointerType)deformedAtlasSegmentation,labelmapper->getNumberOfSegmentationLabels()));
-                        }
-                        if (ImageType::ImageDimension==3){
+                       
                             if (segment  && segmentation.IsNotNull() ) ImageUtils<ImageType>::writeImage(tmpSegmentationFilename.str().c_str(),segmentation);
                             if (regist  && deformedAtlasSegmentation.IsNotNull()) ImageUtils<ImageType>::writeImage(deformedSegmentationFilename.str().c_str(),deformedAtlasSegmentation);
-                        }
+                        
                         //deformation
                         if (regist){
                             if (m_config->defFilename!=""){
@@ -847,46 +840,9 @@ namespace SRS{
             delete labelmapper;
         }//run
       
-        ImagePointerType makePngFromLabelImage(ImagePointerType segmentationImage, int nSegmentations){
-            return makePngFromLabelImage(ConstImagePointerType(segmentationImage),nSegmentations);
-        }
-        ImagePointerType makePngFromLabelImage(ConstImagePointerType segmentationImage, int nSegmentations){
-            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty(segmentationImage);
-            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
-            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
-            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-            //nSegmentations=FilterUtils<ImageType>::getMax(segmentationImage);
-            double multiplier;
-            if (nSegmentations<=1){
-                multiplier=std::numeric_limits<PixelType>::max();
-            }else{
-                multiplier=std::numeric_limits<PixelType>::max()/(nSegmentations-1);
-            }
-
-            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                //LOG<<imageIt.Get()*multiplier<<" "<<multiplier<<std::endl;
-                imageIt2.Set(imageIt.Get()*multiplier);
-            }
-            return newImage;
-        }
+       
         
-        
-        ImagePointerType fixSegmentationImage(ImagePointerType segmentationImage, int nSegmentations){
-            ImagePointerType newImage=ImageUtils<ImageType>::createEmpty((ConstImagePointerType)segmentationImage);
-            typedef typename  itk::ImageRegionConstIterator<ImageType> ImageConstIterator;
-            typedef typename  itk::ImageRegionIterator<ImageType> ImageIterator;
-            ImageConstIterator imageIt(segmentationImage,segmentationImage->GetLargestPossibleRegion());        
-            ImageIterator imageIt2(newImage,newImage->GetLargestPossibleRegion());        
-
-            nSegmentations=nSegmentations>0?nSegmentations:2;
-            double divisor=FilterUtils<ImageType>::getMax(segmentationImage)/(nSegmentations-1);
-            for (imageIt.GoToBegin(),imageIt2.GoToBegin();!imageIt.IsAtEnd();++imageIt, ++imageIt2){
-                imageIt2.Set(floor(1.0*imageIt.Get()/divisor+0.51));
-            }
-
-            return (ImagePointerType)newImage;
-        }
+      
         double computeLabelChange(std::vector<int> & ref, std::vector<int> & comp){
             int countDiff=0;
             if (ref.size()==0 || comp.size()!=ref.size()){

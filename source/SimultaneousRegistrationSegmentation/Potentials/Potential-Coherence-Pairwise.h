@@ -147,8 +147,8 @@ namespace SRS{
             maxFilter->SetInput(segImage);
             maxFilter->Update();
             m_nSegmentationLabels=max( m_nSegmentationLabels,(int)maxFilter->GetMaximumOutput()->Get()+1);
-            if (m_nSegmentationLabels<2){m_auxiliaryLabel=-1;}
-            if (m_nSegmentationLabels>m_nSegmentationLabels){
+            if (m_nSegmentationLabels<3){m_auxiliaryLabel=-1;}
+            if (maxFilter->GetMaximumOutput()->Get()+1>m_nSegmentationLabels){
                 LOG<<"WARNING: large number of segmentation labels in atlas segmentation :"<<VAR(m_nSegmentationLabels)<<endl;
                 LOG<<VAR(maxFilter->GetMaximumOutput()->Get()+1)<<endl;
                 LOGI(6,ImageUtils<ImageType>::writeImage("multilabelAtlas.nii",segImage));
@@ -164,46 +164,12 @@ namespace SRS{
                 FloatImagePointerType dt1=getDistanceTransform(segImage,l);
                 //save image for debugging
              
-                if (true){    
-                    if (ImageType::ImageDimension==2){
-
-                        typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
-
-                        typedef itk::ThresholdImageFilter <FloatImageType>
-                            ThresholdImageFilterType;
-                        typename ThresholdImageFilterType::Pointer thresholdFilter
-                            = ThresholdImageFilterType::New();
-                        thresholdFilter->SetInPlace(false);
-                        thresholdFilter->SetInput(dt1);
-                        thresholdFilter->ThresholdBelow(0);
-                        thresholdFilter->SetOutsideValue(0 );
-                        thresholdFilter->Update();
-                                                
-                        FloatImagePointerType probImage=ImageUtils<FloatImageType>::createEmpty(dt1);
-                        FloatImageIterator dt(thresholdFilter->GetOutput(),dt1->GetLargestPossibleRegion());
-                        FloatImageIterator prob(probImage,dt1->GetLargestPossibleRegion());
-                        for (dt.GoToBegin(),prob.GoToBegin();!dt.IsAtEnd();++dt,++prob){
-                            prob.Set(50*log(1+0.5*dt.Get()*dt.Get()));
-                        }
-                        typedef itk::RescaleIntensityImageFilter<FloatImageType,ImageType> CasterType;
-                        typename CasterType::Pointer caster=CasterType::New();
-                        caster->SetOutputMinimum( numeric_limits<typename ImageType::PixelType>::min() );
-                        caster->SetOutputMaximum( numeric_limits<typename ImageType::PixelType>::max() );
-                        
-                        caster->SetInput(probImage);//thresholdFilter->GetOutput());
-                        caster->Update();
-                        ImagePointerType out=caster->GetOutput();
-                        //                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.nii",FilterUtils<FloatImageType,ImageType>::cast(ImageUtils<FloatImageType>::multiplyImageOutOfPlace(probImage,255))));
-                        LOGI(5,ImageUtils<ImageType>::writeImage("dt1.nii",out));
-
-
-                    }
-                    if (ImageType::ImageDimension==3){
-                        ostringstream dtFilename;
-                        dtFilename<<"dt"<<l<<".nii";
-                        LOGI(6,                        ImageUtils<FloatImageType>::writeImage(dtFilename.str().c_str(),FloatImageConstPointerType(dt1)));
-                    }
-                }
+                   
+		ostringstream dtFilename;
+		dtFilename<<"dt"<<l<<".nii";
+		LOGI(6,                        ImageUtils<FloatImageType>::writeImage(dtFilename.str().c_str(),FloatImageConstPointerType(dt1)));
+                    
+                
                 m_distanceTransforms[l]=dt1;
                 //feed DT into interpolator
                 FloatImageInterpolatorPointerType dtI=FloatImageInterpolatorType::New();
@@ -245,7 +211,7 @@ namespace SRS{
                 distanceTransform->Update();
             typedef typename  itk::ImageRegionIterator<FloatImageType> FloatImageIterator;
 
-            positiveDM=distanceTransform->GetOutput();
+            positiveDM=FilterUtils<FloatImageType>::lowerThresholding(distanceTransform->GetOutput(),0.0);
 
             }else{
                 positiveDM=FilterUtils<ImageType,FloatImageType>::createEmptyFrom(newImage);
@@ -284,7 +250,7 @@ namespace SRS{
             if (segmentationLabel!=deformedAtlasSegmentation){ 
                 double dist=m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);       
                 //double dist2=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->EvaluateAtContinuousIndex(idx2);
-                result=max(0.0,dist);
+                result=std::max(0.0,dist);
             }
 
             //bool targetSegmentation=(segmentationLabel==this->m_nSegmentationLabels-1 ||  deformedAtlasSegmentation == this->m_nSegmentationLabels-1 );
@@ -364,8 +330,8 @@ namespace SRS{
 
             typename ImageType::PointType p;
             this->m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,p);
-            p +=disp;//+this->m_baseLabelMap->GetPixel(targetIndex1);
-            this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p,idx2);
+          
+            this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p+disp,idx2);
             int deformedAtlasSegmentation=-1;
             if (!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){
@@ -378,22 +344,27 @@ namespace SRS{
                 }
             }
             deformedAtlasSegmentation=int(this->m_atlasSegmentationInterpolator->EvaluateAtContinuousIndex(idx2));
-            if (segmentationLabel!=deformedAtlasSegmentation){ 
+            if (segmentationLabel!=deformedAtlasSegmentation){
+#if 1
                 double dist=this->m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);       
-                //double dist2=m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->EvaluateAtContinuousIndex(idx2);
-                result=max(0.0,dist);
+                result=std::max(0.0,dist);
+#else
+		double dist=this->m_atlasDistanceTransformInterpolators[segmentationLabel]->EvaluateAtContinuousIndex(idx2);       
+		double dist2=this->m_atlasDistanceTransformInterpolators[deformedAtlasSegmentation]->Evaluate(p);
+                result=std::max(dist2,dist);
+#endif
             }
 	    ///do not penalize confusion of background and auxiliary label that strongly?
 	    bool auxiliarySegmentation=(this->m_nSegmentationLabels>2) && ((segmentationLabel == this->m_auxiliaryLabel && deformedAtlasSegmentation == 0 ) || (deformedAtlasSegmentation == this->m_auxiliaryLabel && segmentationLabel == 0));
 	    if (auxiliarySegmentation){
-	      result=min(result,1.0);
+	      result=std::min(result,1.0);
 	      LOGV(16)<<VAR(result)<<endl;
 
             }
             result=0.5*result*result;//exp(result)-1;
            
             result=min(999999.0,result);
-            
+            LOGV(8)<<VAR(segmentationLabel)<<" "<<VAR(deformedAtlasSegmentation)<<" "<<VAR(result)<<std::endl;
             return result;
         }
 
@@ -528,14 +499,7 @@ namespace SRS{
             caster->SetInput(thresholdFilter->GetOutput());
             caster->Update();
             ImagePointerType output=caster->GetOutput();
-            if (false){
-                if (ImageType::ImageDimension==2){
-                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));    
-                }
-                if (ImageType::ImageDimension==3){
-                    ImageUtils<ImageType>::writeImage("dt1.nii",(output));
-                }
-            }
+           
         }
 
         inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
