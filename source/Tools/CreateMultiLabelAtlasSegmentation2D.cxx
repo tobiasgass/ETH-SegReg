@@ -11,7 +11,7 @@
 #include "itkFastMarchingImageFilter.h"
 #include "ChamferDistanceTransform.h"
 #include <map>
-#include "Argumentparser.h"
+#include "ArgumentParser.h"
 
 #define computeDistances 1
 
