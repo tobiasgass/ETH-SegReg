@@ -48,7 +48,7 @@ int main(int argc, char * argv [])
 
     ifstream ifs(argv[2]);
     bool valid=true;
-    while ( not ifs.eof() ) {
+    while ( ! ifs.eof() ) {
         for (int d=0;d<D;++d){
             if (ifs.eof()){
                 valid=false;

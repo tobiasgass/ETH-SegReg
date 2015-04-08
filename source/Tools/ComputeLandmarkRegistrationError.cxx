@@ -46,7 +46,7 @@ int main(int argc, char ** argv)
     vector<PointType> landmarksReference, landmarksTarget;
     ifstream ifs(argv[3]);
     int i=0;
-    while ( not ifs.eof() ) {
+    while ( ! ifs.eof() ) {
         PointType point;
         for (int d=0;d<D;++d){
             ifs>>point[d];

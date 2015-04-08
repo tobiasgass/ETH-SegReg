@@ -57,7 +57,7 @@ int main(int argc, char ** argv)
     ifstream ifs(refLandmarks.c_str());
     int i=0;
     
-    while ( not ifs.eof() ) {
+    while ( ! ifs.eof() ) {
         PointType point;
         for (int d=0;d<D;++d){
             ifs>>point[d];

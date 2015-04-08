@@ -110,7 +110,7 @@ int main(int argc, char ** argv)
     ifstream ifs(sourceLandmarks.c_str());
     int i=0;
     
-    while ( not ifs.eof() ) {
+    while ( ! ifs.eof() ) {
         PointType point;
         for (int d=0;d<D;++d){
             ifs>>point[d];
@@ -125,7 +125,7 @@ int main(int argc, char ** argv)
     ifstream ifs2(intLandmarks.c_str());
     i=0;
     
-    while ( not ifs2.eof() ) {
+    while ( ! ifs2.eof() ) {
         PointType point;
         for (int d=0;d<D;++d){
             ifs2>>point[d];
