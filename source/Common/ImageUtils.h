@@ -23,7 +23,6 @@
 #include "itkImageAdaptor.h"
 #include "itkContinuousIndex.h"
 #include <ctime>
-#include <sys/time.h>
 #include <itkResampleImageFilter.h>
 //#include "FilterUtils.hpp"
 template<class ImageType, class FloatPrecision=float>
