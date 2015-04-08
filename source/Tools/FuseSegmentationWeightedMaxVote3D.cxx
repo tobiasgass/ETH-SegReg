@@ -14,7 +14,7 @@ using namespace itk;
 int main(int argc, char ** argv)
 {
 
-	feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+	//feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     typedef  short  PixelType; 
     typedef  int  LabelType;
     const unsigned int D=3;

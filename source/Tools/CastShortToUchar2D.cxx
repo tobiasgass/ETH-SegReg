@@ -19,7 +19,7 @@ int main(int argc, char ** argv)
 {
     
 
-	feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+	//feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     typedef unsigned short PixelType;
     typedef unsigned char OutputPixelType;
     const unsigned int D=2;
