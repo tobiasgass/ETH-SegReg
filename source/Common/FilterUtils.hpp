@@ -285,7 +285,7 @@ public:
         inputOrigin=input->GetOrigin();
         inputSize=input->GetLargestPossibleRegion().GetSize();
         inputSpacing=input->GetSpacing();
-        for (uint d=0;d<InputImage::ImageDimension;++d){
+        for (unsigned int d=0;d<InputImage::ImageDimension;++d){
             size[d]=int(inputSize[d]*scale);
             spacing[d]=inputSpacing[d]*(1.0*(inputSize[d]-1)/(size[d]-1));
             origin[d]=inputOrigin[d];//+0.5*spacing[d]/inputSpacing[d];
@@ -328,12 +328,12 @@ public:
         inputSize=input->GetLargestPossibleRegion().GetSize();
         inputSpacing=input->GetSpacing();
         double minSpacing=std::numeric_limits<double>::max();
-        for (uint d=0;d<InputImage::ImageDimension;++d){
+        for (unsigned int d=0;d<InputImage::ImageDimension;++d){
             if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
         }
         double newSpacing=minSpacing/scale;
         LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<std::endl;
-        for (uint d=0;d<InputImage::ImageDimension;++d){
+        for (unsigned int d=0;d<InputImage::ImageDimension;++d){
             //determine new spacing
             //never increase resolution!
             if (scale>1.0){
@@ -403,7 +403,7 @@ public:
       
         double newSpacing=isoSpacing;
         LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<std::endl;
-        for (uint d=0;d<InputImage::ImageDimension;++d){
+        for (unsigned int d=0;d<InputImage::ImageDimension;++d){
             spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
             //calculate new image size
             size[d]=int(inputSpacing[d]/newSpacing * (inputSize[d]-1))+1;
@@ -440,12 +440,12 @@ public:
         inputSize=input->GetLargestPossibleRegion().GetSize();
         inputSpacing=input->GetSpacing();
         double minSpacing=std::numeric_limits<double>::max();
-        for (uint d=0;d<InputImage::ImageDimension;++d){
+        for (unsigned int d=0;d<InputImage::ImageDimension;++d){
             if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
         }
         double newSpacing=minSpacing/scale;
         LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<std::endl;
-        for (uint d=0;d<InputImage::ImageDimension;++d){
+        for (unsigned int d=0;d<InputImage::ImageDimension;++d){
             //determine new spacing
             //never increase resolution!
             if (scale>1.0){
