@@ -2,13 +2,16 @@
 #include <iostream>
 #include <sstream>
 
+
+
 MyCPUTimer::MyCPUTimer(){
-    gettimeofday(&m_tim, NULL);  
-    m_starTime=m_tim.tv_sec;//+(m_tim.tv_usec/1000000.0);  
+    //gettimeofday(&m_tim, NULL);  
+    //m_starTime=m_tim.tv_sec;//+(m_tim.tv_usec/1000000.0);  
 }
 double MyCPUTimer::elapsed(){
-    gettimeofday(&m_tim, NULL);  
-    return (m_tim.tv_sec)-m_starTime;//+(m_tim.tv_usec/1000000.0));  
+    //gettimeofday(&m_tim, NULL);  
+    //return (m_tim.tv_sec)-m_starTime;//+(m_tim.tv_usec/1000000.0));  
+  return 1;
 }
 
 

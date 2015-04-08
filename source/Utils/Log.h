@@ -6,7 +6,14 @@
 #include "boost/format.hpp"
 //#include "boost/timer.hpp"
 //#include "boost/timer/timer.hpp"
-#include <sys/time.h>
+
+#  include <time.h>
+
+struct timeval {
+    long tv_sec;
+    long tv_usec;
+};
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
