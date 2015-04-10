@@ -68,7 +68,6 @@ public:
     typedef typename OutputDeformationFieldType::ConstPointer OutputDeformationFieldConstPointerType;
 
     
-
     typedef typename ImageType::PointType PointType;
     typedef typename ImageType::IndexType IndexType;
     typedef typename ImageType::SpacingType SpacingType;
@@ -923,7 +922,11 @@ public:
             PointType p;
             deformed->TransformIndexToPhysicalPoint(index,p);
             //            LOG<<VAR(p)<<" "<<VAR(displacement)<<endl;
-            p+=displacement;
+
+            for (int i=0;i<p.Dimension;i++) {
+              p[i] += displacement[i];
+            }
+            
             image->TransformPhysicalPointToContinuousIndex(p,idx);
 
             bool inside=true;
@@ -1219,10 +1222,17 @@ public:
             DisplacementType displacement=deformationIt.Get();
             PointType p;
             rightField->TransformIndexToPhysicalPoint(index,p);
-            p+=displacement;
+            
+            for (int i = 0; i < p.Dimension; i++) {
+              p[i] += displacement[i];
+            }
             //leftField->TransformPhysicalPointToContinuousIndex(p,idx);
             //imageIt.Set(interpolator->EvaluateAtContinuousIndex(idx)+displacement);
-            imageIt.Set(interpolator->Evaluate(p)+displacement);
+            DisplacementType newVec = interpolator->Evaluate(p);
+            for (int i = 0; i < newVec.Dimension; i++) {
+              newVec[i] += displacement[i];
+            }
+            imageIt.Set(newVec);
         }
         
         return warpedLeftField;

@@ -233,7 +233,10 @@ namespace SRS{
 
             typename ImageType::PointType p;
             this->m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,p);
-            p +=disp;//+this->m_baseLabelMap->GetPixel(targetIndex1);
+
+            for (int i2= 0; i2 < p.Dimension; i2++) {
+              p[i2] +=disp[i2];
+            }
             this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p,idx2);
             int deformedAtlasSegmentation=-1;
             if (!m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
@@ -330,8 +333,13 @@ namespace SRS{
 
             typename ImageType::PointType p;
             this->m_targetImage->TransformIndexToPhysicalPoint(targetIndex1,p);
-          
-            this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(p+disp,idx2);
+            
+            itk::Point<float,ImageType::ImageDimension> newDisplacement;
+            for (int i2 = 0; i2 < ImageType::ImageDimension; i2++) {
+              newDisplacement[i2] = p[i2] + disp[i2];
+            }
+
+            this->m_atlasSegmentationImage->TransformPhysicalPointToContinuousIndex(newDisplacement,idx2);
             int deformedAtlasSegmentation=-1;
             if (!this->m_atlasSegmentationInterpolator->IsInsideBuffer(idx2)){
                 for (int d=0;d<ImageType::ImageDimension;++d){

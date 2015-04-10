@@ -253,7 +253,11 @@ namespace SRS{
                           
                     PointType p;
                     m_scaledTargetImage->TransformIndexToPhysicalPoint(neighborIndex,p);
-                    p +=disp+this->m_baseDisplacementMap->GetPixel(neighborIndex);
+
+                    for (int i2 = 0; i2 < p.Dimension; i2++) {
+                      p[i2] = p[i2] + disp[i2] + this->m_baseDisplacementMap->GetPixel(neighborIndex)[i2];
+                    }
+
                     ContinuousIndexType idx2;
                     m_scaledAtlasImage->TransformPhysicalPointToContinuousIndex(p,idx2);
                     
@@ -339,7 +343,11 @@ namespace SRS{
                     //this should be weighted somehow
                     ContinuousIndexType idx2(neighborIndex);
                     //double weight=1.0;
-                    idx2+=this->m_baseDisplacementMap->GetPixel(neighborIndex)*m_scale;
+
+                    for (int i2= 0; i2 < idx2.Dimension; i2++) {
+                      idx2[i2] +=this->m_baseDisplacementMap->GetPixel(neighborIndex)[i2]*m_scale;
+                    }
+
                     if (this->m_atlasInterpolator->IsInsideBuffer(idx2)){
                         count+=1;
                     }
@@ -664,7 +672,11 @@ namespace SRS{
                                 //get displacement at targetPoint
                                 DisplacementType displacement=labelInterpolator->Evaluate(targetPoint);
                                 //get error
-                                double error=(targetPoint+displacement-atlasPoint).GetNorm();
+                                DisplacementType newVector;
+                                for (int i2= 0; i2 < D; i2++) {
+                                  newVector[i2] = targetPoint[i2] + displacement[i2] - atlasPoint[i2];
+                                }
+                                double error= newVector.GetNorm();
                                 localPot+=(this->m_alpha)*w*5.0*(error);
 
                             }

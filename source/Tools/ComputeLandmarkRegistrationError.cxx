@@ -74,7 +74,11 @@ int main(int argc, char ** argv)
         
         referenceImage->TransformPhysicalPointToIndex(landmarksReference[i],index);
         //std::cout<<VAR(targetPoint)<<endl;
-        deformedReferencePoint= landmarksReference[i]+deformation->GetPixel(index);
+        
+        for (int i2 = 0; i2 < D; i2++) {
+          deformedReferencePoint[i2] = landmarksReference[i][i2] + deformation->GetPixel(index)[i2];
+        }
+
         //deformedReferencePoint+=invertedDeformation->GetPixel(landmarksReference[i]);
         referenceImage->TransformPhysicalPointToIndex(deformedReferencePoint,index);
         deformedReferenceLandmarkImage->SetPixel(index,65535);
