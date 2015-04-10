@@ -220,6 +220,7 @@ int main(int argc, char ** argv)
         tps->ComputeWMatrix();
         LabelImagePointerType interpError = ImageUtils<LabelImageType>::duplicate(deformation);
         
+        typedef itk::Vector<PixelType,D> VectorType;
         typedef  itk::ImageRegionIterator<LabelImageType> DefIterator;
         DefIterator defIt(interpError,interpError->GetLargestPossibleRegion());
         defIt.GoToBegin();
@@ -229,7 +230,8 @@ int main(int argc, char ** argv)
             index=defIt.GetIndex();
             interpError->TransformIndexToPhysicalPoint(index,p1);
             p2=tps->TransformPoint(p1);
-            defIt.Set(p2-p1);
+            const VectorType constVector = p2-p1;
+            defIt.Set(constVector);
 
 
 
