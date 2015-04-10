@@ -18,7 +18,7 @@
 #include <itkMeanImageFilter.h>
 #include "itkMeanSquaresImageToImageMetric.h"
 #include "itkMattesMutualInformationImageToImageMetric.h"
-#include <itkBoxMeanImageFilter.h>
+//#include <itkBoxMeanImageFilter.h>
 #include "itkSubtractAbsImageFilter.h"
 #include <itkAbsoluteValueDifferenceImageFilter.h>
 #ifdef WITH_MIND
