@@ -25,7 +25,7 @@
 #include <ctime>
 #include <itkResampleImageFilter.h>
 //#include "FilterUtils.hpp"
-template<class ImageType, class FloatPrecision=float>
+template<typename ImageType, class FloatPrecision=float>
 class ImageUtils {
 
 public:

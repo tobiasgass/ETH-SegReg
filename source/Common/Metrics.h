@@ -27,7 +27,7 @@
 #endif
 
 
-template<class InputImage, class OutputImage = InputImage, class InternalPrecision=double>
+template<typename InputImage, typename OutputImage = InputImage, typename InternalPrecision=double>
 class Metrics{
 
     typedef typename InputImage::Pointer  InputImagePointer;

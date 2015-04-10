@@ -8,7 +8,7 @@
 #include "ImageUtils.h"
 #include "TransformationUtils.h"
 
-template<class ImageType,class FloatPrecision=float>
+template<typename ImageType,typename FloatPrecision=float>
 class GaussianEstimatorScalarImage{
 
 public:
@@ -89,7 +89,7 @@ public:
     
 };//class
 
-template<class ImageType>
+template<typename ImageType>
 class MinEstimatorScalarImage: public GaussianEstimatorScalarImage<ImageType>{
 public:
 	typedef typename ImageType::Pointer  ImagePointerType;
@@ -113,7 +113,7 @@ public:
  }
 };
 
-template<class ImageType,class FloatPrecision=float>
+template<typename ImageType,class FloatPrecision=float>
 class GaussianEstimatorVectorImage{
 
 public:
@@ -230,7 +230,7 @@ public:
     }
     
 };//class
-template<class ImageType>
+template<typename ImageType>
 class FastGaussianEstimatorVectorImage{
 
 public:
@@ -422,7 +422,7 @@ public:
     
 };//class
 
-template<class ImageType>
+template<typename ImageType>
 class LocalVectorMeanShift{
 
 public:
@@ -546,7 +546,7 @@ public:
     
 };//class
   
-template<class DeformationType>
+template<typename DeformationType>
 struct LIST{
     LIST * pNext;
     double           iValue;
@@ -554,10 +554,10 @@ struct LIST{
 };
 
 
-template<class DeformationType>
-struct LIST<DeformationType> * insert( struct LIST<DeformationType> * pList, double i,DeformationType def, int maxLength){
+  template<typename DeformationType>
+  LIST<DeformationType> * insert( LIST<DeformationType> * pList, double i,DeformationType def, int maxLength){
  
-    struct LIST<DeformationType> * pHead = pList;
+    LIST<DeformationType> * pHead = pList;
     
     /* trailing pointer for efficient splice */
     struct LIST<DeformationType> * pTrail = pList;
@@ -612,7 +612,7 @@ struct LIST<DeformationType> * insert( struct LIST<DeformationType> * pList, dou
     return pHead;
 }
 
-template<class ImageType>
+template<typename ImageType>
 class FastNBestGaussianVectorImage: public FastGaussianEstimatorVectorImage<ImageType>{
 
 public:

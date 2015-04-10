@@ -43,7 +43,7 @@
 
 using namespace std;
 
-template<class ImageType, class CDisplacementPrecision=float, class COutputPrecision=double,class CFloatPrecision=float>
+template<typename ImageType, typename CDisplacementPrecision=float, typename COutputPrecision=double,typename CFloatPrecision=float>
 class TransfUtils {
 
 public:
