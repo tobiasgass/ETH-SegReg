@@ -1787,7 +1787,7 @@ public:
         DirectionType refDir=reference->GetDirection();
         DirectionType targetDir=def->GetDirection();
 
-        while ( not ifs.eof() ) {
+        while ( ! ifs.eof() ) {
             PointType point;
             for (int d=0;d<D;++d){
                 ifs>>point[d];

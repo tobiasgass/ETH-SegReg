@@ -464,7 +464,7 @@ namespace SRS{
             PointsContainerPointer points=pointSet->GetPoints();
             ifstream ifs(f.c_str());
             int i=0;
-            while ( not ifs.eof() ) {
+            while ( ! ifs.eof() ) {
                 PointType point;
                 bool fullPoint=true;
                 for (int d=0;d<D;++d){
