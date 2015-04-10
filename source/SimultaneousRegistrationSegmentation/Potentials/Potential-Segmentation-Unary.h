@@ -171,7 +171,7 @@ namespace SRS{
     virtual double getWeight(IndexType idx1, IndexType idx2){
       int s1=this->m_targetGradient->GetPixel(idx1);
       int s2=this->m_targetGradient->GetPixel(idx2);
-      double edgeWeight=fabs(s1-s2);
+      double edgeWeight=abs(s1-s2);
       edgeWeight*=edgeWeight;
 
       //int i1=this->m_targetImage->GetPixel(idx1);
