@@ -7,6 +7,7 @@
 //#include <google/heap-profiler.h>
 #include <limits.h>
 #include <time.h>
+#include <vector>
 
 
 
@@ -342,7 +343,7 @@ public:
                 for (int l1=0;l1<nRegLabels;++l1)
                     {
                         int regLabel=m_labelOrder[l1];
-                        GCoptimization::SparseDataCost costs[nRegNodes];
+                        std::vector<GCoptimization::SparseDataCost> costs(nRegNodes);
                         this->m_GraphModel->cacheRegistrationPotentials(regLabel);
                         for (int d=0;d<nRegNodes;++d){
                             costs[d].site=d;
@@ -359,7 +360,7 @@ public:
                                 }
                             }
                         }
-                        m_optimizer->setDataCost(regLabel,costs,nRegNodes);
+                        m_optimizer->setDataCost(regLabel,&costs[0],nRegNodes);
                     }
             }
 
@@ -520,7 +521,7 @@ public:
         LOGV(1)<<"Finished init after "<<t<<" seconds"<<std::endl;
         nEdges=edgeCount;
         logResetStage;
-        int order[GLOBALnRegLabels+GLOBALnSegLabels];
+        std::vector<int> order(GLOBALnRegLabels+GLOBALnSegLabels);
         for (int l=0;l<GLOBALnSegLabels;++l){
             order[l]=GLOBALnRegLabels+l;
         }
@@ -528,7 +529,7 @@ public:
             order[l+GLOBALnSegLabels]=l;
         }
 #if 1
-        m_optimizer->setLabelOrder(order,GLOBALnRegLabels+GLOBALnSegLabels);
+        m_optimizer->setLabelOrder(&order[0],GLOBALnRegLabels+GLOBALnSegLabels);
 #else
         bool random = true;
         m_optimizer->setLabelOrder(random);
