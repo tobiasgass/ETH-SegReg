@@ -35,7 +35,7 @@ using namespace itk;
 
 int main(int argc, char ** argv)
 {
-	feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
+	//feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
 	SRSConfig filterConfig;
 	filterConfig.parseParams(argc,argv);
     if (filterConfig.logFileName!=""){
