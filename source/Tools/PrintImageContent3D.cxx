@@ -25,16 +25,6 @@ typedef itk::Image< Label, D >  LabelImage;
 typedef itk::Image< float, D > TRealImage;
 typedef  LabelImage::Pointer LabelImagePointerType;
 
-LabelImagePointerType selectLabel(LabelImagePointerType img, Label l){
-    LabelImagePointerType result=ImageUtils<LabelImage>::createEmpty(img);
-    typedef itk::ImageRegionIterator<LabelImage> IteratorType;
-    IteratorType it1(img,img->GetLargestPossibleRegion());
-    IteratorType it2(result,img->GetLargestPossibleRegion());
-    for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2){
-        it2.Set(it1.Get()==l);
-    }
-    return result;
-}
 
 
 int main(int argc, char * argv [])
@@ -42,10 +32,15 @@ int main(int argc, char * argv [])
 
     
     ArgumentParser as(argc, argv);
-	string segmentationFilename,outputFilename="";
+	string imageFilename,outputFilename="";
     int verbose=0;
     string labelList="";
-	as.parameter ("i", segmentationFilename, "segmentation image (file name)", true);
+    bool info=false, region=false, content=false;
+	as.parameter ("i", imageFilename, "input image (file name)", true);
+	as.option("info",info,"general info about image");
+	as.option("region",region,"print region object");
+	as.option("content",content,"output all image content");
+	
 	as.parameter ("v", verbose, "verbosity level", false);
 
 	as.parse();
@@ -54,12 +49,26 @@ int main(int argc, char * argv [])
  
  
     LabelImage::Pointer img =
-        ImageUtils<LabelImage>::readImage(segmentationFilename);
+        ImageUtils<LabelImage>::readImage(imageFilename);
+    if (content){
     typedef itk::ImageRegionIterator<LabelImage> IteratorType;
     IteratorType it1(img,img->GetLargestPossibleRegion());
 
     for (it1.GoToBegin();!it1.IsAtEnd();++it1){
         std::cout<<it1.Get()<<std::endl;
+    }
+    }
+    if (region){
+      std::cout<<img->GetLargestPossibleRegion()<<std::endl;
+    }
+    if (info){
+      std::cout<<"Size: "<<img->GetLargestPossibleRegion().GetSize()<<std::endl;
+      std::cout<<"Spacing: "<<img->GetSpacing()<<std::endl;
+      std::cout<<"Direction:";
+      for (int d=0;d<D;++d){for (int d2=0;d2<D;++d2){ std::cout<<" "<<img->GetDirection()[d][d2];}}
+      std::cout<<std::endl;
+      std::cout<<"Origin: "<<img->GetOrigin()<<std::endl;
+		  
     }
 	return EXIT_SUCCESS;
 }

@@ -17,7 +17,10 @@ ADD_EXECUTABLE(PrintImageContent2D PrintImageContent2D.cxx )
 TARGET_LINK_LIBRARIES(PrintImageContent2D     ${ITK_LIBRARIES}   Utils  )
 
 ADD_EXECUTABLE(PrintImageContent3D PrintImageContent3D.cxx )
-TARGET_LINK_LIBRARIES(PrintImageContent3D     ${ITK_LIBRARIES}   Utils  )
+TARGET_LINK_LIBRARIES(PrintImageContent3D     ${ITK_LIBRARIES}   Utils
+)
+ADD_EXECUTABLE(CopyImageTransformationParameters3D CopyImageTransformationParameters3D.cxx )
+TARGET_LINK_LIBRARIES(CopyImageTransformationParameters3D     ${ITK_LIBRARIES}   Utils  )
 
 ADD_EXECUTABLE(ConvertDeformation2D ConvertDeformation2D.cxx )
 TARGET_LINK_LIBRARIES(ConvertDeformation2D     ${ITK_LIBRARIES}   Utils  )
