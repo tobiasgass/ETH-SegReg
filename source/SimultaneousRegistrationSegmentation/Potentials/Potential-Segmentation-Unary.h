@@ -468,8 +468,8 @@ namespace SRS{
     virtual double getPotential(IndexType targetIndex, int segmentationLabel){
       int s=this->m_scaledTargetGradient->GetPixel(targetIndex);
       int bone=(500);
-      int tissue=(-500);
-      double artefact=2000;
+      int tissue=(-600);
+      double artefact=5000;
       double imageIntensity=this->m_scaledTargetImage->GetPixel(targetIndex);
       double totalCost=1;
       int targetAnatomyPrior=0;
