@@ -1,0 +1,6 @@
+*.nii
+build*
+*.mha
+*.png
+*List*
+LOG*
