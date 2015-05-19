@@ -1,18 +1,5 @@
 #pragma once
 
-#ifndef LOGGING
-#define LOGGING
-
-#include "boost/format.hpp"
-//#include "boost/timer.hpp"
-//#include "boost/timer/timer.hpp"
-
-#include <time.h>
-
-struct timeval {
-    long tv_sec;
-    long tv_usec;
-};
 
 #include <iostream>
 #include <fstream>
@@ -22,6 +9,25 @@ struct timeval {
 #include <map>
 #include <utility>
 #include <stack>
+
+#include "boost/format.hpp"
+//#include "boost/timer.hpp"
+//#include "boost/timer/timer.hpp"
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#define NOMINMAX
+#include "Windows.h"
+static const unsigned __int64 epoch = ((unsigned __int64)116444736000000000ULL);
+int gettimeofday(struct timeval * tp, struct timezone * tzp);
+
+#else
+#include <time.h>
+
+struct timeval {
+	long tv_sec;
+	long tv_usec;
+};
+#endif
+
 
 #define logSetStage(stage) mylog.setStage(stage)
 #define logResetStage mylog.resetStage()
@@ -142,4 +148,3 @@ extern std::vector<std::string> split(std::string &s, char delim) ;
 
 extern void gen_random(char *s, const int len) ;
 extern double fRand(double fMin, double fMax);
-#endif

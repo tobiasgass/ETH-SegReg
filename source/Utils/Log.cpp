@@ -2,15 +2,34 @@
 #include <iostream>
 #include <sstream>
 
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+int gettimeofday(struct timeval * tp, struct timezone * tzp)
+{
+	FILETIME    file_time;
+	SYSTEMTIME  system_time;
+	ULARGE_INTEGER ularge;
 
+	GetSystemTime(&system_time);
+	SystemTimeToFileTime(&system_time, &file_time);
+	ularge.LowPart = file_time.dwLowDateTime;
+	ularge.HighPart = file_time.dwHighDateTime;
+
+	tp->tv_sec = (long)((ularge.QuadPart - epoch) / 10000000L);
+	tp->tv_usec = (long)(system_time.wMilliseconds * 1000);
+
+	return 0;
+}
+
+
+#endif
 
 MyCPUTimer::MyCPUTimer(){
-    //gettimeofday(&m_tim, NULL);  
-    //m_starTime=m_tim.tv_sec;//+(m_tim.tv_usec/1000000.0);  
+    gettimeofday(&m_tim, NULL);  
+    m_starTime=m_tim.tv_sec;//+(m_tim.tv_usec/1000000.0);  
 }
 double MyCPUTimer::elapsed(){
-    //gettimeofday(&m_tim, NULL);  
-    //return (m_tim.tv_sec)-m_starTime;//+(m_tim.tv_usec/1000000.0));  
+    gettimeofday(&m_tim, NULL);  
+    return (m_tim.tv_sec)-m_starTime;//+(m_tim.tv_usec/1000000.0));  
   return 1;
 }
 
