@@ -21,11 +21,11 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp);
 
 #else
 #include <time.h>
-
-struct timeval {
-	long tv_sec;
-	long tv_usec;
-};
+#include "sys/time.h"
+//struct timeval {
+//	long tv_sec;
+//	long tv_usec;
+//};
 #endif
 
 

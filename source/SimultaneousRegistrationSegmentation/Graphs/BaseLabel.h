@@ -412,7 +412,7 @@ template<class TImage, class TLabel>
       for (int d=0;d<TImage::ImageDimension;++d){
 	for (int d2=0;d2<TImage::ImageDimension;++d2){
 	  if (d2!=d){
-	    sums[d]+=abs(label[d2]);
+	    sums[d]+=std::abs(label[d2]);
 	  }
 	}
 	if (sums[d]==0){

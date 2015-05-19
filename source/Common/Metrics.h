@@ -235,7 +235,7 @@ public:
             InternalPrecision d=(i1It.Get()-i2It.Get());
             i1It.Set(d*d);
         }
-#if 0
+#if 1
         typedef typename itk::SmoothingRecursiveGaussianImageFilter< InternalImage, InternalImage > FilterType;
         typename FilterType::Pointer filter=FilterType::New();
         filter->SetSigma(sigmaWidth);
