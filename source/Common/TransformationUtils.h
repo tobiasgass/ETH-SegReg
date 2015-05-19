@@ -40,6 +40,7 @@
 #include <itkDisplacementFieldToBSplineImageFilter.h>
 #include "itkConstantPadImageFilter.h"
 #include "itkTranslationTransform.h"
+#include "itkVectorLinearInterpolateNearestNeighborExtrapolateImageFunction.h"
 
 using namespace std;
 

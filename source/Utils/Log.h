@@ -9,6 +9,7 @@
 #include <map>
 #include <utility>
 #include <stack>
+#include <time.h>
 
 #include "boost/format.hpp"
 //#include "boost/timer.hpp"
@@ -16,11 +17,11 @@
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
 #define NOMINMAX
 #include "Windows.h"
+#include "winsock.h"
 static const unsigned __int64 epoch = ((unsigned __int64)116444736000000000ULL);
 int gettimeofday(struct timeval * tp, struct timezone * tzp);
 
 #else
-#include <time.h>
 #include "sys/time.h"
 //struct timeval {
 //	long tv_sec;
