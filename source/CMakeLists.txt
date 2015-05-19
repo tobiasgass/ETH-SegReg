@@ -1,7 +1,7 @@
 
 ##this should include "random" for some tools, but seems to compile&link without it, and CMake can't find boost_random ...
-FIND_PACKAGE( Boost 1.40 COMPONENTS  system filesystem program_options REQUIRED )
-INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+#FIND_PACKAGE( Boost 1.40 COMPONENTS  system filesystem program_options REQUIRED )
+#INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -81,6 +81,7 @@ if( ${USE_GCO} MATCHES "ON" )
     set(DIR_GCO "maxflow DIR NOTFOUND" CACHE  FILEPATH "Directory for GCO" FORCE) 
   else()
     
+	MESSAGE(STATUS "patching ${PATCH_EXECUTABLE}")
       #patch it!
     MESSAGE( STATUS "Patching GCO")
     EXECUTE_PROCESS( COMMAND cmake -E chdir ${DIR_GCO} patch -r - -N -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/External/Patches/GCO.patch  RESULT_VARIABLE RESULT_PATCH OUTPUT_QUIET)

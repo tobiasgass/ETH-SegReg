@@ -54,7 +54,7 @@ int main(int argc, char * argv [])
     if (metric == "lncc"){
         localMetricImage = Metrics<ImageType,FloatImageType>::efficientLNCC(firstImg,secondImg,sigma);
     }else if (metric == "itklncc"){
-        localMetricImage = Metrics<ImageType,FloatImageType>::ITKLNCC(firstImg,secondImg,sigma);
+//        localMetricImage = Metrics<ImageType,FloatImageType>::ITKLNCC(firstImg,secondImg,sigma);
     }else if (metric == "lsad"){
         //localMetricImage = Metrics<ImageType,FloatImageType>::LSADAutoNorm(firstImg,secondImg,sigma);
     }else if (metric == "lssd"){

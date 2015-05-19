@@ -715,6 +715,37 @@ public:
         return fullDeformationField;
     }
 
+	static DeformationFieldPointerType BSplineResampleDeformationFieldITK(DeformationFieldPointerType labelImg, ImagePointerType reference){
+		typedef typename itk::DisplacementFieldToBSplineImageFilter<DeformationFieldType> FilterType;
+		typename FilterType::Pointer bspliner = FilterType::New();
+		bspliner->SetDisplacementField(labelImg);
+		typename FilterType::ArrayType numberOfControlPoints;
+		int splineOrder = 3;
+		for (int d = 0; d<D; ++d){
+			numberOfControlPoints[d] = labelImg->GetLargestPossibleRegion().GetSize()[d]+splineOrder-1;
+		}
+		LOG << VAR(numberOfControlPoints) << endl;
+		bspliner->SetNumberOfControlPoints(numberOfControlPoints);
+		bspliner->SetNumberOfFittingLevels(1);
+		bspliner->SetSplineOrder(splineOrder);
+		bspliner->EnforceStationaryBoundaryOff();
+		//bspliner->EnforceStationaryBoundaryOn();
+		//        bspliner->SetEnforceStationaryBoundary( false );
+		bspliner->EstimateInverseOff();
+		try{
+			bspliner->Update();
+		}
+		catch (itk::ExceptionObject & excp)
+		{
+			std::cerr << "Exception thrown " << std::endl;
+			std::cerr << excp << std::endl;
+		}
+		DeformationFieldPointerType result = createEmpty(reference);
+		typedef typename  itk::ImageRegionIterator<DeformationFieldType> LabelIteratorType;
+
+		return bspliner->GetOutput();
+
+	}
     static BSplineTransformPointerType computeITKBSplineTransformFromDeformationField(DeformationFieldPointerType labelImg,ImagePointerType reference){ 
      
         LOGV(5)<<"computing bspline transform parameters"<<std::endl;

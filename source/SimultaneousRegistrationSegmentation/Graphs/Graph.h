@@ -113,7 +113,7 @@ namespace SRS{
   bool m_haveLabelMap;
   ConstImagePointerType m_targetImage,m_targetSegmentationImage;
   ConstImageNeighborhoodIteratorType m_targetNeighborhoodIterator;
-  SRSConfig m_config;
+  SRSConfig::Pointer m_config;
   int m_maxRegSegNeighbors;
 
   bool m_normalizePotentials;
@@ -137,10 +137,10 @@ namespace SRS{
   };
   ~GraphModel(){
   }
-  void setConfig(SRSConfig c){
+  void setConfig(SRSConfig::Pointer c){
     m_config=c;
-    verbose=c.verbose;
-    m_normalizePotentials=c.normalizePotentials; 
+    verbose=c->verbose;
+    m_normalizePotentials=c->normalizePotentials; 
   }
   void setTargetImage(ConstImagePointerType targetImage){
     m_targetImage=targetImage;

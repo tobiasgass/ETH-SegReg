@@ -20,7 +20,7 @@ int main(int argc, char ** argv)
     
 
 	//feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-    typedef int PixelType;
+    typedef short int PixelType;
     const unsigned int D=3;
     typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
@@ -35,10 +35,12 @@ int main(int argc, char ** argv)
     string moving,target="",def,output;
     bool NN=false;
     bool linear = false;
+	string outputDef = "";
     as->parameter ("moving", moving, " filename of moving image", true);
     as->parameter ("target", target, " filename of target image", false);
     as->parameter ("def", def, " filename of deformation", true);
     as->parameter ("out", output, " output filename", true);
+	as->parameter("outDef", outputDef, "filename to store a copy of the deformation in", false);
     as->option ("NN", NN," use NN interpolation of image");
     as->option ("linear", linear," use linear interpolation of deformation field");
     as->parse();
@@ -67,5 +69,8 @@ int main(int argc, char ** argv)
         ImageUtils<ImageType>::writeImage(output,  TransfUtils<ImageType,Displacement>::warpImage(image,deformation) );
     }
     //    LOG<<VAR(deformation->GetSpacing())<<" "<<endl;
+	if (outputDef != ""){
+		ImageUtils<LabelImageType>::writeImage(outputDef, deformation);
+	}
 	return 1;
 }

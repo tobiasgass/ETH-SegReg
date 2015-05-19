@@ -1001,8 +1001,8 @@ public:
 
     }
 
-    static inline OutputImagePointer ITKLNCC(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0, InputImagePointer coarseImg=NULL){
-        return ITKLNCC( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp,coarseImg);
+    static inline OutputImagePointer ITKLNCC2(InputImagePointer i1,InputImagePointer i2,double sigma=1.0, double exp = 1.0, InputImagePointer coarseImg=NULL){
+        return ITKLNCC2( (ConstInputImagePointer)i1, (ConstInputImagePointer)i2, sigma,exp,coarseImg);
     }
     static inline OutputImagePointer ITKLNCC(ConstInputImagePointer i1,ConstInputImagePointer i2,double sigma=1.0, double exp = 1.0, InputImagePointer coarseImg=NULL){
         
@@ -1079,10 +1079,10 @@ public:
                 
                 //size gets smaller when newIndex-sigma is smaller than zero
                 idxDifference=sigma-newIndex[d];
-                maxSize-=max(0, idxDifference);
+                maxSize-=std::max(0, idxDifference);
 
                 localRegionSize[d]=maxSize;
-                newIndex[d]=max(0.0,newIndex[d]-sigma);
+                newIndex[d]=std::max(0.0,newIndex[d]-sigma);
 
             }
             region.SetSize(localRegionSize);

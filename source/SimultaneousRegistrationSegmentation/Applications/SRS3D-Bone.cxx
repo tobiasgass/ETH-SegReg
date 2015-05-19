@@ -36,9 +36,9 @@ using namespace itk;
 int main(int argc, char ** argv)
 {
 	//feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-	SRSConfig filterConfig;
-	filterConfig.parseParams(argc,argv);
-    if (filterConfig.logFileName!=""){
+	SRSConfig::Pointer filterConfig=SRSConfig::New();
+	filterConfig->parseParams(argc,argv);
+    if (filterConfig->logFileName!=""){
         mylog.setCachedLogging();
     }
     logSetStage("Init");
@@ -74,7 +74,7 @@ int main(int argc, char ** argv)
     //typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
 
   
-#define POTENTIALINHERITANCE
+//#define POTENTIALINHERITANCE
 #ifdef POTENTIALINHERITANCE
     typedef FastGraphModel<ImageType>        GraphType;
 #else
@@ -83,8 +83,8 @@ int main(int argc, char ** argv)
     
     typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
     //create filter
-    FilterType::Pointer filter=FilterType::New();
-    filter->setConfig(&filterConfig);
+	FilterType::Pointer filter = new FilterType();// FilterType::New();
+    filter->setConfig(filterConfig);
     
     logSetStage("Instantiate Potentials");
     
@@ -111,45 +111,45 @@ int main(int argc, char ** argv)
 #endif
 
     logUpdateStage("IO");
-    logSetVerbosity(filterConfig.verbose);
-    LOG<<"Loading target image :"<<filterConfig.targetFilename<<std::endl;
-    ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
+    logSetVerbosity(filterConfig->verbose);
+    LOG<<"Loading target image :"<<filterConfig->targetFilename<<std::endl;
+    ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig->targetFilename);
 #if 0
-    if (filterConfig.normalizeImages){
+    if (filterConfig->normalizeImages){
         targetImage=FilterUtils<ImageType>::normalizeImage(targetImage);
     }
 #endif
 
     if (!targetImage) {LOG<<"failed!"<<endl; exit(0);}
-    LOG<<"Loading atlas image :"<<filterConfig.atlasFilename<<std::endl;
+    LOG<<"Loading atlas image :"<<filterConfig->atlasFilename<<std::endl;
     ImagePointerType atlasImage;
-    if (filterConfig.atlasFilename!="") {
-        atlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
+    if (filterConfig->atlasFilename!="") {
+        atlasImage=ImageUtils<ImageType>::readImage(filterConfig->atlasFilename);
 #if 0
-        if (filterConfig.normalizeImages){
+        if (filterConfig->normalizeImages){
             atlasImage=FilterUtils<ImageType>::normalizeImage(atlasImage);
         }
 #endif
     }
     if (!atlasImage) {LOG<<"Warning: no atlas image loaded!"<<endl;
-        LOG<<"Loading atlas segmentation image :"<<filterConfig.atlasSegmentationFilename<<std::endl;}
+        LOG<<"Loading atlas segmentation image :"<<filterConfig->atlasSegmentationFilename<<std::endl;}
     ImagePointerType atlasSegmentation;
-    if (filterConfig.atlasSegmentationFilename !="")atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig.atlasSegmentationFilename);
+    if (filterConfig->atlasSegmentationFilename !="")atlasSegmentation=ImageUtils<ImageType>::readImage(filterConfig->atlasSegmentationFilename);
     if (!atlasSegmentation) {LOG<<"Warning: no atlas segmentation loaded!"<<endl; }
     
     ImagePointerType targetAnatomyPrior;
-    if (filterConfig.targetAnatomyPriorFilename !="") {
-        targetAnatomyPrior=ImageUtils<ImageType>::readImage(filterConfig.targetAnatomyPriorFilename);
-        filterConfig.useTargetAnatomyPrior=true;
+    if (filterConfig->targetAnatomyPriorFilename !="") {
+        targetAnatomyPrior=ImageUtils<ImageType>::readImage(filterConfig->targetAnatomyPriorFilename);
+        filterConfig->useTargetAnatomyPrior=true;
     }
 
     ImagePointerType atlasMaskImage=NULL;
-    if (filterConfig.atlasMaskFilename!="") atlasMaskImage=ImageUtils<ImageType>::readImage(filterConfig.atlasMaskFilename);
+    if (filterConfig->atlasMaskFilename!="") atlasMaskImage=ImageUtils<ImageType>::readImage(filterConfig->atlasMaskFilename);
 
     logResetStage;
     logSetStage("Preprocessing");
 
-    if (filterConfig.histNorm){
+    if (filterConfig->histNorm){
         // Histogram match the images
         typedef itk::HistogramMatchingImageFilter<ImageType,ImageType> HEFilterType;
         HEFilterType::Pointer IntensityEqualizeFilter = HEFilterType::New();
@@ -165,16 +165,16 @@ int main(int argc, char ** argv)
 
     //preprocessing 1: gradients
     ImagePointerType targetGradient, atlasGradient;
-    if (filterConfig.segment){
-        if (filterConfig.targetGradientFilename!=""){
-            targetGradient=(ImageUtils<ImageType>::readImage(filterConfig.targetGradientFilename));
+    if (filterConfig->segment){
+        if (filterConfig->targetGradientFilename!=""){
+            targetGradient=(ImageUtils<ImageType>::readImage(filterConfig->targetGradientFilename));
         }else{
             targetGradient=Preprocessing<ImageType>::computeSheetness(targetImage);
             LOGI(8,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));
            
         }
-        if (filterConfig.atlasGradientFilename!=""){
-            atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig.atlasGradientFilename));
+        if (filterConfig->atlasGradientFilename!=""){
+            atlasGradient=(ImageUtils<ImageType>::readImage(filterConfig->atlasGradientFilename));
         }else{
             if (atlasImage.IsNotNull()){
                 atlasGradient=Preprocessing<ImageType>::computeSheetness(atlasImage);
@@ -182,15 +182,15 @@ int main(int argc, char ** argv)
             }
         }
   
-        if (filterConfig.useTargetAnatomyPrior && ! targetAnatomyPrior.IsNotNull() ){
+        if (filterConfig->useTargetAnatomyPrior && ! targetAnatomyPrior.IsNotNull() ){
             //targetAnatomyPrior=Preprocessing<ImageType>::computeSoftTargetAnatomyEstimate(targetImage);
             LOG<<"NOT YET IMPLEMENTED: Preprocessing<ImageType>::computeSoftTargetAnatomyEstimate"<<endl;
             exit(0);
         }
         //preprocessing 2: multilabel
-        if (filterConfig.computeMultilabelAtlasSegmentation){
+        if (filterConfig->computeMultilabelAtlasSegmentation){
             atlasSegmentation=FilterUtils<ImageType>::computeMultilabelSegmentation(atlasSegmentation);
-            filterConfig.nSegmentations=5;//TODO!!!!
+            filterConfig->nSegmentations=5;//TODO!!!!
         }
     }
     logResetStage;
@@ -198,8 +198,8 @@ int main(int argc, char ** argv)
     ImagePointerType originalTargetImage=targetImage,originalAtlasImage=atlasImage,originalAtlasSegmentation=atlasSegmentation;
     //preprocessing 3: downscaling
 
-    if (filterConfig.downScale<1){
-        double scale=filterConfig.downScale;
+    if (filterConfig->downScale<1){
+        double scale=filterConfig->downScale;
         LOG<<"Resampling images from "<< targetImage->GetLargestPossibleRegion().GetSize()<<" by a factor of"<<scale<<endl;
         targetImage=FilterUtils<ImageType>::LinearResample(targetImage,scale,true);
         if (atlasImage.IsNotNull()) atlasImage=FilterUtils<ImageType>::LinearResample(atlasImage,scale,true);
@@ -208,19 +208,19 @@ int main(int argc, char ** argv)
             atlasSegmentation=FilterUtils<ImageType>::NNResample((atlasSegmentation),scale,false);
             //ImageUtils<ImageType>::writeImage("testA.nii",atlasSegmentation);
         }
-        if (filterConfig.segment){
+        if (filterConfig->segment){
             LOGV(3)<<"Resampling gradient images and anatomy prior by factor of "<<scale<<endl;
             targetGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)targetGradient),scale,true);
             atlasGradient=FilterUtils<ImageType>::LinearResample(((ImageConstPointerType)atlasGradient),scale,true);
             //targetGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)targetGradient,sigma),scale);
             //atlasGradient=FilterUtils<ImageType>::NNResample(FilterUtils<ImageType>::gaussian((ImageConstPointerType)atlasGradient,sigma),scale);
-            if (filterConfig.useTargetAnatomyPrior){
+            if (filterConfig->useTargetAnatomyPrior){
                 targetAnatomyPrior=FilterUtils<ImageType>::NNResample((targetAnatomyPrior),scale,false);
             }
             
         }
     }
-    if (filterConfig.segment){
+    if (filterConfig->segment){
         if (atlasGradient.IsNotNull()) 
             LOGI(10,ImageUtils<ImageType>::writeImage("atlassheetness.nii",atlasGradient));
         LOGI(10,ImageUtils<ImageType>::writeImage("targetsheetness.nii",targetGradient));
@@ -234,22 +234,22 @@ int main(int argc, char ** argv)
     filter->setAtlasMaskImage(atlasMaskImage);
     filter->setAtlasGradient(atlasGradient);
     filter->setAtlasSegmentation(atlasSegmentation);
-    if (filterConfig.useTargetAnatomyPrior){
+    if (filterConfig->useTargetAnatomyPrior){
         filter->setTargetAnatomyPrior(targetAnatomyPrior);
     }
     logSetStage("Bulk transforms");
 
-    if (filterConfig.affineBulkTransform!=""){
-        TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig.affineBulkTransform);
+    if (filterConfig->affineBulkTransform!=""){
+        TransfUtils<ImageType>::AffineTransformPointerType affine=TransfUtils<ImageType>::readAffine(filterConfig->affineBulkTransform);
         LOGI(8,ImageUtils<ImageType>::writeImage("def.nii",TransfUtils<ImageType>::affineDeformImage(originalAtlasImage,affine,originalTargetImage)));
         //DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,originalTargetImage);
         DeformationFieldPointerType transf=TransfUtils<ImageType>::affineToDisplacementField(affine,targetImage);
         LOGI(8,ImageUtils<ImageType>::writeImage("def2.nii",TransfUtils<ImageType>::warpImage((ImageType::ConstPointer)originalAtlasImage,transf)));
         filter->setBulkTransform(transf);
     }
-    else if (filterConfig.bulkTransformationField!=""){
-        filter->setBulkTransform(ImageUtils<DeformationFieldType>::readImage(filterConfig.bulkTransformationField));
-    }else if (filterConfig.initWithMoments){
+    else if (filterConfig->bulkTransformationField!=""){
+        filter->setBulkTransform(ImageUtils<DeformationFieldType>::readImage(filterConfig->bulkTransformationField));
+    }else if (filterConfig->initWithMoments){
         //LOG<<" NOT NOT NOT Computing transform to move image centers on top of each other.."<<std::endl;
         LOG<<"initializing deformation using moments.."<<std::endl;
         DeformationFieldPointerType transf=TransfUtils<ImageType>::computeCenteringTransform(originalTargetImage,originalAtlasImage);
@@ -278,11 +278,11 @@ int main(int argc, char ** argv)
     DeformationFieldPointerType finalDeformation=filter->getFinalDeformation();
     
     delete filter;
-    if (filterConfig.atlasFilename!="") originalAtlasImage=ImageUtils<ImageType>::readImage(filterConfig.atlasFilename);
-    if (filterConfig.targetFilename!="") originalTargetImage=ImageUtils<ImageType>::readImage(filterConfig.targetFilename);
+    if (filterConfig->atlasFilename!="") originalAtlasImage=ImageUtils<ImageType>::readImage(filterConfig->atlasFilename);
+    if (filterConfig->targetFilename!="") originalTargetImage=ImageUtils<ImageType>::readImage(filterConfig->targetFilename);
 
     //upsample?
-    if (filterConfig.downScale<1){
+    if (filterConfig->downScale<1){
         LOG<<"Upsampling Images.."<<endl;
        
         //it would probably be far better to create a surface for each label, 'upsample' that surface, and then create a binary volume for each surface which are merged in a last step
@@ -297,14 +297,14 @@ int main(int argc, char ** argv)
 
     if (targetSegmentationEstimate.IsNotNull()){
 
-        ImageUtils<ImageType>::writeImage(filterConfig.segmentationOutputFilename,targetSegmentationEstimate);
+        ImageUtils<ImageType>::writeImage(filterConfig->segmentationOutputFilename,targetSegmentationEstimate);
     }
     
     if (finalDeformation.IsNotNull() ) {
         
-        if (filterConfig.defFilename!="")
-            ImageUtils<DeformationFieldType>::writeImage(filterConfig.defFilename,finalDeformation);
-        if (filterConfig.linearDeformationInterpolation){
+        if (filterConfig->defFilename!="")
+            ImageUtils<DeformationFieldType>::writeImage(filterConfig->defFilename,finalDeformation);
+        if (filterConfig->linearDeformationInterpolation){
             finalDeformation=TransfUtils<ImageType>::linearInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage,false);
          }else{
             finalDeformation=TransfUtils<ImageType>::bSplineInterpolateDeformationField(finalDeformation,(ImageConstPointerType)originalTargetImage);
@@ -312,21 +312,28 @@ int main(int argc, char ** argv)
         
         LOG<<"Deforming Images.."<<endl;
         ImagePointerType deformedAtlasImage=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasImage,finalDeformation);
-        ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedFilename,deformedAtlasImage);
+        ImageUtils<ImageType>::writeImage(filterConfig->outputDeformedFilename,deformedAtlasImage);
         LOGV(20)<<"Final SAD: "<<ImageUtils<ImageType>::sumAbsDist((ImageConstPointerType)deformedAtlasImage,(ImageConstPointerType)targetImage)<<endl;
         
         if (originalAtlasSegmentation.IsNotNull()){
             ImagePointerType deformedAtlasSegmentation=TransfUtils<ImageType>::warpImage((ImageConstPointerType)originalAtlasSegmentation,finalDeformation,true);
-            ImageUtils<ImageType>::writeImage(filterConfig.outputDeformedSegmentationFilename,deformedAtlasSegmentation);
+            ImageUtils<ImageType>::writeImage(filterConfig->outputDeformedSegmentationFilename,deformedAtlasSegmentation);
         }
         
         
     }
     
     OUTPUTTIMER;
-    if (filterConfig.logFileName!=""){
-        mylog.flushLog(filterConfig.logFileName);
+    if (filterConfig->logFileName!=""){
+        mylog.flushLog(filterConfig->logFileName);
     }
-  
+	try{
+		//deleting the filter always segfaults :(
+		//there is something wrong with unregistering the smartpointers in the destructor, at least for the potentials
+		//I have not yet found a way to properly debug this, therefore the object is not deleted here to avoid the segfault
+		//memory cleanup is left to the OS :(
+		//delete filter;
+	}
+	catch (...){}
     return 1;
 }

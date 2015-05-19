@@ -5,7 +5,9 @@ INCLUDE_REGULAR_EXPRESSION("^.*$")
 find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
 
+SET(Boost_USE_STATIC_LIBS   ON)
 FIND_PACKAGE( Boost 1.49 COMPONENTS filesystem system  program_options REQUIRED )
+#FIND_PACKAGE( Boost 1.49  REQUIRED )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/source/External/CMakeFindModules/")

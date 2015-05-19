@@ -5,8 +5,8 @@
  *      Author: gasst
  */
 
-#ifndef HIERARCHICALSRSIMAGETOIMAGEFILTER_H_
-#define HIERARCHICALSRSIMAGETOIMAGEFILTER_H_
+#pragma once
+
 #include "SRSConfig.h"
 #include "itkImageRegionIteratorWithIndex.h"
 #include "itkImageRegionConstIterator.h"
@@ -73,18 +73,18 @@
 
 namespace SRS{
     template<class TGraph>
-    class HierarchicalSRSImageToImageFilter: public itk::ImageToImageFilter<typename TGraph::ImageType,typename TGraph::ImageType>{
+    class HierarchicalSRSImageToImageFilter{
     public:
         typedef  TGraph GraphModelType;
         typedef typename TGraph::ImageType ImageType;
         typedef HierarchicalSRSImageToImageFilter Self;
-        typedef itk::ImageToImageFilter<ImageType,ImageType > Superclass;
-        typedef itk::SmartPointer< Self >        Pointer;
-    
+        //typedef itk::Object Superclass;
+       // typedef itk::SmartPointer< Self >        Pointer;
+		typedef Self * Pointer;
         /** Method for creation through the object factory. */
-        itkNewMacro(Self);
+        //itkNewMacro(Self);
         /** Run-time type information (and related methods). */
-        itkTypeMacro(HierarchicalSRSImageToImageFilter, ImageToImageFilter);
+       // itkTypeMacro(HierarchicalSRSImageToImageFilter, Superclass);
     
       
         static const int D=ImageType::ImageDimension;
@@ -137,7 +137,7 @@ namespace SRS{
         //typedef ITKGraphModel<UnaryPotentialType,LabelMapperType,ImageType> GraphModelType;
     
     private:
-        SRSConfig * m_config;
+        SRSConfig::Pointer m_config;
         DeformationFieldPointerType m_finalDeformation,m_bulkTransform;
         bool m_useBulkTransform;
         ImagePointerType m_finalSegmentation;
@@ -147,8 +147,9 @@ namespace SRS{
         ConstImagePointerType m_atlasSegmentationImage;
         ConstImagePointerType m_targetGradientImage;
         ConstImagePointerType m_atlasGradientImage;
-        ConstImagePointerType m_targetSegmentationImage;
-        UnaryRegistrationPotentialPointerType m_unaryRegistrationPot;
+		ConstImagePointerType m_targetSegmentationImage;
+		ConstImagePointerType m_targetAnatomyPrior;
+		UnaryRegistrationPotentialPointerType m_unaryRegistrationPot;
         UnarySegmentationPotentialPointerType m_unarySegmentationPot;
         PairwiseSegmentationPotentialPointerType m_pairwiseSegmentationPot;
         PairwiseRegistrationPotentialPointerType m_pairwiseRegistrationPot;
@@ -156,7 +157,7 @@ namespace SRS{
         double lastEnergy;
     public:
         HierarchicalSRSImageToImageFilter(){
-            this->SetNumberOfRequiredInputs(5);
+            //this->SetNumberOfRequiredInputs(5);
             m_useBulkTransform=false;
             m_targetSegmentationImage=NULL;
             //instantiate potentials
@@ -166,31 +167,32 @@ namespace SRS{
             m_pairwiseRegistrationPot=PairwiseRegistrationPotentialType::New();
             m_pairwiseCoherencePot=PairwiseCoherencePotentialType::New();
         }
+	public:
         virtual double getEnergy(){return lastEnergy;}
         void setConfig(SRSConfig * c){
             m_config=c;
         }
 
         void setTargetImage(ImagePointerType img){
-            this->SetNthInput(0,img);
+			m_targetImage = img;
         }
         void setAtlasImage(ImagePointerType img){
-            this->SetNthInput(1,img);
+			m_atlasImage = img;
         }
         void setAtlasMaskImage(ImagePointerType img){
             this->m_atlasMaskImage=img;
         }
         void setAtlasSegmentation(ImagePointerType img){
-            this->SetNthInput(2,img);
+			m_atlasSegmentationImage = img;
         }
         void setTargetGradient(ImagePointerType img){
-            this->SetNthInput(3,img);
+			m_targetGradientImage = img;
         }
         void setAtlasGradient(ImagePointerType img){
-            this->SetNthInput(4,img);
+			m_atlasGradientImage = img;
         }
         void setTargetAnatomyPrior(ImagePointerType img){
-            this->SetNthInput(5,img);
+			m_targetAnatomyPrior = img;
         }
         void setBulkTransform(DeformationFieldPointerType transf){
             m_bulkTransform=transf;
@@ -239,12 +241,7 @@ namespace SRS{
                 LOG<<"Switching off coherence module"<<std::endl;
             }
            
-            m_atlasImage = this->GetInput(1);
-            m_atlasSegmentationImage = (this->GetInput(2));
-            m_targetImage = this->GetInput(0);
-            m_targetGradientImage = this->GetInput(3);
-            m_atlasGradientImage=this->GetInput(4);
-
+           
           
 
             if (regist || coherence){
@@ -293,7 +290,7 @@ namespace SRS{
                 m_unarySegmentationPot->SetGradientScaling(m_config->pairwiseSegmentationWeight);
                 m_unarySegmentationPot->SetNSegmentationLabels(m_config->nSegmentations);
                 if (m_config->useTargetAnatomyPrior){
-                    m_unarySegmentationPot->SetTargetAnatomyPrior(this->GetInput(5));
+                    m_unarySegmentationPot->SetTargetAnatomyPrior(m_targetAnatomyPrior);
                     m_unarySegmentationPot->SetUseTargetAnatomyPrior(m_config->useTargetAnatomyPrior);
                 }
                 if (m_config->segmentationUnaryProbFilename!=""){
@@ -384,7 +381,7 @@ namespace SRS{
             bool computeLowResolutionBsplineIfPossible=m_config->useLowResBSpline;
             LOGV(2)<<VAR(computeLowResolutionBsplineIfPossible)<<std::endl;
             typename GraphModelType::Pointer graph=GraphModelType::New();
-            graph->setConfig(*m_config);
+            graph->setConfig(m_config);
              //register images and potentials
             graph->setUnaryRegistrationFunction(m_unaryRegistrationPot);
             graph->setPairwiseRegistrationFunction(m_pairwiseRegistrationPot);
@@ -437,7 +434,7 @@ namespace SRS{
                     logSetStage("segmentation grid size estimation");
                     //use same level of detail as used for the graph
                     //first set up dummy graph from original target image
-                    graph->setConfig(*m_config);
+                    graph->setConfig(m_config);
                     graph->setTargetImage(m_inputTargetImage);
                     graph->setDisplacementFactor(labelScalingFactor);
                     graph->initGraph(level);
@@ -858,4 +855,3 @@ namespace SRS{
         }
     }; //class
 } //namespace
-#endif /* HIERARCHICALSRSIMAGETOIMAGEFILTER_H_ */

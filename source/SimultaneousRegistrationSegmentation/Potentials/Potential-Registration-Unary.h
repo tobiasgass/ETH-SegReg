@@ -411,8 +411,9 @@ namespace SRS{
         typedef typename ImageUtils<ImageType>::FloatImageType FloatImageType;
         typedef typename FloatImageType::Pointer FloatImagePointerType;
         typedef typename itk::ImageRegionIteratorWithIndex<FloatImageType> FloatImageIteratorType;
-        typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
-        
+		typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
+		typedef typename itk::ImageRegionConstIterator<ImageType> ImageConstRegionIteratorType;
+
         typedef  typename itk::PointSet< PixelType, D >   PointSetType;
         typedef typename  PointSetType::PointsContainer PointsContainerType;
         typedef typename  PointSetType::PointsContainerPointer PointsContainerPointer;
@@ -523,18 +524,22 @@ namespace SRS{
             m_normalizationFactor=1.0;
         }
 
-        //#define PREDEF
-        //#define LOCALSIMS
+#define PREDEF
+//#define LOCALSIMS
         virtual void initCaching(){
 #ifdef PREDEF
             m_deformedAtlasImage=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,this->m_baseDisplacementMap);
             if (this->m_scaledAtlasMaskImage.IsNotNull()){
                 m_deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseDisplacementMap);
-            }else{
+            }
+#ifdef USE_ROI_MASK
+			else{
                 ImagePointerType mask=ImageUtils<ImageType>::createEmpty(this->m_scaledAtlasImage);
                 mask->FillBuffer(1);
                 m_deformedMask=TransfUtils<ImageType>::warpImage(mask,this->m_baseDisplacementMap);
             }
+#endif
+
 #endif
         }
 
@@ -583,123 +588,120 @@ namespace SRS{
             DisplacementInterpolatorPointerType labelInterpolator=DisplacementInterpolatorType::New();
             labelInterpolator->SetInputImage(this->m_baseDisplacementMap);
             TIME(deformedAtlas=TransfUtils<ImageType>::translateImage(this->m_deformedAtlasImage,displacement));
-            TIME(deformedMask=TransfUtils<ImageType>::translateImage(this->m_deformedMask,displacement,true));
-            ImageUtils<ImageType>::writeImage("mask.nii",deformedMask);
-            ImageUtils<ImageType>::writeImage("deformed.nii",deformedAtlas);
+			if (deformedMask.IsNotNull()){
+				TIME(deformedMask = TransfUtils<ImageType>::translateImage(this->m_deformedMask, displacement, true));
+			}
+           // ImageUtils<ImageType>::writeImage("mask.nii",deformedMask);
+          //  ImageUtils<ImageType>::writeImage("deformed.nii",deformedAtlas);
 
 #endif
-            m_atlasNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedAtlas,deformedAtlas->GetLargestPossibleRegion());
-            m_maskNeighborhoodIterator=ImageNeighborhoodIteratorType(this->m_scaledRadius,deformedMask,deformedMask->GetLargestPossibleRegion());
+            
 
             LOGV(70)<<VAR(m_atlasNeighborhoodIterator.GetRadius())<<" "<<VAR(deformedAtlas->GetLargestPossibleRegion().GetSize())<<endl;
             LOGV(70)<<VAR(this->nIt.GetRadius())<<" "<<VAR(deformedAtlas->GetLargestPossibleRegion().GetSize())<<endl;
 
             FloatImageIteratorType coarseIterator(pot,pot->GetLargestPossibleRegion());
-            ImageIteratorType coarseMaskIterator(FilterUtils<ImageType>::NNResample(deformedMask,m_coarseImage,false),pot->GetLargestPossibleRegion());
-            coarseMaskIterator.GoToBegin();
+			ImageIteratorType coarseMaskIterator;
+			if (deformedMask.IsNotNull()){
+				coarseMaskIterator = ImageIteratorType(FilterUtils<ImageType>::LinearResample(deformedMask, m_coarseImage, true), pot->GetLargestPossibleRegion());
+				coarseMaskIterator.GoToBegin();
+			}
             int c=0;
             double radius=2*m_coarseImage->GetSpacing()[0];
+#if 1
+			typename MultiThreadedSimilarity<ImageType>::Pointer filter = MultiThreadedSimilarity<ImageType>::New();
+			filter->SetCoarseImage(this->m_coarseImage);
+			filter->SetImage1(this->m_scaledTargetImage);
+			filter->SetImage2(deformedAtlas);
+			filter->Update();
+			pot = filter->GetOutput();
+#else
+
 #ifndef LOCALSIMS
-            for (coarseIterator.GoToBegin();!coarseIterator.IsAtEnd();++coarseIterator,++coarseMaskIterator){
-                IndexType coarseIndex=coarseIterator.GetIndex();
-                //if the coarse mask is zero, then all mask pixels in the neighborhood are zero and computing the potential does not make sense :)
-                if (true || coarseMaskIterator.Get()){
-                    bool validPotential=true;
-                    
-                    if (this->m_noOutSidePolicy){
-#if 0
-                        //THIS SEEMS SUPER BROKEN!
+			for (coarseIterator.GoToBegin(); !coarseIterator.IsAtEnd(); ++coarseIterator){
+				IndexType coarseIndex = coarseIterator.GetIndex();
+				//if the coarse mask is zero, then all mask pixels in the neighborhood are zero and computing the potential does not make sense :)
+				if (true || coarseMaskIterator.Get()){
 
-                        //check if border policy is violated
-                        for (int d=0;d<D;++d){
-                            int idx=coarseIndex[d];
-                            int s=pot->GetLargestPossibleRegion().GetSize()[d] -1;
-                            if (idx == 0){
-                                double dx=1.0*idx+displacement.GetElement(d);
-                                if (dx<0){
-                                    validPotential=false;
-                                    break;
-                                }
-                            }else if (idx ==s ){
-                                double dx=1.0*idx+displacement.GetElement(d);
-                                if (dx>s){
-                                    validPotential=false;
-                                    break;
-                                }
-                            }
-                        }
-#endif
-                    }
-                    if (validPotential){
-                        LOGV(36)<<VAR(coarseIndex)<<" "<<VAR(c)<<endl;
-                        PointType point;
-                        m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex,point);
-                        IndexType targetIndex;
-                        this->m_scaledTargetImage->TransformPhysicalPointToIndex(point,targetIndex);
-                        double localPot=0;
-                        double weight=1.0;
-                        if (m_unaryPotentialWeights.IsNotNull()){
-                            IndexType weightIndex;
-                            m_unaryPotentialWeights->TransformPhysicalPointToIndex(point,weightIndex);
-                            weight=m_unaryPotentialWeights->GetPixel(weightIndex);
+					LOGV(36) << VAR(coarseIndex) << " " << VAR(c) << endl;
+					PointType point;
+					IndexType targetIndex;
+					m_coarseImage->TransformIndexToPhysicalPoint(coarseIndex, point);
+					this->m_scaledTargetImage->TransformPhysicalPointToIndex(point, targetIndex);
+					double localPot = 0;
+					double weight = 1.0;
+					if (m_unaryPotentialWeights.IsNotNull()){
+						IndexType weightIndex;
+						m_unaryPotentialWeights->TransformPhysicalPointToIndex(point, weightIndex);
+						weight = m_unaryPotentialWeights->GetPixel(weightIndex);
 
-                        }
-                        if (this->m_alpha<1.0) localPot=(1.0-this->m_alpha)*weight*getLocalPotential(targetIndex);
-                        if (this->m_alpha>0.0 && m_atlasLandmarks.IsNotNull() && m_targetLandmarks.IsNotNull()){
-                            //localPot+=getLandmarkPotential
-                            //find landmarks close to point
-                            //add distance to target landmark to potential, with weights?
-                            
-                            typename PointsLocatorType::NeighborsIdentifierType neighborhood;
-                            pointsLocator->Search( point , radius, neighborhood );
-                            LOGV(1)<<VAR(point)<<" "<<neighborhood.size()<<endl;
+					}
+					//if (this->m_alpha < 1.0) localPot = (1.0 - this->m_alpha)*weight*getLocalPotential(targetIndex);
+					if (this->m_alpha < 1.0) localPot = (1.0 - this->m_alpha)*weight*getLocalPotentialRegion(targetIndex, deformedAtlas);
+					if (this->m_alpha > 0.0 && m_atlasLandmarks.IsNotNull() && m_targetLandmarks.IsNotNull()){
+						//localPot+=getLandmarkPotential
+						//find landmarks close to point
+						//add distance to target landmark to potential, with weights?
 
-                            for (int n=0;n<neighborhood.size();++n){
-                                int ptI=neighborhood[n];
-                                PointType targetPoint=m_targetLandmarks->GetElement(ptI);
-                                PointType atlasPoint=m_atlasLandmarks->GetElement(ptI);
-                                LOGV(10)<<VAR(point)<<" "<<VAR(targetPoint)<<endl;
-                                //compute linear weight based on distance between grid point and target point
-                                double w=1.0;
+						typename PointsLocatorType::NeighborsIdentifierType neighborhood;
+						pointsLocator->Search(point, radius, neighborhood);
+						LOGV(1) << VAR(point) << " " << neighborhood.size() << endl;
+
+						for (int n = 0; n < neighborhood.size(); ++n){
+							int ptI = neighborhood[n];
+							PointType targetPoint = m_targetLandmarks->GetElement(ptI);
+							PointType atlasPoint = m_atlasLandmarks->GetElement(ptI);
+							LOGV(10) << VAR(point) << " " << VAR(targetPoint) << endl;
+							//compute linear weight based on distance between grid point and target point
+							double w = 1.0;
 #ifdef LINEARWEIGHT
-                                for (int d=0;d<D;++d){
-                                    double axisWeight=max(0.0,1.0-fabs(targetPoint[d]-point[d])/(2*m_coarseImage->GetSpacing()[d]));
-                                    w*=axisWeight;
-                                }
+							for (int d=0;d<D;++d){
+								double axisWeight=max(0.0,1.0-fabs(targetPoint[d]-point[d])/(2*m_coarseImage->GetSpacing()[d]));
+								w*=axisWeight;
+							}
 #else
-                                w=exp(- (targetPoint-point).GetNorm()/radius);
+							w = exp(-(targetPoint - point).GetNorm() / radius);
 #endif
-                                //get displacement at targetPoint
-                                DisplacementType displacement=labelInterpolator->Evaluate(targetPoint);
-                                //get error
-                                DisplacementType newVector;
-                                for (int i2= 0; i2 < D; i2++) {
-                                  newVector[i2] = targetPoint[i2] + displacement[i2] - atlasPoint[i2];
-                                }
-                                double error= newVector.GetNorm();
-                                localPot+=(this->m_alpha)*w*5.0*(error);
+							//get displacement at targetPoint
+							DisplacementType displacement = labelInterpolator->Evaluate(targetPoint);
+							//get error
+							DisplacementType newVector;
+							for (int i2 = 0; i2 < D; i2++) {
+								newVector[i2] = targetPoint[i2] + displacement[i2] - atlasPoint[i2];
+							}
+							double error = newVector.GetNorm();
+							localPot += (this->m_alpha)*w*5.0*(error);
 
-                            }
-                        }
-                        coarseIterator.Set(localPot);
-                        if (computeAverage)
-                            m_averageFixedPotential+=localPot;
-                        ++c;
-                    }else{
-                        coarseIterator.Set(1e10);
-                    }
-                }else{
-                    //???
-                    //this should happen only when the deformed atlas mask is zero at this point, indicating that no displacement should do this (transforms out of the moving image)
-                    // why is this only 1 ?
-                    coarseIterator.Set(1);
-                }
-               
-            }
+						}
+					}
+
+					coarseIterator.Set(localPot);
+					if (computeAverage)
+						m_averageFixedPotential += localPot;
+					++c;
+				}
+
+
+				else{
+					//???
+					//this should happen only when the deformed atlas mask is zero at this point, indicating that no displacement should do this (transforms out of the moving image)
+					// why is this only 1 ?
+					coarseIterator.Set(1);
+				}
+				if (deformedMask.IsNotNull()){
+					++coarseMaskIterator;
+				}
+
+			}
 #else
+#if 1
             FloatImagePointerType highResPots=localPotentials((ConstImagePointerType)this->m_scaledTargetImage,(ConstImagePointerType)deformedAtlas);
             pot=FilterUtils<FloatImageType>::NNResample(highResPots,pot,false);
+#else
+		pot = Metrics<ImageType, FloatImageType>::ITKLNCC((ConstImagePointerType)this->m_scaledTargetImage, (ConstImagePointerType)deformedAtlas, this->m_radius[0], 1, m_coarseImage);
+#endif //highResLNCC
 #endif
+#endif//multithreaded local sim
             //LOG<<VAR(c)<<endl;
             if (computeAverage &&c!=0 ){
                 
@@ -745,24 +747,26 @@ namespace SRS{
 
         //virtual double getLocalPotential(IndexType targetIndex){
         inline double getLocalPotential(IndexType targetIndex){
-
+			//return 1;
             double result;
             this->nIt.SetLocation(targetIndex);
             m_atlasNeighborhoodIterator.SetLocation(targetIndex);
-            m_maskNeighborhoodIterator.SetLocation(targetIndex);
+           // m_maskNeighborhoodIterator.SetLocation(targetIndex);
             double insideCount=0.0;
             double count=0;
             double sff=0.0,smm=0.0,sfm=0.0,sf=0.0,sm=0.0;
+			double f,m;
             for (unsigned int i=0;i<this->nIt.Size();++i){
-                bool inBounds;
-                double m=m_atlasNeighborhoodIterator.GetPixel(i,inBounds);
+                bool inBounds=true;
+				m =  m_atlasNeighborhoodIterator.GetPixel(i, inBounds);
+				//m =  m_atlasNeighborhoodIterator.GetPixel(i);
                    
                 insideCount+=inBounds;
-                bool inside=m_maskNeighborhoodIterator.GetPixel(i);
+				bool inside = true; // m_maskNeighborhoodIterator.GetPixel(i);
                 if (!inside)
                     m=0.0;
                 if ( inBounds && (inside|| this->m_noOutSidePolicy)  ){
-                    double f=this->nIt.GetPixel(i);
+					f =  this->nIt.GetPixel(i);
                     sff+=f*f;
                     smm+=m*m;
                     sfm+=f*m;
@@ -790,15 +794,104 @@ namespace SRS{
             }else{
                 result=(1-(NCC))/2;
             }
-            result=min(this->m_threshold,result);
+            result=std::min(this->m_threshold,result);
 #if 0            
             if (this->m_noOutSidePolicy &&( count != insideCount )){
                 return 1e10*count/insideCount;
             } 
 #endif     
-            LOGV(15)<<VAR(result*insideCount/this->nIt.Size())<<" "<< VAR(this->nIt.Size()) << std::endl;
+            //LOGV(15)<<VAR(result*insideCount/this->nIt.Size())<<" "<< VAR(this->nIt.Size()) << std::endl;
             return result*insideCount/this->nIt.Size();
         }
+
+		//virtual double getLocalPotential(IndexType targetIndex){
+		inline double getLocalPotentialRegion(const IndexType targetIndex, const ImagePointerType deformedAtlas) const {
+			IndexType newIndex;
+			typename ImageType::SizeType localRegionSize;
+			//convert newIndex to corner of patch, assumind newIndex is the central pixel
+			int numberOfPixels = 1;
+			for (int d = 0; d<D; ++d){
+
+				IndexType::IndexValueType &idx = newIndex[d];
+				//get max size;
+				int maxSize =  this->m_scaledRadius[d];// 2 * int(this->m_coarseImageSpacing[d] / this->m_scaledTargetImage->GetSpacing()[d]);
+				//LOGV(2) << VAR(maxSize) << " " << VAR(this->m_scaledRadius) << " " << VAR(this->m_radius) << std::endl;
+				
+				//move targetIndex from center of patch to top left corner of region
+				idx = targetIndex[d] - maxSize;
+
+				//extend radius to diameter
+				maxSize *= 2;
+				//theoretical maximum number of pixels
+				numberOfPixels *= maxSize;
+				
+				//check if out of bounds and adjust region index and size accordingly
+				if (idx < 0){
+					int diff = newIndex[d];
+					maxSize += diff;
+					idx = 0;
+				}
+				const int extent = idx + maxSize;
+				const int & maxExtent = this->m_scaledTargetImage->GetLargestPossibleRegion().GetSize()[d];
+				if (extent >= maxExtent){
+					int diff = extent - maxExtent+1;
+					maxSize -= diff;
+				}
+				localRegionSize[d] = maxSize;
+				
+
+			}
+			typename ImageType::RegionType region;
+			region.SetSize(localRegionSize);
+			region.SetIndex(newIndex);
+			LOGV(5) << VAR(targetIndex) << " " << VAR(region) << " " << VAR(this->m_coarseImageSpacing) << " " << VAR(this->m_scaledTargetImage->GetSpacing()) << std::endl;
+
+			ImageConstRegionIteratorType targetIt(m_scaledTargetImage, region);
+			ImageConstRegionIteratorType atlasIt(deformedAtlas, region);
+			targetIt.GoToBegin(); atlasIt.GoToBegin();
+			//return 1;
+			double result;
+
+			int insideCount = 0.0;
+			int count = 0;
+			double sff = 0.0, smm = 0.0, sfm = 0.0, sf = 0.0, sm = 0.0;
+			double f, m;
+			for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
+				f = targetIt.Get();
+				m = atlasIt.Get();
+				sff += f*f;
+				smm += m*m;
+				sfm += f*m;
+				sf += f;
+				sm += m;
+				++count;
+				//insideCount += 1;
+
+			}
+			double NCC = 0;
+			if (count){
+				sff -= (sf * sf / count);
+				smm -= (sm * sm / count);
+				sfm -= (sf * sm / count);
+				if (smm*sff > 0){
+					NCC = 1.0*sfm / sqrt(smm*sff);
+
+				}
+			}
+			//result=result>0.5?0.5:result; 
+			if (this->LOGPOTENTIAL){
+				result = (1.0 + ((NCC))) / 2;
+				result = result > 0 ? result : 0.00000001;
+				result = -log(result);
+			}
+			else{
+				result = (1.0 - (NCC)) / 2;
+			}
+			//result = std::min(this->m_threshold, result);
+			//LOGV(15)<<VAR(result*insideCount/this->nIt.Size())<<" "<< VAR(this->nIt.Size()) << std::endl;
+			LOGV(5) << VAR(result) << " " << VAR(result*insideCount / numberOfPixels) << std::endl;
+			return result*count / numberOfPixels;
+		}
     };//FastUnaryPotentialRegistrationNCC
   
     template<class TImage>
@@ -2602,8 +2695,166 @@ namespace SRS{
         }
     };//class
 
- 
+	template<class ImageType>
+	class MultiThreadedSimilarity :public itk::ImageToImageFilter < ImageType, ImageType > {
+	public:
+		/** Standard class typedefs. */
+		typedef MultiThreadedSimilarity             Self;
+		typedef itk::ImageToImageFilter< ImageType, ImageType > Superclass;
+		typedef itk::SmartPointer< Self >        Pointer;
+		typedef typename ImageType::RegionType RegionType;
+		typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
+		typedef typename itk::ImageRegionConstIterator<ImageType> ImageConstIteratorType;
+		typedef typename ImageType::IndexType IndexType;
+		/** Method for creation through the object factory. */
+		itkNewMacro(Self);
 
+		/** Run-time type information (and related methods). */
+		itkTypeMacro(MultiThreadedSimilarity, ImageToImageFilter);
+
+
+
+		void SetCoarseImage(const ImageType * image){
+			this->SetNthInput(0, const_cast<ImageType*>(image));
+		}
+		void SetImage1(const ImageType * image) {
+			this->SetNthInput(1, const_cast<ImageType*>(image));
+		}
+		void SetImage2(const ImageType * image) {
+			this->SetNthInput(2, const_cast<ImageType*>(image));
+		}
+
+		virtual void VerifyInputInformation()
+		{
+			//no checks so far :o
+			//should check:
+			//image 1 and image 2 have same resolution and phsical overlap
+			//coarse image and image1/2 overlap physically
+			
+		}
+	
+	protected:
+		 MultiThreadedSimilarity()
+		{
+			this->SetNumberOfRequiredInputs(3);
+			
+		}
+		~MultiThreadedSimilarity(){}
+		virtual void BeforeThreadedGenerateData(){
+
+			ImageType::Pointer output = this->GetOutput();
+			output->SetRegions(this->GetInput(0)->GetLargestPossibleRegion());
+			output->Allocate();
+			output->SetSpacing(this->GetInput(0)->GetSpacing());
+			output->SetOrigin(this->GetInput(0)->GetOrigin());
+			output->SetDirection(this->GetInput(0)->GetDirection());
+			for (int d = 0; d < ImageType::ImageDimension; ++d){
+				this->m_radius[d] =  (this->GetInput(0)->GetSpacing()[d] / this->GetInput(1)->GetSpacing()[d]);
+			}
+			m_maxSize = this->GetInput(1)->GetLargestPossibleRegion().GetSize();
+		}
+		virtual void ThreadedGenerateData(const RegionType & region,  itk::ThreadIdType threadId)
+		 {
+			 
+			 typename ImageType::ConstPointer input = this->GetInput(0);
+			 typename ImageType::ConstPointer image1 = this->GetInput(1);
+			 typename ImageType::Pointer output = this->GetOutput();
+			 ImageIteratorType outIt(output, region);
+			 outIt.GoToBegin();
+			 for (; !outIt.IsAtEnd(); ++outIt){
+				 typename ImageType::PointType point;
+				 IndexType targetIndex;
+				 input->TransformIndexToPhysicalPoint(outIt.GetIndex(), point);
+				 image1->TransformPhysicalPointToIndex(point, targetIndex);
+				 outIt.Set(computeLocalPotential(targetIndex));
+			 }
+		 }
+	private:
+		typename ImageType::SizeType m_radius;
+		typename ImageType::SizeType m_maxSize;
+
+		MultiThreadedSimilarity(const Self &); //purposely not implemented
+		void operator=(const Self &);  //purposely not implemented
+		inline virtual double computeLocalPotential(const IndexType & targetIndex){
+			IndexType newIndex;
+			typename ImageType::SizeType localRegionSize;
+			//convert newIndex to corner of patch, assumind newIndex is the central pixel
+			int numberOfPixels = 1;
+			for (int d = 0; d<ImageType::ImageDimension; ++d){
+
+				IndexType::IndexValueType &idx = newIndex[d];
+				//get max size;
+				int maxSize = this->m_radius[d];// 2 * int(this->m_coarseImageSpacing[d] / this->m_scaledTargetImage->GetSpacing()[d]);
+				//LOGV(2) << VAR(maxSize) << " " << VAR(this->m_scaledRadius) << " " << VAR(this->m_radius) << std::endl;
+
+				//move targetIndex from center of patch to top left corner of region
+				idx = targetIndex[d] - maxSize;
+
+				//extend radius to diameter
+				maxSize *= 2;
+				//theoretical maximum number of pixels
+				numberOfPixels *= maxSize;
+
+				//check if out of bounds and adjust region index and size accordingly
+				if (idx < 0){
+					int diff = newIndex[d];
+					maxSize += diff;
+					idx = 0;
+				}
+				const int extent = idx + maxSize;
+				const int & maxExtent = m_maxSize[d];
+				if (extent >= maxExtent){
+					int diff = extent - maxExtent + 1;
+					maxSize -= diff;
+				}
+				localRegionSize[d] = maxSize;
+
+
+			}
+			typename ImageType::RegionType region;
+			region.SetSize(localRegionSize);
+			region.SetIndex(newIndex);
+
+			ImageConstIteratorType targetIt(this->GetInput(1), region);
+			ImageConstIteratorType atlasIt(this->GetInput(2), region);
+			targetIt.GoToBegin(); atlasIt.GoToBegin();
+			//return 1;
+			double result;
+
+			int insideCount = 0.0;
+			int count = 0;
+			double sff = 0.0, smm = 0.0, sfm = 0.0, sf = 0.0, sm = 0.0;
+			double f, m;
+			for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
+				f = targetIt.Get();
+				m = atlasIt.Get();
+				sff += f*f;
+				smm += m*m;
+				sfm += f*m;
+				sf += f;
+				sm += m;
+				++count;
+				//insideCount += 1;
+
+			}
+			double NCC = 0;
+			if (count){
+				sff -= (sf * sf / count);
+				smm -= (sm * sm / count);
+				sfm -= (sf * sm / count);
+				if (smm*sff > 0){
+					NCC = 1.0*sfm / sqrt(smm*sff);
+
+				}
+			}
+		
+						result = (1.0 - (NCC)) / 2;
+		
+			LOGV(5) << VAR(result) << " " << VAR(result*insideCount / numberOfPixels) << std::endl;
+			return result*count / numberOfPixels;
+		}
+
+	};//MultiThreadedNCC
 
 }//namespace
 #endif /* POTENTIALS_H_ */

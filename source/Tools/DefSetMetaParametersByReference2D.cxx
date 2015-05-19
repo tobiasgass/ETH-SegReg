@@ -21,7 +21,7 @@ int main(int argc, char ** argv)
 
 	//feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
     typedef unsigned char PixelType;
-    const unsigned int D=2;
+    const unsigned int D=3;
     typedef Image<PixelType,D> ImageType;
     typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;

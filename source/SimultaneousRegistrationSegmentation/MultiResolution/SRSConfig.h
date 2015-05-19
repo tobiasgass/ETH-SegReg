@@ -7,21 +7,20 @@
  * 
  * 
  */
-
-#ifndef SRSCONFIG_H_
-#define SRSCONFIG_H_
+#pragma once
 #include <string>
 #include <iostream>
 #include <sstream>
 #include <vector>
 #include <iterator>
 #include "Log.h"
-
+#include "itkObject.h"
+#include "itkObjectFactory.h"
 #include "ArgumentParser.h"
 
 namespace SRS{
   
-  class SRSConfig{
+  class SRSConfig:  public itk::Object {
   public:
     std::string targetFilename,atlasFilename,targetGradientFilename, outputDeformedSegmentationFilename,atlasSegmentationFilename, outputDeformedFilename,deformableFilename,defFilename, segmentationOutputFilename, atlasGradientFilename,atlasMaskFilename;
     std::string segmentationProbsFilename, pairWiseProbsFilename, targetAnatomyPriorFilename,affineBulkTransform,bulkTransformationField,ROIFilename,groundTruthSegmentationFilename;
@@ -81,9 +80,19 @@ namespace SRS{
     std::vector<double> resamplingFactors;
     int nSegmentationLevels;
     std::string solver;
+	typedef SRSConfig             Self;
+	typedef itk::Object Superclass;
+	typedef itk::SmartPointer< Self >        Pointer;
+
+	/** Method for creation through the object factory. */
+	itkNewMacro(Self);
+
+	
   private:
     ArgumentParser * as;
-  public:
+	SRSConfig(const Self&){};
+	void operator=(const Self &);  //purposely not implemented
+  protected:
     SRSConfig(){
       auxiliaryLabel=1;
       atlasLandmarkFilename="";
@@ -162,6 +171,7 @@ namespace SRS{
       delete as;
       //delete levels;
     }
+	public:
     void parseParams(int argc, char** argv){
       as=new ArgumentParser(argc, argv);
       parse();
@@ -415,4 +425,3 @@ namespace SRS{
   };
 
 }//namespace
-#endif /* CONFIG_H_ */

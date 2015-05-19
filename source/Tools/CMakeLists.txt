@@ -214,7 +214,8 @@ ADD_EXECUTABLE(GetBoundingBox3D GetBoundingBox3D.cxx )
 TARGET_LINK_LIBRARIES(GetBoundingBox3D     ${ITK_LIBRARIES}   Utils  )
 
 
-
+ADD_EXECUTABLE(DeformationToBSplineTest2D DeformationToBSplineTest2D.cxx )
+TARGET_LINK_LIBRARIES(DeformationToBSplineTest2D     ${ITK_LIBRARIES}   Utils  )
 
 
 ADD_EXECUTABLE(GenerateDeformation2D GenerateDeformation2D.cxx )
@@ -243,8 +244,7 @@ ADD_EXECUTABLE(CreateSegmentationPriorFromAnnotatedImage3D CreateSegmentationPri
 TARGET_LINK_LIBRARIES(CreateSegmentationPriorFromAnnotatedImage3D     ${ITK_LIBRARIES}   Utils  )
 
 
-ADD_EXECUTABLE(DeformationToBSplineTest2D DeformationToBSplineTest2D.cxx )
-TARGET_LINK_LIBRARIES(DeformationToBSplineTest2D     ${ITK_LIBRARIES}   Utils  )
+
 
 ADD_EXECUTABLE(GradientDescentRegistration2D GradientDescentRegistration2D.cxx )
 TARGET_LINK_LIBRARIES(GradientDescentRegistration2D     ${ITK_LIBRARIES}   Utils  )

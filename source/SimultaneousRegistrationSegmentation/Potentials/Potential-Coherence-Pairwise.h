@@ -1,13 +1,12 @@
-#include "Log.h"
 /*
  * Potentials.h
  *
  *  Created on: Nov 24, 2010
  *      Author: gasst
  */
+#pragma once
+#include "Log.h"
 
-#ifndef _COHERENCEPAIRWISEPOTENTIAL_H_
-#define _COHERENCEPAIRWISEPOTENTIAL_H_
 #include "itkObject.h"
 #include "itkObjectFactory.h"
 #include <utility>
@@ -28,6 +27,7 @@ namespace SRS{
         typedef PairwisePotentialCoherence            Self;
         typedef itk::SmartPointer<Self>        Pointer;
         typedef itk::SmartPointer<const Self>  ConstPointer;
+		typedef itk::Object Superclass;
 
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
@@ -75,13 +75,14 @@ namespace SRS{
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
         itkTypeMacro(PairwisePotentialCoherence, Object);
-
+	protected:
         PairwisePotentialCoherence(){
             m_haveLabelMap=false;
             m_asymm=1;
             m_tolerance=9999999999.0;
             m_auxiliaryLabel=1;
         }
+	public:
         virtual void freeMemory(){
         }
         void SetAuxLabel(int l){m_auxiliaryLabel=l;}
@@ -299,7 +300,7 @@ namespace SRS{
         typedef PairwisePotentialMultilabelCoherence            Self;
         typedef itk::SmartPointer<Self>        Pointer;
         typedef itk::SmartPointer<const Self>  ConstPointer;
-
+		typedef PairwisePotentialCoherence<TImage> Superclass;
         typedef	TImage ImageType;
         typedef typename ImageType::Pointer ImagePointerType;
         typedef typename ImageType::ConstPointer ConstImagePointerType;
@@ -325,6 +326,7 @@ namespace SRS{
  
     public:
         itkNewMacro(Self);
+		itkTypeMacro(PairwisePotentialMultilabelCoherence, PairwisePotentialCoherence<TImage>);
 
           inline virtual  double getPotential(IndexType targetIndex1, IndexType targetIndex2,LabelType displacement, int segmentationLabel){
             double result=0;
@@ -692,4 +694,3 @@ namespace SRS{
     };//class
    
 }//namespace
-#endif /* POTENTIALS_H_ */
