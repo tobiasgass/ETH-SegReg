@@ -330,7 +330,7 @@ public:
         IteratorType it1(im1,im1->GetLargestPossibleRegion());
         IteratorType it2(im2,im2->GetLargestPossibleRegion());
         for (it1.GoToBegin(),it2.GoToBegin();!it1.IsAtEnd();++it1,++it2,++c){
-            result+=fabs(it1.Get()-it2.Get());
+            result+=std::abs(it1.Get()-it2.Get());
         }
         return result/c;
     }

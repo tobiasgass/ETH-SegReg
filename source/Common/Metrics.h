@@ -27,18 +27,19 @@
 #endif
 
 
-template<class ImageType, class InputImageType>
-class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < ImageType, ImageType > {
+template<class InputImageType>
+class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < itk::Image<float, InputImageType::ImageDimension>, itk::Image<float, InputImageType::ImageDimension> > {
 public:
 	/** Standard class typedefs. */
+	typedef itk::Image<float, InputImageType::ImageDimension> OutputImageType;
 	typedef MultiThreadedLocalSimilarityNCC             Self;
-	typedef itk::ImageToImageFilter< ImageType, ImageType > Superclass;
+	typedef itk::ImageToImageFilter< OutputImageType, OutputImageType > Superclass;
 	typedef itk::SmartPointer< Self >        Pointer;
-	typedef typename ImageType::RegionType RegionType;
-	typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
+	typedef typename OutputImageType::RegionType RegionType;
+	typedef typename itk::ImageRegionIteratorWithIndex<OutputImageType> ImageIteratorType;
 	typedef typename itk::ImageRegionConstIterator<InputImageType> ImageConstIteratorType;
-	typedef typename ImageType::IndexType IndexType;
-	typedef typename ImageType::RegionType RegionType;
+	typedef typename OutputImageType::IndexType IndexType;
+	typedef typename OutputImageType::RegionType RegionType;
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
 
@@ -48,20 +49,29 @@ public:
 
 	//at each 'pixel' of this image will the local similarity be computed.
 	//the radius of the block for block matching is equal to the spacing of this image
-	void SetCoarseImage(const ImageType * image){
-		this->SetNthInput(0, const_cast<ImageType*>(image));
+	void SetCoarseImage(const OutputImageType * image){
+		this->SetNthInput(0, const_cast<OutputImageType*>(image));
 	}
 	void SetImage1(const InputImageType * image) {
 		this->SetNthInput(1, const_cast<InputImageType*>(image));
 	}
+	typename InputImageType::ConstPointer GetImage1(){
+		return static_cast<const InputImageType *> (this->ProcessObject(1));
+	}
 	void SetImage2(const InputImageType * image) {
 		this->SetNthInput(2, const_cast<InputImageType*>(image));
+	}
+	typename InputImageType::ConstPointer GetImage2(){
+		return static_cast<const InputImageType *> (this->ProcessObject(2));
 	}
 	//optional mask
 	//metric will only be computed for pixel where the mask is NOT NULL
 	void SetMask(const InputImageType * image) {
 		this->SetNthInput(3, const_cast<InputImageType*>(image));
 		m_haveMask = true;
+	}
+	typename InputImageType::ConstPointer GetMask(){
+		return static_cast<const InputImageType *> (this->ProcessObject(3));
 	}
 	virtual void VerifyInputInformation()
 	{
@@ -82,23 +92,24 @@ protected:
 	~MultiThreadedLocalSimilarityNCC(){}
 	virtual void BeforeThreadedGenerateData(){
 
-		typename ImageType::Pointer output = this->GetOutput();
+		typename OutputImageType::Pointer output = this->GetOutput();
+		typename InputImageType::ConstPointer image1 = GetImage1();
 		output->SetRegions(this->GetInput(0)->GetLargestPossibleRegion());
 		output->Allocate();
 		output->SetSpacing(this->GetInput(0)->GetSpacing());
 		output->SetOrigin(this->GetInput(0)->GetOrigin());
 		output->SetDirection(this->GetInput(0)->GetDirection());
-		for (int d = 0; d < ImageType::ImageDimension; ++d){
-			this->m_radius[d] = (this->GetInput(0)->GetSpacing()[d] / this->GetInput(1)->GetSpacing()[d]);
+		for (int d = 0; d < OutputImageType::ImageDimension; ++d){
+			this->m_radius[d] = (this->GetInput(0)->GetSpacing()[d] / image1->GetSpacing()[d]);
 		}
 		m_maxSize = this->GetInput(1)->GetLargestPossibleRegion().GetSize();
 	}
 	virtual void ThreadedGenerateData(const RegionType & region, itk::ThreadIdType threadId)
 	{
 
-		typename ImageType::ConstPointer input = this->GetInput(0);
-		typename InputImageType::ConstPointer image1 = this->GetInput(1);
-		typename ImageType::Pointer output = this->GetOutput();
+		typename OutputImageType::ConstPointer input = this->GetInput(0);
+		typename InputImageType::ConstPointer image1 = GetImage1();
+		typename OutputImageType::Pointer output = this->GetOutput();
 		ImageIteratorType outIt(output, region);
 		outIt.GoToBegin();
 		for (; !outIt.IsAtEnd(); ++outIt){
@@ -110,17 +121,17 @@ protected:
 		}
 	}
 protected:
-	typename ImageType::SizeType m_radius;
-	typename ImageType::SizeType m_maxSize;
+	typename OutputImageType::SizeType m_radius;
+	typename OutputImageType::SizeType m_maxSize;
 	bool m_haveMask;
 	MultiThreadedLocalSimilarityNCC(const Self &); //purposely not implemented
 	void operator=(const Self &);  //purposely not implemented
 	inline RegionType computeRegion(const IndexType & targetIndex){
 		IndexType newIndex;
-		typename ImageType::SizeType localRegionSize;
+		typename OutputImageType::SizeType localRegionSize;
 		//convert newIndex to corner of patch, assumind newIndex is the central pixel
 		int numberOfPixels = 1;
-		for (int d = 0; d < ImageType::ImageDimension; ++d){
+		for (int d = 0; d < OutputImageType::ImageDimension; ++d){
 
 			typename IndexType::IndexValueType &idx = newIndex[d];
 			//get max size;
@@ -160,12 +171,12 @@ protected:
 		
 		RegionType region = computeRegion(targetIndex);
 
-		ImageConstIteratorType targetIt(this->GetInput(1), region);
-		ImageConstIteratorType atlasIt(this->GetInput(2), region);
+		ImageConstIteratorType targetIt(GetImage1(), region);
+		ImageConstIteratorType atlasIt(GetImage2(), region);
 		targetIt.GoToBegin(); atlasIt.GoToBegin();
 		ImageConstIteratorType  maskIt;
 		if (m_haveMask){
-			maskIt =ImageConstIteratorType(this->GetInput(3),region);
+			maskIt =ImageConstIteratorType(GetMask(),region);
 			maskIt.GoToBegin();
 		}
 		//return 1;
@@ -211,7 +222,7 @@ protected:
 
 };//MultiThreadedNCC
 
-
+#if 0
 template<class ImageType, class InputImageType>
 class MultiThreadedLocalSimilaritySSD :public MultiThreadedLocalSimilarityNCC<ImageType,InputImageType>{
 public:
@@ -275,7 +286,7 @@ protected:
 
 };//MultiThreadedSSD
 
-
+#endif
 ///class containing static functions to compute image similarities with
 template<typename InputImage, typename OutputImage = InputImage, typename InternalPrecision=double>
 class Metrics{
