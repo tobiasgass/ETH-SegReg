@@ -54,9 +54,6 @@ int main(int argc, char ** argv)
   typedef ImageType::Pointer ImagePointerType;
   typedef ImageType::ConstPointer ImageConstPointerType;
   typedef TransfUtils<ImageType>::DisplacementType DisplacementType;
-  typedef SparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
-  //typedef SemiSparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
-  //typedef DenseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
   typedef TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
   typedef DeformationFieldType::Pointer DeformationFieldPointerType;
 
