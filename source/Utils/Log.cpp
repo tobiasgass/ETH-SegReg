@@ -74,10 +74,14 @@ void MyLog::setVerbosity(int v){
 int MyLog::getVerbosity(){
     return m_verb;
 }
-void MyLog::setCachedLogging(){
+void MyLog::setCachedLogging(std::string filename){
+#if 0
     std::ostringstream * oss=new std::ostringstream;
     mOut = (std::ostream *) oss;
     m_cachedOutput=true;
+#else
+	mOut = new std::ofstream(filename.c_str());
+#endif
 }
 
 void MyLog::flushLog(std::string filename){

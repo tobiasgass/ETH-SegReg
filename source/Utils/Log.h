@@ -70,7 +70,7 @@ public:
     void resetStage();
     void setVerbosity(int v);
     int getVerbosity();
-    void setCachedLogging();
+    void setCachedLogging(std::string filename="");
     void flushLog(std::string filename);
     void addTime(int t);
 };
