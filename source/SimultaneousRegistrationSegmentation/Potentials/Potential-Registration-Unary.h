@@ -423,7 +423,7 @@ namespace SRS{
 
 
 			///compute local similarity
-			TLocalSimilarity::Pointer filter = TLocalSimilarity::New();
+			typename TLocalSimilarity::Pointer filter = TLocalSimilarity::New();
 			filter->SetCoarseImage(pot);
 			filter->SetImage1(this->m_scaledTargetImage);
 			filter->SetImage2(deformedAtlas);
@@ -447,7 +447,7 @@ namespace SRS{
 				for (potentialIterator.GoToBegin(); !potentialIterator.IsAtEnd(); ++potentialIterator){
 
 					//get original potential
-					double localPotential = (1.0 - m_alpha)*potentialIterator.Get();
+					double localPotential = (1.0 - this->m_alpha)*potentialIterator.Get();
 
 					IndexType coarseIndex = potentialIterator.GetIndex();
 					PointType point;
