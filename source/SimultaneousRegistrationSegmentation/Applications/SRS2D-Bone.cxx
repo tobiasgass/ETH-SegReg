@@ -37,7 +37,7 @@ using namespace itk;
 int main(int argc, char ** argv)
 {
   //feraiseexcept(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW);
-  SRSConfig::Pointer filterConfig=filterConfig::New();
+	SRSConfig::Pointer filterConfig = SRSConfig::New();
   filterConfig->parseParams(argc,argv);
   if (filterConfig->logFileName!=""){
     mylog.setCachedLogging();
@@ -81,7 +81,7 @@ int main(int argc, char ** argv)
     
   typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
   //create filter
-  FilterType::Pointer filter=FilterType::New();
+  FilterType::Pointer filter = new FilterType();
   filter->setConfig(filterConfig);
     
   logSetStage("Instantiate Potentials");

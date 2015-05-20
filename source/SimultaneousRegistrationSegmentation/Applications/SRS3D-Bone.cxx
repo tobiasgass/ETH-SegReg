@@ -46,12 +46,11 @@ int main(int argc, char ** argv)
 
     //define types.
 	
-    typedef float PixelType;
+    typedef short PixelType;
 	const unsigned int D=3;
 	typedef Image<PixelType, D> ImageType;
 	typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
-	typedef Image<float, D> FloatImageType;
 
 	typedef TransfUtils<ImageType>::DisplacementType DisplacementType;
 	typedef TransfUtils<ImageType>::DeformationFieldType DeformationFieldType;
@@ -65,8 +64,8 @@ int main(int argc, char ** argv)
     typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
-	typedef MultiThreadedLocalSimilarityNCC<FloatImageType, ImageType> SimilarityType;
-	//typedef MultiThreadedLocalSimilaritySSD<FloatImageType, ImageType> SimilarityType;
+	typedef MultiThreadedLocalSimilarityNCC<ImageType> SimilarityType;
+	//typedef MultiThreadedLocalSimilaritySSD< ImageType> SimilarityType;
 	typedef UnaryRegistrationPotentialWithCaching< ImageType, SimilarityType > RegistrationUnaryPotentialType;
   
     typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
