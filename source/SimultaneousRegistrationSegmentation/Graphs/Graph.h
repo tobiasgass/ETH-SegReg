@@ -258,7 +258,7 @@ namespace SRS{
     LOGV(8)<<"original image spacing "<<m_imageSpacing<<endl;
     //get shortest image edge
     for (int d=0;d<ImageType::ImageDimension;++d){
-      if(m_imageSize[d]<minSize) {minSize=m_imageSize[d]; minDim=d;}
+      if((m_imageSize[d]*m_imageSpacing[d])<minSize) {minSize=m_imageSize[d]*m_imageSpacing[d]; minDim=d;}
     }
     LOGV(8)<<"shortest edge has size :"<<minSize<<" in dimension :"<<minDim<<" which has spacing :"<<m_imageSpacing[minDim]<<endl;
 

@@ -81,6 +81,7 @@ namespace SRS{
 		std::vector<double> resamplingFactors;
 		int nSegmentationLevels;
 		std::string solver;
+		std::string regSampleString;
 		typedef SRSConfig             Self;
 		typedef itk::Object Superclass;
 		typedef itk::SmartPointer< Self >        Pointer;
@@ -95,6 +96,7 @@ namespace SRS{
 		void operator=(const Self &);  //purposely not implemented
 	protected:
 		SRSConfig(){
+			regSampleString = "";
 			auxiliaryLabel = 1;
 			atlasLandmarkFilename = "";
 			targetLandmarkFilename = "";
@@ -249,7 +251,7 @@ namespace SRS{
 				fromFile.parseFile(filename);
 				copyFrom(fromFile);
 			}
-			std::string regSampleString = "";
+
 			//input filenames
 			//mandatory
 			as->parameter("t", targetFilename, "target image (file name)", true);
@@ -356,28 +358,18 @@ namespace SRS{
 			as->parameter("groundTruth", groundTruthSegmentationFilename, "groundtruth segmentation of target, allows evaluation of result(file name)", false, optionalParameter);
 
 			as->parameter("verbose", verbose, "get verbose output", false);
-			std::list<int> bla;
-			//		as->values<int> (back_inserter(bla),"descr",nLevels);
-			//	as->help();
-			//as->defaultErrorHandling();
-			as->parse();
 
+
+			as->parse();
+			Initialize();
+		}
+		void Initialize(){
 			if (displacementSampling == -1) displacementSampling = maxDisplacement;
 
 			levels = new int[nLevels + 1];
-			if (tmp_levels[0] == -1){
-				levels[0] = startTiling;
-			}
-			else{
-				levels[0] = tmp_levels[0];
-			}
+			levels[0] = startTiling;
 			for (int i = 1; i < nLevels + 1; ++i){
-				if (tmp_levels[i] == -1){
-					levels[i] = levels[i - 1] * 2 - 1;
-				}
-				else{
-					levels[i] = tmp_levels[i];
-				}
+				levels[i] = levels[i - 1] * 2 - 1;
 			}
 			nRegSamples = std::vector<int>(std::max(nLevels, 1), maxDisplacement);
 			if (regSampleString != ""){
@@ -428,6 +420,7 @@ namespace SRS{
 			}
 
 		}
-	};
+	
+	};//class
 
 }//namespace

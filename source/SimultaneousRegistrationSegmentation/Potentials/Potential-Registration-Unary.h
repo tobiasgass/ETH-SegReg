@@ -35,7 +35,7 @@
 #include "SegmentationMapper.hxx"
 
 namespace SRS{
-	template<class ImageType>
+	template<class ImageType,class InputImageType>
 	class MultiThreadedSimilarity :public itk::ImageToImageFilter < ImageType, ImageType > {
 	public:
 		/** Standard class typedefs. */
@@ -44,7 +44,7 @@ namespace SRS{
 		typedef itk::SmartPointer< Self >        Pointer;
 		typedef typename ImageType::RegionType RegionType;
 		typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
-		typedef typename itk::ImageRegionConstIterator<ImageType> ImageConstIteratorType;
+		typedef typename itk::ImageRegionConstIterator<InputImageType> ImageConstIteratorType;
 		typedef typename ImageType::IndexType IndexType;
 		/** Method for creation through the object factory. */
 		itkNewMacro(Self);
@@ -57,11 +57,11 @@ namespace SRS{
 		void SetCoarseImage(const ImageType * image){
 			this->SetNthInput(0, const_cast<ImageType*>(image));
 		}
-		void SetImage1(const ImageType * image) {
-			this->SetNthInput(1, const_cast<ImageType*>(image));
+		void SetImage1(const InputImageType * image) {
+			this->SetNthInput(1, const_cast<InputImageType*>(image));
 		}
-		void SetImage2(const ImageType * image) {
-			this->SetNthInput(2, const_cast<ImageType*>(image));
+		void SetImage2(const InputImageType * image) {
+			this->SetNthInput(2, const_cast<InputImageType*>(image));
 		}
 
 		virtual void VerifyInputInformation()
@@ -97,7 +97,7 @@ namespace SRS{
 		 {
 			 
 			 typename ImageType::ConstPointer input = this->GetInput(0);
-			 typename ImageType::ConstPointer image1 = this->GetInput(1);
+			 typename InputImageType::ConstPointer image1 = this->GetInput(1);
 			 typename ImageType::Pointer output = this->GetOutput();
 			 ImageIteratorType outIt(output, region);
 			 outIt.GoToBegin();
@@ -769,8 +769,8 @@ namespace SRS{
             int c=0;
             double radius=2*m_coarseImage->GetSpacing()[0];
 #if 1
-			typename MultiThreadedSimilarity<ImageType>::Pointer filter = MultiThreadedSimilarity<ImageType>::New();
-			filter->SetCoarseImage(this->m_coarseImage);
+			typename MultiThreadedSimilarity<FloatImageType,ImageType>::Pointer filter = MultiThreadedSimilarity<FloatImageType,ImageType>::New();
+			filter->SetCoarseImage(pot);
 			filter->SetImage1(this->m_scaledTargetImage);
 			filter->SetImage2(deformedAtlas);
 			filter->Update();

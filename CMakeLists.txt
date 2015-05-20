@@ -23,14 +23,11 @@ else()
 endif()
 endif(0)
 
+
 add_subdirectory(source)
 
 # add a target to generate API documentation with Doxygen
-
-
 option(BUILD_DOC "Build documentation (make doc)" OFF)
-
-
 if( ${BUILD_DOC} MATCHES "ON" )
 
 find_package(Doxygen)
@@ -44,3 +41,4 @@ COMMENT "Generating API documentation with Doxygen" VERBATIM
 endif(DOXYGEN_FOUND)
 
 endif()
+
