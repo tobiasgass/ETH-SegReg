@@ -63,14 +63,16 @@ installed by the user under their respective license. Note that the
 optimizers are optional and can be enabled/disabled during cmake
 configuration. The respective dependencies and checks will be automatically added to the build.
 
-* OpenGM can be obtained here: http://hci.iwr.uni-heidelberg.de/opengm2/
-current wrapper utilizes BOOST, so make sure to install opengm with their boost feature enabled
+* OpenGM can be obtained here: http://hci.iwr.uni-heidelberg.de/opengm2/.
+The current wrapper utilizes BOOST, so make sure to install opengm with their boost feature enabled. OpenGM needs to be installed, or PATH variables need to be extended to point at openGM header/lib files.
 Note that openGM comes with a wide variety of discrete optimizers and wrappers, but may be less efficient than using the direct wrappers provided by SRS directly (TRW-S, GCO)
 
 * TRW-S can be downloaded here: http://research.microsoft.com/en-us/downloads/dad6c31e-2c04-471f-b724-ded18bf70fe3/
+Enabling the USE_TRWS option in cmake will further enable a variable which needs to be set to the TRWS download directory. No further action is required by the user.
 A patch will be applied automatically during the build process. This will disable all energyTypes except typeGeneral from the downloaded library because the extended functionality was not implemented for those.
 
 * GCO can be downloaded here: http://vision.csd.uwo.ca/code/
+Enabling the USE_GCO option in cmake will further enable a variable which needs to be set to the GCO download directory. No further action is required by the user.
 The same directory can also be used as root for the binary graph-cut
 (GC) optimizer.
 
