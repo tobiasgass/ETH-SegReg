@@ -222,25 +222,26 @@ namespace SRS{
 			thresh_PairwiseReg = c.thresh_PairwiseReg;
 		}
 		void parseFile(std::string filename){
-			std::ostringstream streamm;
-			std::ifstream is(filename.c_str());
-			if (!is){
-				LOG << "could not open " << filename << " for reading" << std::endl;
-				exit(10);
-			}
-			std::string buff;
-			is >> buff;
-			streamm << buff;
-			while (!is.eof()){
-				streamm << " ";
-				is >> buff;
-				streamm << buff;
-				//			LOG<<streamm.str()<<std::endl;
-				//			LOG<<buff<<std::endl;
 
+			//read params from file
+			std::ifstream file;
+			file.open(filename);
+
+			std::string word;
+			std::vector<std::string> allParams;
+			while (file >> word) {
+				allParams.push_back(word);
 			}
-			//as=ArgumentParser(streamm.str().c_str());
-			//parse();
+
+			//convert params into c char array
+			char ** arr = new char*[allParams.size()];
+			for (size_t i = 0; i < allParams.size(); i++){
+				arr[i] = new char[allParams[i].size() + 1];
+				strcpy(arr[i], allParams[i].c_str());
+			}
+
+			parseParams(allParams.size(), arr);
+			delete[] arr;
 		}
 		void parse(){
 			bool optionalParameter = true;
