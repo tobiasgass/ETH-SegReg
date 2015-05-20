@@ -49,7 +49,8 @@ int main(int argc, char ** argv)
   typedef InputImageType::Pointer InputImagePointerType;
   typedef float PixelType;
   const unsigned int D=2;
-  typedef Image<PixelType,D> ImageType;
+  typedef Image<PixelType, D> ImageType;
+  typedef Image<float, D> FloatImageType;
   typedef ImageType::Pointer ImagePointerType;
   typedef ImageType::ConstPointer ImageConstPointerType;
   typedef TransfUtils<ImageType>::DisplacementType DisplacementType;
@@ -73,17 +74,13 @@ int main(int argc, char ** argv)
   typedef MultiThreadedLocalSimilarityNCC<FloatImageType, ImageType> SimilarityType;
   //typedef MultiThreadedLocalSimilaritySSD<FloatImageType, ImageType> SimilarityType;
   typedef UnaryRegistrationPotentialWithCaching< ImageType, SimilarityType > RegistrationUnaryPotentialType;
-  cd ..
   typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
   typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;
  
-#define POTENTIALINHERITANCE
-#ifdef POTENTIALINHERITANCE
-  typedef FastGraphModel<ImageType>        GraphType;
-#else
+
   typedef FastGraphModel<ImageType,RegistrationUnaryPotentialType,RegistrationPairwisePotentialType,SegmentationUnaryPotentialType,SegmentationPairwisePotentialType,CoherencePairwisePotentialType>        GraphType;
-#endif
+
     
   typedef HierarchicalSRSImageToImageFilter<GraphType>        FilterType;    
   //create filter
@@ -98,21 +95,13 @@ int main(int argc, char ** argv)
   RegistrationPairwisePotentialType::Pointer pairwiseRegistrationPot=RegistrationPairwisePotentialType::New();
   SegmentationPairwisePotentialType::Pointer pairwiseSegmentationPot=SegmentationPairwisePotentialType::New();
   CoherencePairwisePotentialType::Pointer pairwiseCoherencePot=CoherencePairwisePotentialType::New();
-#ifdef POTENTIALINHERITANCE
 
-  filter->setUnaryRegistrationPotentialFunction(static_cast< FastUnaryPotentialRegistrationNCC<ImageType>::Pointer>(unaryRegistrationPot));
-  filter->setPairwiseRegistrationPotentialFunction(static_cast< PairwisePotentialRegistration<ImageType>::Pointer>(pairwiseRegistrationPot));
-  filter->setUnarySegmentationPotentialFunction(static_cast< UnaryPotentialSegmentation<ImageType>::Pointer>(unarySegmentationPot));
-  filter->setPairwiseCoherencePotentialFunction(static_cast< PairwisePotentialCoherence<ImageType>::Pointer>(pairwiseCoherencePot));
-  filter->setPairwiseSegmentationPotentialFunction(static_cast< PairwisePotentialSegmentation<ImageType>::Pointer>(pairwiseSegmentationPot));
-#else
   filter->setUnaryRegistrationPotentialFunction((unaryRegistrationPot));
   filter->setPairwiseRegistrationPotentialFunction((pairwiseRegistrationPot));
   filter->setUnarySegmentationPotentialFunction((unarySegmentationPot));
   filter->setPairwiseCoherencePotentialFunction((pairwiseCoherencePot));
   filter->setPairwiseSegmentationPotentialFunction((pairwiseSegmentationPot));
 
-#endif
 
   logUpdateStage("IO");
   logSetVerbosity(filterConfig.verbose);
