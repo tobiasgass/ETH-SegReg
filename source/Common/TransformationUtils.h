@@ -886,9 +886,18 @@ public:
         return warper->GetOutput();
     }
 
-    //#define ITK_WARP
-#ifdef ITK_WARP
-    static      ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
+
+	static ImagePointerType warpImage(ImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
+		return warpImageITK(ConstImagePointerType(image),deformation,nnInterpol);
+	}
+
+	static ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
+		
+		return warpImageITK(image,deformation,nnInterpol);
+		
+	}
+
+    static      ImagePointerType warpImageITK(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
         typedef typename itk::WarpImageFilter<ImageType,ImageType,DeformationFieldType>     WarperType;
         typedef typename WarperType::Pointer     WarperPointer;
         WarperPointer warper=WarperType::New();
@@ -905,17 +914,7 @@ public:
         warper->Update();
         return warper->GetOutput();
     }
-#else
-    static ImagePointerType warpImage(ImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
-        return warpImage(ConstImagePointerType(image),deformation,nnInterpol);
-    }
 
-    static ImagePointerType warpImage(ConstImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
-        std::pair<ImagePointerType,ImagePointerType> result;
-        result = warpImageWithMask(image,deformation,nnInterpol);
-        //ImageUtils<ImageType>::writeImage("mask.nii",result.second);
-        return result.first;
-    }
 
     static std::pair<ImagePointerType,ImagePointerType> warpImageWithMask(ImagePointerType image, DeformationFieldPointerType deformation,bool nnInterpol=false){
         return warpImageWithMask(ConstImagePointerType(image),deformation,nnInterpol);
@@ -985,8 +984,9 @@ public:
         logResetStage;
         return result;
     }
-#endif
-    static ImagePointerType warpSegmentationImage(ImagePointerType image, DeformationFieldPointerType deformation){
+
+	
+	static ImagePointerType warpSegmentationImage(ImagePointerType image, DeformationFieldPointerType deformation){
         return warpImage(image,deformation,true);
     }
 

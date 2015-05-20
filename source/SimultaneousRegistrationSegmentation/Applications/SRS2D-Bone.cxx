@@ -17,6 +17,7 @@
 #include "Graph.h"
 #include "FastGraph.h"
 #include "BaseLabel.h"
+#include "Metrics.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
@@ -69,9 +70,10 @@ int main(int argc, char ** argv)
   typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
   // //reg
-  //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-  typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
-    
+  typedef MultiThreadedLocalSimilarityNCC<FloatImageType, ImageType> SimilarityType;
+  //typedef MultiThreadedLocalSimilaritySSD<FloatImageType, ImageType> SimilarityType;
+  typedef UnaryRegistrationPotentialWithCaching< ImageType, SimilarityType > RegistrationUnaryPotentialType;
+  cd ..
   typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
   typedef PairwisePotentialMultilabelCoherence< ImageType > CoherencePairwisePotentialType;

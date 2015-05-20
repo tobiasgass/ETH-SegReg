@@ -18,6 +18,7 @@
 #include "Graph.h"
 #include "FastGraph.h"
 #include "BaseLabel.h"
+#include "Metrics.h"
 #include "Potential-Registration-Unary.h"
 #include "Potential-Registration-Pairwise.h"
 #include "Potential-Segmentation-Unary.h"
@@ -47,9 +48,11 @@ int main(int argc, char ** argv)
 	
     typedef float PixelType;
 	const unsigned int D=3;
-	typedef Image<PixelType,D> ImageType;
-    typedef ImageType::Pointer ImagePointerType;
+	typedef Image<PixelType, D> ImageType;
+	typedef ImageType::Pointer ImagePointerType;
     typedef ImageType::ConstPointer ImageConstPointerType;
+	typedef Image<float, D> FloatImageType;
+
 	typedef TransfUtils<ImageType>::DisplacementType DisplacementType;
     typedef SparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
     //typedef SemiSparseRegistrationLabelMapper<ImageType,DisplacementType> LabelMapperType;
@@ -65,8 +68,9 @@ int main(int argc, char ** argv)
     typedef PairwisePotentialSegmentationMarcel<ImageType> SegmentationPairwisePotentialType;
     
     // //reg
-    //typedef FastUnaryPotentialRegistrationSAD< LabelMapperType, ImageType > RegistrationUnaryPotentialType;
-    typedef FastUnaryPotentialRegistrationNCC< ImageType > RegistrationUnaryPotentialType;
+	typedef MultiThreadedLocalSimilarityNCC<FloatImageType, ImageType> SimilarityType;
+	//typedef MultiThreadedLocalSimilaritySSD<FloatImageType, ImageType> SimilarityType;
+	typedef UnaryRegistrationPotentialWithCaching< ImageType, SimilarityType > RegistrationUnaryPotentialType;
   
     typedef PairwisePotentialRegistration< ImageType > RegistrationPairwisePotentialType;
     
@@ -114,7 +118,7 @@ int main(int argc, char ** argv)
     logSetVerbosity(filterConfig->verbose);
     LOG<<"Loading target image :"<<filterConfig->targetFilename<<std::endl;
     ImagePointerType targetImage=ImageUtils<ImageType>::readImage(filterConfig->targetFilename);
-#if 0
+#if 1
     if (filterConfig->normalizeImages){
         targetImage=FilterUtils<ImageType>::normalizeImage(targetImage);
     }
@@ -125,7 +129,7 @@ int main(int argc, char ** argv)
     ImagePointerType atlasImage;
     if (filterConfig->atlasFilename!="") {
         atlasImage=ImageUtils<ImageType>::readImage(filterConfig->atlasFilename);
-#if 0
+#if 1
         if (filterConfig->normalizeImages){
             atlasImage=FilterUtils<ImageType>::normalizeImage(atlasImage);
         }
