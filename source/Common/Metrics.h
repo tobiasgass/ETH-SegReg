@@ -32,7 +32,7 @@ class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < itk::Ima
 public:
 	/** Standard class typedefs. */
 	typedef itk::Image<float, InputImageType::ImageDimension> OutputImageType;
-	typedef MultiThreadedLocalSimilarityNCC             Self;
+	typedef MultiThreadedLocalSimilarityNCC<InputImageType>             Self;
 	typedef itk::ImageToImageFilter< OutputImageType, OutputImageType > Superclass;
 	typedef itk::SmartPointer< Self >        Pointer;
 	typedef typename OutputImageType::RegionType RegionType;
@@ -41,6 +41,7 @@ public:
 	typedef typename OutputImageType::IndexType IndexType;
 	typedef typename OutputImageType::ConstPointer OutputImageConstPointerType;
 	typedef typename InputImageType::ConstPointer InputImageConstPointerType;
+	typedef typename InputImageType::Pointer InputImagePointerType;
 
 	/** Method for creation through the object factory. */
 
