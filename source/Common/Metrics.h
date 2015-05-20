@@ -55,25 +55,25 @@ public:
 	void SetCoarseImage(const OutputImageType * image){
 		this->SetNthInput(0, const_cast<OutputImageType*>(image));
 	}
-	void SetImage1(InputImageConstPointerType image) {
+	void SetImage1(const InputImageType * image) {
 		this->SetNthInput(1, const_cast<InputImageType*>(image));
 	}
-	typename InputImageConstPointerType GetImage1(){
+	 InputImageConstPointerType GetImage1(){
 		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(1));
 	}
-	void SetImage2(InputImageConstPointerType image) {
+	 void SetImage2(const InputImageType * image) {
 		this->SetNthInput(2, const_cast<InputImageType*>(image));
 	}
-	typename InputImageConstPointerType GetImage2(){
+	 InputImageConstPointerType GetImage2(){
 		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(2));
 	}
 	//optional mask
 	//metric will only be computed for pixel where the mask is NOT NULL
-	void SetMask(InputImageConstPointerType image) {
+	 void SetMask(const InputImageType * image) {
 		this->SetNthInput(3, const_cast<InputImageType*>(image));
 		m_haveMask = true;
 	}
-	typename InputImageConstPointerType GetMask(){
+	 InputImageConstPointerType GetMask(){
 		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(3));
 	}
 	virtual void VerifyInputInformation()
