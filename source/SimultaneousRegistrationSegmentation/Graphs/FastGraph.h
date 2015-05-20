@@ -13,7 +13,7 @@ namespace SRS{
 
     ///Graph which allows for registration potential functions with caching
     template<class TImage,
-             class TUnaryRegistrationFunction=FastUnaryPotentialRegistrationNCC<TImage>,
+	class TUnaryRegistrationFunction = UnaryRegistrationPotentialBase<TImage>,
              class TPairwiseRegistrationFunction= PairwisePotentialRegistration<TImage>,
              class TUnarySegmentationFunction=UnaryPotentialSegmentation<TImage>,
              class TPairwiseSegmentationFunction=PairwisePotentialSegmentation<TImage>,

@@ -234,7 +234,7 @@ namespace SRS{
  /** \brief
    * This registration potential computes all local potentials for a specific displacement at once and caches them, allowing for greater efficiency
    */
-    template<class TImage, class TLocalSimilarity>
+    template<class TImage, typename TLocalSimilarity>
     class UnaryRegistrationPotentialWithCaching: public UnaryRegistrationPotentialBase<TImage> {
     public:
         //itk declarations
@@ -423,7 +423,7 @@ namespace SRS{
 
 
 			///compute local similarity
-			typename TLocalSimilarity::Pointer filter = TLocalSimilarity::New();
+			TLocalSimilarity::Pointer filter = TLocalSimilarity::New();
 			filter->SetCoarseImage(pot);
 			filter->SetImage1(this->m_scaledTargetImage);
 			filter->SetImage2(deformedAtlas);

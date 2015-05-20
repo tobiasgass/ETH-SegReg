@@ -33,7 +33,7 @@ namespace SRS{
    * 
    */
   template<class TImage,
-    class TUnaryRegistrationFunction=FastUnaryPotentialRegistrationNCC<TImage>,
+  class TUnaryRegistrationFunction = UnaryRegistrationPotentialBase<TImage>,
     class TPairwiseRegistrationFunction= PairwisePotentialRegistration<TImage>,
     class TUnarySegmentationFunction=UnaryPotentialSegmentation<TImage>,
     class TPairwiseSegmentationFunction=PairwisePotentialSegmentation<TImage>,

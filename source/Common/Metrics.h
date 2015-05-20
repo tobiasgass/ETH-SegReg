@@ -39,8 +39,11 @@ public:
 	typedef typename itk::ImageRegionIteratorWithIndex<OutputImageType> ImageIteratorType;
 	typedef typename itk::ImageRegionConstIterator<InputImageType> ImageConstIteratorType;
 	typedef typename OutputImageType::IndexType IndexType;
-	typedef typename OutputImageType::RegionType RegionType;
+	typedef typename OutputImageType::ConstPointer OutputImageConstPointerType;
+	typedef typename InputImageType::ConstPointer InputImageConstPointerType;
+
 	/** Method for creation through the object factory. */
+
 	itkNewMacro(Self);
 
 	/** Run-time type information (and related methods). */
@@ -52,26 +55,26 @@ public:
 	void SetCoarseImage(const OutputImageType * image){
 		this->SetNthInput(0, const_cast<OutputImageType*>(image));
 	}
-	void SetImage1(const InputImageType * image) {
+	void SetImage1(InputImageConstPointerType image) {
 		this->SetNthInput(1, const_cast<InputImageType*>(image));
 	}
-	typename InputImageType::ConstPointer GetImage1(){
-		return static_cast<const InputImageType *> (this->ProcessObject(1));
+	typename InputImageConstPointerType GetImage1(){
+		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(1));
 	}
-	void SetImage2(const InputImageType * image) {
+	void SetImage2(InputImageConstPointerType image) {
 		this->SetNthInput(2, const_cast<InputImageType*>(image));
 	}
-	typename InputImageType::ConstPointer GetImage2(){
-		return static_cast<const InputImageType *> (this->ProcessObject(2));
+	typename InputImageConstPointerType GetImage2(){
+		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(2));
 	}
 	//optional mask
 	//metric will only be computed for pixel where the mask is NOT NULL
-	void SetMask(const InputImageType * image) {
+	void SetMask(InputImageConstPointerType image) {
 		this->SetNthInput(3, const_cast<InputImageType*>(image));
 		m_haveMask = true;
 	}
-	typename InputImageType::ConstPointer GetMask(){
-		return static_cast<const InputImageType *> (this->ProcessObject(3));
+	typename InputImageConstPointerType GetMask(){
+		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(3));
 	}
 	virtual void VerifyInputInformation()
 	{
@@ -113,7 +116,7 @@ protected:
 		ImageIteratorType outIt(output, region);
 		outIt.GoToBegin();
 		for (; !outIt.IsAtEnd(); ++outIt){
-			typename ImageType::PointType point;
+			typename InputImageType::PointType point;
 			IndexType targetIndex;
 			input->TransformIndexToPhysicalPoint(outIt.GetIndex(), point);
 			image1->TransformPhysicalPointToIndex(point, targetIndex);
