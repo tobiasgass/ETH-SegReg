@@ -46,7 +46,7 @@ int main(int argc, char ** argv)
 
     //define types.
 	
-    typedef float PixelType;
+    typedef short PixelType;
 	const unsigned int D=3;
 	typedef Image<PixelType, D> ImageType;
 	typedef ImageType::Pointer ImagePointerType;
