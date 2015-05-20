@@ -125,13 +125,13 @@ namespace SRS{
 	//RegUnaries
 	clock_t startUnary = clock();
 
-	TRWType::REAL D1[nRegLabels];
+	std::vector<TRWType::REAL> D1(nRegLabels);
 	//
 	for (int l1=0;l1<nRegLabels;++l1) D1[l1]=0;
 	//firstly allocate registration nodes with zero potentials
 	for (int d=0;d<nRegNodes;++d){
 	  regNodes[d] = 
-	    m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(D1));
+	    m_optimizer.AddNode(TRWType::LocalSize(nRegLabels), TRWType::NodeData(&D1[0]));
 	}
 	//now compute&set all potentials
 	for (int l1=0;l1<nRegLabels;++l1)
@@ -160,7 +160,7 @@ namespace SRS{
 	    }
 	  }
             
-	TRWType::REAL Vreg[nRegLabels*nRegLabels];
+	std::vector<TRWType::REAL> Vreg(nRegLabels*nRegLabels);
 	for (int l1=0;l1<nRegLabels;++l1){
 	  for (int l2=0;l2<nRegLabels;++l2){
 	    Vreg[l1*nRegLabels+l2]=0;
@@ -193,7 +193,7 @@ namespace SRS{
 		}
 	      }
 	      /// add edge with stored potentials to external optimizer object
-	      m_optimizer.AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vreg));
+	      m_optimizer.AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,&Vreg[0]));
 	      edgeCount++;
 	    }
                 
@@ -209,7 +209,7 @@ namespace SRS{
       if (m_segment){
 	//SegUnaries
 	clock_t startUnary = clock();
-	TRWType::REAL D2[nSegLabels];
+	std::vector<TRWType::REAL> D2(nSegLabels);
 
 	for (int d=0;d<nSegNodes;++d){
 	  std::vector<int> segRegNeighbors=this->m_GraphModel->getSegRegNeighbors(d);
@@ -225,7 +225,7 @@ namespace SRS{
 	      }
 	    }
 	  segNodes[d] = 
-	    m_optimizer.AddNode(TRWType::LocalSize(nSegLabels), TRWType::NodeData(D2));
+	    m_optimizer.AddNode(TRWType::LocalSize(nSegLabels), TRWType::NodeData(&D2[0]));
                 
 	  //  LOG<<" reg and segreg pairwise pots" <<std::endl;
        
@@ -235,10 +235,10 @@ namespace SRS{
 	LOGV(1)<<"Segmentation Unaries took "<<t<<" seconds."<<std::endl;
 	LOGV(1)<<"Approximate size of seg unaries: "<<1.0/(1024*1024)*nSegNodes*nSegLabels*sizeof(double)<<" mb."<<std::endl;
 
-	TRWType::REAL VsrsBack[nRegLabels*nSegLabels];
+	std::vector<TRWType::REAL> VsrsBack(nRegLabels*nSegLabels);
 	int nSegEdges=0,nSegRegEdges=0;
 	for (int d=0;d<nSegNodes;++d){   
-	  TRWType::REAL Vseg[nSegLabels*nSegLabels];
+		std::vector< TRWType::REAL> Vseg(nSegLabels*nSegLabels);
 	  //pure Segmentation
 	  std::vector<int> neighbours= this->m_GraphModel->getForwardSegmentationNeighbours(d);
 	  int nNeighbours=neighbours.size();
@@ -250,7 +250,7 @@ namespace SRS{
 		Vseg[l1+nSegLabels*l2]=lambda;
 	      }
 	    }
-	    m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,Vseg));
+	    m_optimizer.AddEdge(segNodes[d], segNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,&Vseg[0]));
 	    edgeCount++;
                     
 	  }
@@ -266,7 +266,7 @@ namespace SRS{
 
 		}
 	      }
-	      m_optimizer.AddEdge(regNodes[segRegNeighbors[i]], segNodes[d], TRWType::EdgeData(TRWType::GENERAL,VsrsBack));
+	      m_optimizer.AddEdge(regNodes[segRegNeighbors[i]], segNodes[d], TRWType::EdgeData(TRWType::GENERAL,&VsrsBack[0]));
                   
 	      edgeCount++;
 	      nSegRegEdges++;
