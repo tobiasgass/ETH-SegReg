@@ -225,7 +225,7 @@ namespace SRS{
 
 			//read params from file
 			std::ifstream file;
-			file.open(filename);
+			file.open(filename.c_str());
 
 			std::string word;
 			std::vector<std::string> allParams;
@@ -240,7 +240,7 @@ namespace SRS{
 				strcpy(arr[i], allParams[i].c_str());
 			}
 
-			parseParams(allParams.size(), arr);
+			parseParams((int)allParams.size(), arr);
 			delete[] arr;
 		}
 		void parse(){

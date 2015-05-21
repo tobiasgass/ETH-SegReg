@@ -25,21 +25,26 @@
 #include "dataCostSSC.h"
 #include "dataCostLCC.h"
 #endif
+#include "itkImageToImageFilter.h"
 
-
-template<class InputImageType>
-class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < itk::Image<float, InputImageType::ImageDimension>, itk::Image<float, InputImageType::ImageDimension> > {
+template<typename OutputImageType, typename InputImageType >
+class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < OutputImageType, OutputImageType> {
 public:
 	/** Standard class typedefs. */
-	typedef itk::Image<float, InputImageType::ImageDimension> OutputImageType;
-	typedef MultiThreadedLocalSimilarityNCC<InputImageType>             Self;
+	//typedef itk::Image<float, InputImageType::ImageDimension> OutputImageType;
+
+	typedef MultiThreadedLocalSimilarityNCC             Self;
+	
 	typedef itk::ImageToImageFilter< OutputImageType, OutputImageType > Superclass;
 	typedef itk::SmartPointer< Self >        Pointer;
+	
 	typedef typename OutputImageType::RegionType RegionType;
 	typedef typename itk::ImageRegionIteratorWithIndex<OutputImageType> ImageIteratorType;
 	typedef typename itk::ImageRegionConstIterator<InputImageType> ImageConstIteratorType;
+	
 	typedef typename OutputImageType::IndexType IndexType;
 	typedef typename OutputImageType::ConstPointer OutputImageConstPointerType;
+	
 	typedef typename InputImageType::ConstPointer InputImageConstPointerType;
 	typedef typename InputImageType::Pointer InputImagePointerType;
 
@@ -48,7 +53,7 @@ public:
 	itkNewMacro(Self);
 
 	/** Run-time type information (and related methods). */
-	itkTypeMacro(MultiThreadedLocalSimilarityNCC, ImageToImageFilter);
+	itkTypeMacro(Self, Superclass);
 
 
 	//at each 'pixel' of this image will the local similarity be computed.
@@ -56,17 +61,17 @@ public:
 	void SetCoarseImage(const OutputImageType * image){
 		this->SetNthInput(0, const_cast<OutputImageType*>(image));
 	}
-	void SetImage1(const InputImageType * image) {
+	void SetFirstImage(const  InputImageType * image) {
 		this->SetNthInput(1, const_cast<InputImageType*>(image));
 	}
 	 InputImageConstPointerType GetImage1(){
-		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(1));
+		return static_cast<const InputImageType *> (this->GetInput(1));
 	}
-	 void SetImage2(const InputImageType * image) {
+	 void SetSecondImage(const InputImageType * image) {
 		this->SetNthInput(2, const_cast<InputImageType*>(image));
 	}
 	 InputImageConstPointerType GetImage2(){
-		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(2));
+		return static_cast<const InputImageType *> (this->GetInput(2));
 	}
 	//optional mask
 	//metric will only be computed for pixel where the mask is NOT NULL
@@ -75,7 +80,7 @@ public:
 		m_haveMask = true;
 	}
 	 InputImageConstPointerType GetMask(){
-		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(3));
+		return static_cast<const InputImageType *> (this->GetInput(3));
 	}
 	virtual void VerifyInputInformation()
 	{
@@ -85,7 +90,9 @@ public:
 		//coarse image and image1/2 overlap physically
 
 	}
-
+private:
+	MultiThreadedLocalSimilarityNCC(const Self &); //purposely not implemented
+	void operator=(const Self &);  //purposely not implemented
 protected:
 	MultiThreadedLocalSimilarityNCC()
 	{
@@ -97,7 +104,7 @@ protected:
 	virtual void BeforeThreadedGenerateData(){
 
 		typename OutputImageType::Pointer output = this->GetOutput();
-		typename InputImageType::ConstPointer image1 = GetImage1();
+		typename InputImageConstPointerType image1 = GetImage1();
 		output->SetRegions(this->GetInput(0)->GetLargestPossibleRegion());
 		output->Allocate();
 		output->SetSpacing(this->GetInput(0)->GetSpacing());
@@ -106,13 +113,13 @@ protected:
 		for (int d = 0; d < OutputImageType::ImageDimension; ++d){
 			this->m_radius[d] = (this->GetInput(0)->GetSpacing()[d] / image1->GetSpacing()[d]);
 		}
-		m_maxSize = this->GetInput(1)->GetLargestPossibleRegion().GetSize();
+		m_maxSize = image1->GetLargestPossibleRegion().GetSize();
 	}
 	virtual void ThreadedGenerateData(const RegionType & region, itk::ThreadIdType threadId)
 	{
 
 		typename OutputImageType::ConstPointer input = this->GetInput(0);
-		typename InputImageType::ConstPointer image1 = GetImage1();
+		typename InputImageConstPointerType image1 = GetImage1();
 		typename OutputImageType::Pointer output = this->GetOutput();
 		ImageIteratorType outIt(output, region);
 		outIt.GoToBegin();
@@ -128,8 +135,6 @@ protected:
 	typename OutputImageType::SizeType m_radius;
 	typename OutputImageType::SizeType m_maxSize;
 	bool m_haveMask;
-	MultiThreadedLocalSimilarityNCC(const Self &); //purposely not implemented
-	void operator=(const Self &);  //purposely not implemented
 	inline RegionType computeRegion(const IndexType & targetIndex){
 		IndexType newIndex;
 		typename OutputImageType::SizeType localRegionSize;

@@ -44,7 +44,7 @@ namespace SRS{
     class UnaryRegistrationPotentialBase : public itk::Object{
     public:
         //itk declarations
-        typedef UnaryRegistrationPotentialBase            Self;
+        typedef UnaryRegistrationPotentialBase<TImage>            Self;
         typedef itk::SmartPointer<Self>        Pointer;
         typedef itk::SmartPointer<const Self>  ConstPointer;
 
@@ -90,7 +90,7 @@ namespace SRS{
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
-        itkTypeMacro(RegistrationUnaryPotentialNCC, Object);
+		itkTypeMacro(Self, Object);
 
         UnaryRegistrationPotentialBase(){
             m_haveDisplacementMap=false;
@@ -238,7 +238,7 @@ namespace SRS{
     class UnaryRegistrationPotentialWithCaching: public UnaryRegistrationPotentialBase<TImage> {
     public:
         //itk declarations
-        typedef UnaryRegistrationPotentialWithCaching            Self;
+		typedef UnaryRegistrationPotentialWithCaching<TImage, TLocalSimilarity>           Self;
         typedef itk::SmartPointer<Self>        Pointer;
         typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef UnaryRegistrationPotentialBase<TImage> Superclass;
@@ -302,7 +302,7 @@ namespace SRS{
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
-        itkTypeMacro(FastRegistrationUnaryPotentialNCC, Object);
+		itkTypeMacro(Self, Object);
         
         UnaryRegistrationPotentialWithCaching():Superclass(){
             m_normalizationFactor=1.0;
@@ -426,9 +426,12 @@ namespace SRS{
 
 			///compute local similarity
 			LocalSimilarityFunctionPointer filter = LocalSimilarityFunctionType::New();
+			//typename MultiThreadedLocalSimilarityNCC<ImageType>::Pointer filter = MultiThreadedLocalSimilarityNCC<ImageType>::New();
 			filter->SetCoarseImage(pot);
-			filter->SetImage1(this->m_scaledTargetImage);
-			filter->SetImage2(deformedAtlas);
+			filter->SetFirstImage(this->m_scaledTargetImage);
+//			filter->SetNthInput(1, const_cast<ImageType*>(this->m_scaledTargetImage.GetPointer()));
+
+			filter->SetSecondImage(deformedAtlas);
 			if (deformedMask.IsNotNull()){
 				filter->SetMask(deformedMask);
 			}
