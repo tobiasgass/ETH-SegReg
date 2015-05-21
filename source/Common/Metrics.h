@@ -65,7 +65,7 @@ public:
 		this->SetNthInput(1, const_cast<LocalImageType*>(image));
 	}
 	InputImageConstPointerType GetImage1(){
-		const itk::DataObject * img = this->ProcessObject::GetInput(1);
+		const itk::DataObject * img = this->itk::ProcessObject::GetInput(1);
 		return static_cast<const LocalImageType *> (img);
 		
 	}
@@ -73,7 +73,7 @@ public:
 		this->SetNthInput(2, const_cast<LocalImageType*>(image));
 	}
 	 InputImageConstPointerType GetImage2(){
-		 const itk::DataObject * img = this->ProcessObject::GetInput(2);
+		 const itk::DataObject * img = this->itk::ProcessObject::GetInput(2);
 		 return static_cast<const LocalImageType *> (img);
 	}
 	//optional mask
@@ -83,7 +83,7 @@ public:
 		m_haveMask = true;
 	}
 	 InputImageConstPointerType GetMask(){
-		 const itk::DataObject * img = this->ProcessObject::GetInput(2);
+		 const itk::DataObject * img = this->itk::ProcessObject::GetInput(2);
 		 return static_cast<const LocalImageType *> (img);
 	}
 	virtual void VerifyInputInformation()
@@ -123,7 +123,7 @@ protected:
 	{
 
 		typename OutputImageType::ConstPointer input = this->GetInput(0);
-		InputImageConstPointerType image1 = GetImage1();
+		InputImageConstPointerType image1 = this->GetImage1();
 		typename OutputImageType::Pointer output = this->GetOutput();
 		ImageIteratorType outIt(output, region);
 		outIt.GoToBegin();
@@ -184,12 +184,12 @@ protected:
 		
 		RegionType region = computeRegion(targetIndex);
 
-		ImageConstIteratorType targetIt(GetImage1(), region);
-		ImageConstIteratorType atlasIt(GetImage2(), region);
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
 		targetIt.GoToBegin(); atlasIt.GoToBegin();
 		ImageConstIteratorType  maskIt;
-		if (m_haveMask){
-			maskIt =ImageConstIteratorType(GetMask(),region);
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
 			maskIt.GoToBegin();
 		}
 		//return 1;
@@ -201,7 +201,7 @@ protected:
 		double f, m;
 		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
 			++count;
-			if (m_haveMask){
+			if (this->m_haveMask){
 				float mask = maskIt.Get();
 				++maskIt;
 				if (mask > 0) continue;
@@ -255,14 +255,14 @@ public:
 protected:
 	
 	inline virtual double computeLocalPotential(const IndexType & targetIndex){
-		RegionType region = computeRegion(targetIndex);
+		RegionType region = this->computeRegion(targetIndex);
 
-		ImageConstIteratorType targetIt(GetImage1(), region);
-		ImageConstIteratorType atlasIt(GetImage2(), region);
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
 		targetIt.GoToBegin(); atlasIt.GoToBegin();
 		ImageConstIteratorType  maskIt;
-		if (m_haveMask){
-			maskIt = ImageConstIteratorType(GetMask(), region);
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
 			maskIt.GoToBegin();
 		}
 		//return 1;
@@ -274,7 +274,7 @@ protected:
 		double ssd = 0.0;
 		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
 			++count;
-			if (m_haveMask){
+			if (this->m_haveMask){
 				float mask = maskIt.Get();
 				++maskIt;
 				if (mask > 0) continue;
