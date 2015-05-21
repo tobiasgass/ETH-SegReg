@@ -425,8 +425,8 @@ namespace SRS{
 
 
 			///compute local similarity
-			LocalSimilarityFunctionPointer filter = LocalSimilarityFunctionType::New();
-			//typename MultiThreadedLocalSimilarityNCC<ImageType>::Pointer filter = MultiThreadedLocalSimilarityNCC<ImageType>::New();
+			//LocalSimilarityFunctionPointer filter = LocalSimilarityFunctionType::New();
+			typename MultiThreadedLocalSimilarityNCC<FloatImageType,ImageType>::Pointer filter = MultiThreadedLocalSimilarityNCC<FloatImageType,ImageType>::New();
 			filter->SetCoarseImage(pot);
 			filter->SetFirstImage(this->m_scaledTargetImage);
 //			filter->SetNthInput(1, const_cast<ImageType*>(this->m_scaledTargetImage.GetPointer()));

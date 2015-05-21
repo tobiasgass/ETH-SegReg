@@ -27,11 +27,11 @@
 #endif
 #include "itkImageToImageFilter.h"
 
-template<typename OutputImageType, typename InputImageType >
+template<typename OutputImageType, typename LocalInputImage >
 class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < OutputImageType, OutputImageType> {
 public:
 	/** Standard class typedefs. */
-	//typedef itk::Image<float, InputImageType::ImageDimension> OutputImageType;
+	//typedef itk::Image<float, LocalInputImage::ImageDimension> OutputImageType;
 
 	typedef MultiThreadedLocalSimilarityNCC             Self;
 	
@@ -40,13 +40,13 @@ public:
 	
 	typedef typename OutputImageType::RegionType RegionType;
 	typedef typename itk::ImageRegionIteratorWithIndex<OutputImageType> ImageIteratorType;
-	typedef typename itk::ImageRegionConstIterator<InputImageType> ImageConstIteratorType;
+	typedef typename itk::ImageRegionConstIterator<LocalInputImage> ImageConstIteratorType;
 	
 	typedef typename OutputImageType::IndexType IndexType;
 	typedef typename OutputImageType::ConstPointer OutputImageConstPointerType;
 	
-	typedef typename InputImageType::ConstPointer InputImageConstPointerType;
-	typedef typename InputImageType::Pointer InputImagePointerType;
+	typedef typename LocalInputImage::ConstPointer InputImageConstPointerType;
+	typedef typename LocalInputImage::Pointer InputImagePointerType;
 
 	/** Method for creation through the object factory. */
 
@@ -61,26 +61,29 @@ public:
 	void SetCoarseImage(const OutputImageType * image){
 		this->SetNthInput(0, const_cast<OutputImageType*>(image));
 	}
-	void SetFirstImage(const  InputImageType * image) {
-		this->SetNthInput(1, const_cast<InputImageType*>(image));
+	void SetFirstImage(const  LocalInputImage * image) {
+		this->SetNthInput(1, const_cast<LocalInputImage*>(image));
 	}
-	 InputImageConstPointerType GetImage1(){
-		return static_cast<const InputImageType *> (this->GetInput(1));
+	InputImageConstPointerType GetImage1(){
+		const OutputImageType * inp1 = this->GetInput(1);
+		const LocalInputImage * inp1Pointer= static_cast<const LocalInputImage *> (inp1);
+		InputImageConstPointerType smartPointer(inp1Pointer);
+		return smartPointer;
 	}
-	 void SetSecondImage(const InputImageType * image) {
-		this->SetNthInput(2, const_cast<InputImageType*>(image));
+	 void SetSecondImage(const LocalInputImage * image) {
+		this->SetNthInput(2, const_cast<LocalInputImage*>(image));
 	}
 	 InputImageConstPointerType GetImage2(){
-		return static_cast<const InputImageType *> (this->GetInput(2));
+		return static_cast<const LocalInputImage *> (this->GetInput(2));
 	}
 	//optional mask
 	//metric will only be computed for pixel where the mask is NOT NULL
-	 void SetMask(const InputImageType * image) {
-		this->SetNthInput(3, const_cast<InputImageType*>(image));
+	 void SetMask(const LocalInputImage * image) {
+		this->SetNthInput(3, const_cast<LocalInputImage*>(image));
 		m_haveMask = true;
 	}
 	 InputImageConstPointerType GetMask(){
-		return static_cast<const InputImageType *> (this->GetInput(3));
+		return static_cast<const LocalInputImage *> (this->GetInput(3));
 	}
 	virtual void VerifyInputInformation()
 	{
@@ -124,7 +127,7 @@ protected:
 		ImageIteratorType outIt(output, region);
 		outIt.GoToBegin();
 		for (; !outIt.IsAtEnd(); ++outIt){
-			typename InputImageType::PointType point;
+			typename LocalInputImage::PointType point;
 			IndexType targetIndex;
 			input->TransformIndexToPhysicalPoint(outIt.GetIndex(), point);
 			image1->TransformPhysicalPointToIndex(point, targetIndex);
