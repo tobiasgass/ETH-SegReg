@@ -104,7 +104,7 @@ protected:
 	virtual void BeforeThreadedGenerateData(){
 
 		typename OutputImageType::Pointer output = this->GetOutput();
-		typename InputImageConstPointerType image1 = GetImage1();
+		InputImageConstPointerType image1 = GetImage1();
 		output->SetRegions(this->GetInput(0)->GetLargestPossibleRegion());
 		output->Allocate();
 		output->SetSpacing(this->GetInput(0)->GetSpacing());
@@ -119,7 +119,7 @@ protected:
 	{
 
 		typename OutputImageType::ConstPointer input = this->GetInput(0);
-		typename InputImageConstPointerType image1 = GetImage1();
+		InputImageConstPointerType image1 = GetImage1();
 		typename OutputImageType::Pointer output = this->GetOutput();
 		ImageIteratorType outIt(output, region);
 		outIt.GoToBegin();
