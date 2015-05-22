@@ -292,10 +292,72 @@ protected:
 		if (count){
 			result = ssd / count;
 		}
+		else{ result = 1; }
 		return result;
 	}
 
 };//MultiThreadedSSD
+template<class LocalImageType>
+class MultiThreadedLocalSimilarityMAD :public MultiThreadedLocalSimilarityNCC<LocalImageType>{
+public:
+	/** Standard class typedefs. */
+	typedef MultiThreadedLocalSimilarityMAD             Self;
+	typedef MultiThreadedLocalSimilarityNCC<LocalImageType> Superclass;
+	typedef itk::SmartPointer< Self >        Pointer;
+	typedef typename LocalImageType::RegionType RegionType;
+	typedef typename itk::ImageRegionConstIterator<LocalImageType> ImageConstIteratorType;
+	typedef typename LocalImageType::IndexType IndexType;
+	/** Method for creation through the object factory. */
+	itkNewMacro(Self);
+
+	/** Run-time type information (and related methods). */
+	itkTypeMacro(Self, Superclass);
+
+
+protected:
+
+	inline virtual double computeLocalPotential(const IndexType & targetIndex){
+		RegionType region = this->computeRegion(targetIndex);
+
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
+		targetIt.GoToBegin(); atlasIt.GoToBegin();
+		ImageConstIteratorType  maskIt;
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
+			maskIt.GoToBegin();
+		}
+		//return 1;
+		double result;
+
+		int insideCount = 0.0;
+		int count = 0;
+		double f, m;
+		double MAD = 0.0;
+		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
+			++count;
+			if (this->m_haveMask){
+				float mask = maskIt.Get();
+				++maskIt;
+				if (mask > 0) continue;
+			}
+			f = targetIt.Get();
+			m = atlasIt.Get();
+			double diff = f - m;
+
+			MAD += std::abs(diff);
+
+			insideCount += 1;
+
+		}
+
+		if (count){
+			result = MAD / count;
+		}
+		return result;
+	}
+
+};//MultiThreadedMAD
 
 ///class containing static functions to compute image similarities with
 template<typename InputImage, typename OutputImage = InputImage, typename InternalPrecision=double>
