@@ -195,7 +195,7 @@ protected:
 		//return 1;
 		double result;
 
-		int insideCount = 0.0;
+		int insideCount = 0;
 		int count = 0;
 		double sff = 0.0, smm = 0.0, sfm = 0.0, sf = 0.0, sm = 0.0;
 		double f, m;
@@ -204,7 +204,7 @@ protected:
 			if (this->m_haveMask){
 				float mask = maskIt.Get();
 				++maskIt;
-				if (mask > 0) continue;
+				if (! (mask > 0) ) continue;
 			}
 			f = targetIt.Get();
 			m = atlasIt.Get();
@@ -218,17 +218,16 @@ protected:
 
 		}
 		double NCC = 0;
-		if (count){
-			sff -= (sf * sf / count);
-			smm -= (sm * sm / count);
-			sfm -= (sf * sm / count);
+		if (insideCount){
+			sff -= (sf * sf / insideCount);
+			smm -= (sm * sm / insideCount);
+			sfm -= (sf * sm / insideCount);
 			if (smm*sff > 0){
 				NCC = 1.0*sfm / sqrt(smm*sff);
-
 			}
 		}
 
-		result = (1.0 - (NCC)) / 2;
+		result =  - (NCC) ;
 
 		return result;
 	}
@@ -289,8 +288,8 @@ protected:
 
 		}
 
-		if (count){
-			result = ssd / count;
+		if (insideCount){
+			result = ssd / insideCount;
 		}
 		else{ result = 1; }
 		return result;

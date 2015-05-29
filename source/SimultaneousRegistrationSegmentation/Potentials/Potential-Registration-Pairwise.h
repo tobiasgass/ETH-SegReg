@@ -100,7 +100,7 @@ namespace SRS{
             DisplacementType diff=displacement1-displacement2;
             //result=diff.GetSquaredNorm();
             result=diff.GetNorm();
-          
+          result /= (pt1 - pt2).GetNorm();	
             
             LOGV(13)<<VAR(result)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
             //if (result > 200) result = 20000;
