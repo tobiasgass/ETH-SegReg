@@ -26,6 +26,7 @@
 #include "dataCostLCC.h"
 #endif
 #include "itkImageToImageFilter.h"
+#include "itkProcessObject.h"
 
 template< typename LocalImageType >
 class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < itk::Image<float, LocalImageType::ImageDimension>, itk::Image<float, LocalImageType::ImageDimension> > {
@@ -65,7 +66,7 @@ public:
 		this->SetNthInput(1, const_cast<LocalImageType*>(image));
 	}
 	InputImageConstPointerType GetImage1(){
-		const itk::DataObject * img = this->ProcessObject::GetInput(1);
+		const itk::DataObject * img = this->itk::ProcessObject::GetInput(1);
 		return static_cast<const LocalImageType *> (img);
 		
 	}

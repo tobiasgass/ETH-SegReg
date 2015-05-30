@@ -11,13 +11,15 @@ ADD_EXECUTABLE(SRS3D-Bone-Multilabel SRS3D-Bone-Multilabel.cxx )
 ADD_EXECUTABLE(SRS2D-Bone SRS2D-Bone.cxx )
 
 
+
 if( ${USE_RF} MATCHES "ON" )
 
 ADD_EXECUTABLE(SRS2D-Classifier SRS2D-Classifier.cxx )
 ADD_EXECUTABLE(SRS2D-Classifier-Multilabel
 SRS2D-Classifier-Multilabel.cxx )
-
+ADD_EXECUTABLE(SRS3D-Classifier SRS3D-Classifier.cxx )                                                                                                                                                     
 endif()
+
 
 
 #LINK_DIRECTORIES( ${LINK_DIRECTORIES} ${SRS-MRF_SOURCE_DIR}/SimultaneousRegistrationSegmentation/)
@@ -29,6 +31,7 @@ TARGET_LINK_LIBRARIES(SRS2D-Bone Utils SRSPotentials   ${ITK_LIBRARIES}  )
 
 if( ${USE_RF} MATCHES "ON" )
 TARGET_LINK_LIBRARIES(SRS2D-Classifier Utils SRSPotentials   ${ITK_LIBRARIES}  )
+TARGET_LINK_LIBRARIES(SRS3D-Classifier Utils SRSPotentials   ${ITK_LIBRARIES}  )
 TARGET_LINK_LIBRARIES(SRS2D-Classifier-Multilabel Utils SRSPotentials     ${ITK_LIBRARIES}  )
 endif()
 #optional linking
@@ -39,6 +42,7 @@ TARGET_LINK_LIBRARIES(SRS3D-Bone  TRWS_LIBRARIES     )
   if( ${USE_RF} MATCHES "ON" )
 
   TARGET_LINK_LIBRARIES(SRS2D-Classifier  TRWS_LIBRARIES     )
+  TARGET_LINK_LIBRARIES(SRS3D-Classifier  TRWS_LIBRARIES     )
   TARGET_LINK_LIBRARIES(SRS2D-Classifier-Multilabel  TRWS_LIBRARIES     )
   endif()
 endif()
@@ -59,6 +63,7 @@ if( ${USE_GCO} MATCHES "ON" )
   if( ${USE_RF} MATCHES "ON" )
 
   TARGET_LINK_LIBRARIES(SRS2D-Classifier  GCO     )
+  TARGET_LINK_LIBRARIES(SRS3D-Classifier  GCO     )
   TARGET_LINK_LIBRARIES(SRS2D-Classifier-Multilabel  GCO     )
 
 
@@ -73,6 +78,7 @@ if( ${USE_OPENGM} MATCHES "ON" )
   TARGET_LINK_LIBRARIES(SRS3D-Bone-Multilabel    ${Boost_LIBRARIES}   )
   if( ${USE_RF} MATCHES "ON" )
  TARGET_LINK_LIBRARIES(SRS2D-Classifier    ${Boost_LIBRARIES}   )
+ TARGET_LINK_LIBRARIES(SRS3D-Classifier    ${Boost_LIBRARIES}   )
   TARGET_LINK_LIBRARIES(SRS2D-Classifier-Multilabel    ${Boost_LIBRARIES}   )
   endif()
     TARGET_LINK_LIBRARIES(SRS2D-Bone    ${Boost_LIBRARIES}   )
