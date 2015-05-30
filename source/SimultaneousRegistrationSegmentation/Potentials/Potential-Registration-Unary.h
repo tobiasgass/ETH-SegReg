@@ -44,7 +44,7 @@ namespace SRS{
     class UnaryRegistrationPotentialBase : public itk::Object{
     public:
         //itk declarations
-        typedef UnaryRegistrationPotentialBase            Self;
+        typedef UnaryRegistrationPotentialBase<TImage>            Self;
         typedef itk::SmartPointer<Self>        Pointer;
         typedef itk::SmartPointer<const Self>  ConstPointer;
 
@@ -90,7 +90,7 @@ namespace SRS{
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
-        itkTypeMacro(RegistrationUnaryPotentialNCC, Object);
+		itkTypeMacro(Self, Object);
 
         UnaryRegistrationPotentialBase(){
             m_haveDisplacementMap=false;
@@ -165,10 +165,15 @@ namespace SRS{
             radiusSet=true;
         }
         
-        void SetBaseDisplacementMap(DisplacementImagePointerType blm, double scale=1.0){
+        void SetBaseDisplacementMap(DisplacementImagePointerType blm, bool useBSpline=false){
             m_baseDisplacementMap=blm;m_haveDisplacementMap=true;
             if (blm->GetLargestPossibleRegion().GetSize()!=m_scaledTargetImage->GetLargestPossibleRegion().GetSize()){
+				if (useBSpline){
                 m_baseDisplacementMap=TransfUtils<ImageType>::bSplineInterpolateDeformationField(blm,m_scaledTargetImage);
+				}else{
+					m_baseDisplacementMap = TransfUtils<ImageType>::linearInterpolateDeformationField(blm, m_scaledTargetImage);
+
+				}
             }
         }
         DisplacementImagePointerType GetBaseDisplacementMap(DisplacementImagePointerType blm){return m_baseDisplacementMap;}
@@ -238,7 +243,7 @@ namespace SRS{
     class UnaryRegistrationPotentialWithCaching: public UnaryRegistrationPotentialBase<TImage> {
     public:
         //itk declarations
-        typedef UnaryRegistrationPotentialWithCaching            Self;
+		typedef UnaryRegistrationPotentialWithCaching<TImage, TLocalSimilarity>           Self;
         typedef itk::SmartPointer<Self>        Pointer;
         typedef itk::SmartPointer<const Self>  ConstPointer;
         typedef UnaryRegistrationPotentialBase<TImage> Superclass;
@@ -302,7 +307,7 @@ namespace SRS{
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
         /** Standard part of every itk Object. */
-        itkTypeMacro(FastRegistrationUnaryPotentialNCC, Object);
+		itkTypeMacro(Self, Object);
         
         UnaryRegistrationPotentialWithCaching():Superclass(){
             m_normalizationFactor=1.0;
@@ -355,6 +360,7 @@ namespace SRS{
         }
 
 #define PREDEF
+//#define USE_ROI_MASK
         virtual void initCaching(){
 #ifdef PREDEF
             m_deformedAtlasImage=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,this->m_baseDisplacementMap);
@@ -427,8 +433,8 @@ namespace SRS{
 			///compute local similarity
 			LocalSimilarityFunctionPointer filter = LocalSimilarityFunctionType::New();
 			filter->SetCoarseImage(pot);
-			filter->SetImage1(this->m_scaledTargetImage);
-			filter->SetImage2(deformedAtlas);
+			filter->SetFirstImage(this->m_scaledTargetImage);
+			filter->SetSecondImage(deformedAtlas);
 			if (deformedMask.IsNotNull()){
 				filter->SetMask(deformedMask);
 			}

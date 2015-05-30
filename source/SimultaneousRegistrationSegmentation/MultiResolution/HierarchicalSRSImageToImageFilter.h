@@ -517,6 +517,8 @@ namespace SRS{
                 }
                 if (regist){
                     m_unaryRegistrationPot->SetBaseDisplacementMap(previousFullDeformation);
+					m_unaryRegistrationPot->SetBaseDisplacementMap(previousFullDeformation,bSpline);
+
                     //
                 }
 
@@ -575,7 +577,7 @@ namespace SRS{
                     //register deformation from previous iteration
                     if (regist){
 
-                        m_unaryRegistrationPot->SetBaseDisplacementMap(previousFullDeformation);
+                       m_unaryRegistrationPot->SetBaseDisplacementMap(previousFullDeformation,bSpline);
 
                         m_pairwiseRegistrationPot->SetBaseDisplacementMap(previousFullDeformation);
 
@@ -744,7 +746,7 @@ namespace SRS{
                         continue;
                     }
                     //else converge if energy difference is lower than the threshold
-                    converged=(i>0) && (fabs(oldEnergy-newEnergy)/(oldEnergy+DBL_EPSILON) < 1e-4 ); 
+                    converged=(i>0) && (std::abs(oldEnergy-newEnergy)/(std::abs(oldEnergy)+DBL_EPSILON) < 5e-3 ); 
                     LOGV(1)<<"Convergence ratio " <<100.0-100.0*fabs(newEnergy-oldEnergy)/fabs(oldEnergy+DBL_EPSILON)<<"%"<<std::endl;
 
                     oldEnergy=newEnergy;

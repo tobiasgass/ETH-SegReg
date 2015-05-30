@@ -77,29 +77,30 @@ namespace SRS{
         }
         virtual void setFullRegularization(bool b){ m_fullRegPairwise = b; }
         inline double getPotential(PointType pt1, PointType pt2,DisplacementType displacement1, DisplacementType displacement2){
-            assert(m_haveDisplacementMap);
             double result=0;
-            IndexType targetIndex1, targetIndex2;
-            //LOGV(50)<<VAR(targetIndex1)<<endl;            
-            m_baseDisplacementMap->TransformPhysicalPointToIndex(pt1,targetIndex1);
-            //LOGV(50)<<VAR(targetIndex1)<<endl;            
-            m_baseDisplacementMap->TransformPhysicalPointToIndex(pt2,targetIndex2);
-            //LOG<<VAR(targetIndex1)<<" "<<m_baseDisplacementMap->GetLargestPossibleRegion().GetSize()<<endl;
-			DisplacementType oldl1=m_baseDisplacementMap->GetPixel((targetIndex1));
-			DisplacementType oldl2=m_baseDisplacementMap->GetPixel((targetIndex2));
-			//double delta;
-            //LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
-            //LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
-            if (m_fullRegPairwise){
-                displacement1+=oldl1;
-                displacement2+=oldl2;
-            }
+			if (m_fullRegPairwise){
+				assert(m_haveDisplacementMap);
+				IndexType targetIndex1, targetIndex2;
+				//LOGV(50)<<VAR(targetIndex1)<<endl;            
+				m_baseDisplacementMap->TransformPhysicalPointToIndex(pt1, targetIndex1);
+				//LOGV(50)<<VAR(targetIndex1)<<endl;            
+				m_baseDisplacementMap->TransformPhysicalPointToIndex(pt2, targetIndex2);
+				//LOG<<VAR(targetIndex1)<<" "<<m_baseDisplacementMap->GetLargestPossibleRegion().GetSize()<<endl;
+				DisplacementType oldl1 = m_baseDisplacementMap->GetPixel((targetIndex1));
+				DisplacementType oldl2 = m_baseDisplacementMap->GetPixel((targetIndex2));
+				//double delta;
+				//LOGV(50)<<VAR(displacement1)<<" "<<VAR(oldl1)<<endl;
+				//LOGV(50)<<VAR(displacement2)<<" "<<VAR(oldl2)<<endl;
+
+				displacement1 += oldl1;
+				displacement2 += oldl2;
+			}
 #if 1
             
             DisplacementType diff=displacement1-displacement2;
             //result=diff.GetSquaredNorm();
             result=diff.GetNorm();
-          
+          result /= (pt1 - pt2).GetNorm();	
             
             LOGV(13)<<VAR(result)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
             //if (result > 200) result = 20000;

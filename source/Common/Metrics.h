@@ -25,30 +25,35 @@
 #include "dataCostSSC.h"
 #include "dataCostLCC.h"
 #endif
+#include "itkImageToImageFilter.h"
 
-
-template<class InputImageType>
-class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < itk::Image<float, InputImageType::ImageDimension>, itk::Image<float, InputImageType::ImageDimension> > {
+template< typename LocalImageType >
+class MultiThreadedLocalSimilarityNCC :public itk::ImageToImageFilter < itk::Image<float, LocalImageType::ImageDimension>, itk::Image<float, LocalImageType::ImageDimension> > {
 public:
 	/** Standard class typedefs. */
-	typedef itk::Image<float, InputImageType::ImageDimension> OutputImageType;
-	typedef MultiThreadedLocalSimilarityNCC<InputImageType>             Self;
+	typedef itk::Image<float, LocalImageType::ImageDimension> OutputImageType;
+
+	typedef MultiThreadedLocalSimilarityNCC             Self;
+	
 	typedef itk::ImageToImageFilter< OutputImageType, OutputImageType > Superclass;
 	typedef itk::SmartPointer< Self >        Pointer;
+	
 	typedef typename OutputImageType::RegionType RegionType;
 	typedef typename itk::ImageRegionIteratorWithIndex<OutputImageType> ImageIteratorType;
-	typedef typename itk::ImageRegionConstIterator<InputImageType> ImageConstIteratorType;
+	typedef typename itk::ImageRegionConstIterator<LocalImageType> ImageConstIteratorType;
+	
 	typedef typename OutputImageType::IndexType IndexType;
 	typedef typename OutputImageType::ConstPointer OutputImageConstPointerType;
-	typedef typename InputImageType::ConstPointer InputImageConstPointerType;
-	typedef typename InputImageType::Pointer InputImagePointerType;
+	
+	typedef typename LocalImageType::ConstPointer InputImageConstPointerType;
+	typedef typename LocalImageType::Pointer InputImagePointerType;
 
 	/** Method for creation through the object factory. */
 
 	itkNewMacro(Self);
 
 	/** Run-time type information (and related methods). */
-	itkTypeMacro(MultiThreadedLocalSimilarityNCC, ImageToImageFilter);
+	itkTypeMacro(Self, Superclass);
 
 
 	//at each 'pixel' of this image will the local similarity be computed.
@@ -56,26 +61,30 @@ public:
 	void SetCoarseImage(const OutputImageType * image){
 		this->SetNthInput(0, const_cast<OutputImageType*>(image));
 	}
-	void SetImage1(const InputImageType * image) {
-		this->SetNthInput(1, const_cast<InputImageType*>(image));
+	void SetFirstImage(const  LocalImageType * image) {
+		this->SetNthInput(1, const_cast<LocalImageType*>(image));
 	}
-	 InputImageConstPointerType GetImage1(){
-		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(1));
+	InputImageConstPointerType GetImage1(){
+		const itk::DataObject * img = this->itk::ProcessObject::GetInput(1);
+		return static_cast<const LocalImageType *> (img);
+		
 	}
-	 void SetImage2(const InputImageType * image) {
-		this->SetNthInput(2, const_cast<InputImageType*>(image));
+	 void SetSecondImage(const LocalImageType * image) {
+		this->SetNthInput(2, const_cast<LocalImageType*>(image));
 	}
 	 InputImageConstPointerType GetImage2(){
-		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(2));
+		 const itk::DataObject * img = this->itk::ProcessObject::GetInput(2);
+		 return static_cast<const LocalImageType *> (img);
 	}
 	//optional mask
 	//metric will only be computed for pixel where the mask is NOT NULL
-	 void SetMask(const InputImageType * image) {
-		this->SetNthInput(3, const_cast<InputImageType*>(image));
+	 void SetMask(const LocalImageType * image) {
+		this->SetNthInput(3, const_cast<LocalImageType*>(image));
 		m_haveMask = true;
 	}
 	 InputImageConstPointerType GetMask(){
-		return static_cast<const InputImageType *> (this->ProcessObject::GetInput(3));
+		 const itk::DataObject * img = this->itk::ProcessObject::GetInput(2);
+		 return static_cast<const LocalImageType *> (img);
 	}
 	virtual void VerifyInputInformation()
 	{
@@ -85,7 +94,9 @@ public:
 		//coarse image and image1/2 overlap physically
 
 	}
-
+private:
+	MultiThreadedLocalSimilarityNCC(const Self &); //purposely not implemented
+	void operator=(const Self &);  //purposely not implemented
 protected:
 	MultiThreadedLocalSimilarityNCC()
 	{
@@ -97,7 +108,7 @@ protected:
 	virtual void BeforeThreadedGenerateData(){
 
 		typename OutputImageType::Pointer output = this->GetOutput();
-		typename InputImageType::ConstPointer image1 = GetImage1();
+		InputImageConstPointerType image1 = GetImage1();
 		output->SetRegions(this->GetInput(0)->GetLargestPossibleRegion());
 		output->Allocate();
 		output->SetSpacing(this->GetInput(0)->GetSpacing());
@@ -106,18 +117,18 @@ protected:
 		for (int d = 0; d < OutputImageType::ImageDimension; ++d){
 			this->m_radius[d] = (this->GetInput(0)->GetSpacing()[d] / image1->GetSpacing()[d]);
 		}
-		m_maxSize = this->GetInput(1)->GetLargestPossibleRegion().GetSize();
+		m_maxSize = image1->GetLargestPossibleRegion().GetSize();
 	}
 	virtual void ThreadedGenerateData(const RegionType & region, itk::ThreadIdType threadId)
 	{
 
 		typename OutputImageType::ConstPointer input = this->GetInput(0);
-		typename InputImageType::ConstPointer image1 = GetImage1();
+		InputImageConstPointerType image1 = this->GetImage1();
 		typename OutputImageType::Pointer output = this->GetOutput();
 		ImageIteratorType outIt(output, region);
 		outIt.GoToBegin();
 		for (; !outIt.IsAtEnd(); ++outIt){
-			typename InputImageType::PointType point;
+			typename LocalImageType::PointType point;
 			IndexType targetIndex;
 			input->TransformIndexToPhysicalPoint(outIt.GetIndex(), point);
 			image1->TransformPhysicalPointToIndex(point, targetIndex);
@@ -128,8 +139,6 @@ protected:
 	typename OutputImageType::SizeType m_radius;
 	typename OutputImageType::SizeType m_maxSize;
 	bool m_haveMask;
-	MultiThreadedLocalSimilarityNCC(const Self &); //purposely not implemented
-	void operator=(const Self &);  //purposely not implemented
 	inline RegionType computeRegion(const IndexType & targetIndex){
 		IndexType newIndex;
 		typename OutputImageType::SizeType localRegionSize;
@@ -175,27 +184,27 @@ protected:
 		
 		RegionType region = computeRegion(targetIndex);
 
-		ImageConstIteratorType targetIt(GetImage1(), region);
-		ImageConstIteratorType atlasIt(GetImage2(), region);
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
 		targetIt.GoToBegin(); atlasIt.GoToBegin();
 		ImageConstIteratorType  maskIt;
-		if (m_haveMask){
-			maskIt =ImageConstIteratorType(GetMask(),region);
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
 			maskIt.GoToBegin();
 		}
 		//return 1;
 		double result;
 
-		int insideCount = 0.0;
+		int insideCount = 0;
 		int count = 0;
 		double sff = 0.0, smm = 0.0, sfm = 0.0, sf = 0.0, sm = 0.0;
 		double f, m;
 		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
 			++count;
-			if (m_haveMask){
+			if (this->m_haveMask){
 				float mask = maskIt.Get();
 				++maskIt;
-				if (mask > 0) continue;
+				if (! (mask > 0) ) continue;
 			}
 			f = targetIt.Get();
 			m = atlasIt.Get();
@@ -209,53 +218,50 @@ protected:
 
 		}
 		double NCC = 0;
-		if (count){
-			sff -= (sf * sf / count);
-			smm -= (sm * sm / count);
-			sfm -= (sf * sm / count);
+		if (insideCount){
+			sff -= (sf * sf / insideCount);
+			smm -= (sm * sm / insideCount);
+			sfm -= (sf * sm / insideCount);
 			if (smm*sff > 0){
 				NCC = 1.0*sfm / sqrt(smm*sff);
-
 			}
 		}
 
-		result = (1.0 - (NCC)) / 2;
+		result =  - (NCC) ;
 
 		return result;
 	}
 
 };//MultiThreadedNCC
 
-#if 0
-template<class ImageType, class InputImageType>
-class MultiThreadedLocalSimilaritySSD :public MultiThreadedLocalSimilarityNCC<ImageType,InputImageType>{
+template<class LocalImageType>
+class MultiThreadedLocalSimilaritySSD :public MultiThreadedLocalSimilarityNCC<LocalImageType>{
 public:
 	/** Standard class typedefs. */
 	typedef MultiThreadedLocalSimilaritySSD             Self;
-	typedef MultiThreadedLocalSimilarityNCC<ImageType, InputImageType> Superclass;
+	typedef MultiThreadedLocalSimilarityNCC<LocalImageType> Superclass;
 	typedef itk::SmartPointer< Self >        Pointer;
-	typedef typename ImageType::RegionType RegionType;
-	typedef typename itk::ImageRegionIteratorWithIndex<ImageType> ImageIteratorType;
-	typedef typename itk::ImageRegionConstIterator<InputImageType> ImageConstIteratorType;
-	typedef typename ImageType::IndexType IndexType;
+	typedef typename LocalImageType::RegionType RegionType;
+	typedef typename itk::ImageRegionConstIterator<LocalImageType> ImageConstIteratorType;
+	typedef typename LocalImageType::IndexType IndexType;
 	/** Method for creation through the object factory. */
 	itkNewMacro(Self);
 
 	/** Run-time type information (and related methods). */
-	itkTypeMacro(MultiThreadedLocalSimilaritySSD, MultiThreadedLocalSimilarityNCC);
+	itkTypeMacro(Self, Superclass);
 
 
 protected:
 	
 	inline virtual double computeLocalPotential(const IndexType & targetIndex){
-		RegionType region = computeRegion(targetIndex);
+		RegionType region = this->computeRegion(targetIndex);
 
-		ImageConstIteratorType targetIt(this->GetInput(1), region);
-		ImageConstIteratorType atlasIt(this->GetInput(2), region);
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
 		targetIt.GoToBegin(); atlasIt.GoToBegin();
 		ImageConstIteratorType  maskIt;
-		if (m_haveMask){
-			maskIt = ImageConstIteratorType(this->GetInput(3), region);
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
 			maskIt.GoToBegin();
 		}
 		//return 1;
@@ -267,7 +273,7 @@ protected:
 		double ssd = 0.0;
 		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
 			++count;
-			if (m_haveMask){
+			if (this->m_haveMask){
 				float mask = maskIt.Get();
 				++maskIt;
 				if (mask > 0) continue;
@@ -282,15 +288,76 @@ protected:
 
 		}
 
-		if (count){
-			result = ssd / count;
+		if (insideCount){
+			result = ssd / insideCount;
 		}
+		else{ result = 1; }
 		return result;
 	}
 
 };//MultiThreadedSSD
+template<class LocalImageType>
+class MultiThreadedLocalSimilarityMAD :public MultiThreadedLocalSimilarityNCC<LocalImageType>{
+public:
+	/** Standard class typedefs. */
+	typedef MultiThreadedLocalSimilarityMAD             Self;
+	typedef MultiThreadedLocalSimilarityNCC<LocalImageType> Superclass;
+	typedef itk::SmartPointer< Self >        Pointer;
+	typedef typename LocalImageType::RegionType RegionType;
+	typedef typename itk::ImageRegionConstIterator<LocalImageType> ImageConstIteratorType;
+	typedef typename LocalImageType::IndexType IndexType;
+	/** Method for creation through the object factory. */
+	itkNewMacro(Self);
 
-#endif
+	/** Run-time type information (and related methods). */
+	itkTypeMacro(Self, Superclass);
+
+
+protected:
+
+	inline virtual double computeLocalPotential(const IndexType & targetIndex){
+		RegionType region = this->computeRegion(targetIndex);
+
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
+		targetIt.GoToBegin(); atlasIt.GoToBegin();
+		ImageConstIteratorType  maskIt;
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
+			maskIt.GoToBegin();
+		}
+		//return 1;
+		double result;
+
+		int insideCount = 0.0;
+		int count = 0;
+		double f, m;
+		double MAD = 0.0;
+		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
+			++count;
+			if (this->m_haveMask){
+				float mask = maskIt.Get();
+				++maskIt;
+				if (mask > 0) continue;
+			}
+			f = targetIt.Get();
+			m = atlasIt.Get();
+			double diff = f - m;
+
+			MAD += std::abs(diff);
+
+			insideCount += 1;
+
+		}
+
+		if (count){
+			result = MAD / count;
+		}
+		return result;
+	}
+
+};//MultiThreadedMAD
+
 ///class containing static functions to compute image similarities with
 template<typename InputImage, typename OutputImage = InputImage, typename InternalPrecision=double>
 class Metrics{
