@@ -195,6 +195,9 @@ TARGET_LINK_LIBRARIES(CreateHumerusSegmentationMask     ${ITK_LIBRARIES}   Utils
 ADD_EXECUTABLE(NormalizeImage3D NormalizeImage3D.cxx )
 TARGET_LINK_LIBRARIES(NormalizeImage3D     ${ITK_LIBRARIES}   Utils  )
 
+ADD_EXECUTABLE(BiasCorrection3D BiasCorrection3D.cxx )
+TARGET_LINK_LIBRARIES(BiasCorrection3D     ${ITK_LIBRARIES}   Utils  )
+
 ADD_EXECUTABLE(ResampleImage3D ResampleImage3D.cxx )
 TARGET_LINK_LIBRARIES(ResampleImage3D     ${ITK_LIBRARIES}   Utils  )
 

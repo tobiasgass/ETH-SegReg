@@ -176,20 +176,22 @@ namespace SRS{
 	    int nNeighbours=neighbours.size();
 	    /// iterate over neighbours
 	    for (int i=0;i<nNeighbours;++i){
+	      const int & neighbour=neighbours[i];
 	      //iterate over all registration label combinations
 		  if (m_pairwiseRegistrationWeight>0){
-	      for (int l1=0;l1<nRegLabels;++l1){
+		    int labelOffset=0;
 		for (int l2=0;l2<nRegLabels;++l2){
+		  for (int l1=0;l1<nRegLabels;++l1,++labelOffset){
 		  
-		    /// get potential and store in array
-		    Vreg[l1+l2*nRegLabels]=m_pairwiseRegistrationWeight*this->m_GraphModel->getPairwiseRegistrationPotential(d,neighbours[i],l1,l2);
+		    /// get potential and store in array Vreg[l1+l2*nRegLabels]
+		  Vreg[labelOffset]=m_pairwiseRegistrationWeight*this->m_GraphModel->getPairwiseRegistrationPotential(d,neighbour,l1,l2);
 		  
 		  
 		}
 		  }
 	      }//if
 	      /// add edge with stored potentials to external optimizer object
-	      m_optimizer.AddEdge(regNodes[d], regNodes[neighbours[i]], TRWType::EdgeData(TRWType::GENERAL,&Vreg[0]));
+	      m_optimizer.AddEdge(regNodes[d], regNodes[neighbour], TRWType::EdgeData(TRWType::GENERAL,&Vreg[0]));
 	      edgeCount++;
 	    }
                 
