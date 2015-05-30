@@ -74,7 +74,7 @@ public:
 		this->SetNthInput(2, const_cast<LocalImageType*>(image));
 	}
 	 InputImageConstPointerType GetImage2(){
-		 const itk::DataObject * img = this->ProcessObject::GetInput(2);
+		 const itk::DataObject * img = this->itk::ProcessObject::GetInput(2);
 		 return static_cast<const LocalImageType *> (img);
 	}
 	//optional mask
@@ -84,7 +84,7 @@ public:
 		m_haveMask = true;
 	}
 	 InputImageConstPointerType GetMask(){
-		 const itk::DataObject * img = this->ProcessObject::GetInput(2);
+		 const itk::DataObject * img = this->itk::ProcessObject::GetInput(2);
 		 return static_cast<const LocalImageType *> (img);
 	}
 	virtual void VerifyInputInformation()
@@ -124,7 +124,7 @@ protected:
 	{
 
 		typename OutputImageType::ConstPointer input = this->GetInput(0);
-		InputImageConstPointerType image1 = GetImage1();
+		InputImageConstPointerType image1 = this->GetImage1();
 		typename OutputImageType::Pointer output = this->GetOutput();
 		ImageIteratorType outIt(output, region);
 		outIt.GoToBegin();
@@ -185,27 +185,27 @@ protected:
 		
 		RegionType region = computeRegion(targetIndex);
 
-		ImageConstIteratorType targetIt(GetImage1(), region);
-		ImageConstIteratorType atlasIt(GetImage2(), region);
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
 		targetIt.GoToBegin(); atlasIt.GoToBegin();
 		ImageConstIteratorType  maskIt;
-		if (m_haveMask){
-			maskIt =ImageConstIteratorType(GetMask(),region);
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
 			maskIt.GoToBegin();
 		}
 		//return 1;
 		double result;
 
-		int insideCount = 0.0;
+		int insideCount = 0;
 		int count = 0;
 		double sff = 0.0, smm = 0.0, sfm = 0.0, sf = 0.0, sm = 0.0;
 		double f, m;
 		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
 			++count;
-			if (m_haveMask){
+			if (this->m_haveMask){
 				float mask = maskIt.Get();
 				++maskIt;
-				if (mask > 0) continue;
+				if (! (mask > 0) ) continue;
 			}
 			f = targetIt.Get();
 			m = atlasIt.Get();
@@ -219,17 +219,16 @@ protected:
 
 		}
 		double NCC = 0;
-		if (count){
-			sff -= (sf * sf / count);
-			smm -= (sm * sm / count);
-			sfm -= (sf * sm / count);
+		if (insideCount){
+			sff -= (sf * sf / insideCount);
+			smm -= (sm * sm / insideCount);
+			sfm -= (sf * sm / insideCount);
 			if (smm*sff > 0){
 				NCC = 1.0*sfm / sqrt(smm*sff);
-
 			}
 		}
 
-		result = (1.0 - (NCC)) / 2;
+		result =  - (NCC) ;
 
 		return result;
 	}
@@ -256,14 +255,14 @@ public:
 protected:
 	
 	inline virtual double computeLocalPotential(const IndexType & targetIndex){
-		RegionType region = computeRegion(targetIndex);
+		RegionType region = this->computeRegion(targetIndex);
 
-		ImageConstIteratorType targetIt(GetImage1(), region);
-		ImageConstIteratorType atlasIt(GetImage2(), region);
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
 		targetIt.GoToBegin(); atlasIt.GoToBegin();
 		ImageConstIteratorType  maskIt;
-		if (m_haveMask){
-			maskIt = ImageConstIteratorType(GetMask(), region);
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
 			maskIt.GoToBegin();
 		}
 		//return 1;
@@ -275,7 +274,7 @@ protected:
 		double ssd = 0.0;
 		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
 			++count;
-			if (m_haveMask){
+			if (this->m_haveMask){
 				float mask = maskIt.Get();
 				++maskIt;
 				if (mask > 0) continue;
@@ -290,13 +289,75 @@ protected:
 
 		}
 
-		if (count){
-			result = ssd / count;
+		if (insideCount){
+			result = ssd / insideCount;
 		}
+		else{ result = 1; }
 		return result;
 	}
 
 };//MultiThreadedSSD
+template<class LocalImageType>
+class MultiThreadedLocalSimilarityMAD :public MultiThreadedLocalSimilarityNCC<LocalImageType>{
+public:
+	/** Standard class typedefs. */
+	typedef MultiThreadedLocalSimilarityMAD             Self;
+	typedef MultiThreadedLocalSimilarityNCC<LocalImageType> Superclass;
+	typedef itk::SmartPointer< Self >        Pointer;
+	typedef typename LocalImageType::RegionType RegionType;
+	typedef typename itk::ImageRegionConstIterator<LocalImageType> ImageConstIteratorType;
+	typedef typename LocalImageType::IndexType IndexType;
+	/** Method for creation through the object factory. */
+	itkNewMacro(Self);
+
+	/** Run-time type information (and related methods). */
+	itkTypeMacro(Self, Superclass);
+
+
+protected:
+
+	inline virtual double computeLocalPotential(const IndexType & targetIndex){
+		RegionType region = this->computeRegion(targetIndex);
+
+		ImageConstIteratorType targetIt(this->GetImage1(), region);
+		ImageConstIteratorType atlasIt(this->GetImage2(), region);
+		targetIt.GoToBegin(); atlasIt.GoToBegin();
+		ImageConstIteratorType  maskIt;
+		if (this->m_haveMask){
+			maskIt = ImageConstIteratorType(this->GetMask(), region);
+			maskIt.GoToBegin();
+		}
+		//return 1;
+		double result;
+
+		int insideCount = 0.0;
+		int count = 0;
+		double f, m;
+		double MAD = 0.0;
+		for (; !targetIt.IsAtEnd(); ++targetIt, ++atlasIt){
+			++count;
+			if (this->m_haveMask){
+				float mask = maskIt.Get();
+				++maskIt;
+				if (mask > 0) continue;
+			}
+			f = targetIt.Get();
+			m = atlasIt.Get();
+			double diff = f - m;
+
+			MAD += std::abs(diff);
+
+			insideCount += 1;
+
+		}
+
+		if (count){
+			result = MAD / count;
+		}
+		return result;
+	}
+
+};//MultiThreadedMAD
 
 ///class containing static functions to compute image similarities with
 template<typename InputImage, typename OutputImage = InputImage, typename InternalPrecision=double>

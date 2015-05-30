@@ -165,10 +165,15 @@ namespace SRS{
             radiusSet=true;
         }
         
-        void SetBaseDisplacementMap(DisplacementImagePointerType blm, double scale=1.0){
+        void SetBaseDisplacementMap(DisplacementImagePointerType blm, bool useBSpline=false){
             m_baseDisplacementMap=blm;m_haveDisplacementMap=true;
             if (blm->GetLargestPossibleRegion().GetSize()!=m_scaledTargetImage->GetLargestPossibleRegion().GetSize()){
+				if (useBSpline){
                 m_baseDisplacementMap=TransfUtils<ImageType>::bSplineInterpolateDeformationField(blm,m_scaledTargetImage);
+				}else{
+					m_baseDisplacementMap = TransfUtils<ImageType>::linearInterpolateDeformationField(blm, m_scaledTargetImage);
+
+				}
             }
         }
         DisplacementImagePointerType GetBaseDisplacementMap(DisplacementImagePointerType blm){return m_baseDisplacementMap;}
@@ -355,6 +360,7 @@ namespace SRS{
         }
 
 #define PREDEF
+//#define USE_ROI_MASK
         virtual void initCaching(){
 #ifdef PREDEF
             m_deformedAtlasImage=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,this->m_baseDisplacementMap);
