@@ -217,7 +217,7 @@ protected:
 			insideCount += 1;
 
 		}
-		double NCC = 0;
+		double NCC = 0.0;
 		if (insideCount){
 			sff -= (sf * sf / insideCount);
 			smm -= (sm * sm / insideCount);

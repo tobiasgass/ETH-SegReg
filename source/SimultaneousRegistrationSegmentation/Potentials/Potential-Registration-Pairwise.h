@@ -66,7 +66,12 @@ namespace SRS{
     virtual void freeMemory(){
     }
     virtual void setThreshold(double t){m_threshold=t;}
-    void SetBaseDisplacementMap(DisplacementImagePointerType blm){m_baseDisplacementMap=blm;m_haveDisplacementMap=true;}
+    void SetBaseDisplacementMap(DisplacementImagePointerType blm){m_baseDisplacementMap=blm;m_haveDisplacementMap=true;
+      //initialize cached points to something far outside the ROI
+      m_previousPoint1=m_baseDisplacementMap->GetOrigin();
+      m_previousPoint1[0]=-10000.0;
+      m_previousPoint2=m_previousPoint2;
+    }
     DisplacementImagePointerType GetBaseDisplacementMap(DisplacementImagePointerType blm){return m_baseDisplacementMap;}
     void SetTargetImage(ConstImagePointerType targetImage){
       m_targetImage=targetImage;
@@ -85,7 +90,7 @@ namespace SRS{
       double result=0;
       if (m_fullRegPairwise){
 	assert(m_haveDisplacementMap);
-	if (pt1!=m_previousPoint1){
+	if ( pt1!=m_previousPoint1){
 	  IndexType targetIndex1;
 	  m_baseDisplacementMap->TransformPhysicalPointToIndex(pt1, targetIndex1);
 	  m_prevDisp1= m_baseDisplacementMap->GetPixel((targetIndex1));
@@ -111,7 +116,7 @@ namespace SRS{
             
       LOGV(13)<<VAR(result)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
       //if (result > 200) result = 20000;
-
+      return result;
             
 
       LOGV(50)<<VAR(displacement1)<<" "<<VAR(displacement2)<<endl;
@@ -129,7 +134,7 @@ namespace SRS{
 #endif
       //			if (false){
       //LOGV(50)<<VAR(result)<<" "<<VAR(displacement1)<<" "<<VAR(displacement2)<<" "<<VAR(targetIndex1)<<" "<<VAR(targetIndex1)<<" "<<VAR(oldl1)<<" "<<VAR(oldl2)<<endl;
-      if (m_threshold<numeric_limits<double>::max()){
+      if (false && m_threshold<numeric_limits<double>::max()){
 	result=min(m_maxDist*m_threshold,(result));
       }
       return (result);
