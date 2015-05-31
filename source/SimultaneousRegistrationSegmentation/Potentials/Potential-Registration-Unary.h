@@ -293,7 +293,7 @@ namespace SRS{
 
     protected:
 
-		std::vector<DisplacementType> m_displacements;
+	std::vector<DisplacementType> m_displacements;
         std::vector<FloatImagePointerType> m_potentials;
         DisplacementType m_currentActiveDisplacement;
         FloatImagePointerType m_currentCachedPotentials;
@@ -367,7 +367,7 @@ namespace SRS{
 	  m_maxDisplacement=mD;
 	}
 	#define PREDEF
-	#define USE_ROI_MASK
+        #define USE_ROI_MASK
         virtual void initCaching( ){
 #ifdef PREDEF
 	  DisplacementImagePointerType deformationField=this->m_baseDisplacementMap;
@@ -435,9 +435,9 @@ namespace SRS{
 			ImageUtils<ImageType>::writeImage("deformed.nii",deformedAtlas);
 #else
 
-			TIME(deformedAtlas = TransfUtils<ImageType>::translateImage(this->m_deformedAtlasImage, displacement));
+			TIME(deformedAtlas = TransfUtils<ImageType>::translateImage(this->m_deformedAtlasImage, displacement,false,this->m_scaledTargetImage));
 			if (deformedMask.IsNotNull()){
-				TIME(deformedMask = TransfUtils<ImageType>::translateImage(this->m_deformedMask, displacement, true));
+			  TIME(deformedMask = TransfUtils<ImageType>::translateImage(this->m_deformedMask, displacement, true, this->m_scaledTargetImage));
 			}
 			// ImageUtils<ImageType>::writeImage("mask.nii",deformedMask);
 			//  ImageUtils<ImageType>::writeImage("deformed.nii",deformedAtlas);

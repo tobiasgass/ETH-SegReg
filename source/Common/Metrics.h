@@ -120,7 +120,7 @@ protected:
 			this->m_radius[d] = (this->GetInput(0)->GetSpacing()[d] / image1->GetSpacing()[d]);
 		}
 		m_maxSize = image1->GetLargestPossibleRegion().GetSize();
-		if (GetMask().IsNotNull()){
+		if (m_haveMask){
 		  //compute coarse mask by downsampling the input mask with smoothin.
 		  //no pixel in the coarse mask should be zero if any pixel in the neighborhood in the original mask is non-zero
 		  m_coarseMask=FilterUtils<LocalImageType>::LinearResample(GetMask(),(InputImageConstPointerType)FilterUtils<OutputImageType,LocalImageType>::cast(this->GetInput(0)),true);
@@ -140,7 +140,7 @@ protected:
 		    }
 		outIt.GoToBegin();
 		for (; !outIt.IsAtEnd(); ++outIt){
-		  	if (m_coarseMask.IsNotNull()){
+		  	if (m_haveMask){
 			  typename LocalImageType::PixelType val=coarseMaskIt.Get();
 			  ++coarseMaskIt;
 			  if ( val >0){
