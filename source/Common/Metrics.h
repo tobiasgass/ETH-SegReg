@@ -98,6 +98,8 @@ private:
 	MultiThreadedLocalSimilarityNCC(const Self &); //purposely not implemented
 	void operator=(const Self &);  //purposely not implemented
 protected:
+	InputImageConstPointerType m_coarseMask;
+	
 	MultiThreadedLocalSimilarityNCC()
 	{
 		this->SetNumberOfRequiredInputs(3);
@@ -118,6 +120,11 @@ protected:
 			this->m_radius[d] = (this->GetInput(0)->GetSpacing()[d] / image1->GetSpacing()[d]);
 		}
 		m_maxSize = image1->GetLargestPossibleRegion().GetSize();
+		if (GetMask().IsNotNull()){
+		  //compute coarse mask by downsampling the input mask with smoothin.
+		  //no pixel in the coarse mask should be zero if any pixel in the neighborhood in the original mask is non-zero
+		  m_coarseMask=FilterUtils<LocalImageType>::LinearResample(GetMask(),(InputImageConstPointerType)FilterUtils<OutputImageType,LocalImageType>::cast(this->GetInput(0)),true);
+		}
 	}
 	virtual void ThreadedGenerateData(const RegionType & region, itk::ThreadIdType threadId)
 	{
@@ -126,8 +133,25 @@ protected:
 		InputImageConstPointerType image1 = this->GetImage1();
 		typename OutputImageType::Pointer output = this->GetOutput();
 		ImageIteratorType outIt(output, region);
+		ImageConstIteratorType coarseMaskIt;
+		if (m_coarseMask.IsNotNull()){
+		  coarseMaskIt=ImageConstIteratorType(m_coarseMask,region);
+		  coarseMaskIt.GoToBegin();
+		    }
 		outIt.GoToBegin();
 		for (; !outIt.IsAtEnd(); ++outIt){
+		  	if (m_coarseMask.IsNotNull()){
+			  typename LocalImageType::PixelType val=coarseMaskIt.Get();
+			  ++coarseMaskIt;
+			  if ( val >0){
+			    //all good
+			  }else{
+			    //skip this node and set potential to constant
+			    
+			    outIt.Set(0);
+			    continue;
+			  }
+			}
 			typename LocalImageType::PointType point;
 			IndexType targetIndex;
 			input->TransformIndexToPhysicalPoint(outIt.GetIndex(), point);

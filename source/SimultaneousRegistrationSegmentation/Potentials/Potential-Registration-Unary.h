@@ -303,6 +303,9 @@ namespace SRS{
         bool m_normalize;
         PointsContainerPointer m_atlasLandmarks,m_targetLandmarks;
         FloatImagePointerType m_unaryPotentialWeights;
+
+	bool	  m_haveMaxDisplacement;
+	DisplacementType  m_maxDisplacement;
     public:
         /** Method for creation through the object factory. */
         itkNewMacro(Self);
@@ -359,24 +362,37 @@ namespace SRS{
             m_normalizationFactor=1.0;
         }
 
-#define PREDEF
-//#define USE_ROI_MASK
-        virtual void initCaching(){
+	void setMaxDisplacement(DisplacementType mD){
+	  m_haveMaxDisplacement=true;
+	  m_maxDisplacement=mD;
+	}
+	#define PREDEF
+	#define USE_ROI_MASK
+        virtual void initCaching( ){
 #ifdef PREDEF
-            m_deformedAtlasImage=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,this->m_baseDisplacementMap);
+	  DisplacementImagePointerType deformationField=this->m_baseDisplacementMap;
+	  if (m_haveMaxDisplacement){
+	    //pad deformation field by NN extrapolation.
+	    //this results in the deformed atlas image also being padded in a way that no pixels fall outside the ROI during translation 
+	    deformationField=TransfUtils<ImageType>::padDeformationWithNNExtrapolation(deformationField,m_maxDisplacement);
+	  }
+            m_deformedAtlasImage=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasImage,deformationField);
+	   
             if (this->m_scaledAtlasMaskImage.IsNotNull()){
-                m_deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,this->m_baseDisplacementMap);
+                m_deformedMask=TransfUtils<ImageType>::warpImage(this->m_scaledAtlasMaskImage,deformationField);
             }
 #ifdef USE_ROI_MASK
 			else{
                 ImagePointerType mask=ImageUtils<ImageType>::createEmpty(this->m_scaledAtlasImage);
                 mask->FillBuffer(1);
-                m_deformedMask=TransfUtils<ImageType>::warpImage(mask,this->m_baseDisplacementMap);
+                m_deformedMask=TransfUtils<ImageType>::warpImage(mask,deformationField);
             }
 #endif
 
 #endif
-        }
+	    
+      }
+	
 
 		void cachePotentials(DisplacementType displacement){
 			LOGV(15) << "Caching registration unary potential for displacement " << displacement << endl;

@@ -94,6 +94,7 @@ void MyLog::flushLog(std::string filename){
     }
 }
 void MyLog::addTime(int t){}//m_timerOffset+=t;}
+int MyLog::getElapsedTime(){return m_timer.elapsed();}
 
 
 

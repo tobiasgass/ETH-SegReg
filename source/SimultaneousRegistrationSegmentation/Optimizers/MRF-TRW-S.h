@@ -100,6 +100,7 @@ namespace SRS{
       this->m_GraphModel->Init();
       clock_t endUnary = clock();
       double t1 = (float) ((double)(endUnary - start) / CLOCKS_PER_SEC);
+      long int wallTimeStart=LOGGETTIME;
       tUnary+=t1;       
 
       nNodes=this->m_GraphModel->nNodes();
@@ -164,7 +165,8 @@ namespace SRS{
 	
 	clock_t endUnary = clock();
 	double t = (float) ((double)(endUnary - startUnary) / CLOCKS_PER_SEC);
-	LOGV(1)<<"Registration Unaries took "<<t<<" seconds."<<std::endl;
+	int tWall=LOGGETTIME-wallTimeStart;
+	LOGV(1)<<"Registration Unaries took "<<t<<" seconds(CPU) and "<<tWall<<"seconds wall time"<<std::endl;
 	tUnary+=t;
 	/// Pairwise potentials
 	/// pure Registration

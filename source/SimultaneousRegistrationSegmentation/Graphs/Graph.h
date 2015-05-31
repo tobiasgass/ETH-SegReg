@@ -914,6 +914,8 @@ namespace SRS{
     return maxSpacing*m_DisplacementScalingFactor;
   }
   SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
+
+  SpacingType getMaxDisplacement(){return m_labelSpacing* this->m_nDisplacementSamplesPerAxis*m_DisplacementScalingFactor;}
   SpacingType getSpacing(){return m_gridSpacing;}	
   //SpacingType getPixelSpacing(){return m_gridPixelSpacing;}
   PointType getOrigin(){return m_origin;}

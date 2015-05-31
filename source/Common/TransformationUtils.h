@@ -19,7 +19,6 @@
 #include <itkWarpImageFilter.h>
 #include "itkVectorLinearInterpolateImageFunction.h"
 #include <itkVectorNearestNeighborInterpolateImageFunction.h>
-#include <itkVectorResampleImageFilter.h>
 #include "itkResampleImageFilter.h"
 #include "itkNearestNeighborInterpolateImageFunction.h"
 #include "itkDisplacementFieldCompositionFilter.h"
@@ -1221,6 +1220,38 @@ public:
         result->FillBuffer(0.0);
         return result;
     }
+
+static DeformationFieldPointerType padDeformationWithNNExtrapolation(DeformationFieldPointerType def, DisplacementType padding){
+  LOGV(3)<<"Padding deformation with size"<<VAR(def->GetLargestPossibleRegion().GetSize())<<" padding[mm]:"<<VAR(padding)<<std::endl;
+  typedef itk::VectorLinearInterpolateNearestNeighborExtrapolateImageFunction<
+  DeformationFieldType,double> DefaultFieldInterpolatorType;
+  typename DefaultFieldInterpolatorType::Pointer interpolator=DefaultFieldInterpolatorType::New();
+  interpolator->SetInputImage(def);
+  typedef typename itk::VectorResampleImageFilter<DeformationFieldType,DeformationFieldType> ResamplerType;
+  typename ResamplerType::Pointer resampler=ResamplerType::New();
+  resampler->SetInput(def);
+  resampler->SetInterpolator(interpolator);
+  resampler->SetOutputDirection(def->GetDirection());
+  //compute output size based on inputSize+2mal padding
+  typename DeformationFieldType::PointType origin=def->GetOrigin();
+  typename DeformationFieldType::SizeType inputSize=def->GetLargestPossibleRegion().GetSize();
+  typename DeformationFieldType::SpacingType inputSpacing=def->GetSpacing();
+  typename DeformationFieldType::SizeType outputSize=inputSize;
+  for (unsigned int d=0;d<D;++d){
+    outputSize[d]+=std::ceil(2.0*padding[d]/inputSpacing[d]);
+    float dir = def->GetDirection()[d][d];
+    origin[d]-=padding[d]*dir;
+  }
+  typename DeformationFieldType::RegionType outputRegion=def->GetLargestPossibleRegion();
+  resampler->SetOutputOrigin(origin);
+  resampler->SetSize(outputSize);
+  resampler->Update();
+  LOGV(3)<<"Result Size: "<<VAR(resampler->GetOutput()->GetLargestPossibleRegion().GetSize())<<std::endl;
+  return resampler->GetOutput();
+  
+  
+  
+}
     //#define USE_INRIA
 #ifdef USE_INRIA
     static DeformationFieldPointerType composeDeformations(DeformationFieldPointerType def1, DeformationFieldPointerType def2){
