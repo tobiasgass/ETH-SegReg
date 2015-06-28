@@ -118,7 +118,7 @@ own license, which is included either within the source code itself or
 supplied in a separate License file.
 
 
-Copyright (c) 2010-2015, Tobias Gass (tobiasgass@gmail.com) unless
+Copyright (c) 2010-2015, Copyright (C) 2010-2015, ETH Zurich - Computer Vision Laboratory, author Tobias Gass (tobiasgass@gmail.com), unless
 explicitly stated otherwise
 All rights reserved.
 
