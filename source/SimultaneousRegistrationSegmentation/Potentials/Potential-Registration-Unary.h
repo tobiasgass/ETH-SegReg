@@ -367,7 +367,7 @@ namespace SRS{
 	  m_maxDisplacement=mD;
 	}
 	#define PREDEF
-	#define USE_ROI_MASK
+	//#define USE_ROI_MASK
         virtual void initCaching( ){
 #ifdef PREDEF
 	  DisplacementImagePointerType deformationField=this->m_baseDisplacementMap;
