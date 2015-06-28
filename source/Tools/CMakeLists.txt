@@ -4,6 +4,11 @@ PROJECT(ImageRegistration)
 
 #Tools
 
+ADD_EXECUTABLE(HistNormImage3D HistNormImage3D.cxx )
+TARGET_LINK_LIBRARIES(HistNormImage3D     ${ITK_LIBRARIES}   Utils  )
+ADD_EXECUTABLE(PreprocessPelvisCTImages3D PreprocessPelvisCTImages3D.cxx )
+TARGET_LINK_LIBRARIES(PreprocessPelvisCTImages3D     ${ITK_LIBRARIES}   Utils  )
+
 ADD_EXECUTABLE(RegistrationAffineMultiRes3D RegistrationAffineMultiRes3D.cxx )
 TARGET_LINK_LIBRARIES(RegistrationAffineMultiRes3D     ${ITK_LIBRARIES}   Utils  )
 
@@ -194,6 +199,9 @@ TARGET_LINK_LIBRARIES(CreateHumerusSegmentationMask     ${ITK_LIBRARIES}   Utils
 
 ADD_EXECUTABLE(NormalizeImage3D NormalizeImage3D.cxx )
 TARGET_LINK_LIBRARIES(NormalizeImage3D     ${ITK_LIBRARIES}   Utils  )
+
+ADD_EXECUTABLE(BiasCorrection3D BiasCorrection3D.cxx )
+TARGET_LINK_LIBRARIES(BiasCorrection3D     ${ITK_LIBRARIES}   Utils  )
 
 ADD_EXECUTABLE(ResampleImage3D ResampleImage3D.cxx )
 TARGET_LINK_LIBRARIES(ResampleImage3D     ${ITK_LIBRARIES}   Utils  )

@@ -73,6 +73,7 @@ public:
     void setCachedLogging(std::string filename="");
     void flushLog(std::string filename);
     void addTime(int t);
+    int getElapsedTime();
 };
 
 
@@ -83,6 +84,7 @@ extern MyLog mylog;
 
 ///macros for using the log class. the log object is not used directly in the client code, but through these macros
 #define LOGADDTIME(t) mylog.addTime(t)
+#define LOGGETTIME mylog.getElapsedTime()
 
 #define LOG \
     if (mylog.getVerbosity()>=10)                                        \

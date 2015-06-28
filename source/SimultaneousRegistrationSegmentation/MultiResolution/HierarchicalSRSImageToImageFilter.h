@@ -578,11 +578,11 @@ namespace SRS{
                     if (regist){
 
                        m_unaryRegistrationPot->SetBaseDisplacementMap(previousFullDeformation,bSpline);
-
+		       m_unaryRegistrationPot->setMaxDisplacement(graph->getMaxDisplacement());
                         m_pairwiseRegistrationPot->SetBaseDisplacementMap(previousFullDeformation);
 
                         //when switching levels of multiresolution, compute normalization factor to equalize the effect of smaller patches in the reg unary.
-                        if (! m_config->dontNormalizeRegUnaries) m_unaryRegistrationPot->setNormalize( i==0 && l>0);
+                        if (false && ! m_config->dontNormalizeRegUnaries) m_unaryRegistrationPot->setNormalize( i==0 && l>0);
                     }
                     if (coherence || (regist && m_config->verbose>6)){
                         

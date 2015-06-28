@@ -122,6 +122,13 @@ namespace SRS{
   bool m_reducedSegNodes;
   double m_coherenceThresh;
 
+  //not (completely) threadsafe variables to capture the current state of the graph
+  //this allows for avoiding some duplicate computations
+  int m_currentNode1, m_currentNode2, m_currentLabelIndex1, m_currentLabelIndex2;
+  IndexType m_currentIndex1, m_currentIndex2;
+  PointType m_currentPoint1, m_currentPoint2;
+  RegistrationLabelType m_currentRegLabel1, m_currentRegLabel2;
+
   public:
   int getMaxRegSegNeighbors(){return m_maxRegSegNeighbors;}
   GraphModel(){
@@ -247,20 +254,25 @@ namespace SRS{
     logResetStage;
   }
   ///can be used to initialize stuff right before potentials are called
-  void Init(){};
+  void Init(){
+    m_currentNode1=-1;
+    m_currentNode2=-1; m_currentLabelIndex1=-1; m_currentLabelIndex2=-1;
+
+
+  };
   ///set coarse graph size/resolution/spacing based on target image and desired number of nodes on the shortest edge
   void setSpacing(int shortestN){
     assert(m_targetImage);
     this->m_coarseGraphImage=ImageType::New();
             
     unsigned int minDim=999999;
-    unsigned int minSize=999999;
+    double minExtent=999999;
     LOGV(8)<<"original image spacing "<<m_imageSpacing<<endl;
     //get shortest image edge
     for (int d=0;d<ImageType::ImageDimension;++d){
-      if((m_imageSize[d]*m_imageSpacing[d])<minSize) {minSize=m_imageSize[d]*m_imageSpacing[d]; minDim=d;}
+      if((m_imageSize[d]*m_imageSpacing[d])<minExtent) {minExtent=m_imageSize[d]*m_imageSpacing[d]; minDim=d;}
     }
-    LOGV(8)<<"shortest edge has size :"<<minSize<<" in dimension :"<<minDim<<" which has spacing :"<<m_imageSpacing[minDim]<<endl;
+    LOGV(8)<<"shortest edge has size :"<<minExtent<<" in dimension :"<<minDim<<" which has spacing :"<<m_imageSpacing[minDim]<<endl;
 
     //calculate spacing for resizing the shortest edge to shortestN
     double minSpacing=m_imageSpacing[minDim]*(m_imageSize[minDim]-1)/(shortestN-1);
@@ -514,21 +526,32 @@ namespace SRS{
    * Get pairwise registration potential for node/label,node/label combination
    */
   inline double getPairwiseRegistrationPotential(int nodeIndex1, int nodeIndex2, int labelIndex1, int labelIndex2){
-            
+    
     /// get graph coordinates
-    IndexType graphIndex1=getGraphIndex(nodeIndex1);
-    IndexType graphIndex2=getGraphIndex(nodeIndex2);
-    ///get physical coordinates
-    PointType pt1,pt2;
-    this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex1,pt1);
-    this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex2,pt2);
-    /// get displacement vectors
-    RegistrationLabelType l2=this->m_labelMapper->getLabel(labelIndex2);
-    l2=this->m_labelMapper->scaleDisplacement(l2,getDisplacementFactor());
-    RegistrationLabelType l1=this->m_labelMapper->getLabel(labelIndex1);
-    l1=this->m_labelMapper->scaleDisplacement(l1,getDisplacementFactor());
+    if (nodeIndex1 != m_currentNode1){
+      m_currentNode1=nodeIndex1;
+      IndexType graphIndex1=getGraphIndex(nodeIndex1);
+      this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex1,m_currentPoint1);
+    }
+    if (nodeIndex2 != m_currentNode2){
+      m_currentNode2=nodeIndex2;
+      IndexType graphIndex2=getGraphIndex(nodeIndex2);
+      ///get physical coordinates
+      this->m_coarseGraphImage->TransformIndexToPhysicalPoint(graphIndex2,m_currentPoint2);
+    }
+
+    if (labelIndex2 !=m_currentLabelIndex2){
+      m_currentLabelIndex2=labelIndex2;
+      /// get displacement vectors
+      m_currentRegLabel2=this->m_labelMapper->getLabel(labelIndex2);
+      m_currentRegLabel2=this->m_labelMapper->scaleDisplacement(m_currentRegLabel2,getDisplacementFactor());
+    }
+    if (labelIndex1!=m_currentLabelIndex1){
+      m_currentRegLabel1=this->m_labelMapper->getLabel(labelIndex1);
+      m_currentRegLabel1=this->m_labelMapper->scaleDisplacement(m_currentRegLabel2,getDisplacementFactor());
+    }
     //return m_pairwiseRegFunction->getPotential(graphIndex1, graphIndex2, l1,l2);//m_nRegEdges;
-    double result=m_pairwiseRegFunction->getPotential(pt1, pt2, l1,l2);
+    double result=m_pairwiseRegFunction->getPotential(m_currentPoint1, m_currentPoint2, m_currentRegLabel1,m_currentRegLabel2);
     if (m_normalizePotentials) result/=m_nRegEdges;
     return result;
   };
@@ -891,6 +914,8 @@ namespace SRS{
     return maxSpacing*m_DisplacementScalingFactor;
   }
   SpacingType getDisplacementFactor(){return m_labelSpacing*m_DisplacementScalingFactor;}
+
+  SpacingType getMaxDisplacement(){return m_labelSpacing* this->m_nDisplacementSamplesPerAxis*m_DisplacementScalingFactor;}
   SpacingType getSpacing(){return m_gridSpacing;}	
   //SpacingType getPixelSpacing(){return m_gridPixelSpacing;}
   PointType getOrigin(){return m_origin;}
