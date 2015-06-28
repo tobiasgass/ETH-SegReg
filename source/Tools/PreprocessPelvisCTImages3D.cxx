@@ -47,7 +47,7 @@ int main(int argc, char ** argv)
 
     if (minVal==0){
       //shift intensities -3024
-      img=FilterUtils<ImageType>::linearTransform(img,1.0,-1024);
+      img=FilterUtils<ImageType>::linearTransform(img,1.0,-3024);
       //threshold at -1024
       img=FilterUtils<ImageType>::thresholding(img,-1024,10000);
     }

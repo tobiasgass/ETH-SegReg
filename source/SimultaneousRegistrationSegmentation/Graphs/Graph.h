@@ -266,13 +266,13 @@ namespace SRS{
     this->m_coarseGraphImage=ImageType::New();
             
     unsigned int minDim=999999;
-    unsigned int minSize=999999;
+    double minExtent=999999;
     LOGV(8)<<"original image spacing "<<m_imageSpacing<<endl;
     //get shortest image edge
     for (int d=0;d<ImageType::ImageDimension;++d){
-      if((m_imageSize[d]*m_imageSpacing[d])<minSize) {minSize=m_imageSize[d]*m_imageSpacing[d]; minDim=d;}
+      if((m_imageSize[d]*m_imageSpacing[d])<minExtent) {minExtent=m_imageSize[d]*m_imageSpacing[d]; minDim=d;}
     }
-    LOGV(8)<<"shortest edge has size :"<<minSize<<" in dimension :"<<minDim<<" which has spacing :"<<m_imageSpacing[minDim]<<endl;
+    LOGV(8)<<"shortest edge has size :"<<minExtent<<" in dimension :"<<minDim<<" which has spacing :"<<m_imageSpacing[minDim]<<endl;
 
     //calculate spacing for resizing the shortest edge to shortestN
     double minSpacing=m_imageSpacing[minDim]*(m_imageSize[minDim]-1)/(shortestN-1);

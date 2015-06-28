@@ -1222,6 +1222,7 @@ public:
     }
 
 static DeformationFieldPointerType padDeformationWithNNExtrapolation(DeformationFieldPointerType def, DisplacementType padding){
+  
   LOGV(3)<<"Padding deformation with size"<<VAR(def->GetLargestPossibleRegion().GetSize())<<" padding[mm]:"<<VAR(padding)<<std::endl;
   typedef itk::VectorLinearInterpolateNearestNeighborExtrapolateImageFunction<
   DeformationFieldType,double> DefaultFieldInterpolatorType;
@@ -1244,6 +1245,7 @@ static DeformationFieldPointerType padDeformationWithNNExtrapolation(Deformation
   }
   typename DeformationFieldType::RegionType outputRegion=def->GetLargestPossibleRegion();
   resampler->SetOutputOrigin(origin);
+  resampler->SetOutputSpacing(inputSpacing);
   resampler->SetSize(outputSize);
   resampler->Update();
   LOGV(3)<<"Result Size: "<<VAR(resampler->GetOutput()->GetLargestPossibleRegion().GetSize())<<std::endl;
@@ -1900,7 +1902,7 @@ static DeformationFieldPointerType padDeformationWithNNExtrapolation(Deformation
         return TRE/count;
     }
 
-    static ImagePointerType translateImage(ImagePointerType img, DisplacementType disp, bool NN=false,ImagePointerType target=NULL){
+    static ImagePointerType translateImage(ImagePointerType img, DisplacementType disp, bool NN=false,ConstImagePointerType target=NULL){
 
         typedef typename itk::TranslationTransform<double,D> TranslationTransformType;
         typename TranslationTransformType::Pointer transform =
@@ -1915,7 +1917,7 @@ static DeformationFieldPointerType padDeformationWithNNExtrapolation(Deformation
         typename ResampleImageFilterType::Pointer resampleFilter = ResampleImageFilterType::New();
         resampleFilter->SetTransform(transform);
         if (target.IsNull()) target=img;
-        resampleFilter->SetInput(target);
+        resampleFilter->SetInput(img);
         resampleFilter->SetOutputOrigin(target->GetOrigin());
 		resampleFilter->SetOutputSpacing ( target->GetSpacing() );
 		resampleFilter->SetOutputDirection ( target->GetDirection() );
