@@ -85,6 +85,12 @@ TARGET_LINK_LIBRARIES(AddSegmentationToImage3D     ${ITK_LIBRARIES}   Utils )
 ADD_EXECUTABLE(FuseSegmentationMaxVote3D FuseSegmentationMaxVote3D.cxx )
 TARGET_LINK_LIBRARIES(FuseSegmentationMaxVote3D     ${ITK_LIBRARIES}   Utils )
 
+ADD_EXECUTABLE(FuseSegmentationStaple FuseSegmentationStaple.cxx )
+TARGET_LINK_LIBRARIES(FuseSegmentationStaple     ${ITK_LIBRARIES}   Utils )
+
+ADD_EXECUTABLE(FuseSegmentationDistanceTransform FuseSegmentationDistanceTransform.cxx )
+TARGET_LINK_LIBRARIES(FuseSegmentationDistanceTransform     ${ITK_LIBRARIES}   Utils )
+
 ADD_EXECUTABLE(FuseSegmentationWeightedMaxVote3D FuseSegmentationWeightedMaxVote3D.cxx )
 TARGET_LINK_LIBRARIES(FuseSegmentationWeightedMaxVote3D     ${ITK_LIBRARIES}   Utils )
 
@@ -195,8 +201,8 @@ TARGET_LINK_LIBRARIES(CreateHumerusSegmentationMask     ${ITK_LIBRARIES}   Utils
 ADD_EXECUTABLE(NormalizeImage3D NormalizeImage3D.cxx )
 TARGET_LINK_LIBRARIES(NormalizeImage3D     ${ITK_LIBRARIES}   Utils  )
 
-ADD_EXECUTABLE(BiasCorrection3D BiasCorrection3D.cxx )
-TARGET_LINK_LIBRARIES(BiasCorrection3D     ${ITK_LIBRARIES}   Utils  )
+#ADD_EXECUTABLE(BiasCorrection3D BiasCorrection3D.cxx )
+#TARGET_LINK_LIBRARIES(BiasCorrection3D     ${ITK_LIBRARIES}   Utils  )
 
 ADD_EXECUTABLE(ResampleImage3D ResampleImage3D.cxx )
 TARGET_LINK_LIBRARIES(ResampleImage3D     ${ITK_LIBRARIES}   Utils  )

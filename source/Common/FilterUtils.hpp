@@ -1208,7 +1208,7 @@ public:
         typedef typename itk::SignedMaurerDistanceMapImageFilter< InputImage, OutputImage > DistanceTransformType;
         typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
         //distanceTransform->InsideIsPositiveOn();
-        distanceTransform->SetInput(select(image,objectLabel));
+        distanceTransform->SetInput(FilterUtils<ImageType,ImageType>::select(image,objectLabel));
         distanceTransform->SquaredDistanceOff ();
         distanceTransform->UseImageSpacingOn();
         distanceTransform->Update();
