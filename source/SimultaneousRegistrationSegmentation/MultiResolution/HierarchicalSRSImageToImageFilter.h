@@ -425,7 +425,7 @@ namespace SRS{
 
 		//computing downscaling factor for segmentation estimation if requested
                 if (m_config->segmentationScalingFactor != 0.0 && m_config->nSegmentationLevels>1){
-                    segmentationScalingFactor=pow(m_config->segmentationScalingFactor,m_config->nSegmentationLevels-l-1);
+                    segmentationScalingFactor=pow(m_config->segmentationScalingFactor,max(0,m_config->nSegmentationLevels-l-1));
                     //segmentationScalingFactor=max(m_config->segmentationScalingFactor,m_config->resamplingFactors[max(0,m_config->nSegmentationLevels-l-1)]);
                     LOGV(4)<<VAR(segmentationScalingFactor)<<std::endl;
                     m_targetImage=FilterUtils<ImageType>::LinearResample(m_inputTargetImage,segmentationScalingFactor,true);

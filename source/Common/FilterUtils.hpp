@@ -328,18 +328,21 @@ public:
         inputSize=input->GetLargestPossibleRegion().GetSize();
         inputSpacing=input->GetSpacing();
         double minSpacing=std::numeric_limits<double>::max();
+double maxSpacing=-std::numeric_limits<double>::max();
         for (unsigned int d=0;d<InputImage::ImageDimension;++d){
             if (inputSpacing[d]<minSpacing) minSpacing=inputSpacing[d];
+            if (inputSpacing[d]>maxSpacing) maxSpacing=inputSpacing[d];
         }
         double newSpacing=minSpacing/scale;
         LOGV(7)<<"new isotrpoic spacing : "<<newSpacing<<std::endl;
         for (unsigned int d=0;d<InputImage::ImageDimension;++d){
             //determine new spacing
-            //never increase resolution!
-            if (scale>1.0){
+            //never increase resolution, and try to approximate somewhat isotropic resolution!
+            
+            if ( scale>1.0){
                 spacing[d]=newSpacing;//inputSpacing[d]*(1.0*inputSize[d]/size[d]);
             }else{
-	      spacing[d]=inputSpacing[d]>newSpacing?inputSpacing[d]:newSpacing;
+                spacing[d]=inputSpacing[d]>newSpacing?inputSpacing[d]:newSpacing;
             }
             //calculate new image size
             size[d]=int(inputSpacing[d]/spacing[d] * (inputSize[d]-1))+1;
@@ -1208,7 +1211,7 @@ public:
         typedef typename itk::SignedMaurerDistanceMapImageFilter< InputImage, OutputImage > DistanceTransformType;
         typename DistanceTransformType::Pointer distanceTransform=DistanceTransformType::New();
         //distanceTransform->InsideIsPositiveOn();
-        distanceTransform->SetInput(FilterUtils<ImageType,ImageType>::select(image,objectLabel));
+        distanceTransform->SetInput(FilterUtils<InputImage,InputImage>::select(image,objectLabel));
         distanceTransform->SquaredDistanceOff ();
         distanceTransform->UseImageSpacingOn();
         distanceTransform->Update();
