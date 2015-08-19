@@ -44,7 +44,8 @@ int main(int argc, char ** argv)
     ImagePointerType img = ImageUtils<ImageType>::readImage(inFile);
 
     int minVal=FilterUtils<ImageType>::getMin(img);
-
+    int maxVal=FilterUtils<ImageType>::getMax(img);
+    LOG<<VAR(minVal)<<" "<<VAR(maxVal)<<std::endl;
     if (minVal==0){
       //shift intensities -3024
       img=FilterUtils<ImageType>::linearTransform(img,1.0,-3024);
@@ -55,7 +56,7 @@ int main(int argc, char ** argv)
       //threshold at -1024
             img=FilterUtils<ImageType>::thresholding(img,-1024,10000);
     }
-    
+#if 0    
     ImagePointerType refImage = ImageUtils<ImageType>::readImage(refFile);
     typedef itk::HistogramMatchingImageFilter<ImageType,ImageType> HEFilterType;
     HEFilterType::Pointer IntensityEqualizeFilter = HEFilterType::New();
@@ -66,7 +67,9 @@ int main(int argc, char ** argv)
     IntensityEqualizeFilter->ThresholdAtMeanIntensityOn();
     IntensityEqualizeFilter->Update();
     ImagePointerType outImage=IntensityEqualizeFilter->GetOutput();
-
+#else
+    ImagePointerType outImage=img;
+#endif
     ImageUtils<ImageType>::writeImage(outFile,outImage);
 
 	return 1;

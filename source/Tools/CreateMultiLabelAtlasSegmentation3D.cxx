@@ -49,7 +49,7 @@ int main(int argc, char * argv [])
         //  (FilterUtils<LabelImage>::erosion(,4,valToReplace));
 
     
-    LabelImage::Pointer extendedGT =  FilterUtils<LabelImage>::dilation(FilterUtils<LabelImage>::binaryThresholdingLow(groundTruthImage,1),3,1);
+    LabelImage::Pointer extendedGT =  FilterUtils<LabelImage>::dilation(FilterUtils<LabelImage>::binaryThresholdingLow(groundTruthImage,1),1,1);
     LabelImage::Pointer newImage=ImageUtils<LabelImage>::createEmpty(segmentedImage);
     ImageUtils<LabelImage>::writeImage("eroded.nii",(LabelImage::ConstPointer)segmentedImage);
     typedef itk::ImageRegionIterator<LabelImage> IteratorType;
@@ -71,6 +71,9 @@ int main(int argc, char * argv [])
 
     }
     //ImageUtils<LabelImage>::writeImage("joined.nii",(LabelImage::ConstPointer)newImage);
+
+    //remove some potential residual artefacts in aux label seg
+    newImage =  FilterUtils<LabelImage>::dilation(FilterUtils<LabelImage>::erosion(newImage,maxLabel+1,2),maxLabel+1,2);
 
     typedef LabelImage::ConstPointer LConstPointer;
     typedef RealImage::ConstPointer RConstPointer;

@@ -614,8 +614,8 @@ public:
     static ImagePointerType addNoise(ImagePointerType img, double var=0.01, double mean=0.0, double freq=0.1){
 
         struct timeval time; 
-		gettimeofday(&time, NULL);
-
+        //		gettimeofday(&time, NULL);
+        std::cerr<<"WARNING rand not properly initialized"<<std::endl;
 		static boost::minstd_rand randgen((time.tv_sec * 1000) + (time.tv_usec / 1000));
 		static boost::normal_distribution<> dist(mean, var);
 		static boost::variate_generator<boost::minstd_rand, boost::normal_distribution<> > r(randgen, dist);
