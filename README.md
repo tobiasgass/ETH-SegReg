@@ -47,6 +47,8 @@ Build was tested on Debian wheezy and OSX 10.10. In OSX, the
 RandomForest library will not build easily since OpenMP is not
 included in clang, but this is an optional feature.
 
+* GCC/G++ 4.9 (might need to include `-std=c++11` or `-std=gnu++11` in the C/C++ compiler flags)
+* libconfig
 * CMAKE 2.8
 * ITK is required, versions tested and working are 4.5-4.8. Turn
   USE_REVIEW and ITKv3Compatibility on.
@@ -63,16 +65,15 @@ installed by the user under their respective license. Note that the
 optimizers are optional and can be enabled/disabled during cmake
 configuration. The respective dependencies and checks will be automatically added to the build.
 
-* OpenGM can be obtained here: http://hci.iwr.uni-heidelberg.de/opengm2/
+* OpenGM can be obtained here: http://hci.iwr.uni-heidelberg.de/opengm2/ (https://github.com/opengm/opengm)
 current wrapper utilizes BOOST, so make sure to install opengm with their boost feature enabled
 Note that openGM comes with a wide variety of discrete optimizers and wrappers, but may be less efficient than using the direct wrappers provided by SRS directly (TRW-S, GCO)
 
 * TRW-S can be downloaded here: http://research.microsoft.com/en-us/downloads/dad6c31e-2c04-471f-b724-ded18bf70fe3/
-A patch will be applied automatically during the build process. This will disable all energyTypes except typeGeneral from the downloaded library because the extended functionality was not implemented for those.
+Copy the source into the folder `source/External/TRWS`. A patch will be applied automatically during the build process. This will disable all energyTypes except typeGeneral from the downloaded library because the extended functionality was not implemented for those.
 
 * GCO can be downloaded here: http://vision.csd.uwo.ca/code/
-The same directory can also be used as root for the binary graph-cut
-(GC) optimizer.
+Copy this code into the folder `source/External/GCO`. The same directory can also be used as root for the binary graph-cut (GC) optimizer, which is expected inside the folder `source/External/maxFlow`.
 
 A choice of classifiers is available which can be optionally
 enabled/disabled. C-UGMIX is a Gaussian mixture model estimator, and RF a

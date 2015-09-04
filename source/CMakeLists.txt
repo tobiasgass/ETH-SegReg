@@ -46,7 +46,7 @@ endif()
 
 
 if( ${USE_TRWS} MATCHES "ON" )
-  set(DIR_TRWS "/home/gasst/Downloads/TRW_S-v1.3/" CACHE  FILEPATH "Directory for TRWS") 
+  set(DIR_TRWS "${CMAKE_CURRENT_SOURCE_DIR}/External/TRW_S-v1.3/" CACHE  FILEPATH "Directory for TRWS") 
   if (NOT EXISTS ${DIR_TRWS}/MRFEnergy.h)
     message(SEND_ERROR "TRW-S directory not found or does not appear to contain the TRW-S library")
     set(DIR_TRWS "TRW-S DIR NOTFOUND" CACHE  FILEPATH "Directory for TRWS" FORCE) 
@@ -54,6 +54,7 @@ if( ${USE_TRWS} MATCHES "ON" )
 
     #patch it!
     MESSAGE( STATUS "Patching TRWS")
+    #message("cmake -E chdir ${DIR_TRWS} patch -r - -N -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/External/Patches/TRWS.patch")
     EXECUTE_PROCESS( COMMAND cmake -E chdir ${DIR_TRWS} patch -r - -N -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/External/Patches/TRWS.patch  RESULT_VARIABLE RESULT_PATCH OUTPUT_QUIET)
     MESSAGE( STATUS "Patch result: ${RESULT_PATCH}, PROF SOURCE DIR: ${DIR_TRWS}" )
     if (  ${RESULT_PATCH} MATCHES "2")
@@ -75,7 +76,7 @@ endif()
 
 if( ${USE_GCO} MATCHES "ON" )
   add_definitions(-DWITH_GCO -DGCO_ENERGYTYPE=double -DGCO_ENERGYTERMTYPE=float)
-  set(DIR_GCO "${SRS-MRF_SOURCE_DIR}/External/GCO" CACHE  FILEPATH "Directory for GCO")
+  set(DIR_GCO "${CMAKE_CURRENT_SOURCE_DIR}/External/GCO" CACHE  FILEPATH "Directory for GCO")
   if (NOT EXISTS ${DIR_GCO}/GCoptimization.h)
     message(SEND_ERROR "GCO directory not found or does not appear to contain the GCO library")
     set(DIR_GCO "maxflow DIR NOTFOUND" CACHE  FILEPATH "Directory for GCO" FORCE) 
@@ -83,6 +84,7 @@ if( ${USE_GCO} MATCHES "ON" )
     
       #patch it!
     MESSAGE( STATUS "Patching GCO")
+    #message( "cmake -E chdir ${DIR_GCO} patch -r - -N -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/External/Patches/GCO.patch  RESULT_VARIABLE RESULT_PATCH OUTPUT_QUIET" )
     EXECUTE_PROCESS( COMMAND cmake -E chdir ${DIR_GCO} patch -r - -N -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/External/Patches/GCO.patch  RESULT_VARIABLE RESULT_PATCH OUTPUT_QUIET)
     MESSAGE( STATUS "Patch result: ${RESULT_PATCH}, PROF SOURCE DIR: ${DIR_GCO}" )
     if (  ${RESULT_PATCH} MATCHES "2")
@@ -102,7 +104,7 @@ endif()
 
 
 if( ${USE_GC} MATCHES "ON" )
-  set(DIR_GC "${SRS-MRF_SOURCE_DIR}/External/maxFlow" CACHE  FILEPATH "Directory for GC") 
+  set(DIR_GC "${CMAKE_CURRENT_SOURCE_DIR}/External/maxFlow" CACHE  FILEPATH "Directory for GC") 
   if (NOT EXISTS ${DIR_GC}/maxflow.cpp)
     message(SEND_ERROR "maxflow directory not found or does not appear to contain the maxflow library")
     set(DIR_GC "maxflow DIR NOTFOUND" CACHE  FILEPATH "Directory for GC" FORCE) 
