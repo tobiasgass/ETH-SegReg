@@ -73,7 +73,7 @@ Note that openGM comes with a wide variety of discrete optimizers and wrappers, 
 Copy the source into the folder `source/External/TRWS`. A patch will be applied automatically during the build process. This will disable all energyTypes except typeGeneral from the downloaded library because the extended functionality was not implemented for those.
 
 * GCO can be downloaded here: http://vision.csd.uwo.ca/code/
-Copy this code into the folder `source/External/GCO`. The same directory can also be used as root for the binary graph-cut (GC) optimizer, which is expected inside the folder `source/External/maxflow`.
+Copy this code into the folder `source/External/GCO`. The same directory can also be used as root for the binary graph-cut (GC) optimizer, which is expected inside the folder `source/External/maxFlow`.
 
 A choice of classifiers is available which can be optionally
 enabled/disabled. C-UGMIX is a Gaussian mixture model estimator, and RF a
