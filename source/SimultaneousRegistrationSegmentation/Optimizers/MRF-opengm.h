@@ -70,10 +70,10 @@ protected:
     int nSegLabels;
     bool m_segment, m_register,m_coherence;
     double m_lastLowerBound;
-    vector<int> m_labelOrder;
+    std::vector<int> m_labelOrder;
     int m_zeroDisplacementLabel;
     bool m_deleteRegNeighb;
-    vector<size_t> m_solution;
+    std::vector<size_t> m_solution;
 
    
     int GLOBALnRegNodes,GLOBALnSegNodes,GLOBALnSegLabels,GLOBALnRegLabels;
@@ -100,7 +100,7 @@ public:
         //createGraph();
         //init();
         m_gm=NULL;
-        m_labelOrder=vector<int>(this->m_GraphModel->nRegLabels());
+        m_labelOrder=std::vector<int>(this->m_GraphModel->nRegLabels());
         //order registration labels such that they start with zero displacement
         m_zeroDisplacementLabel=this->m_GraphModel->getLabelMapper()->getZeroDisplacementIndex();
         m_labelOrder[0]=m_zeroDisplacementLabel;
@@ -120,7 +120,7 @@ public:
 	~OPENGM_SRSMRFSolver()
     { 
 
-        LOGV(1)<<"Deleting OPENGM_MRF Sovler " << endl;
+        LOGV(1)<<"Deleting OPENGM_MRF Sovler " << std::endl;
      
         delete m_gm;
         
@@ -314,7 +314,7 @@ public:
 
         clock_t opt_start=clock();
         double energy;//=m_optimizer->compute_energy();
-        //LOGV(2)<<VAR(energy)<<endl;
+        //LOGV(2)<<VAR(energy)<<std::endl;
         try{
             solver.infer();
             //m_optimizer->swap(maxIter);
@@ -343,7 +343,7 @@ public:
         if (m_register){
             for (int i=0;i<nRegNodes;++i){
                 Labels[i]=m_solution[i];
-                LOGV(20)<<"DEF "<<VAR(i)<<" "<<VAR(Labels[i])<<endl;
+                LOGV(20)<<"DEF "<<VAR(i)<<" "<<VAR(Labels[i])<<std::endl;
             }
         }
         return Labels;
@@ -353,7 +353,7 @@ public:
         if (m_segment){
             for (int i=0;i<nSegNodes;++i){
                 Labels[i]=m_solution[i+GLOBALnRegNodes]-GLOBALnRegLabels;
-                LOGV(20)<<"SEG "<<VAR(i)<<" "<<VAR(Labels[i])<<endl;
+                LOGV(20)<<"SEG "<<VAR(i)<<" "<<VAR(Labels[i])<<std::endl;
             }
         }
         return Labels;
